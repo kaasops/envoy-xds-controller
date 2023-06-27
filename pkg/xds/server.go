@@ -11,6 +11,7 @@ import (
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
 
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
+	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	endpointservice "github.com/envoyproxy/go-control-plane/envoy/service/endpoint/v3"
 	listenerservice "github.com/envoyproxy/go-control-plane/envoy/service/listener/v3"
 	routeservice "github.com/envoyproxy/go-control-plane/envoy/service/route/v3"
@@ -28,21 +29,17 @@ const (
 	grpcMaxConcurrentStreams = 1000000
 )
 
-type Server interface {
-	Run(port int)
-}
-
-type server struct {
+type Server struct {
 	xDSServer serverv3.Server
 }
 
-func NewServer(cache cachev3.SnapshotCache, cb *testv3.Callbacks) Server {
-	return &server{
+func NewServer(cache cachev3.SnapshotCache, cb *testv3.Callbacks) *Server {
+	return &Server{
 		xDSServer: serverv3.NewServer(context.Background(), cache, cb),
 	}
 }
 
-func (s *server) Run(port int) {
+func (s *Server) Run(port int) {
 	log := log.FromContext(context.Background()).WithValues("xDS Server", port)
 
 	var grpcOptions []grpc.ServerOption
@@ -73,11 +70,12 @@ func (s *server) Run(port int) {
 
 }
 
-func (s *server) registerServer(grpcServer *grpc.Server) {
+func (s *Server) registerServer(grpcServer *grpc.Server) {
 	// register services
 	endpointservice.RegisterEndpointDiscoveryServiceServer(grpcServer, s.xDSServer)
 	clusterservice.RegisterClusterDiscoveryServiceServer(grpcServer, s.xDSServer)
 	routeservice.RegisterRouteDiscoveryServiceServer(grpcServer, s.xDSServer)
 	listenerservice.RegisterListenerDiscoveryServiceServer(grpcServer, s.xDSServer)
 	secretservice.RegisterSecretDiscoveryServiceServer(grpcServer, s.xDSServer)
+	discoverygrpc.RegisterAggregatedDiscoveryServiceServer(grpcServer, s.xDSServer)
 }

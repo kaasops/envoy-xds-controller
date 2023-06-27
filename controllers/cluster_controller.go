@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 
+	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,7 +34,7 @@ import (
 type ClusterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-	Cache  xds.Cache
+	Cache  cachev3.SnapshotCache
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
