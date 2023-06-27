@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -35,21 +36,30 @@ func Ensure(ctx context.Context, cache cachev3.SnapshotCache, obj client.Object)
 
 	nodeID := getNodeID(obj)
 
-	cachedResources, err := getResourceFromCache(cache, resourceType, nodeID)
+	cachedResources, versionStr, err := getResourceFromCache(cache, resourceType, nodeID)
 	if err != nil {
 		return err
 	}
+	version := 1
+	if versionStr != "" {
+		version, err = strconv.Atoi(versionStr)
+		if err != nil {
+			return err
+		}
+		version++
+	}
 
 	cachedResources[obj.GetName()] = resource
-
-	for _, cr := range cachedResources {
-
-		snapNew, _ := cachev3.NewSnapshot("1", map[resourcev3.Type][]types.Resource{
-			resourceType: {cr},
-		})
-
-		cache.SetSnapshot(context.Background(), nodeID, snapNew)
+	resources := make([]types.Resource, 0)
+	for _, r := range cachedResources {
+		resources = append(resources, r)
 	}
+
+	snapNew, _ := cachev3.NewSnapshot(fmt.Sprintf("%+v", version), map[resourcev3.Type][]types.Resource{
+		resourceType: resources,
+	})
+
+	cache.SetSnapshot(context.Background(), nodeID, snapNew)
 
 	return nil
 }
@@ -101,13 +111,13 @@ func getNodeID(obj client.Object) string {
 	return nodeID
 }
 
-func getResourceFromCache(cache cachev3.SnapshotCache, resourceType string, nodeID string) (map[string]types.Resource, error) {
+func getResourceFromCache(cache cachev3.SnapshotCache, resourceType string, nodeID string) (map[string]types.Resource, string, error) {
 	snap, err := cache.GetSnapshot(nodeID)
 	if err == nil {
-		return snap.GetResources(resourceType), nil
+		return snap.GetResources(resourceType), snap.GetVersion(resourceType), nil
 	}
 	if strings.Contains(err.Error(), "no snapshot found for node") {
-		return map[string]types.Resource{}, nil
+		return map[string]types.Resource{}, "", nil
 	}
-	return nil, err
+	return nil, "", err
 }
