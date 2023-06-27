@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/resources"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -34,6 +33,7 @@ import (
 type ClusterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Cache  xds.Cache
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
@@ -59,13 +59,11 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	cc := resources.NewClusterController(r.Client, *clusterCR)
-	cluster, err := cc.GetCluster(ctx)
-	if err != nil {
+	if err := xds.Ensure(ctx, r.Cache, clusterCR); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	fmt.Println(cluster.LbPolicy, cluster.ClusterDiscoveryType, cluster.ConnectTimeout)
+	// fmt.Println(cluster.LbPolicy, cluster.ClusterDiscoveryType, cluster.ConnectTimeout)
 
 	return ctrl.Result{}, nil
 }

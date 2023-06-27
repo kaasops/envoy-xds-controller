@@ -35,9 +35,6 @@ spec:
           spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
-          status:
-            description: VirtualHostStatus defines the observed state of VirtualHost
-            type: object
         type: object
     served: true
     storage: true

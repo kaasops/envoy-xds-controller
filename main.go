@@ -32,13 +32,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+
+	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
+
 	"github.com/kaasops/envoy-xds-controller/controllers"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	xDSPort  = 8888
 )
 
 func init() {
@@ -89,9 +94,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	xDSCache := xds.NewCache()
+	xDSServer := xds.NewServer(xDSCache.GetSnapshotCache(), &testv3.Callbacks{Debug: true})
+	go xDSServer.Run(xDSPort)
+
 	if err = (&controllers.ClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
