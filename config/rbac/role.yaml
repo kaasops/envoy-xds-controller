@@ -1,0 +1,163 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - clusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - clusters/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - clusters/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - endpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - endpoints/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - endpoints/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - listeners
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - listeners/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - listeners/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - routes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - routes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - routes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - secrets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - secrets/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - virtualhosts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - virtualhosts/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - virtualhosts/status
+  verbs:
+  - get
+  - patch
+  - update

@@ -10,4 +10,59 @@ plugins:
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: envoy-xds-controller
 repo: github.com/kaasops/envoy-xds-controller
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kaasops.io
+  group: envoy
+  kind: Cluster
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kaasops.io
+  group: envoy
+  kind: Listener
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kaasops.io
+  group: envoy
+  kind: Route
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kaasops.io
+  group: envoy
+  kind: Endpoint
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kaasops.io
+  group: envoy
+  kind: VirtualHost
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kaasops.io
+  group: envoy
+  kind: Secret
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
 version: "3"
