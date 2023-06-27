@@ -31,14 +31,13 @@ func (c *cache) GetSnapshotCache() cachev3.SnapshotCache {
 
 func (c *cache) GetResource(ResourceType string, nodeID string) (map[string]types.Resource, error) {
 	snap, err := c.xDSCache.GetSnapshot(nodeID)
+	if err == nil {
+		return snap.GetResources(ResourceType), nil
+	}
 	if strings.Contains(err.Error(), "no snapshot found for node") {
 		return map[string]types.Resource{}, nil
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	return snap.GetResources(ResourceType), nil
+	return nil, err
 }
 
 func (c *cache) SetSnaphot(ctx context.Context, nodeID string, snap cachev3.ResourceSnapshot) {

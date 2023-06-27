@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/created-by: envoy-xds-controller
   name: cluster-sample
 spec:
+  name: cluster-sample
   connect_timeout: 0.25s
   lb_policy: ROUND_ROBIN
   type: STATIC
