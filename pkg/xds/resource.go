@@ -40,13 +40,10 @@ func Ensure(ctx context.Context, cache cachev3.SnapshotCache, obj client.Object)
 	if err != nil {
 		return err
 	}
-	version := 1
-	if versionStr != "" {
-		version, err = strconv.Atoi(versionStr)
-		if err != nil {
-			return err
-		}
-		version++
+
+	version, err := incrementVersion(versionStr)
+	if err != nil {
+		return err
 	}
 
 	cachedResources[obj.GetName()] = resource
@@ -120,4 +117,16 @@ func getResourceFromCache(cache cachev3.SnapshotCache, resourceType string, node
 		return map[string]types.Resource{}, "", nil
 	}
 	return nil, "", err
+}
+
+func incrementVersion(versionStr string) (version int, err error) {
+	version = 1
+	if versionStr != "" {
+		version, err = strconv.Atoi(versionStr)
+		if err != nil {
+			return
+		}
+		version++
+	}
+	return
 }
