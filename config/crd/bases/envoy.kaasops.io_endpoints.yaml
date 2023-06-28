@@ -35,9 +35,6 @@ spec:
           spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
-          status:
-            description: EndpointStatus defines the observed state of Endpoint
-            type: object
         type: object
     served: true
     storage: true

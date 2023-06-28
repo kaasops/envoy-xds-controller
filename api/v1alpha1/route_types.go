@@ -21,12 +21,6 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// RouteStatus defines the observed state of Route
-type RouteStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -35,8 +29,7 @@ type Route struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *runtime.RawExtension `json:"spec,omitempty"`
-	Status RouteStatus           `json:"status,omitempty"`
+	Spec *runtime.RawExtension `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true

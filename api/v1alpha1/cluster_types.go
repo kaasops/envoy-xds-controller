@@ -21,11 +21,6 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// ClusterStatus defines the observed state of Cluster
-type ClusterStatus struct {
-	// Important: Run "make" to regenerate code after modifying this file
-}
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -34,8 +29,7 @@ type Cluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *runtime.RawExtension `json:"spec,omitempty"`
-	Status ClusterStatus         `json:"status,omitempty"`
+	Spec *runtime.RawExtension `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
