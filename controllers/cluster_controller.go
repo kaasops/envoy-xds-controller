@@ -64,8 +64,6 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	// fmt.Println(cluster.LbPolicy, cluster.ClusterDiscoveryType, cluster.ConnectTimeout)
-
 	return ctrl.Result{}, nil
 }
 

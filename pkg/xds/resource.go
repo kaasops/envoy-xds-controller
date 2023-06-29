@@ -25,6 +25,17 @@ const (
 )
 
 var (
+	resourceTypes = []string{
+		resourcev3.EndpointType,
+		resourcev3.ClusterType,
+		resourcev3.RouteType,
+		resourcev3.ScopedRouteType,
+		resourcev3.VirtualHostType,
+		resourcev3.ListenerType,
+		resourcev3.SecretType,
+		resourcev3.ExtensionConfigType,
+		resourcev3.RouteType,
+	}
 	ErrNotSupported = errors.New("not supported type for create or update kubernetes resource")
 )
 
@@ -36,29 +47,12 @@ func Ensure(ctx context.Context, cache cachev3.SnapshotCache, obj client.Object)
 
 	nodeID := getNodeID(obj)
 
-	cachedResources, versionStr, err := getResourceFromCache(cache, resourceType, nodeID)
+	snap, err := newSnapshotWithResource(cache, nodeID, resource, obj.GetName(), resourceType)
 	if err != nil {
 		return err
 	}
 
-	version, err := incrementVersion(versionStr)
-	if err != nil {
-		return err
-	}
-
-	cachedResources[obj.GetName()] = resource
-	resources := make([]types.Resource, 0)
-	for _, r := range cachedResources {
-		resources = append(resources, r)
-	}
-
-	snapNew, _ := cachev3.NewSnapshot(fmt.Sprintf("%+v", version), map[resourcev3.Type][]types.Resource{
-		resourceType: resources,
-	})
-
-	cache.SetSnapshot(context.Background(), nodeID, snapNew)
-
-	return nil
+	return cache.SetSnapshot(context.TODO(), nodeID, snap)
 }
 
 func unmarshal(ctx context.Context, obj client.Object) (types.Resource, string, error) {
@@ -79,7 +73,7 @@ func unmarshal(ctx context.Context, obj client.Object) (types.Resource, string, 
 		if err := unmarshaler.Unmarshal(o.Spec.Raw, resource); err != nil {
 			return nil, "", err
 		}
-		return resource, resourcev3.ListenerType, nil
+		return resource, resourcev3.EndpointType, nil
 	case *v1alpha1.Route:
 		resource := &routev3.Route{}
 		if err := unmarshaler.Unmarshal(o.Spec.Raw, resource); err != nil {
@@ -91,10 +85,58 @@ func unmarshal(ctx context.Context, obj client.Object) (types.Resource, string, 
 		if err := unmarshaler.Unmarshal(o.Spec.Raw, resource); err != nil {
 			return nil, "", err
 		}
-		return resource, resourcev3.SecretType, nil
+		return resource, resourcev3.ListenerType, nil
 	default:
 		return nil, "", fmt.Errorf("%w.\n %+v", ErrNotSupported, obj)
 	}
+}
+
+func newSnapshotWithResource(
+	cache cachev3.SnapshotCache,
+	nodeID string,
+	resource types.Resource,
+	resourceName string,
+	resourceType string,
+) (*cachev3.Snapshot, error) {
+	version := 0
+
+	// Create map for new snapshot
+	resources := make(map[string][]types.Resource, 0)
+	for _, t := range resourceTypes {
+		// resourceCache := snap.GetResources(t)
+		resourceCache, rVersionStr, err := getResourceFromCache(cache, t, nodeID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get max version from resources
+		if rVersionStr != "" {
+			rVersion, err := strconv.Atoi(rVersionStr)
+			if err != nil {
+				return nil, err
+			}
+			if rVersion > version {
+				version = rVersion
+			}
+		}
+
+		// if our resource - update
+		if t == resourceType {
+			resourceCache[resourceName] = resource
+		}
+
+		res := make([]types.Resource, 0)
+
+		for _, r := range resourceCache {
+			res = append(res, r)
+		}
+		resources[t] = res
+	}
+
+	// Increment version
+	version++
+
+	return cachev3.NewSnapshot(strconv.Itoa(version), resources)
 }
 
 func getNodeID(obj client.Object) string {
@@ -111,22 +153,13 @@ func getNodeID(obj client.Object) string {
 func getResourceFromCache(cache cachev3.SnapshotCache, resourceType string, nodeID string) (map[string]types.Resource, string, error) {
 	snap, err := cache.GetSnapshot(nodeID)
 	if err == nil {
+		if snap.GetResources(resourceType) == nil {
+			return make(map[string]types.Resource), snap.GetVersion(resourceType), nil
+		}
 		return snap.GetResources(resourceType), snap.GetVersion(resourceType), nil
 	}
 	if strings.Contains(err.Error(), "no snapshot found for node") {
 		return map[string]types.Resource{}, "", nil
 	}
 	return nil, "", err
-}
-
-func incrementVersion(versionStr string) (version int, err error) {
-	version = 1
-	if versionStr != "" {
-		version, err = strconv.Atoi(versionStr)
-		if err != nil {
-			return
-		}
-		version++
-	}
-	return
 }

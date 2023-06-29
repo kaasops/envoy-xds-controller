@@ -19,11 +19,14 @@ package controllers
 import (
 	"context"
 
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 )
 
@@ -31,6 +34,7 @@ import (
 type EndpointReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Cache  cachev3.SnapshotCache
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
@@ -48,10 +52,40 @@ type EndpointReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx).WithValues("Envoy Endpoint", req.NamespacedName)
 
-	// TODO(user): your logic here
+	log.Info("Start process Envoy Endpoint")
+	EndpointCR, err := r.findEndpointCustomResourceInstance(ctx, req)
+	if err != nil {
+		log.Error(err, "Failed to get Envoy Endpoint CR")
+		return ctrl.Result{}, err
+	}
+	if EndpointCR == nil {
+		log.Info("Envoy Endpoint CR not found. Ignoring since object must be deleted")
+		return ctrl.Result{}, nil
+	}
+	if EndpointCR.Spec == nil {
+		log.Info("Envoy Endpoint CR spec not found. Ignoring since object")
+		return ctrl.Result{}, nil
+	}
+
+	// if err := xds.Ensure(ctx, r.Cache, EndpointCR); err != nil {
+	// 	return ctrl.Result{}, err
+	// }
 
 	return ctrl.Result{}, nil
+}
+
+func (r *EndpointReconciler) findEndpointCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.Endpoint, error) {
+	cr := &v1alpha1.Endpoint{}
+	err := r.Get(ctx, req.NamespacedName, cr)
+	if err != nil {
+		if api_errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return cr, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
