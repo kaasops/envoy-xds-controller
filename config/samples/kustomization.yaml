@@ -6,4 +6,6 @@ resources:
 - envoy_v1alpha1_endpoint.yaml
 - envoy_v1alpha1_virtualhost.yaml
 - envoy_v1alpha1_secret.yaml
+- envoy_v1alpha1_upstream.yaml
+- envoy_v1alpha1_virtualservice.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

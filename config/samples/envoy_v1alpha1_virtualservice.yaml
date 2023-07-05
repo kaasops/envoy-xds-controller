@@ -1,0 +1,12 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  labels:
+    app.kubernetes.io/name: virtualservice
+    app.kubernetes.io/instance: virtualservice-sample
+    app.kubernetes.io/part-of: envoy-xds-controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: envoy-xds-controller
+  name: virtualservice-sample
+spec:
+  # TODO(user): Add fields here
