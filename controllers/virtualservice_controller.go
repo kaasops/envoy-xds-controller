@@ -19,12 +19,16 @@ package controllers
 import (
 	"context"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // VirtualServiceReconciler reconciles a VirtualService object
@@ -48,8 +52,28 @@ type VirtualServiceReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
+	log := log.FromContext(ctx).WithValues("Envoy Cluster", req.NamespacedName)
 
-	// TODO(user): your logic here
+	log.Info("Start process Envoy Cluster")
+	cr, err := r.findVirtualServiceCustomResourceInstance(ctx, req)
+	if err != nil {
+		log.Error(err, "Failed to get Envoy Cluster CR")
+		return ctrl.Result{}, err
+	}
+	if cr == nil {
+		log.Info("Envoy Cluster CR not found. Ignoring since object must be deleted")
+		return ctrl.Result{}, nil
+	}
+
+	routeConfiguration := &routev3.VirtualHost{}
+
+	unmarshaler := &protojson.UnmarshalOptions{
+		AllowPartial: false,
+	}
+
+	if err := unmarshaler.Unmarshal(cr.Spec.VirtualHost.Raw, routeConfiguration); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -59,4 +83,16 @@ func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&envoyv1alpha1.VirtualService{}).
 		Complete(r)
+}
+
+func (r *VirtualServiceReconciler) findVirtualServiceCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.VirtualService, error) {
+	cr := &v1alpha1.VirtualService{}
+	err := r.Get(ctx, req.NamespacedName, cr)
+	if err != nil {
+		if api_errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return cr, nil
 }
