@@ -27,7 +27,6 @@ import (
 
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
 
@@ -92,6 +91,6 @@ func (r *RouteReconciler) findRouteCustomResourceInstance(ctx context.Context, r
 // SetupWithManager sets up the controller with the Manager.
 func (r *RouteReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.Route{}).
+		For(&v1alpha1.Route{}).
 		Complete(r)
 }

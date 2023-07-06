@@ -27,6 +27,7 @@ import (
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
 	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
+	Listener    ResourceRef           `json:"listener,omitempty"`
 	SslConfig   SslConfigSpec         `json:"sslConfig,omitempty"`
 }
 

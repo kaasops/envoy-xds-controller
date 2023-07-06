@@ -27,7 +27,6 @@ import (
 
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 )
 
 // EndpointReconciler reconciles a Endpoint object
@@ -91,6 +90,6 @@ func (r *EndpointReconciler) findEndpointCustomResourceInstance(ctx context.Cont
 // SetupWithManager sets up the controller with the Manager.
 func (r *EndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.Endpoint{}).
+		For(&v1alpha1.Endpoint{}).
 		Complete(r)
 }

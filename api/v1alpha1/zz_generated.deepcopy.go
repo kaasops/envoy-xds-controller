@@ -585,6 +585,7 @@ func (in *VirtualServiceSpec) DeepCopyInto(out *VirtualServiceSpec) {
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
+	out.Listener = in.Listener
 	out.SslConfig = in.SslConfig
 }
 

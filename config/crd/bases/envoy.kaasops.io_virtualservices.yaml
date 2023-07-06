@@ -35,6 +35,13 @@ spec:
           spec:
             description: VirtualServiceSpec defines the desired state of VirtualService
             properties:
+              listener:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
               sslConfig:
                 properties:
                   issuer:

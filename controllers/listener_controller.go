@@ -23,13 +23,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
+
+var listenerReconcilationChannel = make(chan event.GenericEvent)
 
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
@@ -92,6 +96,7 @@ func (r *ListenerReconciler) findListenerCustomResourceInstance(ctx context.Cont
 // SetupWithManager sets up the controller with the Manager.
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.Listener{}).
+		For(&v1alpha1.Listener{}).
+		WatchesRawSource(&source.Channel{Source: listenerReconcilationChannel}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 )
 
 // UpstreamReconciler reconciles a Upstream object
@@ -57,6 +57,6 @@ func (r *UpstreamReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *UpstreamReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.Upstream{}).
+		For(&v1alpha1.Upstream{}).
 		Complete(r)
 }

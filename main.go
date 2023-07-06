@@ -22,6 +22,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"google.golang.org/protobuf/encoding/protojson"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
@@ -50,7 +51,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(envoyv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -99,6 +100,11 @@ func main() {
 	xDSCache := cachev3.NewSnapshotCache(false, cachev3.IDHash{}, nil)
 	xDSServer := xds.NewServer(xDSCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(xDSPort)
+
+	unmarshaler := &protojson.UnmarshalOptions{
+		AllowPartial: false,
+		// DiscardUnknown: true,
+	}
 
 	if err = (&controllers.ClusterReconciler{
 		Client: mgr.GetClient(),
@@ -163,8 +169,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.VirtualServiceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)

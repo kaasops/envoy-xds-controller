@@ -23,56 +23,52 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // VirtualServiceReconciler reconciles a VirtualService object
 type VirtualServiceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme      *runtime.Scheme
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the VirtualService object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+
 	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Cluster", req.NamespacedName)
 
 	log.Info("Start process Envoy Cluster")
-	cr, err := r.findVirtualServiceCustomResourceInstance(ctx, req)
+	virtualServiceCR, err := r.findVirtualServiceCustomResourceInstance(ctx, req)
 	if err != nil {
 		log.Error(err, "Failed to get Envoy Cluster CR")
 		return ctrl.Result{}, err
 	}
-	if cr == nil {
+	if virtualServiceCR == nil {
 		log.Info("Envoy Cluster CR not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	}
 
-	routeConfiguration := &routev3.VirtualHost{}
+	virtualHostSpec := &routev3.VirtualHost{}
 
-	unmarshaler := &protojson.UnmarshalOptions{
-		AllowPartial: false,
+	if err := r.Unmarshaler.Unmarshal(virtualServiceCR.Spec.VirtualHost.Raw, virtualHostSpec); err != nil {
+		return ctrl.Result{}, err
 	}
 
-	if err := unmarshaler.Unmarshal(cr.Spec.VirtualHost.Raw, routeConfiguration); err != nil {
-		return ctrl.Result{}, err
+	if virtualServiceCR.Spec.Listener.Name != "" {
+		obj := &v1alpha1.Listener{}
+		obj.Name = virtualServiceCR.Spec.Listener.Name
+		obj.Namespace = virtualServiceCR.Spec.Listener.Namespace
+		listenerReconcilationChannel <- event.GenericEvent{Object: obj}
 	}
 
 	return ctrl.Result{}, nil
@@ -81,7 +77,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 // SetupWithManager sets up the controller with the Manager.
 func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.VirtualService{}).
+		For(&v1alpha1.VirtualService{}).
 		Complete(r)
 }
 

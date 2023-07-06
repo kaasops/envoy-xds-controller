@@ -27,7 +27,6 @@ import (
 
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
 
@@ -92,6 +91,6 @@ func (r *SecretReconciler) findSecretCustomResourceInstance(ctx context.Context,
 // SetupWithManager sets up the controller with the Manager.
 func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.Secret{}).
+		For(&v1alpha1.Secret{}).
 		Complete(r)
 }
