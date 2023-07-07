@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -62,13 +61,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := r.Unmarshaler.Unmarshal(virtualServiceCR.Spec.VirtualHost.Raw, virtualHostSpec); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	if virtualServiceCR.Spec.Listener.Name != "" {
-		obj := &v1alpha1.Listener{}
-		obj.Name = virtualServiceCR.Spec.Listener.Name
-		obj.Namespace = virtualServiceCR.Spec.Listener.Namespace
-		listenerReconcilationChannel <- event.GenericEvent{Object: obj}
 	}
 
 	return ctrl.Result{}, nil
