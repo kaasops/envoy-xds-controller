@@ -42,7 +42,7 @@ spec:
                   namespace:
                     type: string
                 type: object
-              sslConfig:
+              tlsConfig:
                 properties:
                   issuer:
                     properties:

@@ -27,14 +27,14 @@ import (
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
 	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
-	Listener    ResourceRef           `json:"listener,omitempty"`
-	SslConfig   SslConfigSpec         `json:"sslConfig,omitempty"`
+	Listener    *ResourceRef          `json:"listener,omitempty"`
+	TlsConfig   *TlsConfigSpec        `json:"tlsConfig,omitempty"`
 }
 
-type SslConfigSpec struct {
-	UseCertManager bool        `json:"useCertManager,omitempty"`
-	Issuer         ResourceRef `json:"issuer,omitempty"`
-	SecretRef      ResourceRef `json:"secretRef,omitempty"`
+type TlsConfigSpec struct {
+	UseCertManager bool         `json:"useCertManager,omitempty"`
+	Issuer         *ResourceRef `json:"issuer,omitempty"`
+	SecretRef      *ResourceRef `json:"secretRef,omitempty"`
 }
 
 type ResourceRef struct {
