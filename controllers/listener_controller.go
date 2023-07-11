@@ -23,12 +23,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
+
+var listenerReconciliationChannel = make(chan event.GenericEvent)
 
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
@@ -41,15 +46,6 @@ type ListenerReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Listener object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
@@ -73,6 +69,38 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	// if virtualServiceCR.Spec.Listener != nil {
+	// 	listenerSpec := &listenerv3.Listener{}
+	// 	if err := r.Unmarshaler.Unmarshal(listenerCR.Spec.Raw, listenerSpec); err != nil {
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
+
+	// virtualHostSpec := &routev3.VirtualHost{}
+
+	// if err := r.Unmarshaler.Unmarshal(virtualServiceCR.Spec.VirtualHost.Raw, virtualHostSpec); err != nil {
+	// 	return ctrl.Result{}, err
+	// }
+
+	// var keypair tls.KeyPair
+
+	// if !virtualServiceCR.Spec.TlsConfig.UseCertManager {
+	// 	certificateGetter := tls.NewSecretCertificateGetter(ctx, r.Client, *virtualServiceCR.Spec.TlsConfig.SecretRef)
+	// 	keypair, err = certificateGetter.GetKeyPair()
+	// 	if err != nil {
+	// 		return ctrl.Result{}, err
+	// 	}
+	// }
+
+	// envoysecret := xds.EnvoySecret(virtualServiceCR.Name, keypair)
+	// filterChainBuilder := xds.NewFilterChainBuilder()
+	// filterChain, err := filterChainBuilder.WithFilters(*virtualHostSpec).WithTlsTransportSocket(virtualServiceCR.Name).Build()
+	// if err != nil {
+	// 	return ctrl.Result{}, err
+	// }
+
+	// fmt.Printf("=============Debug run: %v, %v", envoysecret, filterChain)
+
 	return ctrl.Result{}, nil
 }
 
@@ -92,5 +120,6 @@ func (r *ListenerReconciler) findListenerCustomResourceInstance(ctx context.Cont
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
+		WatchesRawSource(&source.Channel{Source: listenerReconciliationChannel}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

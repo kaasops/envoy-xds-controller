@@ -9,4 +9,15 @@ metadata:
     app.kubernetes.io/created-by: envoy-xds-controller
   name: virtualservice-sample
 spec:
-  # TODO(user): Add fields here
+  virtualHost:
+    name: test1
+    domains:
+    - "wplan.io"
+    routes:
+    - match: 
+        prefix: "/"
+      route: 
+        cluster: local-test
+  # listener:
+  #   name: lisener1
+  #   namespace: default

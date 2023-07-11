@@ -18,18 +18,15 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -47,64 +44,38 @@ type VirtualServiceReconciler struct {
 
 func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	_ = log.FromContext(ctx)
-	log := log.FromContext(ctx).WithValues("Envoy Cluster", req.NamespacedName)
+	log := log.FromContext(ctx).WithValues("VirtualService", req.NamespacedName)
 
-	log.Info("Start process Envoy Cluster")
-	virtualServiceCR, err := r.findVirtualServiceCustomResourceInstance(ctx, req)
+	virtualService, err := r.findVirtualServiceCustomResourceInstance(ctx, req)
+
 	if err != nil {
-		log.Error(err, "Failed to get Envoy Cluster CR")
+		log.Error(err, "Failed to get VirtualService custom resource")
 		return ctrl.Result{}, err
 	}
-	if virtualServiceCR == nil {
-		log.Info("Envoy Cluster CR not found. Ignoring since object must be deleted")
+
+	if virtualService == nil {
+		log.Info("Listener not found. Ignoring since object must be deleted")
 		return ctrl.Result{}, nil
 	}
 
-	virtualHostSpec := &routev3.VirtualHost{}
-
-	if err := r.Unmarshaler.Unmarshal(virtualServiceCR.Spec.VirtualHost.Raw, virtualHostSpec); err != nil {
+	if virtualService.Spec.VirtualHost == nil {
+		log.Error(err, "VirtualHost could not be empty")
 		return ctrl.Result{}, err
 	}
 
-	if virtualServiceCR.Spec.Listener == nil {
-		virtualServiceCR.Spec.Listener = &xds.DefaultListener
+	if virtualService.Spec.Listener == nil {
+		virtualService.Spec.Listener = &xds.DefaultListener
 	}
 
-	listenerCR := &v1alpha1.Listener{}
-	err = r.Get(ctx, virtualServiceCR.Spec.Listener.NamespacedName(), listenerCR)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
-	}
-
-	if virtualServiceCR.Spec.Listener != nil {
-		listenerSpec := &listenerv3.Listener{}
-		if err := r.Unmarshaler.Unmarshal(listenerCR.Spec.Raw, listenerSpec); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	var keypair tls.KeyPair
-
-	if !virtualServiceCR.Spec.TlsConfig.UseCertManager {
-		certificateGetter := tls.NewSecretCertificateGetter(ctx, r.Client, *virtualServiceCR.Spec.TlsConfig.SecretRef)
-		keypair, err = certificateGetter.GetKeyPair()
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	envoysecret := xds.EnvoySecret(virtualServiceCR.Name, keypair)
-	filterChainBuilder := xds.NewFilterChainBuilder()
-	filterChain, err := filterChainBuilder.WithFilters(*virtualHostSpec).WithTlsTransportSocket(virtualServiceCR.Name).Build()
+	listener := &v1alpha1.Listener{}
+	err = r.Get(ctx, virtualService.Spec.Listener.NamespacedName(), listener)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	fmt.Printf("=============Debug run: %v, %v", envoysecret, filterChain)
+	log.Info("Triggering listener reconiliation", "Listener.name", virtualService.Spec.Listener.Name)
+
+	listenerReconciliationChannel <- event.GenericEvent{Object: listener}
 
 	return ctrl.Result{}, nil
 }
