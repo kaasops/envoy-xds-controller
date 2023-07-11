@@ -115,9 +115,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.ListenerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
 		os.Exit(1)
@@ -169,9 +170,8 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.VirtualServiceReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Unmarshaler: unmarshaler,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)

@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 
-	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,8 +33,7 @@ import (
 // VirtualServiceReconciler reconciles a VirtualService object
 type VirtualServiceReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Unmarshaler *protojson.UnmarshalOptions
+	Scheme *runtime.Scheme
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
@@ -61,6 +59,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	// Set default listener if listener not set
 	if instance.Spec.Listener == nil {
 		instance.Spec.Listener = &v1alpha1.ResourceRef{Name: xds.DefaultListenerName, Namespace: req.Namespace}
 	}

@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,7 +32,6 @@ import (
 
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
 
 var listenerReconciliationChannel = make(chan event.GenericEvent)
@@ -38,8 +39,9 @@ var listenerReconciliationChannel = make(chan event.GenericEvent)
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cachev3.SnapshotCache
+	Scheme      *runtime.Scheme
+	Cache       cachev3.SnapshotCache
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners,verbs=get;list;watch;create;update;patch;delete
@@ -47,26 +49,32 @@ type ListenerReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/finalizers,verbs=update
 
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
 
-	log.Info("Start process Envoy Listener")
-	listenerCR, err := r.findListenerCustomResourceInstance(ctx, req)
+	instance := &v1alpha1.Listener{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
-		log.Error(err, "Failed to get Envoy Listener CR")
+		if api_errors.IsNotFound(err) {
+			log.Info("Listener not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
-	}
-	if listenerCR == nil {
-		log.Info("Envoy Listener CR not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-	if listenerCR.Spec == nil {
-		log.Info("Envoy Listener CR spec not found. Ignoring since object")
-		return ctrl.Result{}, nil
 	}
 
-	if err := xds.Ensure(ctx, r.Cache, listenerCR); err != nil {
+	if instance.Spec == nil {
+		return ctrl.Result{}, ErrEmptySpec
+	}
+
+	virtualServices := &v1alpha1.VirtualServiceList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(req.Namespace),
+	}
+	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	for _, i := range virtualServices.Items {
+		fmt.Println(i.Name)
 	}
 
 	// if virtualServiceCR.Spec.Listener != nil {
@@ -102,18 +110,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// fmt.Printf("=============Debug run: %v, %v", envoysecret, filterChain)
 
 	return ctrl.Result{}, nil
-}
-
-func (r *ListenerReconciler) findListenerCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.Listener, error) {
-	cr := &v1alpha1.Listener{}
-	err := r.Get(ctx, req.NamespacedName, cr)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return cr, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
