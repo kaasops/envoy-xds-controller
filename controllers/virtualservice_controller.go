@@ -46,34 +46,32 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log := log.FromContext(ctx).WithValues("VirtualService", req.NamespacedName)
 
-	virtualService, err := r.findVirtualServiceCustomResourceInstance(ctx, req)
-
+	instance := &v1alpha1.VirtualService{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
-		log.Error(err, "Failed to get VirtualService custom resource")
+		if api_errors.IsNotFound(err) {
+			log.Info("VirtualService not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
 
-	if virtualService == nil {
-		log.Info("Listener not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-
-	if virtualService.Spec.VirtualHost == nil {
+	if instance.Spec.VirtualHost == nil {
 		log.Error(err, "VirtualHost could not be empty")
 		return ctrl.Result{}, err
 	}
 
-	if virtualService.Spec.Listener == nil {
-		virtualService.Spec.Listener = &xds.DefaultListener
+	if instance.Spec.Listener == nil {
+		instance.Spec.Listener = &v1alpha1.ResourceRef{Name: xds.DefaultListenerName, Namespace: req.Namespace}
 	}
 
 	listener := &v1alpha1.Listener{}
-	err = r.Get(ctx, virtualService.Spec.Listener.NamespacedName(), listener)
+	err = r.Get(ctx, instance.Spec.Listener.NamespacedName(), listener)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	log.Info("Triggering listener reconiliation", "Listener.name", virtualService.Spec.Listener.Name)
+	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)
 
 	listenerReconciliationChannel <- event.GenericEvent{Object: listener}
 
@@ -85,16 +83,4 @@ func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.VirtualService{}).
 		Complete(r)
-}
-
-func (r *VirtualServiceReconciler) findVirtualServiceCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.VirtualService, error) {
-	cr := &v1alpha1.VirtualService{}
-	err := r.Get(ctx, req.NamespacedName, cr)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return cr, nil
 }

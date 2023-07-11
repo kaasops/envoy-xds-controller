@@ -7,9 +7,9 @@ metadata:
     app.kubernetes.io/part-of: envoy-xds-controller
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: envoy-xds-controller
-  name: defaultHTTPS
+  name: default-https
 spec:
-  name: defaultHTTPS
+  name: default-https
   address:
     socket_address:
       address: 0.0.0.0
