@@ -50,6 +50,7 @@ type ListenerReconciler struct {
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
 
+	// Get listener instance
 	instance := &v1alpha1.Listener{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
