@@ -18,6 +18,6 @@ spec:
         prefix: "/"
       route: 
         cluster: local-test
-  listener:
-    name: default-https
-    namespace: default
+  # listener:
+  #   name: default-https
+  #   namespace: default

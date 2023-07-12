@@ -82,6 +82,9 @@ func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add custom index to list by listerner
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, VirtualServiceListenerFeild, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)
+		if virtualService.Spec.Listener == nil {
+			return []string{xds.DefaultListenerName}
+		}
 		return []string{virtualService.Spec.Listener.Name}
 	}); err != nil {
 		return err

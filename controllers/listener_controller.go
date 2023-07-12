@@ -64,7 +64,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, ErrEmptySpec
 	}
 
-	// Get VirtualService with matching listener
+	// Get VirtualServices with matching listener
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
