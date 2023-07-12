@@ -60,6 +60,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Set default listener if listener not set
 	if instance.Spec.Listener == nil {
+		// TODO: fix default listerner namespace
 		instance.Spec.Listener = &v1alpha1.ResourceRef{Name: DefaultListenerName, Namespace: req.Namespace}
 	}
 

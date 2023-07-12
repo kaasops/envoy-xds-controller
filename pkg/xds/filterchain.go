@@ -12,7 +12,7 @@ import (
 
 type FilterChainBuilder interface {
 	WithTlsTransportSocket(secretName string) FilterChainBuilder
-	WithFilters(virtualHost routev3.VirtualHost) FilterChainBuilder
+	WithFilters(virtualHost *routev3.VirtualHost) FilterChainBuilder
 	Build() (*listenerv3.FilterChain, error)
 }
 
@@ -45,7 +45,7 @@ func (b *filterChainBuilder) WithTlsTransportSocket(secretName string) FilterCha
 	return b
 }
 
-func (b *filterChainBuilder) WithFilters(virtualHost routev3.VirtualHost) FilterChainBuilder {
+func (b *filterChainBuilder) WithFilters(virtualHost *routev3.VirtualHost) FilterChainBuilder {
 	rte := &routev3.RouteConfiguration{
 		Name: virtualHost.Name,
 		VirtualHosts: []*routev3.VirtualHost{{

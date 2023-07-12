@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,7 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
 
 var listenerReconciliationChannel = make(chan event.GenericEvent)
@@ -91,26 +93,21 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		certs := map[string][]string{"secret1-cert": ([]string{"example.com"})}
+
+		for certName, domain := range certs {
+			chainbuilder := xds.NewFilterChainBuilder()
+			virtualHost.Domains = domain
+			chain, err := chainbuilder.WithTlsTransportSocket(certName).WithFilters(virtualHost).Build()
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			listener.FilterChains = append(listener.FilterChains, chain)
+		}
 	}
 
-	// var keypair tls.KeyPair
-
-	// if !virtualServiceCR.Spec.TlsConfig.UseCertManager {
-	// 	certificateGetter := tls.NewSecretCertificateGetter(ctx, r.Client, *virtualServiceCR.Spec.TlsConfig.SecretRef)
-	// 	keypair, err = certificateGetter.GetKeyPair()
-	// 	if err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
-
-	// envoysecret := xds.EnvoySecret(virtualServiceCR.Name, keypair)
-	// filterChainBuilder := xds.NewFilterChainBuilder()
-	// filterChain, err := filterChainBuilder.WithFilters(*virtualHostSpec).WithTlsTransportSocket(virtualServiceCR.Name).Build()
-	// if err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
-	// fmt.Printf("=============Debug run: %v, %v", envoysecret, filterChain)
+	fmt.Println("!!!!!!!!!!!!!!!!!!")
 
 	return ctrl.Result{}, nil
 }
