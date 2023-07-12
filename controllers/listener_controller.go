@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -65,16 +64,15 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, ErrEmptySpec
 	}
 
+	// Get VirtualService with matching listener
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
-	}
-	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
-		return ctrl.Result{}, err
+		client.MatchingFields{VirtualServiceListenerFeild: req.Name},
 	}
 
-	for _, i := range virtualServices.Items {
-		fmt.Println(i.Name)
+	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// if virtualServiceCR.Spec.Listener != nil {
