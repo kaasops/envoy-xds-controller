@@ -7,6 +7,10 @@ metadata:
     app.kubernetes.io/part-of: envoy-xds-controller
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: envoy-xds-controller
-  name: listener-sample
+  name: custom-listener
 spec:
-  # TODO(user): Add fields here
+  name: custom-listener
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8443

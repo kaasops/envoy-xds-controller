@@ -8,5 +8,6 @@ const (
 )
 
 var (
-	ErrEmptySpec = errors.New("spec could not be empty")
+	ErrEmptySpec   = errors.New("spec could not be empty")
+	ErrInvalidSpec = errors.New("invalid config component spec")
 )

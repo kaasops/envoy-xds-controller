@@ -29,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 )
@@ -49,6 +51,7 @@ type ListenerReconciler struct {
 
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
+	log.Info("Reconciling listener")
 
 	// Get listener instance
 	instance := &v1alpha1.Listener{}
@@ -65,7 +68,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, ErrEmptySpec
 	}
 
-	// Get VirtualServices with matching listener
+	// get envoy listener from listener instance spec
+	listener := &listenerv3.Listener{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Get VirtualService objects with matching listener
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
@@ -76,18 +85,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// if virtualServiceCR.Spec.Listener != nil {
-	// 	listenerSpec := &listenerv3.Listener{}
-	// 	if err := r.Unmarshaler.Unmarshal(listenerCR.Spec.Raw, listenerSpec); err != nil {
-	// 		return ctrl.Result{}, err
-	// 	}
-	// }
-
-	// virtualHostSpec := &routev3.VirtualHost{}
-
-	// if err := r.Unmarshaler.Unmarshal(virtualServiceCR.Spec.VirtualHost.Raw, virtualHostSpec); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
+	for _, vs := range virtualServices.Items {
+		// Get envoy virtualhost from virtualSerive spec
+		virtualHost := &routev3.VirtualHost{}
+		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	// var keypair tls.KeyPair
 
