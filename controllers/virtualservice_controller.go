@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -61,7 +60,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Set default listener if listener not set
 	if instance.Spec.Listener == nil {
-		instance.Spec.Listener = &v1alpha1.ResourceRef{Name: xds.DefaultListenerName, Namespace: req.Namespace}
+		instance.Spec.Listener = &v1alpha1.ResourceRef{Name: DefaultListenerName, Namespace: req.Namespace}
 	}
 
 	listener := &v1alpha1.Listener{}
@@ -83,7 +82,7 @@ func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, VirtualServiceListenerFeild, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)
 		if virtualService.Spec.Listener == nil {
-			return []string{xds.DefaultListenerName}
+			return []string{DefaultListenerName}
 		}
 		return []string{virtualService.Spec.Listener.Name}
 	}); err != nil {

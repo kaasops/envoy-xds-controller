@@ -3,6 +3,7 @@ package controllers
 import "errors"
 
 const (
+	DefaultListenerName         = "default-https"
 	VirtualServiceListenerFeild = "spec.listener.name"
 )
 
