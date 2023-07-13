@@ -113,17 +113,18 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		chain := xds.NewFilterChain()
 
-		if vs.Spec.TlsConfig != nil {
-			for certName, domain := range certs {
-				virtualHost.Domains = domain
-				if err != nil {
-					return ctrl.Result{}, err
-				}
-				chain.WithTLS(certName).WithFilters(virtualHost)
-				listener.FilterChains = append(listener.FilterChains, chain.FilterChain)
-			}
-		} else {
+		if vs.Spec.TlsConfig == nil {
 			chain.WithFilters(virtualHost)
+			listener.FilterChains = append(listener.FilterChains, chain.FilterChain)
+			return ctrl.Result{}, nil
+		}
+
+		for certName, domain := range certs {
+			virtualHost.Domains = domain
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			chain.WithTLS(certName).WithFilters(virtualHost)
 			listener.FilterChains = append(listener.FilterChains, chain.FilterChain)
 		}
 	}
