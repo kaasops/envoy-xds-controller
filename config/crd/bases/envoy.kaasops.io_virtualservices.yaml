@@ -44,11 +44,11 @@ spec:
                 type: object
               tlsConfig:
                 properties:
-                  issuer:
+                  certManager:
                     properties:
-                      name:
+                      clusterIssuer:
                         type: string
-                      namespace:
+                      issuer:
                         type: string
                     type: object
                   secretRef:
@@ -58,8 +58,6 @@ spec:
                       namespace:
                         type: string
                     type: object
-                  useCertManager:
-                    type: boolean
                 type: object
               virtualHost:
                 type: object

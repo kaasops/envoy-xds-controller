@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -31,10 +32,11 @@ import (
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 var listenerReconciliationChannel = make(chan event.GenericEvent)
@@ -42,9 +44,11 @@ var listenerReconciliationChannel = make(chan event.GenericEvent)
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Cache       cachev3.SnapshotCache
-	Unmarshaler *protojson.UnmarshalOptions
+	Scheme          *runtime.Scheme
+	Cache           cache.Cache
+	Unmarshaler     *protojson.UnmarshalOptions
+	DiscoveryClient *discovery.DiscoveryClient
+	Config          config.Config
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners,verbs=get;list;watch;create;update;patch;delete
@@ -93,8 +97,15 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
 			return ctrl.Result{}, err
 		}
-		certificateGetter := tls.NewVirtualServiceCertificateGetter(virtualHost, vs.Spec.TlsConfig)
-		certs, err := certificateGetter.GetCerts()
+		// certificateGetter := tls.NewVirtualServiceCertificateGetter(virtualHost, vs.Spec.TlsConfig)
+		// certs, err := certificateGetter.GetCerts()
+
+		nodeIDs := []string{"default", "main"}
+		certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, nodeIDs, r.Config, vs.Namespace)
+		certs, err := certsProvider.Provide(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
 		if err != nil {
 			return ctrl.Result{}, err

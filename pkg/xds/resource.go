@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -17,6 +16,7 @@ import (
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"google.golang.org/protobuf/encoding/protojson"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -45,7 +45,7 @@ var (
 	ErrNotSupported = errors.New("not supported type for create or update kubernetes resource")
 )
 
-func Ensure(ctx context.Context, cache cachev3.SnapshotCache, obj client.Object) error {
+func Ensure(ctx context.Context, cache cache.Cache, obj client.Object) error {
 	resource, resourceType, err := unmarshal(ctx, obj)
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func Ensure(ctx context.Context, cache cachev3.SnapshotCache, obj client.Object)
 		return err
 	}
 
-	return cache.SetSnapshot(context.TODO(), nodeID, snap)
+	return cache.SnapshotCache.SetSnapshot(context.TODO(), nodeID, snap)
 }
 
 func unmarshal(ctx context.Context, obj client.Object) (types.Resource, string, error) {
@@ -105,7 +105,7 @@ func unmarshal(ctx context.Context, obj client.Object) (types.Resource, string, 
 }
 
 func newSnapshotWithResource(
-	cache cachev3.SnapshotCache,
+	cache cache.Cache,
 	nodeID string,
 	resource types.Resource,
 	resourceName string,
@@ -117,7 +117,7 @@ func newSnapshotWithResource(
 	resources := make(map[string][]types.Resource, 0)
 	for _, t := range resourceTypes {
 		// resourceCache := snap.GetResources(t)
-		resourceCache, rVersionStr, err := getResourceFromCache(cache, t, nodeID)
+		resourceCache, rVersionStr, err := cache.GetResourceFromCache(t, nodeID)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +144,6 @@ func newSnapshotWithResource(
 			res = append(res, r)
 		}
 
-		fmt.Printf("TYPE: %+v\nRES: %+v\n", t, res)
 		resources[t] = res
 	}
 
@@ -163,18 +162,4 @@ func getNodeID(obj client.Object) string {
 	}
 
 	return nodeID
-}
-
-func getResourceFromCache(cache cachev3.SnapshotCache, resourceType string, nodeID string) (map[string]types.Resource, string, error) {
-	snap, err := cache.GetSnapshot(nodeID)
-	if err == nil {
-		if snap.GetResources(resourceType) == nil {
-			return make(map[string]types.Resource), snap.GetVersion(resourceType), nil
-		}
-		return snap.GetResources(resourceType), snap.GetVersion(resourceType), nil
-	}
-	if strings.Contains(err.Error(), "no snapshot found for node") {
-		return map[string]types.Resource{}, "", nil
-	}
-	return nil, "", err
 }

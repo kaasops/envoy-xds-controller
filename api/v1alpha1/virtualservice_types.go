@@ -28,13 +28,17 @@ import (
 type VirtualServiceSpec struct {
 	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
 	Listener    *ResourceRef          `json:"listener,omitempty"`
-	TlsConfig   *TlsConfigSpec        `json:"tlsConfig,omitempty"`
+	TlsConfig   *TlsConfig            `json:"tlsConfig,omitempty"`
 }
 
-type TlsConfigSpec struct {
-	UseCertManager bool         `json:"useCertManager,omitempty"`
-	Issuer         *ResourceRef `json:"issuer,omitempty"`
-	SecretRef      *ResourceRef `json:"secretRef,omitempty"`
+type TlsConfig struct {
+	CertManager *CertManager `json:"certManager,omitempty"`
+	SecretRef   *ResourceRef `json:"secretRef,omitempty"`
+}
+
+type CertManager struct {
+	Issuer        *string `json:"issuer,omitempty"`
+	ClusterIssuer *string `json:"clusterIssuer,omitempty"`
 }
 
 type ResourceRef struct {
