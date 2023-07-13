@@ -22,8 +22,8 @@ var (
 	ErrZeroParam = errors.New(`need choose one 1 param for configure TLS. \
 	You can choose one of 'sdsName', 'secretRef', 'certManager'.\
 	If you don't want use TLS for connection - don't install tlsConfig`)
-	ErrNodeIDsEmpty = errors.New("NodeID not set")
-	ErrSsdNotExist  = errors.New("")
+	ErrNodeIDsEmpty   = errors.New("NodeID not set")
+	ErrEmptyTlsConfig = errors.New("TLS config is empty")
 
 	secretRefType   = "secretRef"
 	certManagerType = "certManagetType"
@@ -107,7 +107,7 @@ func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string
 func (cc *TlsConfigController) Validate(ctx context.Context) error {
 	// Check if TLS not used
 	if cc.TlsConfig == nil {
-		return nil
+		return ErrEmptyTlsConfig
 	}
 
 	if len(cc.NodeIDs) == 0 {
