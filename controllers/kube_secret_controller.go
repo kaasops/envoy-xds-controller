@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/go-logr/logr"
@@ -118,16 +117,6 @@ func checkSecret(log logr.Logger, secret *corev1.Secret) bool {
 		log.Info("Kuberentes Secret is not a type TLS. Skip")
 		return false
 	}
-
-	v, ok := secret.Annotations[cmapi.AltNamesAnnotationKey]
-	if !ok {
-		log.Info("Kuberentes Secret doesn't have cert-manager annotation %+v. Skip", cmapi.AltNamesAnnotationKey)
-	}
-	if v == "" {
-		log.Info("Kuberentes Secret don't have ALT names. Skip")
-		return false
-	}
-
 	return true
 }
 

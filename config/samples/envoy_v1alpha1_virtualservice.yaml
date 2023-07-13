@@ -18,6 +18,10 @@ spec:
         prefix: "/"
       route: 
         cluster: local-test
+  tlsConfig:
+    secretRef:
+      name: cert1
+      namespace: default
   # listener:
   #   name: default-https
   #   namespace: default
@@ -45,3 +49,4 @@ spec:
   listener:
     name: custom-listener
     namespace: default
+
