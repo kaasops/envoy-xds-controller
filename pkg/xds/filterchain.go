@@ -1,6 +1,8 @@
 package xds
 
 import (
+	"log"
+
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -10,52 +12,43 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-type FilterChainBuilder interface {
-	Build() (*listenerv3.FilterChain, error)
+type filterChain struct {
+	*listenerv3.FilterChain
 }
 
-type virutalServiceFilterChainBuilder struct {
-	virtualHost *routev3.VirtualHost
-	secretName  string
+func NewFilterChain() *filterChain {
+	f := &listenerv3.FilterChain{}
+	return &filterChain{f}
 }
 
-func NewVirutalServiceFilterChainBuilder(vs *routev3.VirtualHost, secret string) *virutalServiceFilterChainBuilder {
-	return &virutalServiceFilterChainBuilder{
-		virtualHost: vs,
-		secretName:  secret,
-	}
-}
-
-func (b *virutalServiceFilterChainBuilder) Build() (*listenerv3.FilterChain, error) {
-
-	transportSocket, err := b.BuildTlsTransportSocket()
-
+func (c *filterChain) WithTLS(secret string) *filterChain {
+	t, err := transportSocket(secret)
 	if err != nil {
-		return nil, err
+		log.Fatal(err)
 	}
-
-	filters, err := b.BuildFilters()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &listenerv3.FilterChain{
-		Filters:         filters,
-		TransportSocket: transportSocket,
-	}, nil
+	c.TransportSocket = t
+	return c
 }
 
-func (b *virutalServiceFilterChainBuilder) BuildTlsTransportSocket() (*corev3.TransportSocket, error) {
+func (c *filterChain) WithFilters(v *routev3.VirtualHost) *filterChain {
+	f, err := filters(v)
+	if err != nil {
+		log.Fatal(err)
+	}
+	c.Filters = f
+	return c
+}
 
-	if b.secretName == "" {
+func transportSocket(secret string) (*corev3.TransportSocket, error) {
+
+	if secret == "" {
 		return nil, nil
 	}
 
 	sdsTls := &tlsv3.DownstreamTlsContext{
 		CommonTlsContext: &tlsv3.CommonTlsContext{
 			TlsCertificateSdsSecretConfigs: []*tlsv3.SdsSecretConfig{{
-				Name: b.secretName,
+				Name: secret,
 				SdsConfig: &corev3.ConfigSource{
 					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
 						Ads: &corev3.AggregatedConfigSource{},
@@ -80,18 +73,18 @@ func (b *virutalServiceFilterChainBuilder) BuildTlsTransportSocket() (*corev3.Tr
 	}, nil
 }
 
-func (b *virutalServiceFilterChainBuilder) BuildFilters() ([]*listenerv3.Filter, error) {
+func filters(v *routev3.VirtualHost) ([]*listenerv3.Filter, error) {
 	rte := &routev3.RouteConfiguration{
-		Name: b.virtualHost.Name,
+		Name: v.Name,
 		VirtualHosts: []*routev3.VirtualHost{{
-			Name:    b.virtualHost.Name,
-			Domains: b.virtualHost.Domains,
-			Routes:  b.virtualHost.Routes,
+			Name:    v.Name,
+			Domains: v.Domains,
+			Routes:  v.Routes,
 		}},
 	}
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: b.virtualHost.Name,
+		StatPrefix: v.Name,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: rte,
 		},
