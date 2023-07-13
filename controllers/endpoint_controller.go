@@ -25,15 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 // EndpointReconciler reconciles a Endpoint object
 type EndpointReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-	Cache  cachev3.SnapshotCache
+	Cache  cache.Cache
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=endpoints,verbs=get;list;watch;create;update;patch;delete

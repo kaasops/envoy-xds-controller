@@ -23,6 +23,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	"google.golang.org/protobuf/encoding/protojson"
+	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,11 +35,12 @@ import (
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
 
 	"github.com/kaasops/envoy-xds-controller/controllers"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
+	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -64,6 +66,12 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+
+	cfg, err := config.New()
+	if err != nil {
+		setupLog.Error(err, "Can't get params from env")
+	}
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -79,7 +87,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "80f8c36d.kaasops.io",
-		Namespace:              "default", // Need use operator-namespace or use flag!!!!!!!!
+		Namespace:              cfg.GetWatchNamespace(), // Need use operator-namespace or use flag!!!!!!!!
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -97,13 +105,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	xDSCache := cachev3.NewSnapshotCache(false, cachev3.IDHash{}, nil)
-	xDSServer := xds.NewServer(xDSCache, &testv3.Callbacks{Debug: true})
+	xDSCache := cache.New()
+	xDSServer := server.New(xDSCache.SnapshotCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(xDSPort)
 
 	unmarshaler := &protojson.UnmarshalOptions{
 		AllowPartial: false,
 		// DiscardUnknown: true,
+	}
+
+	config := ctrl.GetConfigOrDie()
+	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create discovery client")
+		os.Exit(1)
 	}
 
 	if err = (&controllers.ClusterReconciler{
@@ -169,9 +184,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.VirtualServiceReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Unmarshaler: unmarshaler,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Unmarshaler:     unmarshaler,
+		DiscoveryClient: dc,
+		Config:          cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)

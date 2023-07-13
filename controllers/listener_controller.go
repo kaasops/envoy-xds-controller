@@ -25,16 +25,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-	Cache  cachev3.SnapshotCache
+	Cache  cache.Cache
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners,verbs=get;list;watch;create;update;patch;delete
