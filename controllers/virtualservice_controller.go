@@ -55,7 +55,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if instance.Spec.VirtualHost == nil {
 		log.Error(err, "VirtualHost could not be empty")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, ErrEmptySpec
 	}
 
 	// Set default listener if listener not set

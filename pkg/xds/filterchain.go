@@ -11,25 +11,51 @@ import (
 )
 
 type FilterChainBuilder interface {
-	WithTlsTransportSocket(secretName string) FilterChainBuilder
-	WithFilters(virtualHost *routev3.VirtualHost) FilterChainBuilder
 	Build() (*listenerv3.FilterChain, error)
 }
 
-type filterChainBuilder struct {
-	TlsContext *tlsv3.DownstreamTlsContext
-	Manager    *hcm.HttpConnectionManager
+type virutalServiceFilterChainBuilder struct {
+	virtualHost *routev3.VirtualHost
+	secretName  string
 }
 
-func NewFilterChainBuilder() *filterChainBuilder {
-	return &filterChainBuilder{}
+func NewVirutalServiceFilterChainBuilder(vs *routev3.VirtualHost, secret string) *virutalServiceFilterChainBuilder {
+	return &virutalServiceFilterChainBuilder{
+		virtualHost: vs,
+		secretName:  secret,
+	}
 }
 
-func (b *filterChainBuilder) WithTlsTransportSocket(secretName string) FilterChainBuilder {
+func (b *virutalServiceFilterChainBuilder) Build() (*listenerv3.FilterChain, error) {
+
+	transportSocket, err := b.BuildTlsTransportSocket()
+
+	if err != nil {
+		return nil, err
+	}
+
+	filters, err := b.BuildFilters()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &listenerv3.FilterChain{
+		Filters:         filters,
+		TransportSocket: transportSocket,
+	}, nil
+}
+
+func (b *virutalServiceFilterChainBuilder) BuildTlsTransportSocket() (*corev3.TransportSocket, error) {
+
+	if b.secretName == "" {
+		return nil, nil
+	}
+
 	sdsTls := &tlsv3.DownstreamTlsContext{
 		CommonTlsContext: &tlsv3.CommonTlsContext{
 			TlsCertificateSdsSecretConfigs: []*tlsv3.SdsSecretConfig{{
-				Name: secretName,
+				Name: b.secretName,
 				SdsConfig: &corev3.ConfigSource{
 					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{
 						Ads: &corev3.AggregatedConfigSource{},
@@ -40,23 +66,32 @@ func (b *filterChainBuilder) WithTlsTransportSocket(secretName string) FilterCha
 		},
 	}
 
-	b.TlsContext = sdsTls
+	scfg, err := anypb.New(sdsTls)
 
-	return b
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev3.TransportSocket{
+		Name: "envoy.transport_sockets.tls",
+		ConfigType: &corev3.TransportSocket_TypedConfig{
+			TypedConfig: scfg,
+		},
+	}, nil
 }
 
-func (b *filterChainBuilder) WithFilters(virtualHost *routev3.VirtualHost) FilterChainBuilder {
+func (b *virutalServiceFilterChainBuilder) BuildFilters() ([]*listenerv3.Filter, error) {
 	rte := &routev3.RouteConfiguration{
-		Name: virtualHost.Name,
+		Name: b.virtualHost.Name,
 		VirtualHosts: []*routev3.VirtualHost{{
-			Name:    virtualHost.Name,
-			Domains: virtualHost.Domains,
-			Routes:  virtualHost.Routes,
+			Name:    b.virtualHost.Name,
+			Domains: b.virtualHost.Domains,
+			Routes:  b.virtualHost.Routes,
 		}},
 	}
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: virtualHost.Name,
+		StatPrefix: b.virtualHost.Name,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: rte,
 		},
@@ -65,24 +100,7 @@ func (b *filterChainBuilder) WithFilters(virtualHost *routev3.VirtualHost) Filte
 		}},
 	}
 
-	b.Manager = manager
-
-	return b
-}
-
-func (b *filterChainBuilder) Build() (*listenerv3.FilterChain, error) {
-	scfg, err := anypb.New(b.TlsContext)
-	if err != nil {
-		return nil, err
-	}
-	transportSocket := &corev3.TransportSocket{
-		Name: "envoy.transport_sockets.tls",
-		ConfigType: &corev3.TransportSocket_TypedConfig{
-			TypedConfig: scfg,
-		},
-	}
-
-	pbst, err := anypb.New(b.Manager)
+	pbst, err := anypb.New(manager)
 	filters := []*listenerv3.Filter{{
 		Name: wellknown.HTTPConnectionManager,
 		ConfigType: &listenerv3.Filter_TypedConfig{
@@ -93,8 +111,5 @@ func (b *filterChainBuilder) Build() (*listenerv3.FilterChain, error) {
 		return nil, err
 	}
 
-	return &listenerv3.FilterChain{
-		Filters:         filters,
-		TransportSocket: transportSocket,
-	}, nil
+	return filters, nil
 }

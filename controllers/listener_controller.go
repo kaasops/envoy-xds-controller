@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +33,7 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
 
@@ -93,21 +93,24 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
 			return ctrl.Result{}, err
 		}
+		certificateGetter := tls.NewVirtualServiceCertificateGetter(virtualHost, vs.Spec.TlsConfig)
+		certs, err := certificateGetter.GetCerts()
 
-		certs := map[string][]string{"secret1-cert": ([]string{"example.com"})}
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
 		for certName, domain := range certs {
-			chainbuilder := xds.NewFilterChainBuilder()
 			virtualHost.Domains = domain
-			chain, err := chainbuilder.WithTlsTransportSocket(certName).WithFilters(virtualHost).Build()
+			chainbuilder := xds.NewVirutalServiceFilterChainBuilder(virtualHost, certName)
+			chain, err := chainbuilder.Build()
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 			listener.FilterChains = append(listener.FilterChains, chain)
 		}
-	}
 
-	fmt.Println("!!!!!!!!!!!!!!!!!!")
+	}
 
 	return ctrl.Result{}, nil
 }
