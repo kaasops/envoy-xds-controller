@@ -4,13 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/avast/retry-go/v4"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	k8s_utils "github.com/kaasops/k8s-utils"
 	corev1 "k8s.io/api/core/v1"
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,8 +28,8 @@ var (
 	ErrZeroParam = errors.New(`need choose one 1 param for configure TLS. \
 	You can choose one of 'sdsName', 'secretRef', 'certManager'.\
 	If you don't want use TLS for connection - don't install tlsConfig`)
-	ErrNodeIDsEmpty   = errors.New("NodeID not set")
-	ErrEmptyTlsConfig = errors.New("TLS config is empty")
+	ErrNodeIDsEmpty = errors.New("NodeID not set")
+	ErrSsdNotExist  = errors.New("")
 
 	secretRefType   = "secretRef"
 	certManagerType = "certManagetType"
@@ -69,9 +75,9 @@ func New(
 	}
 }
 
-// Provide return map[string]string where:
-// key - name of TLS Certificate (name in sDS cache and Kubernetes Secret - the same)
-// value - ndomains
+// Provide return map[string][]string where:
+// key - name of TLS Certificate (is sDS cache (<NAMESPACE>-<NAME>)
+// value - domains
 func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string, error) {
 	err := cc.Validate(ctx)
 	if err != nil {
@@ -94,10 +100,69 @@ func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string
 	}
 
 	if tlsType == certManagerType {
-		fmt.Println("HATE")
+		return cc.certManagerProvide(ctx)
 	}
 
 	return nil, nil
+}
+
+func (cc *TlsConfigController) certManagerProvide(ctx context.Context) (certs map[string][]string, err error) {
+	for _, domain := range cc.VirtualHost.Domains {
+		objName := strings.ReplaceAll(domain, ".", "-")
+
+		if err = cc.createCertificate(ctx, domain, objName); err != nil {
+			return nil, err
+		}
+
+		certs[fmt.Sprintf("%s-%s", cc.Namespace, objName)] = []string{domain}
+	}
+
+	return nil, nil
+}
+
+func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, objName string) error {
+	iType, iName, err := cc.getIssuer()
+	if err != nil {
+		return err
+	}
+
+	cert := &cmapi.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: cc.Namespace,
+		},
+		Spec: cmapi.CertificateSpec{
+			SecretName: objName,
+			IsCA:       false,
+			DNSNames:   []string{domain},
+			IssuerRef: cmmeta.ObjectReference{
+				Name: iName,
+				Kind: iType,
+			},
+		},
+	}
+
+	if err := cc.client.Create(ctx, cert); err != nil {
+		return err
+	}
+
+	// Check secret created
+	secretNamespacedName := types.NamespacedName{
+		Name:      objName,
+		Namespace: cc.Namespace,
+	}
+	err = retry.Do(
+		func() error {
+			err := cc.checkKubernetesSecret(ctx, secretNamespacedName)
+			if api_errors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		},
+		retry.Attempts(5),
+	)
+
+	return err
 }
 
 // ValidateTls check TlsConfig for Virtual Service.
@@ -107,7 +172,7 @@ func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string
 func (cc *TlsConfigController) Validate(ctx context.Context) error {
 	// Check if TLS not used
 	if cc.TlsConfig == nil {
-		return ErrEmptyTlsConfig
+		return nil
 	}
 
 	if len(cc.NodeIDs) == 0 {
@@ -142,34 +207,40 @@ func (cc *TlsConfigController) Validate(ctx context.Context) error {
 
 // Check if SecretRef set. Checked only present secret in Kubernetes and have TLS type
 func (cc *TlsConfigController) checkSecretRef(ctx context.Context) error {
-	secret := &corev1.Secret{}
 	namespacedName := types.NamespacedName{
 		Name:      cc.TlsConfig.SecretRef.Name,
 		Namespace: cc.TlsConfig.SecretRef.Namespace,
 	}
 
+	return cc.checkKubernetesSecret(ctx, namespacedName)
+}
+
+func (cc *TlsConfigController) checkKubernetesSecret(ctx context.Context, nn types.NamespacedName) error {
+	secret := &corev1.Secret{}
+
 	// Check secret exist in Kubernetes
-	err := cc.client.Get(ctx, namespacedName, secret)
+	err := cc.client.Get(ctx, nn, secret)
 	if err != nil {
 		return err
 	}
 
 	// Check Secret type
 	if secret.Type != corev1.SecretTypeTLS {
-		return fmt.Errorf("kuberentes Secret %s in namespace %s is not a type TLS", namespacedName.Name, namespacedName.Namespace)
+		return fmt.Errorf("kuberentes Secret %s in namespace %s is not a type TLS", nn.Name, nn.Namespace)
 	}
 
 	// Check control label
 	labels := secret.Labels
 	value, ok := labels[secretLabel]
 	if !ok {
-		return fmt.Errorf("kubernetes Secret %s in namespace %s dont't have label %s", namespacedName.Name, namespacedName.Namespace, secretLabel)
+		return fmt.Errorf("kubernetes Secret %s in namespace %s dont't have label %s", nn.Name, nn.Namespace, secretLabel)
 	}
 	if value != "true" {
-		return fmt.Errorf("kubernetes Secret %s in namespace %s have label %s, but value not True", namespacedName.Name, namespacedName.Namespace, secretLabel)
+		return fmt.Errorf("kubernetes Secret %s in namespace %s have label %s, but value not True", nn.Name, nn.Namespace, secretLabel)
 	}
 
 	return nil
+
 }
 
 // Check if CertManager set.
@@ -213,26 +284,26 @@ func (cc *TlsConfigController) checkCertManager(ctx context.Context) error {
 	return nil
 }
 
-func (cc *TlsConfigController) getIssuer() (iType, issuer string, err error) {
+func (cc *TlsConfigController) getIssuer() (iType, iName string, err error) {
 	if cc.TlsConfig.CertManager.Issuer != nil {
 		if cc.TlsConfig.CertManager.ClusterIssuer != nil {
 			err = fmt.Errorf("сannot be installed Issuer and ClusterIssuer in 1 config")
 			return
 		}
 		iType = cmapi.IssuerKind
-		issuer = *cc.TlsConfig.CertManager.Issuer
+		iName = *cc.TlsConfig.CertManager.Issuer
 		return
 	}
 
 	if cc.TlsConfig.CertManager.ClusterIssuer != nil {
 		iType = cmapi.ClusterIssuerKind
-		issuer = *cc.TlsConfig.CertManager.ClusterIssuer
+		iName = *cc.TlsConfig.CertManager.ClusterIssuer
 		return
 	}
 
 	if cc.Config.GetDefaultIssuer() != "" {
 		iType = cmapi.ClusterIssuerKind
-		issuer = cc.Config.GetDefaultIssuer()
+		iName = cc.Config.GetDefaultIssuer()
 	}
 
 	err = fmt.Errorf("issuer for Certificate not set")

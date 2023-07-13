@@ -3,6 +3,7 @@ module github.com/kaasops/envoy-xds-controller
 go 1.19
 
 require (
+	github.com/avast/retry-go/v4 v4.3.4
 	github.com/cert-manager/cert-manager v1.12.2
 	github.com/envoyproxy/go-control-plane v0.11.2-0.20230627031301-134d7a73f7a5
 	github.com/go-logr/logr v1.2.4
