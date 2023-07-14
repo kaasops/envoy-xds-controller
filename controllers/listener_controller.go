@@ -34,8 +34,8 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/filterchain"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
@@ -91,42 +91,54 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	for _, vs := range virtualServices.Items {
+	builder := filterchain.NewBuilder()
+
+	chain, err := r.buildFilterChain(ctx, builder, virtualServices.Items)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	listener.FilterChains = chain
+
+	return ctrl.Result{}, nil
+}
+
+func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain.Builder, virtualServices []v1alpha1.VirtualService) ([]*listenerv3.FilterChain, error) {
+	var chain []*listenerv3.FilterChain
+	for _, vs := range virtualServices {
 		// Get envoy virtualhost from virtualSerive spec
 		virtualHost := &routev3.VirtualHost{}
 		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
-			return ctrl.Result{}, err
+			return nil, err
 		}
-		// certificateGetter := tls.NewVirtualServiceCertificateGetter(virtualHost, vs.Spec.TlsConfig)
-		// certs, err := certificateGetter.GetCerts()
 
 		nodeIDs := []string{"default", "main"}
 
-		chain := xds.NewFilterChain()
-
 		if vs.Spec.TlsConfig == nil {
-			chain.WithFilters(virtualHost)
-			listener.FilterChains = append(listener.FilterChains, chain.FilterChain)
-			return ctrl.Result{}, nil
+			f, err := b.WithHttpConnectionManager(virtualHost).Build()
+			if err != nil {
+				return nil, err
+			}
+			chain = append(chain, f)
+			return chain, nil
 		}
 
 		certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, nodeIDs, r.Config, vs.Namespace)
 		certs, err := certsProvider.Provide(ctx)
 		if err != nil {
-			return ctrl.Result{}, err
+			return nil, err
 		}
 
 		for certName, domain := range certs {
 			virtualHost.Domains = domain
+			f, err := b.WithDownstreamTlsContext(certName).WithHttpConnectionManager(virtualHost).Build()
 			if err != nil {
-				return ctrl.Result{}, err
+				return nil, err
 			}
-			chain.WithTLS(certName).WithFilters(virtualHost)
-			listener.FilterChains = append(listener.FilterChains, chain.FilterChain)
+			chain = append(chain, f)
 		}
 	}
-
-	return ctrl.Result{}, nil
+	return chain, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
