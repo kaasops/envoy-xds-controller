@@ -86,15 +86,13 @@ func (b *builder) Build() (*listenerv3.FilterChain, error) {
 		},
 	}}
 
-	b.filterchain = filterchain
+	filterchain.Filters = filters
 
 	if b.downstreamTlsContext != nil {
 		scfg, err := anypb.New(b.downstreamTlsContext)
 		if err != nil {
 			return nil, err
 		}
-
-		filterchain.Filters = filters
 
 		transportSocker := &corev3.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
@@ -104,5 +102,8 @@ func (b *builder) Build() (*listenerv3.FilterChain, error) {
 		}
 		filterchain.TransportSocket = transportSocker
 	}
+
+	b.filterchain = filterchain
+
 	return filterchain, nil
 }
