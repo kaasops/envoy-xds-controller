@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -70,6 +71,12 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	err = r.Get(ctx, instance.Spec.Listener.NamespacedName(), listener)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if xds.GetNodeID(listener) != "" {
+		if xds.GetNodeID(instance) != xds.GetNodeID(listener) {
+			return ctrl.Result{}, ErrNodeIDMismatch
+		}
 	}
 
 	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)

@@ -51,7 +51,7 @@ func Ensure(ctx context.Context, cache cache.Cache, obj client.Object) error {
 		return err
 	}
 
-	nodeID := getNodeID(obj)
+	nodeID := GetNodeID(obj)
 
 	snap, err := newSnapshotWithResource(cache, nodeID, resource, obj.GetName(), resourceType)
 	if err != nil {
@@ -153,7 +153,7 @@ func newSnapshotWithResource(
 	return cachev3.NewSnapshot(strconv.Itoa(version), resources)
 }
 
-func getNodeID(obj client.Object) string {
+func GetNodeID(obj client.Object) string {
 	annotations := obj.GetAnnotations()
 
 	nodeID, ok := annotations[nodeIDAnnotation]
