@@ -71,31 +71,38 @@ func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost) Builder {
 }
 
 func (b *builder) Build() (*listenerv3.FilterChain, error) {
-	scfg, err := anypb.New(b.downstreamTlsContext)
-	if err != nil {
-		return nil, err
-	}
 
+	filterchain := &listenerv3.FilterChain{}
 	pbst, err := anypb.New(b.httpConnectionManager)
 
 	if err != nil {
 		return nil, err
 	}
 
-	filterchain := &listenerv3.FilterChain{
-		TransportSocket: &corev3.TransportSocket{
+	filters := []*listenerv3.Filter{{
+		Name: wellknown.HTTPConnectionManager,
+		ConfigType: &listenerv3.Filter_TypedConfig{
+			TypedConfig: pbst,
+		},
+	}}
+
+	b.filterchain = filterchain
+
+	if b.downstreamTlsContext != nil {
+		scfg, err := anypb.New(b.downstreamTlsContext)
+		if err != nil {
+			return nil, err
+		}
+
+		filterchain.Filters = filters
+
+		transportSocker := &corev3.TransportSocket{
 			Name: "envoy.transport_sockets.tls",
 			ConfigType: &corev3.TransportSocket_TypedConfig{
 				TypedConfig: scfg,
 			},
-		},
-		Filters: []*listenerv3.Filter{{
-			Name: wellknown.HTTPConnectionManager,
-			ConfigType: &listenerv3.Filter_TypedConfig{
-				TypedConfig: pbst,
-			},
-		}},
+		}
+		filterchain.TransportSocket = transportSocker
 	}
-	b.filterchain = filterchain
 	return filterchain, nil
 }

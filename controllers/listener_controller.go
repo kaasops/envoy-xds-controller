@@ -92,7 +92,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	builder := filterchain.NewBuilder()
-
 	chain, err := r.buildFilterChain(ctx, builder, virtualServices.Items)
 	if err != nil {
 		return ctrl.Result{}, err
