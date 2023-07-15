@@ -37,6 +37,10 @@ type TlsConfig struct {
 }
 
 type CertManager struct {
+	// Enabled used if Issuer and ClusterIssuer not set (If you want use default issuer fron ENV)
+	// If install Enabled and Issuer or ClusterIssuer - specified issuer will be used
+	Enabled *bool `json:"enabled,omitempty"`
+
 	Issuer        *string `json:"issuer,omitempty"`
 	ClusterIssuer *string `json:"clusterIssuer,omitempty"`
 }

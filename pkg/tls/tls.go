@@ -28,8 +28,13 @@ var (
 	ErrZeroParam = errors.New(`need choose one 1 param for configure TLS. \
 	You can choose one of 'sdsName', 'secretRef', 'certManager'.\
 	If you don't want use TLS for connection - don't install tlsConfig`)
-	ErrNodeIDsEmpty = errors.New("NodeID not set")
-	ErrSsdNotExist  = errors.New("")
+	ErrNodeIDsEmpty           = errors.New("NodeID not set")
+	ErrTlsConfigNotExist      = errors.New("tls Config not set")
+	ErrSecretNotTLSType       = errors.New("kuberentes Secret is not a type TLS")
+	ErrControlLabelNotExist   = errors.New("kuberentes Secret doesn't have control label")
+	ErrControlLabelWrong      = errors.New("kubernetes Secret have label, but value not true")
+	ErrCertManaferCRDNotExist = errors.New("Cert Manager CRDs not exist. Perhaps Cert Manager is not installed in the Kubernetes cluster")
+	ErrTlsConfigManyParam     = errors.New("сannot be installed Issuer and ClusterIssuer in 1 config")
 
 	secretRefType   = "secretRef"
 	certManagerType = "certManagetType"
@@ -84,15 +89,12 @@ func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string
 		return nil, err
 	}
 
-	tlsType, err := cc.getTLSType()
-	if err != nil {
-		return nil, err
-	}
+	tlsType, _ := cc.getTLSType()
 
 	if tlsType == secretRefType {
 		secretName := fmt.Sprintf("%s-%s",
-			cc.TlsConfig.SecretRef.Name,
 			cc.TlsConfig.SecretRef.Namespace,
+			cc.TlsConfig.SecretRef.Name,
 		)
 		return map[string][]string{
 			secretName: cc.VirtualHost.Domains,
@@ -106,18 +108,19 @@ func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string
 	return nil, nil
 }
 
-func (cc *TlsConfigController) certManagerProvide(ctx context.Context) (certs map[string][]string, err error) {
+func (cc *TlsConfigController) certManagerProvide(ctx context.Context) (map[string][]string, error) {
+	certs := map[string][]string{}
 	for _, domain := range cc.VirtualHost.Domains {
 		objName := strings.ReplaceAll(domain, ".", "-")
 
-		if err = cc.createCertificate(ctx, domain, objName); err != nil {
+		if err := cc.createCertificate(ctx, domain, objName); err != nil {
 			return nil, err
 		}
 
 		certs[fmt.Sprintf("%s-%s", cc.Namespace, objName)] = []string{domain}
 	}
 
-	return nil, nil
+	return certs, nil
 }
 
 func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, objName string) error {
@@ -172,7 +175,7 @@ func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, ob
 func (cc *TlsConfigController) Validate(ctx context.Context) error {
 	// Check if TLS not used
 	if cc.TlsConfig == nil {
-		return nil
+		return ErrTlsConfigNotExist
 	}
 
 	if len(cc.NodeIDs) == 0 {
@@ -226,17 +229,17 @@ func (cc *TlsConfigController) checkKubernetesSecret(ctx context.Context, nn typ
 
 	// Check Secret type
 	if secret.Type != corev1.SecretTypeTLS {
-		return fmt.Errorf("kuberentes Secret %s in namespace %s is not a type TLS", nn.Name, nn.Namespace)
+		return fmt.Errorf("%w. %s/%s", ErrSecretNotTLSType, nn.Name, nn.Namespace)
 	}
 
 	// Check control label
 	labels := secret.Labels
 	value, ok := labels[secretLabel]
 	if !ok {
-		return fmt.Errorf("kubernetes Secret %s in namespace %s dont't have label %s", nn.Name, nn.Namespace, secretLabel)
+		return fmt.Errorf("%w. %s/%s", ErrControlLabelNotExist, nn.Name, nn.Namespace)
 	}
 	if value != "true" {
-		return fmt.Errorf("kubernetes Secret %s in namespace %s have label %s, but value not True", nn.Name, nn.Namespace, secretLabel)
+		return fmt.Errorf("%w. %s/%s", ErrControlLabelWrong, nn.Name, nn.Namespace)
 	}
 
 	return nil
@@ -252,7 +255,7 @@ func (cc *TlsConfigController) checkCertManager(ctx context.Context) error {
 			return err
 		}
 		if !exist {
-			return fmt.Errorf("CRD %s not exist. Perhaps Cert Manager is not installed in the Kubernetes cluster", kind)
+			return fmt.Errorf("%w. CRD: %s", ErrCertManaferCRDNotExist, kind)
 		}
 	}
 
@@ -287,7 +290,7 @@ func (cc *TlsConfigController) checkCertManager(ctx context.Context) error {
 func (cc *TlsConfigController) getIssuer() (iType, iName string, err error) {
 	if cc.TlsConfig.CertManager.Issuer != nil {
 		if cc.TlsConfig.CertManager.ClusterIssuer != nil {
-			err = fmt.Errorf("сannot be installed Issuer and ClusterIssuer in 1 config")
+			err = ErrTlsConfigManyParam
 			return
 		}
 		iType = cmapi.IssuerKind
@@ -301,9 +304,12 @@ func (cc *TlsConfigController) getIssuer() (iType, iName string, err error) {
 		return
 	}
 
-	if cc.Config.GetDefaultIssuer() != "" {
-		iType = cmapi.ClusterIssuerKind
-		iName = cc.Config.GetDefaultIssuer()
+	if *cc.TlsConfig.CertManager.Enabled {
+		if cc.Config.GetDefaultIssuer() != "" {
+			iType = cmapi.ClusterIssuerKind
+			iName = cc.Config.GetDefaultIssuer()
+		}
+		return
 	}
 
 	err = fmt.Errorf("issuer for Certificate not set")
