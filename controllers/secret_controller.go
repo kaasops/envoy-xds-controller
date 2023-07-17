@@ -19,73 +19,60 @@ package controllers
 import (
 	"context"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 // SecretReconciler reconciles a Secret object
 type SecretReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cache.Cache
+	Scheme      *runtime.Scheme
+	Cache       cache.Cache
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=secrets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=secrets/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Secret object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Secret", req.NamespacedName)
+	log.Info("Reconciling secret")
 
-	log.Info("Start process Envoy Secret")
-	secretCR, err := r.findSecretCustomResourceInstance(ctx, req)
-	if err != nil {
-		log.Error(err, "Failed to get Envoy Secret CR")
-		return ctrl.Result{}, err
-	}
-	if secretCR == nil {
-		log.Info("Envoy Secret CR not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-	if secretCR.Spec == nil {
-		log.Info("Envoy Secret CR spec not found. Ignoring since object")
-		return ctrl.Result{}, nil
-	}
-
-	if err := xds.Ensure(ctx, r.Cache, secretCR); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
-}
-
-func (r *SecretReconciler) findSecretCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.Secret, error) {
-	cr := &v1alpha1.Secret{}
-	err := r.Get(ctx, req.NamespacedName, cr)
+	// Get Secret instance
+	instance := &v1alpha1.Secret{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			return nil, nil
+			log.Info("Secret instance not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
 		}
-		return nil, err
+		return ctrl.Result{}, err
 	}
-	return cr, nil
+
+	if instance.Spec == nil {
+		return ctrl.Result{}, ErrEmptySpec
+	}
+
+	// get envoy secret from secret instance spec
+	secret := &tlsv3.Secret{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, secret); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Cache.Update(NodeID(instance), secret, instance.Name, resourcev3.SecretType); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

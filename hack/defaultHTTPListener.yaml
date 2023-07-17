@@ -13,7 +13,7 @@ spec:
   address:
     socket_address:
       address: 0.0.0.0
-      port_value: 80
+      port_value: 8080
     filter_chains:
     - filters:
       - name: envoy.http_connection_manager
@@ -30,4 +30,4 @@ spec:
                   prefix: "/"
                 redirect:
                   https_redirect: true
-                  port_redirect: 443
+                  port_redirect: 9443

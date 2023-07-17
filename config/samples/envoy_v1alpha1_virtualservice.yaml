@@ -17,7 +17,7 @@ spec:
     - match: 
         prefix: "/"
       route: 
-        cluster: local-test
+        cluster: cluster-sample
   tlsConfig:
     secretRef:
       name: cert1
@@ -45,7 +45,7 @@ spec:
     - match: 
         prefix: "/"
       route: 
-        cluster: local-test
+        cluster: cluster-sample
   listener:
     name: custom-listener
     namespace: default

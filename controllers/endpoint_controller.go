@@ -19,12 +19,15 @@ package controllers
 import (
 	"context"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
@@ -32,59 +35,45 @@ import (
 // EndpointReconciler reconciles a Endpoint object
 type EndpointReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cache.Cache
+	Scheme      *runtime.Scheme
+	Cache       cache.Cache
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=endpoints/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=endpoints/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Endpoint object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Endpoint", req.NamespacedName)
+	log.Info("Reconciling endpoint")
 
-	log.Info("Start process Envoy Endpoint")
-	EndpointCR, err := r.findEndpointCustomResourceInstance(ctx, req)
-	if err != nil {
-		log.Error(err, "Failed to get Envoy Endpoint CR")
-		return ctrl.Result{}, err
-	}
-	if EndpointCR == nil {
-		log.Info("Envoy Endpoint CR not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-	if EndpointCR.Spec == nil {
-		log.Info("Envoy Endpoint CR spec not found. Ignoring since object")
-		return ctrl.Result{}, nil
-	}
-
-	// if err := xds.Ensure(ctx, r.Cache, EndpointCR); err != nil {
-	// 	return ctrl.Result{}, err
-	// }
-
-	return ctrl.Result{}, nil
-}
-
-func (r *EndpointReconciler) findEndpointCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.Endpoint, error) {
-	cr := &v1alpha1.Endpoint{}
-	err := r.Get(ctx, req.NamespacedName, cr)
+	// Get Endpoint instance
+	instance := &v1alpha1.Endpoint{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			return nil, nil
+			log.Info("Endpoint instance not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
 		}
-		return nil, err
+		return ctrl.Result{}, err
 	}
-	return cr, nil
+
+	if instance.Spec == nil {
+		return ctrl.Result{}, ErrEmptySpec
+	}
+
+	// get envoy endpoint from endpoint instance spec
+	endpoint := &endpointv3.Endpoint{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, endpoint); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Cache.Update(NodeID(instance), endpoint, instance.Name, resourcev3.EndpointType); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

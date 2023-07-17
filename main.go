@@ -121,9 +121,10 @@ func main() {
 	}
 
 	if err = (&controllers.ClusterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
@@ -140,33 +141,37 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.RouteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Route")
 		os.Exit(1)
 	}
 	if err = (&controllers.EndpointReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 		os.Exit(1)
 	}
 	if err = (&controllers.VirtualHostReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualHost")
 		os.Exit(1)
 	}
 	if err = (&controllers.SecretReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)
@@ -179,8 +184,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.UpstreamReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Upstream")
 		os.Exit(1)

@@ -32,6 +32,7 @@ import (
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/filterchain"
@@ -64,7 +65,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Listener not found. Ignoring since object must be deleted")
+			log.Info("Listener instance not found. Ignoring since object must be deleted")
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -98,6 +99,10 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	listener.FilterChains = chain
+
+	if err := r.Cache.Update(NodeID(instance), listener, instance.Name, resourcev3.ListenerType); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

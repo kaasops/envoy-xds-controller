@@ -19,73 +19,61 @@ package controllers
 import (
 	"context"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 // RouteReconciler reconciles a Route object
 type RouteReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cache.Cache
+	Scheme      *runtime.Scheme
+	Cache       cache.Cache
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=routes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=routes/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Route object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Route", req.NamespacedName)
+	log.Info("Reconciling route")
 
-	log.Info("Start process Envoy Route")
-	routeCR, err := r.findRouteCustomResourceInstance(ctx, req)
+	// Get Route instance
+	instance := &v1alpha1.Route{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
-		log.Error(err, "Failed to get Envoy Route CR")
+		if api_errors.IsNotFound(err) {
+			log.Info("Route instance not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
-	if routeCR == nil {
-		log.Info("Envoy Route CR not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-	if routeCR.Spec == nil {
-		log.Info("Envoy Route CR spec not found. Ignoring since object")
-		return ctrl.Result{}, nil
+
+	if instance.Spec == nil {
+		return ctrl.Result{}, ErrEmptySpec
 	}
 
-	if err := xds.Ensure(ctx, r.Cache, routeCR); err != nil {
+	// get envoy route from route instance spec
+	route := &routev3.Route{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, route); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Cache.Update(NodeID(instance), route, instance.Name, resourcev3.RouteType); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *RouteReconciler) findRouteCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.Route, error) {
-	cr := &v1alpha1.Route{}
-	err := r.Get(ctx, req.NamespacedName, cr)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return cr, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
