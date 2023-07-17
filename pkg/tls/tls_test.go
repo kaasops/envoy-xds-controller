@@ -371,7 +371,7 @@ func getClient_With_Secret_With_Disabled_Label() client.Client {
 	secret := getDefault_Secret()
 	secret.Type = corev1.SecretTypeTLS
 	secret.ObjectMeta.Labels = map[string]string{
-		secretLabel: "False",
+		SecretLabel: "False",
 	}
 	client := fake.NewClientBuilder().WithObjects(secret).Build()
 
@@ -382,7 +382,7 @@ func getClient_With_Secret() client.Client {
 	secret := getDefault_Secret()
 	secret.Type = corev1.SecretTypeTLS
 	secret.ObjectMeta.Labels = map[string]string{
-		secretLabel: "true",
+		SecretLabel: "true",
 	}
 	client := fake.NewClientBuilder().WithObjects(secret).Build()
 
@@ -393,7 +393,7 @@ func getClient_With_Secret_And_CertManager_CRDs(name, namespace string) client.C
 	secret := getDefault_Secret()
 	secret.Type = corev1.SecretTypeTLS
 	secret.ObjectMeta.Labels = map[string]string{
-		secretLabel: "true",
+		SecretLabel: "true",
 	}
 
 	issuer := &cmapi.Issuer{

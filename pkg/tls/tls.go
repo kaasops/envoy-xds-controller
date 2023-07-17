@@ -33,13 +33,13 @@ var (
 	ErrSecretNotTLSType       = errors.New("kuberentes Secret is not a type TLS")
 	ErrControlLabelNotExist   = errors.New("kuberentes Secret doesn't have control label")
 	ErrControlLabelWrong      = errors.New("kubernetes Secret have label, but value not true")
-	ErrCertManaferCRDNotExist = errors.New("Cert Manager CRDs not exist. Perhaps Cert Manager is not installed in the Kubernetes cluster")
+	ErrCertManaferCRDNotExist = errors.New("cert Manager CRDs not exist. Perhaps Cert Manager is not installed in the Kubernetes cluster")
 	ErrTlsConfigManyParam     = errors.New("сannot be installed Issuer and ClusterIssuer in 1 config")
 
 	secretRefType   = "secretRef"
 	certManagerType = "certManagetType"
 
-	secretLabel = "envoy.kaasops.io/sds-cached"
+	SecretLabel = "envoy.kaasops.io/sds-cached"
 
 	certManagerKinds = []string{
 		cmapi.ClusterIssuerKind,
@@ -234,7 +234,7 @@ func (cc *TlsConfigController) checkKubernetesSecret(ctx context.Context, nn typ
 
 	// Check control label
 	labels := secret.Labels
-	value, ok := labels[secretLabel]
+	value, ok := labels[SecretLabel]
 	if !ok {
 		return fmt.Errorf("%w. %s/%s", ErrControlLabelNotExist, nn.Name, nn.Namespace)
 	}

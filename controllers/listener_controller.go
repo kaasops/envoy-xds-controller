@@ -35,9 +35,9 @@ import (
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
-	"github.com/kaasops/envoy-xds-controller/pkg/filterchain"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 )
 
 var listenerReconciliationChannel = make(chan event.GenericEvent)
