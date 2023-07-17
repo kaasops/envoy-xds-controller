@@ -29,14 +29,14 @@ import (
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 // SecretReconciler reconciles a Secret object
 type SecretReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
-	Cache       cache.Cache
+	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
 }
 

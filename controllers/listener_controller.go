@@ -37,7 +37,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/filterchain"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 var listenerReconciliationChannel = make(chan event.GenericEvent)
@@ -46,7 +46,7 @@ var listenerReconciliationChannel = make(chan event.GenericEvent)
 type ListenerReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	Cache           cache.Cache
+	Cache           xdscache.Cache
 	Unmarshaler     *protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          config.Config

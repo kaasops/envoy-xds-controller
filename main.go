@@ -35,7 +35,7 @@ import (
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
 
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
@@ -104,7 +104,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	xDSCache := cache.New()
+	xDSCache := xdscache.New()
 	xDSServer := server.New(xDSCache.SnapshotCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
 

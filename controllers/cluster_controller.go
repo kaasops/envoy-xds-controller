@@ -28,7 +28,7 @@ import (
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -36,7 +36,7 @@ import (
 type ClusterReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
-	Cache       cache.Cache
+	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
 }
 

@@ -29,14 +29,14 @@ import (
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
 // EndpointReconciler reconciles a Endpoint object
 type EndpointReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
-	Cache       cache.Cache
+	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
 }
 
