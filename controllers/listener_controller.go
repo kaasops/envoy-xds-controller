@@ -32,7 +32,6 @@ import (
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
@@ -66,6 +65,9 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("Listener instance not found. Ignoring since object must be deleted")
+			if err := r.Cache.Delete(NodeID(instance), &listenerv3.Listener{}, req.Name); err != nil {
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -100,7 +102,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	listener.FilterChains = chain
 
-	if err := r.Cache.Update(NodeID(instance), listener, instance.Name, resourcev3.ListenerType); err != nil {
+	if err := r.Cache.Update(NodeID(instance), listener, instance.Name); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -119,12 +121,12 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 		nodeIDs := []string{"default", "main"}
 
 		if vs.Spec.TlsConfig == nil {
-			f, err := b.WithHttpConnectionManager(virtualHost).Build()
+			f, err := b.WithHttpConnectionManager(virtualHost).Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}
 			chain = append(chain, f)
-			return chain, nil
+			continue
 		}
 
 		certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, nodeIDs, r.Config, vs.Namespace)
@@ -135,7 +137,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 
 		for certName, domain := range certs {
 			virtualHost.Domains = domain
-			f, err := b.WithDownstreamTlsContext(certName).WithHttpConnectionManager(virtualHost).Build()
+			f, err := b.WithDownstreamTlsContext(certName).WithHttpConnectionManager(virtualHost).Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -150,5 +152,6 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
 		WatchesRawSource(&source.Channel{Source: listenerReconciliationChannel}, &handler.EnqueueRequestForObject{}).
+		Owns(&v1alpha1.VirtualService{}).
 		Complete(r)
 }

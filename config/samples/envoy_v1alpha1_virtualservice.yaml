@@ -10,9 +10,9 @@ metadata:
   name: virtualservice-sample
 spec:
   virtualHost:
-    name: test1
+    name: vh-test
     domains:
-    - "wplan.io"
+    - "example.io"
     routes:
     - match: 
         prefix: "/"
@@ -38,14 +38,38 @@ metadata:
   name: virtualservice-sample1
 spec:
   virtualHost:
-    name: test1
+    name: vh-test1
     domains:
-    - "wplan1.io"
+    - "example1.io"
     routes:
     - match: 
         prefix: "/"
       route: 
-        cluster: cluster-sample
+        cluster: cluster-sample1
+  listener:
+    name: custom-listener
+    namespace: default
+---
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  labels:
+    app.kubernetes.io/name: virtualservice
+    app.kubernetes.io/instance: virtualservice-sample
+    app.kubernetes.io/part-of: envoy-xds-controller
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: envoy-xds-controller
+  name: virtualservice-sample2
+spec:
+  virtualHost:
+    name: vh-test2
+    domains:
+    - "example2.io"
+    routes:
+    - match: 
+        prefix: "/lol"
+      route: 
+        cluster: cluster-sample2
   listener:
     name: custom-listener
     namespace: default

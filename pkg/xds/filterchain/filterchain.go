@@ -13,7 +13,7 @@ import (
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
 	WithHttpConnectionManager(virtualHost *routev3.VirtualHost) Builder
-	Build() (*listenerv3.FilterChain, error)
+	Build(name string) (*listenerv3.FilterChain, error)
 }
 
 type builder struct {
@@ -70,9 +70,11 @@ func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost) Builder {
 	return b
 }
 
-func (b *builder) Build() (*listenerv3.FilterChain, error) {
+func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 
-	filterchain := &listenerv3.FilterChain{}
+	filterchain := &listenerv3.FilterChain{
+		Name: name,
+	}
 	pbst, err := anypb.New(b.httpConnectionManager)
 
 	if err != nil {
