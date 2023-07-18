@@ -5,6 +5,26 @@ metadata:
   creationTimestamp: null
   name: manager-role
 rules:
+- resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- resources:
+  - secrets/finalizers
+  verbs:
+  - update
+- resources:
+  - secrets/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - envoy.kaasops.io
   resources:
@@ -138,6 +158,32 @@ rules:
 - apiGroups:
   - envoy.kaasops.io
   resources:
+  - upstreams
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - upstreams/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - upstreams/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
   - virtualhosts
   verbs:
   - create
@@ -157,6 +203,32 @@ rules:
   - envoy.kaasops.io
   resources:
   - virtualhosts/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - virtualservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - virtualservices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - virtualservices/status
   verbs:
   - get
   - patch

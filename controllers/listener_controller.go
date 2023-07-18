@@ -19,79 +19,136 @@ package controllers
 import (
 	"context"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
+	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/tls"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 )
+
+var listenerReconciliationChannel = make(chan event.GenericEvent)
 
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cachev3.SnapshotCache
+	Scheme          *runtime.Scheme
+	Cache           xdscache.Cache
+	Unmarshaler     *protojson.UnmarshalOptions
+	DiscoveryClient *discovery.DiscoveryClient
+	Config          config.Config
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Listener object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
+	log.Info("Reconciling listener")
 
-	log.Info("Start process Envoy Listener")
-	listenerCR, err := r.findListenerCustomResourceInstance(ctx, req)
+	// Get listener instance
+	instance := &v1alpha1.Listener{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
-		log.Error(err, "Failed to get Envoy Listener CR")
+		if api_errors.IsNotFound(err) {
+			log.Info("Listener instance not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
-	if listenerCR == nil {
-		log.Info("Envoy Listener CR not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-	if listenerCR.Spec == nil {
-		log.Info("Envoy Listener CR spec not found. Ignoring since object")
-		return ctrl.Result{}, nil
+
+	if instance.Spec == nil {
+		return ctrl.Result{}, ErrEmptySpec
 	}
 
-	if err := xds.Ensure(ctx, r.Cache, listenerCR); err != nil {
+	// get envoy listener from listener instance spec
+	listener := &listenerv3.Listener{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Get VirtualService objects with matching listener
+	virtualServices := &v1alpha1.VirtualServiceList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(req.Namespace),
+		client.MatchingFields{VirtualServiceListenerFeild: req.Name},
+	}
+
+	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	builder := filterchain.NewBuilder()
+	chain, err := r.buildFilterChain(ctx, builder, virtualServices.Items)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	listener.FilterChains = chain
+
+	if err := r.Cache.Update(NodeID(instance), listener, instance.Name, resourcev3.ListenerType); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) findListenerCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.Listener, error) {
-	cr := &v1alpha1.Listener{}
-	err := r.Get(ctx, req.NamespacedName, cr)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return nil, nil
+func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain.Builder, virtualServices []v1alpha1.VirtualService) ([]*listenerv3.FilterChain, error) {
+	var chain []*listenerv3.FilterChain
+	for _, vs := range virtualServices {
+		// Get envoy virtualhost from virtualSerive spec
+		virtualHost := &routev3.VirtualHost{}
+		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
+			return nil, err
 		}
-		return nil, err
+
+		nodeIDs := []string{"default", "main"}
+
+		if vs.Spec.TlsConfig == nil {
+			f, err := b.WithHttpConnectionManager(virtualHost).Build()
+			if err != nil {
+				return nil, err
+			}
+			chain = append(chain, f)
+			return chain, nil
+		}
+
+		certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, nodeIDs, r.Config, vs.Namespace)
+		certs, err := certsProvider.Provide(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for certName, domain := range certs {
+			virtualHost.Domains = domain
+			f, err := b.WithDownstreamTlsContext(certName).WithHttpConnectionManager(virtualHost).Build()
+			if err != nil {
+				return nil, err
+			}
+			chain = append(chain, f)
+		}
 	}
-	return cr, nil
+	return chain, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.Listener{}).
+		For(&v1alpha1.Listener{}).
+		WatchesRawSource(&source.Channel{Source: listenerReconciliationChannel}, &handler.EnqueueRequestForObject{}).
 		Complete(r)
 }

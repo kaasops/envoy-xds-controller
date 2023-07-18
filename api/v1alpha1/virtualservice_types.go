@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -25,11 +26,28 @@ import (
 
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
+	Listener    *ResourceRef          `json:"listener,omitempty"`
+	TlsConfig   *TlsConfig            `json:"tlsConfig,omitempty"`
+}
 
-	// Foo is an example field of VirtualService. Edit virtualservice_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+type TlsConfig struct {
+	CertManager *CertManager `json:"certManager,omitempty"`
+	SecretRef   *ResourceRef `json:"secretRef,omitempty"`
+}
+
+type CertManager struct {
+	// Enabled used if Issuer and ClusterIssuer not set (If you want use default issuer fron ENV)
+	// If install Enabled and Issuer or ClusterIssuer - specified issuer will be used
+	Enabled *bool `json:"enabled,omitempty"`
+
+	Issuer        *string `json:"issuer,omitempty"`
+	ClusterIssuer *string `json:"clusterIssuer,omitempty"`
+}
+
+type ResourceRef struct {
+	Name      string `json:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // VirtualServiceStatus defines the observed state of VirtualService

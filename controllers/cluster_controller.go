@@ -19,22 +19,25 @@ package controllers
 import (
 	"context"
 
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
+	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // ClusterReconciler reconciles a Cluster object
 type ClusterReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cachev3.SnapshotCache
+	Scheme      *runtime.Scheme
+	Cache       xdscache.Cache
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
@@ -42,41 +45,35 @@ type ClusterReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=clusters/finalizers,verbs=update
 
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 	log := log.FromContext(ctx).WithValues("Envoy Cluster", req.NamespacedName)
+	log.Info("Reconciling cluster")
 
-	log.Info("Start process Envoy Cluster")
-	clusterCR, err := r.findClusterCustomResourceInstance(ctx, req)
+	// Get Cluster instance
+	instance := &v1alpha1.Cluster{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
-		log.Error(err, "Failed to get Envoy Cluster CR")
+		if api_errors.IsNotFound(err) {
+			log.Info("Cluster instance not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
-	if clusterCR == nil {
-		log.Info("Envoy Cluster CR not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-	if clusterCR.Spec == nil {
-		log.Info("Envoy Cluster CR spec not found. Ignoring since object")
-		return ctrl.Result{}, nil
+
+	if instance.Spec == nil {
+		return ctrl.Result{}, ErrEmptySpec
 	}
 
-	if err := xds.Ensure(ctx, r.Cache, clusterCR); err != nil {
+	// get envoy cluster from cluster instance spec
+	cluster := &clusterv3.Cluster{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, cluster); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Cache.Update(NodeID(instance), cluster, instance.Name, resourcev3.ClusterType); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *ClusterReconciler) findClusterCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.Cluster, error) {
-	cr := &v1alpha1.Cluster{}
-	err := r.Get(ctx, req.NamespacedName, cr)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return cr, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

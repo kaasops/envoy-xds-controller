@@ -19,79 +19,65 @@ package controllers
 import (
 	"context"
 
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
-	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 )
 
 // VirtualHostReconciler reconciles a VirtualHost object
 type VirtualHostReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  cachev3.SnapshotCache
+	Scheme      *runtime.Scheme
+	Cache       xdscache.Cache
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualhosts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualhosts/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualhosts/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the VirtualHost object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *VirtualHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-	log := log.FromContext(ctx).WithValues("Envoy VirtualHost", req.NamespacedName)
+	log := log.FromContext(ctx).WithValues("Envoy Virtualhost", req.NamespacedName)
+	log.Info("Reconciling virtualhost")
 
-	log.Info("Start process Envoy VirtualHost")
-	virtualHostCR, err := r.findVirtualHostCustomResourceInstance(ctx, req)
+	// Get Virtualhost instance
+	instance := &v1alpha1.VirtualHost{}
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
-		log.Error(err, "Failed to get Envoy VirtualHost CR")
+		if api_errors.IsNotFound(err) {
+			log.Info("Virtualhost instance not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
-	if virtualHostCR == nil {
-		log.Info("Envoy VirtualHost CR not found. Ignoring since object must be deleted")
-		return ctrl.Result{}, nil
-	}
-	if virtualHostCR.Spec == nil {
-		log.Info("Envoy VirtualHost CR spec not found. Ignoring since object")
-		return ctrl.Result{}, nil
+
+	if instance.Spec == nil {
+		return ctrl.Result{}, ErrEmptySpec
 	}
 
-	if err := xds.Ensure(ctx, r.Cache, virtualHostCR); err != nil {
+	// get envoy virtualhost from virtualhost instance spec
+	virtualhost := &routev3.VirtualHost{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, virtualhost); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Cache.Update(NodeID(instance), virtualhost, instance.Name, resourcev3.VirtualHostType); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *VirtualHostReconciler) findVirtualHostCustomResourceInstance(ctx context.Context, req ctrl.Request) (*v1alpha1.VirtualHost, error) {
-	cr := &v1alpha1.VirtualHost{}
-	err := r.Get(ctx, req.NamespacedName, cr)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return cr, nil
-}
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *VirtualHostReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.VirtualHost{}).
+		For(&v1alpha1.VirtualHost{}).
 		Complete(r)
 }

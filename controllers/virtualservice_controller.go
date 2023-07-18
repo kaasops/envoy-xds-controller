@@ -19,44 +19,85 @@ package controllers
 import (
 	"context"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // VirtualServiceReconciler reconciles a VirtualService object
 type VirtualServiceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme      *runtime.Scheme
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the VirtualService object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.14.1/pkg/reconcile
 func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	log := log.FromContext(ctx).WithValues("VirtualService", req.NamespacedName)
+
+	instance := &v1alpha1.VirtualService{}
+	err := r.Get(ctx, req.NamespacedName, instance)
+	if err != nil {
+		if api_errors.IsNotFound(err) {
+			log.Info("VirtualService not found. Ignoring since object must be deleted")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	if instance.Spec.VirtualHost == nil {
+		log.Error(err, "VirtualHost could not be empty")
+		return ctrl.Result{}, ErrEmptySpec
+	}
+
+	// Set default listener if listener not set
+	if instance.Spec.Listener == nil {
+		// TODO: fix default listerner namespace
+		instance.Spec.Listener = &v1alpha1.ResourceRef{Name: DefaultListenerName, Namespace: req.Namespace}
+	}
+
+	listener := &v1alpha1.Listener{}
+	err = r.Get(ctx, instance.Spec.Listener.NamespacedName(), listener)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if NodeID(listener) != "" {
+		if NodeID(instance) != NodeID(listener) {
+			return ctrl.Result{}, ErrNodeIDMismatch
+		}
+	}
+
+	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)
+
+	listenerReconciliationChannel <- event.GenericEvent{Object: listener}
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Add custom index to list by listerner
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, VirtualServiceListenerFeild, func(rawObject client.Object) []string {
+		virtualService := rawObject.(*v1alpha1.VirtualService)
+		if virtualService.Spec.Listener == nil {
+			return []string{DefaultListenerName}
+		}
+		return []string{virtualService.Spec.Listener.Name}
+	}); err != nil {
+		return err
+	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.VirtualService{}).
+		For(&v1alpha1.VirtualService{}).
 		Complete(r)
 }

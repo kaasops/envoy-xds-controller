@@ -22,35 +22,42 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"google.golang.org/protobuf/encoding/protojson"
+	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/tls"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
 
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
 
 	"github.com/kaasops/envoy-xds-controller/controllers"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-	xDSPort  = 8888
 )
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(envoyv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -63,6 +70,12 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+
+	cfg, err := config.New()
+	if err != nil {
+		setupLog.Error(err, "Can't get params from env")
+	}
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -78,72 +91,85 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "80f8c36d.kaasops.io",
-		Namespace:              "default", // Need use operator-namespace or use flag!!!!!!!!
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		Namespace:              cfg.GetWatchNamespace(),
+		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
+			&corev1.Secret{}: {Label: labels.Set{tls.SecretLabel: "true"}.AsSelector()},
+		}},
+		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	xDSCache := cachev3.NewSnapshotCache(false, cachev3.IDHash{}, nil)
-	xDSServer := xds.NewServer(xDSCache, &testv3.Callbacks{Debug: true})
-	go xDSServer.Run(xDSPort)
+	xDSCache := xdscache.New()
+	xDSServer := server.New(xDSCache.SnapshotCache, &testv3.Callbacks{Debug: true})
+	go xDSServer.Run(cfg.GetXDSPort())
+
+	unmarshaler := &protojson.UnmarshalOptions{
+		AllowPartial: false,
+		// DiscardUnknown: true,
+	}
+
+	config := ctrl.GetConfigOrDie()
+	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create discovery client")
+		os.Exit(1)
+	}
 
 	if err = (&controllers.ClusterReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.ListenerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Cache:           xDSCache,
+		Unmarshaler:     unmarshaler,
+		DiscoveryClient: dc,
+		Config:          cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
 		os.Exit(1)
 	}
 	if err = (&controllers.RouteReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Route")
 		os.Exit(1)
 	}
 	if err = (&controllers.EndpointReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 		os.Exit(1)
 	}
 	if err = (&controllers.VirtualHostReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualHost")
 		os.Exit(1)
 	}
 	if err = (&controllers.SecretReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  xDSCache,
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)
@@ -151,20 +177,23 @@ func main() {
 	if err = (&controllers.KubeSecretReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret Certificare")
 		os.Exit(1)
 	}
 	if err = (&controllers.UpstreamReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Upstream")
 		os.Exit(1)
 	}
 	if err = (&controllers.VirtualServiceReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)

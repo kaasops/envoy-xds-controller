@@ -1,4 +1,4 @@
-package xds
+package server
 
 import (
 	"context"
@@ -34,7 +34,7 @@ type Server struct {
 	xDSServer serverv3.Server
 }
 
-func NewServer(cache cachev3.SnapshotCache, cb *testv3.Callbacks) *Server {
+func New(cache cachev3.SnapshotCache, cb *testv3.Callbacks) *Server {
 	return &Server{
 		xDSServer: serverv3.NewServer(context.Background(), cache, cb),
 	}
