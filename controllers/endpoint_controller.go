@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
@@ -54,6 +53,9 @@ func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("Endpoint instance not found. Ignoring since object must be deleted")
+			if err := r.Cache.Delete(NodeID(instance), &endpointv3.Endpoint{}, req.Name); err != nil {
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -69,7 +71,7 @@ func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	if err := r.Cache.Update(NodeID(instance), endpoint, instance.Name, resourcev3.EndpointType); err != nil {
+	if err := r.Cache.Update(NodeID(instance), endpoint, instance.Name); err != nil {
 		return ctrl.Result{}, err
 	}
 

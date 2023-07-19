@@ -28,7 +28,6 @@ import (
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
@@ -64,7 +63,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.Cache.Update(NodeID(kubeSecret), r.envoySecret(kubeSecret), kubeSecret.Name, resourcev3.SecretType); err != nil {
+	if err := r.Cache.Update(NodeID(kubeSecret), r.envoySecret(kubeSecret), kubeSecret.Name); err != nil {
 		return ctrl.Result{}, err
 	}
 

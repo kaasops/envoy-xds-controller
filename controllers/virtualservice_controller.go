@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -76,6 +77,14 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if NodeID(instance) != NodeID(listener) {
 			return ctrl.Result{}, ErrNodeIDMismatch
 		}
+	}
+
+	if err := controllerutil.SetControllerReference(listener, instance, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Client.Update(ctx, instance); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)

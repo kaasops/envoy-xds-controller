@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
@@ -54,6 +53,9 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("Secret instance not found. Ignoring since object must be deleted")
+			if err := r.Cache.Delete(NodeID(instance), &tlsv3.Secret{}, req.Name); err != nil {
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -69,7 +71,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	if err := r.Cache.Update(NodeID(instance), secret, instance.Name, resourcev3.SecretType); err != nil {
+	if err := r.Cache.Update(NodeID(instance), secret, instance.Name); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
