@@ -81,7 +81,7 @@ rules:
   - routes
   - secrets
   - upstreams
-  - vistrualhosts
+  - virtrualhosts
   - virtualservices
   verbs:
   - create
