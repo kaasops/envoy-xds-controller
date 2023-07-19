@@ -100,7 +100,14 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	listener.FilterChains = chain
+	listener.FilterChains = append(listener.FilterChains, chain...)
+
+	if len(listener.FilterChains) == 0 {
+		if err := r.Cache.Delete(NodeID(instance), &listenerv3.Listener{}, req.Name); err != nil {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, nil
+	}
 
 	if err := r.Cache.Update(NodeID(instance), listener, instance.Name); err != nil {
 		return ctrl.Result{}, err
