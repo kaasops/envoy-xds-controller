@@ -4,6 +4,7 @@ import (
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -57,6 +58,8 @@ func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost) Builder {
 			Routes:  v.Routes,
 		}},
 	}
+	routerConfig, _ := anypb.New(&router.Router{})
+
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: v.Name,
@@ -65,6 +68,9 @@ func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost) Builder {
 		},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name: wellknown.Router,
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: routerConfig,
+			},
 		}},
 	}
 
