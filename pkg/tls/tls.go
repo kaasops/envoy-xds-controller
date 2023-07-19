@@ -15,6 +15,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	k8s_utils "github.com/kaasops/k8s-utils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -146,7 +147,36 @@ func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, ob
 	}
 
 	if err := cc.client.Create(ctx, cert); err != nil {
-		return err
+		if api_errors.IsAlreadyExists(err) {
+			existing := &cmapi.Certificate{}
+			err := cc.client.Get(ctx, client.ObjectKeyFromObject(cert), existing)
+			if err != nil {
+				return err
+			}
+
+			// init Interface for compare
+			desiredFields := []interface{}{
+				cert.GetAnnotations(),
+				cert.GetLabels(),
+				cert.Spec,
+			}
+			existingFields := []interface{}{
+				existing.GetAnnotations(),
+				existing.GetLabels(),
+				existing.Spec,
+			}
+
+			// Compare
+			if !equality.Semantic.DeepDerivative(desiredFields, existingFields) {
+				// Update if not equal
+				existing.Labels = cert.Labels
+				existing.Annotations = cert.Annotations
+				existing.Spec = cert.Spec
+				return cc.client.Update(ctx, existing)
+			}
+			return nil
+
+		}
 	}
 
 	// Check secret created
