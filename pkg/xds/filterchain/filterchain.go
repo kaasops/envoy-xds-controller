@@ -13,6 +13,7 @@ import (
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
 	WithHttpConnectionManager(virtualHost *routev3.VirtualHost) Builder
+	WithFilterChainMatch(virtualHost *routev3.VirtualHost) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
 }
 
@@ -20,6 +21,7 @@ type builder struct {
 	filterchain           *listenerv3.FilterChain
 	downstreamTlsContext  *tlsv3.DownstreamTlsContext
 	httpConnectionManager *hcm.HttpConnectionManager
+	filterChainMatch      *listenerv3.FilterChainMatch
 }
 
 func NewBuilder() *builder {
@@ -70,11 +72,20 @@ func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost) Builder {
 	return b
 }
 
+func (b *builder) WithFilterChainMatch(virtualHost *routev3.VirtualHost) Builder {
+	filterChainMatch := &listenerv3.FilterChainMatch{
+		ServerNames: virtualHost.Domains,
+	}
+	b.filterChainMatch = filterChainMatch
+	return b
+}
+
 func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 
 	filterchain := &listenerv3.FilterChain{
 		Name: name,
 	}
+
 	pbst, err := anypb.New(b.httpConnectionManager)
 
 	if err != nil {
@@ -89,6 +100,8 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	}}
 
 	filterchain.Filters = filters
+
+	filterchain.FilterChainMatch = b.filterChainMatch
 
 	if b.downstreamTlsContext != nil {
 		scfg, err := anypb.New(b.downstreamTlsContext)

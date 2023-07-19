@@ -121,7 +121,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 		nodeIDs := []string{"default", "main"}
 
 		if vs.Spec.TlsConfig == nil {
-			f, err := b.WithHttpConnectionManager(virtualHost).Build(vs.Name)
+			f, err := b.WithHttpConnectionManager(virtualHost).WithFilterChainMatch(virtualHost).Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -137,7 +137,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 
 		for certName, domain := range certs {
 			virtualHost.Domains = domain
-			f, err := b.WithDownstreamTlsContext(certName).WithHttpConnectionManager(virtualHost).Build(vs.Name)
+			f, err := b.WithDownstreamTlsContext(certName).WithFilterChainMatch(virtualHost).WithHttpConnectionManager(virtualHost).Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}
