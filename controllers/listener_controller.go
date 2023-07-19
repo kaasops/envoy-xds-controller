@@ -100,7 +100,14 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	listener.FilterChains = chain
+	listener.FilterChains = append(listener.FilterChains, chain...)
+
+	if len(listener.FilterChains) == 0 {
+		if err := r.Cache.Delete(NodeID(instance), &listenerv3.Listener{}, req.Name); err != nil {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, nil
+	}
 
 	if err := r.Cache.Update(NodeID(instance), listener, instance.Name); err != nil {
 		return ctrl.Result{}, err
@@ -121,7 +128,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 		nodeIDs := []string{"default", "main"}
 
 		if vs.Spec.TlsConfig == nil {
-			f, err := b.WithHttpConnectionManager(virtualHost).Build(vs.Name)
+			f, err := b.WithHttpConnectionManager(virtualHost).WithFilterChainMatch(virtualHost).Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -137,7 +144,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 
 		for certName, domain := range certs {
 			virtualHost.Domains = domain
-			f, err := b.WithDownstreamTlsContext(certName).WithHttpConnectionManager(virtualHost).Build(vs.Name)
+			f, err := b.WithDownstreamTlsContext(certName).WithFilterChainMatch(virtualHost).WithHttpConnectionManager(virtualHost).Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}
