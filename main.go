@@ -46,6 +46,8 @@ import (
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
 
 	"github.com/kaasops/envoy-xds-controller/controllers"
+
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -58,6 +60,8 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+
+	utilruntime.Must(cmapi.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
