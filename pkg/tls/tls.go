@@ -143,6 +143,11 @@ func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, ob
 				Name: iName,
 				Kind: iType,
 			},
+			SecretTemplate: &cmapi.CertificateSecretTemplate{
+				Labels: map[string]string{
+					SecretLabel: "true",
+				},
+			},
 		},
 	}
 

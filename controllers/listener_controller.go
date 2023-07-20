@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
@@ -125,10 +126,22 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 			return nil, err
 		}
 
+		// Get envoy AccessLog from virtualService spec
+		var accessLog *accesslogv3.AccessLog = nil
+		if vs.Spec.AccessLog != nil {
+			accessLog = &accesslogv3.AccessLog{}
+			if err := r.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, accessLog); err != nil {
+				return nil, err
+			}
+		}
+
+		// TODO!!!!
 		nodeIDs := []string{"default", "main"}
 
 		if vs.Spec.TlsConfig == nil {
-			f, err := b.WithHttpConnectionManager(virtualHost).WithFilterChainMatch(virtualHost).Build(vs.Name)
+			f, err := b.WithHttpConnectionManager(virtualHost, accessLog).
+				WithFilterChainMatch(virtualHost).
+				Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}
@@ -144,7 +157,10 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, b filterchain
 
 		for certName, domain := range certs {
 			virtualHost.Domains = domain
-			f, err := b.WithDownstreamTlsContext(certName).WithFilterChainMatch(virtualHost).WithHttpConnectionManager(virtualHost).Build(vs.Name)
+			f, err := b.WithDownstreamTlsContext(certName).
+				WithFilterChainMatch(virtualHost).
+				WithHttpConnectionManager(virtualHost, accessLog).
+				Build(vs.Name)
 			if err != nil {
 				return nil, err
 			}

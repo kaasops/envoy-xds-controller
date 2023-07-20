@@ -1,6 +1,7 @@
 package filterchain
 
 import (
+	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -13,7 +14,7 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(virtualHost *routev3.VirtualHost) Builder
+	WithHttpConnectionManager(virtualHost *routev3.VirtualHost, accessLog *accesslogv3.AccessLog) Builder
 	WithFilterChainMatch(virtualHost *routev3.VirtualHost) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
 }
@@ -49,7 +50,7 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost) Builder {
+func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost, accessLog *accesslogv3.AccessLog) Builder {
 	rte := &routev3.RouteConfiguration{
 		Name: v.Name,
 		VirtualHosts: []*routev3.VirtualHost{{
@@ -74,7 +75,12 @@ func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost) Builder {
 		}},
 	}
 
+	if accessLog != nil {
+		manager.AccessLog = append(manager.AccessLog, accessLog)
+	}
+
 	b.httpConnectionManager = manager
+
 	return b
 }
 
@@ -89,7 +95,7 @@ func (b *builder) WithFilterChainMatch(virtualHost *routev3.VirtualHost) Builder
 func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 
 	filterchain := &listenerv3.FilterChain{
-		Name: name,
+		// Name: name,
 	}
 
 	pbst, err := anypb.New(b.httpConnectionManager)

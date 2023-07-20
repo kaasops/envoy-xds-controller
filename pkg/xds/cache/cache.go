@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	// https://github.com/envoyproxy/go-control-plane/issues/390
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 )
 
 var (
@@ -224,4 +226,23 @@ func toSlice(resources map[string]types.Resource) []types.Resource {
 		res = append(res, r)
 	}
 	return res
+}
+
+func (c *Cache) CheckSnapshotCache(nodeID string) error {
+	snap, err := c.SnapshotCache.GetSnapshot(nodeID)
+	if err != nil {
+		return err
+	}
+
+	for _, t := range resourceTypes {
+		snapRes := snap.GetResources(t)
+		fmt.Printf("TYPE: %s\n", t)
+		for k, v := range snapRes {
+			fmt.Printf("Name: %s, Resource: %+v", k, v)
+		}
+		fmt.Println()
+		fmt.Println()
+	}
+
+	return nil
 }

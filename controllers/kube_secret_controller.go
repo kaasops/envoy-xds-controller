@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -67,6 +68,8 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
+	r.Cache.CheckSnapshotCache("main")
+
 	return ctrl.Result{}, nil
 }
 
@@ -93,7 +96,7 @@ func valid(log logr.Logger, secret *corev1.Secret) bool {
 
 func (r *KubeSecretReconciler) envoySecret(kubeSecret *corev1.Secret) *tlsv3.Secret {
 	return &tlsv3.Secret{
-		Name: kubeSecret.Name,
+		Name: fmt.Sprintf("%s-%s", kubeSecret.Namespace, kubeSecret.Name),
 		Type: &tlsv3.Secret_TlsCertificate{
 			TlsCertificate: &tlsv3.TlsCertificate{
 				CertificateChain: &corev3.DataSource{
