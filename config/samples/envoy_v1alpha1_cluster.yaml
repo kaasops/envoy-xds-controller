@@ -21,9 +21,4 @@ spec:
           address:
             socket_address:
               address: 127.0.0.1
-              port_value: 8443
-      - endpoint:
-          address:
-            socket_address:
-              address: 127.0.0.1
-              port_value: 9443
+              port_value: 80
