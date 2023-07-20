@@ -35,6 +35,9 @@ spec:
           spec:
             description: VirtualServiceSpec defines the desired state of VirtualService
             properties:
+              accessLog:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               listener:
                 properties:
                   name:
@@ -48,6 +51,12 @@ spec:
                     properties:
                       clusterIssuer:
                         type: string
+                      enabled:
+                        description: Enabled used if Issuer and ClusterIssuer not
+                          set (If you want use default issuer fron ENV) If install
+                          Enabled and Issuer or ClusterIssuer - specified issuer will
+                          be used
+                        type: boolean
                       issuer:
                         type: string
                     type: object

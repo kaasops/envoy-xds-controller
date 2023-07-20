@@ -29,6 +29,7 @@ type VirtualServiceSpec struct {
 	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
 	Listener    *ResourceRef          `json:"listener,omitempty"`
 	TlsConfig   *TlsConfig            `json:"tlsConfig,omitempty"`
+	AccessLog   *runtime.RawExtension `json:"accessLog,omitempty"`
 }
 
 type TlsConfig struct {
