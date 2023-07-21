@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -39,6 +40,7 @@ var (
 )
 
 type Cache struct {
+	mu            sync.Mutex
 	SnapshotCache cachev3.SnapshotCache
 }
 
@@ -62,6 +64,9 @@ func (c *Cache) Update(nodeID string, resource types.Resource, resourceName stri
 	if resourceType == "" {
 		return ErrUnknownResourceType
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
 	resources, version, err := c.getAll(nodeID)
@@ -104,6 +109,9 @@ func (c *Cache) Delete(nodeID string, resource types.Resource, resourceName stri
 	if resourceType == "" {
 		return ErrUnknownResourceType
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
 	resources, version, err := c.getAll(nodeID)
