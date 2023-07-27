@@ -111,13 +111,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
 		if len(listener.FilterChains) == 0 {
-			if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}, req.Name); err != nil {
+			if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, nil
 		}
 
-		if err := r.Cache.Update(nodeID, listener, instance.Name); err != nil {
+		if err := r.Cache.Update(nodeID, listener, getResourceName(req.Namespace, req.Name)); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
