@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/avast/retry-go/v4"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/go-logr/logr"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
@@ -29,7 +31,7 @@ var (
 	ErrZeroParam = errors.New(`need choose one 1 param for configure TLS. \
 	You can choose one of 'sdsName', 'secretRef', 'certManager'.\
 	If you don't want use TLS for connection - don't install tlsConfig`)
-	ErrNodeIDsEmpty           = errors.New("NodeID not set")
+	// ErrNodeIDsEmpty           = errors.New("NodeID not set")
 	ErrTlsConfigNotExist      = errors.New("tls Config not set")
 	ErrSecretNotTLSType       = errors.New("kuberentes Secret is not a type TLS")
 	ErrControlLabelNotExist   = errors.New("kuberentes Secret doesn't have control label")
@@ -55,7 +57,6 @@ type TlsConfigController struct {
 	DiscoveryClient *discovery.DiscoveryClient
 	TlsConfig       *v1alpha1.TlsConfig
 	VirtualHost     *routev3.VirtualHost
-	NodeIDs         []string
 	Config          config.Config
 	Namespace       string
 }
@@ -65,7 +66,6 @@ func New(
 	dc *discovery.DiscoveryClient,
 	tlsConfig *v1alpha1.TlsConfig,
 	vh *routev3.VirtualHost,
-	nodeIDs []string,
 	config config.Config,
 	namespace string,
 
@@ -75,7 +75,6 @@ func New(
 		DiscoveryClient: dc,
 		TlsConfig:       tlsConfig,
 		VirtualHost:     vh,
-		NodeIDs:         nodeIDs,
 		Config:          config,
 		Namespace:       namespace,
 	}
@@ -84,7 +83,7 @@ func New(
 // Provide return map[string][]string where:
 // key - name of TLS Certificate (is sDS cache (<NAMESPACE>-<NAME>)
 // value - domains
-func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string, error) {
+func (cc *TlsConfigController) Provide(ctx context.Context, log logr.Logger) (map[string][]string, error) {
 	err := cc.Validate(ctx)
 	if err != nil {
 		return nil, err
@@ -103,23 +102,31 @@ func (cc *TlsConfigController) Provide(ctx context.Context) (map[string][]string
 	}
 
 	if tlsType == certManagerType {
-		return cc.certManagerProvide(ctx)
+		return cc.certManagerProvide(ctx, log)
 	}
 
 	return nil, nil
 }
 
-func (cc *TlsConfigController) certManagerProvide(ctx context.Context) (map[string][]string, error) {
+func (cc *TlsConfigController) certManagerProvide(ctx context.Context, log logr.Logger) (map[string][]string, error) {
 	certs := map[string][]string{}
+
+	var wg sync.WaitGroup
 	for _, domain := range cc.VirtualHost.Domains {
-		objName := strings.ReplaceAll(domain, ".", "-")
+		wg.Add(1)
+		go func(log logr.Logger, domain string) {
+			defer wg.Done()
+			objName := strings.ReplaceAll(domain, ".", "-")
 
-		if err := cc.createCertificate(ctx, domain, objName); err != nil {
-			return nil, err
-		}
+			if err := cc.createCertificate(ctx, domain, objName); err != nil {
+				log.WithValues("Domain", domain).Error(err, "Error to create certificate for Domain")
+			}
 
-		certs[fmt.Sprintf("%s-%s", cc.Namespace, objName)] = []string{domain}
+			certs[fmt.Sprintf("%s-%s", cc.Namespace, objName)] = []string{domain}
+		}(log, domain)
 	}
+
+	wg.Wait()
 
 	return certs, nil
 }
@@ -213,9 +220,9 @@ func (cc *TlsConfigController) Validate(ctx context.Context) error {
 		return ErrTlsConfigNotExist
 	}
 
-	if len(cc.NodeIDs) == 0 {
-		return ErrNodeIDsEmpty
-	}
+	// if len(cc.NodeIDs) == 0 {
+	// 	return ErrNodeIDsEmpty
+	// }
 
 	tlsType, err := cc.getTLSType()
 	if err != nil {

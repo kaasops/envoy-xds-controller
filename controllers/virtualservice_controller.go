@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -35,6 +36,7 @@ import (
 type VirtualServiceReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
+	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
 }
 
@@ -73,8 +75,8 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	if NodeID(listener) != "" {
-		if NodeID(instance) != NodeID(listener) {
+	if GetNodeIDsAnnotation(listener) != "*" {
+		if !NodeIDsContains(NodeIDs(instance, r.Cache), NodeIDs(listener, r.Cache)) {
 			return ctrl.Result{}, ErrNodeIDMismatch
 		}
 	}
