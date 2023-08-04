@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,6 +50,9 @@ func New() Cache {
 }
 
 func (c *Cache) Update(nodeID string, resource types.Resource, resourceName string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if resourceName == "" {
 		resourceName = cachev3.GetResourceName(resource)
 	}
@@ -64,9 +66,6 @@ func (c *Cache) Update(nodeID string, resource types.Resource, resourceName stri
 	if resourceType == "" {
 		return ErrUnknownResourceType
 	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
 	resources, version, err := c.getAll(nodeID)
@@ -236,21 +235,28 @@ func toSlice(resources map[string]types.Resource) []types.Resource {
 	return res
 }
 
-func (c *Cache) CheckSnapshotCache(nodeID string) error {
-	snap, err := c.SnapshotCache.GetSnapshot(nodeID)
-	if err != nil {
-		return err
-	}
-
-	for _, t := range resourceTypes {
-		snapRes := snap.GetResources(t)
-		fmt.Printf("TYPE: %s\n", t)
-		for k, v := range snapRes {
-			fmt.Printf("Name: %s, Resource: %+v", k, v)
-		}
-		fmt.Println()
-		fmt.Println()
-	}
-
-	return nil
+func (c *Cache) GetAllNodeIDs() []string {
+	return c.SnapshotCache.GetStatusKeys()
 }
+
+// func (c *Cache) CheckSnapshotCache(nodeID string) error {
+// 	snap, err := c.SnapshotCache.GetSnapshot(nodeID)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	for _, t := range resourceTypes {
+// 		// if t == resourcev3.SecretType {
+// 		// 	continue
+// 		// }
+// 		snapRes := snap.GetResources(t)
+// 		fmt.Printf("TYPE: %s\n, Len: %+v", t, len(snapRes))
+// 		// for k, v := range snapRes {
+// 		// 	fmt.Printf("Name: %s, Resource: %+v", k, v)
+// 		// }
+// 		fmt.Println()
+// 		fmt.Println()
+// 	}
+
+// 	return nil
+// }

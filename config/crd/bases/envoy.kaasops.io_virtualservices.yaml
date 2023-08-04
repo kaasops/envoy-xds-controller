@@ -42,11 +42,12 @@ spec:
                 properties:
                   name:
                     type: string
-                  namespace:
-                    type: string
                 type: object
               tlsConfig:
                 properties:
+                  autoDiscovery:
+                    description: Find secret with domain in annotation "envoy.kaasops.io/domains"
+                    type: boolean
                   certManager:
                     properties:
                       clusterIssuer:
@@ -63,8 +64,6 @@ spec:
                   secretRef:
                     properties:
                       name:
-                        type: string
-                      namespace:
                         type: string
                     type: object
                 type: object

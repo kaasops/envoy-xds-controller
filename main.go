@@ -197,6 +197,7 @@ func main() {
 	if err = (&controllers.VirtualServiceReconciler{
 		Client:      mgr.GetClient(),
 		Scheme:      mgr.GetScheme(),
+		Cache:       xDSCache,
 		Unmarshaler: unmarshaler,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")

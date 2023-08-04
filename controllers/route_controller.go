@@ -52,9 +52,11 @@ func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Route instance not found. Ignoring since object must be deleted")
-			if err := r.Cache.Delete(NodeID(instance), &routev3.Route{}, req.Name); err != nil {
-				return ctrl.Result{}, err
+			log.Info("Route instance not found. Delete object fron xDS cache")
+			for _, nodeID := range NodeIDs(instance, r.Cache) {
+				if err := r.Cache.Delete(nodeID, &routev3.Route{}, getResourceName(req.Namespace, req.Name)); err != nil {
+					return ctrl.Result{}, err
+				}
 			}
 			return ctrl.Result{}, nil
 		}
@@ -71,8 +73,10 @@ func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, err
 	}
 
-	if err := r.Cache.Update(NodeID(instance), route, instance.Name); err != nil {
-		return ctrl.Result{}, err
+	for _, nodeID := range NodeIDs(instance, r.Cache) {
+		if err := r.Cache.Update(nodeID, route, getResourceName(instance.Namespace, instance.Name)); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil

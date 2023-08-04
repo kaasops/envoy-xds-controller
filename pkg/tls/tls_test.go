@@ -26,13 +26,14 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestProvide(t *testing.T) {
 	provideCase := func(
 		tlsConfig *v1alpha1.TlsConfig,
 		vh *routev3.VirtualHost,
-		nodeIDs []string,
+		// nodeIDs []string,
 		cfg config.Config,
 		namespace string,
 		cl client.Client,
@@ -59,8 +60,10 @@ func TestProvide(t *testing.T) {
 				// fmt.Println(err)
 			}
 
-			ctrl := New(cl, dc, tlsConfig, vh, nodeIDs, cfg, namespace)
-			certs, err := ctrl.Provide(context.TODO())
+			ctrl := New(cl, dc, tlsConfig, vh, cfg, namespace)
+
+			log := log.FromContext(context.TODO()).WithName("For test")
+			certs, err := ctrl.Provide(context.TODO(), log)
 			req.Equal(certs, wantCerts)
 
 			if !errors.Is(err, wantErr) {
@@ -74,7 +77,7 @@ func TestProvide(t *testing.T) {
 		name      string
 		tlsConfig *v1alpha1.TlsConfig
 		vh        *routev3.VirtualHost
-		nodeIDs   []string
+		// nodeIDs   []string
 		cfg       config.Config
 		namespace string
 		client    client.Client
@@ -91,7 +94,7 @@ func TestProvide(t *testing.T) {
 			name:      "Without TlsConfig case",
 			tlsConfig: nil,
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    defaultClient,
@@ -99,23 +102,23 @@ func TestProvide(t *testing.T) {
 			wantCerts: nil,
 			wantErr:   ErrTlsConfigNotExist,
 		},
-		{
-			name:      "Without NodeIDs case",
-			tlsConfig: getTLSConfig_With_SecretRef(),
-			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   nil,
-			cfg:       defaultConfig,
-			namespace: "default",
-			client:    defaultClient,
-			dc:        getDiscoveryClient_With_CertManager_CRDs(t),
-			wantCerts: nil,
-			wantErr:   ErrNodeIDsEmpty,
-		},
+		// {
+		// 	name:      "Without NodeIDs case",
+		// 	tlsConfig: getTLSConfig_With_SecretRef(),
+		// 	vh:        getVirtualHost_Default([]string{"test.io"}),
+		// 	nodeIDs:   nil,
+		// 	cfg:       defaultConfig,
+		// 	namespace: "default",
+		// 	client:    defaultClient,
+		// 	dc:        getDiscoveryClient_With_CertManager_CRDs(t),
+		// 	wantCerts: nil,
+		// 	wantErr:   ErrNodeIDsEmpty,
+		// },
 		{
 			name:      "TLSConfig. SecretRef and Certmanager enabled case",
 			tlsConfig: getTLSConfig_With_SecretRef_And_CertManager(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    defaultClient,
@@ -127,7 +130,7 @@ func TestProvide(t *testing.T) {
 			name:      "TLSConfig. SecretRef and Certmanager disabled case",
 			tlsConfig: getTLSConfig_With_Zero_Param(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    defaultClient,
@@ -139,7 +142,7 @@ func TestProvide(t *testing.T) {
 			name:      "SecretRef. Kubernetes secret (with TLS cert) not found case",
 			tlsConfig: getTLSConfig_With_SecretRef(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    defaultClient,
@@ -157,7 +160,7 @@ func TestProvide(t *testing.T) {
 			name:      "SecretRef. Kubernetes secret with TLS cert doesn't have TLS type case",
 			tlsConfig: getTLSConfig_With_SecretRef(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_Wrong_Type(),
@@ -169,7 +172,7 @@ func TestProvide(t *testing.T) {
 			name:      "SecretRef. Kubernetes secret without control-label case",
 			tlsConfig: getTLSConfig_With_SecretRef(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_Without_Label(),
@@ -181,7 +184,7 @@ func TestProvide(t *testing.T) {
 			name:      "SecretRef. Kubernetes secret with disabled control-label case",
 			tlsConfig: getTLSConfig_With_SecretRef(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_With_Disabled_Label(),
@@ -193,7 +196,7 @@ func TestProvide(t *testing.T) {
 			name:      "SecretRef. Normal case",
 			tlsConfig: getTLSConfig_With_SecretRef(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret(),
@@ -207,7 +210,7 @@ func TestProvide(t *testing.T) {
 			name:      "SecretRef. Many domains case",
 			tlsConfig: getTLSConfig_With_SecretRef(),
 			vh:        getVirtualHost_Default([]string{"test.io", "kaasops.io", "domain.com"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret(),
@@ -221,7 +224,7 @@ func TestProvide(t *testing.T) {
 			name:      "CertManager. CertManager CRDs not installed case",
 			tlsConfig: getTLSConfig_With_CertManager_Issuer("test"),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret(),
@@ -233,7 +236,7 @@ func TestProvide(t *testing.T) {
 			name:      "CertManager. Issuer not Exist case",
 			tlsConfig: getTLSConfig_With_CertManager_Issuer("test"),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_And_CertManager_CRDs("not-equal-name", "default"),
@@ -251,7 +254,7 @@ func TestProvide(t *testing.T) {
 			name:      "CertManager. Issuer and ClusterIssue installed case",
 			tlsConfig: getTLSConfig_With_CertManager_Issuer_And_Cluster_Issuer("test"),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_And_CertManager_CRDs("test", "default"),
@@ -263,7 +266,7 @@ func TestProvide(t *testing.T) {
 			name:      "CertManager. Cluster Issuer not Exist case",
 			tlsConfig: getTLSConfig_With_CertManager_Cluster_Issuer("test"),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_And_CertManager_CRDs("not-equal-name", "default"),
@@ -281,7 +284,7 @@ func TestProvide(t *testing.T) {
 			name:      "CertManager. Use default Issuer case",
 			tlsConfig: getTLSConfig_With_CertManager_Without_Issuer(),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_And_CertManager_CRDs("defaultIssuer", "default"),
@@ -299,7 +302,7 @@ func TestProvide(t *testing.T) {
 			name:      "CertManager. Normal case",
 			tlsConfig: getTLSConfig_With_CertManager_Issuer("test"),
 			vh:        getVirtualHost_Default([]string{"test.io"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_And_CertManager_CRDs("test", "default"),
@@ -313,7 +316,7 @@ func TestProvide(t *testing.T) {
 			name:      "CertManager. Many domains case",
 			tlsConfig: getTLSConfig_With_CertManager_Issuer("test"),
 			vh:        getVirtualHost_Default([]string{"test.io", "kaasops.io", "domain.com"}),
-			nodeIDs:   []string{"test"},
+			// nodeIDs:   []string{"test"},
 			cfg:       defaultConfig,
 			namespace: "default",
 			client:    getClient_With_Secret_And_CertManager_CRDs("test", "default"),
@@ -331,7 +334,7 @@ func TestProvide(t *testing.T) {
 		t.Run(tc.name, provideCase(
 			tc.tlsConfig,
 			tc.vh,
-			tc.nodeIDs,
+			// tc.nodeIDs,
 			tc.cfg,
 			tc.namespace,
 			tc.client,
@@ -428,8 +431,7 @@ func getClient_With_Secret_And_CertManager_CRDs(name, namespace string) client.C
 // Generate v1alpha1.TlsConfig for diff cases
 func getTLSConfig_With_SecretRef() *v1alpha1.TlsConfig {
 	secretRef := v1alpha1.ResourceRef{
-		Name:      "test",
-		Namespace: "default",
+		Name: "test",
 	}
 	tlsConfig := v1alpha1.TlsConfig{
 		SecretRef: &secretRef,
