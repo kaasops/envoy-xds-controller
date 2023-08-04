@@ -431,8 +431,7 @@ func getClient_With_Secret_And_CertManager_CRDs(name, namespace string) client.C
 // Generate v1alpha1.TlsConfig for diff cases
 func getTLSConfig_With_SecretRef() *v1alpha1.TlsConfig {
 	secretRef := v1alpha1.ResourceRef{
-		Name:      "test",
-		Namespace: "default",
+		Name: "test",
 	}
 	tlsConfig := v1alpha1.TlsConfig{
 		SecretRef: &secretRef,

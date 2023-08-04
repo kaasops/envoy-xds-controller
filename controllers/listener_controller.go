@@ -111,6 +111,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
 		if len(listener.FilterChains) == 0 {
+			log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
 			if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, nil
 			}
@@ -162,8 +163,10 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			}
 
 			var wg sync.WaitGroup
+			limit := make(chan struct{}, 10)
 			for certName, domains := range certs {
 				wg.Add(1)
+				limit <- struct{}{}
 
 				go func(log logr.Logger,
 					domains []string,
@@ -171,7 +174,11 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 					virtualHost *routev3.VirtualHost,
 					vs v1alpha1.VirtualService,
 				) {
-					defer wg.Done()
+					defer func() {
+						wg.Done()
+						<-limit
+					}()
+
 					virtualHost.Domains = domains
 					f, err := b.WithDownstreamTlsContext(certName).
 						WithFilterChainMatch(virtualHost).

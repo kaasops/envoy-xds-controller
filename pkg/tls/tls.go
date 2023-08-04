@@ -15,6 +15,7 @@ import (
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/k8s-utils"
 	k8s_utils "github.com/kaasops/k8s-utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -23,13 +24,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 var (
 	ErrManyParam = errors.New(`not supported using more then 1 param for configure TLS.
-	You can choose one of 'sdsName', 'secretRef', 'certManager'`)
+	You can choose one of 'secretRef', 'certManager', 'autoDiscovery'`)
 	ErrZeroParam = errors.New(`need choose one 1 param for configure TLS. \
-	You can choose one of 'sdsName', 'secretRef', 'certManager'.\
+	You can choose one of 'secretRef', 'certManager', 'autoDiscovery'.\
 	If you don't want use TLS for connection - don't install tlsConfig`)
 	// ErrNodeIDsEmpty           = errors.New("NodeID not set")
 	ErrTlsConfigNotExist      = errors.New("tls Config not set")
@@ -38,11 +41,15 @@ var (
 	ErrControlLabelWrong      = errors.New("kubernetes Secret have label, but value not true")
 	ErrCertManaferCRDNotExist = errors.New("cert Manager CRDs not exist. Perhaps Cert Manager is not installed in the Kubernetes cluster")
 	ErrTlsConfigManyParam     = errors.New("сannot be installed Issuer and ClusterIssuer in 1 config")
+	ErrDicoverNotFound        = errors.New("the secret with the certificate was not found for the domain")
 
-	secretRefType   = "secretRef"
-	certManagerType = "certManagetType"
+	secretRefType     = "secretRef"
+	certManagerType   = "certManagetType"
+	autoDiscoveryType = "autoDiscoveryType"
 
-	SecretLabel = "envoy.kaasops.io/sds-cached"
+	SecretLabel        = "envoy.kaasops.io/sds-cached"
+	autoDiscoveryLabel = "envoy.kaasops.io/autoDiscovery"
+	domainAnnotation   = "envoy.kaasops.io/domains"
 
 	certManagerKinds = []string{
 		cmapi.ClusterIssuerKind,
@@ -84,25 +91,26 @@ func New(
 // key - name of TLS Certificate (is sDS cache (<NAMESPACE>-<NAME>)
 // value - domains
 func (cc *TlsConfigController) Provide(ctx context.Context, log logr.Logger) (map[string][]string, error) {
-	err := cc.Validate(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// err := cc.Validate(ctx)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	tlsType, _ := cc.getTLSType()
 
-	if tlsType == secretRefType {
+	switch tlsType {
+	case secretRefType:
 		secretName := fmt.Sprintf("%s-%s",
-			cc.TlsConfig.SecretRef.Namespace,
+			cc.Namespace,
 			cc.TlsConfig.SecretRef.Name,
 		)
 		return map[string][]string{
 			secretName: cc.VirtualHost.Domains,
 		}, nil
-	}
-
-	if tlsType == certManagerType {
+	case certManagerType:
 		return cc.certManagerProvide(ctx, log)
+	case autoDiscoveryType:
+		return cc.autoDiscoveryProvide(ctx, log)
 	}
 
 	return nil, nil
@@ -116,6 +124,7 @@ func (cc *TlsConfigController) certManagerProvide(ctx context.Context, log logr.
 		wg.Add(1)
 		go func(log logr.Logger, domain string) {
 			defer wg.Done()
+
 			objName := strings.ReplaceAll(domain, ".", "-")
 
 			if err := cc.createCertificate(ctx, domain, objName); err != nil {
@@ -126,6 +135,44 @@ func (cc *TlsConfigController) certManagerProvide(ctx context.Context, log logr.
 		}(log, domain)
 	}
 
+	wg.Wait()
+
+	return certs, nil
+}
+
+func (cc *TlsConfigController) autoDiscoveryProvide(ctx context.Context, log logr.Logger) (map[string][]string, error) {
+	certs := map[string][]string{}
+	secrets, err := cc.getCertificateSecrets(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var wg sync.WaitGroup
+	for _, domain := range cc.VirtualHost.Domains {
+		wg.Add(1)
+		go func(log logr.Logger, domain string) {
+			defer wg.Done()
+
+			flag := false
+			for _, secret := range secrets {
+				if containDomain(domain, strings.Split(secret.Annotations[domainAnnotation], ",")) {
+					v, ok := certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)]
+					if ok {
+						v = append(v, domain)
+						certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)] = v
+					} else {
+						certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)] = []string{domain}
+					}
+					flag = true
+					break
+				}
+			}
+
+			if !flag {
+				log.Error(ErrDicoverNotFound, domain)
+			}
+		}(log, domain)
+	}
 	wg.Wait()
 
 	return certs, nil
@@ -214,37 +261,25 @@ func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, ob
 // Tls can be provide by 2 types:
 // 1. SecretRef - Use TLS from exist Kubernetes Secret
 // 2. CertManager - Use CertManager for create Kubernetes Secret with certificate and
+// 3. AutoDiscovery - try to find secret with TLS secret (based on domain annotation)
 func (cc *TlsConfigController) Validate(ctx context.Context) error {
 	// Check if TLS not used
 	if cc.TlsConfig == nil {
 		return ErrTlsConfigNotExist
 	}
 
-	// if len(cc.NodeIDs) == 0 {
-	// 	return ErrNodeIDsEmpty
-	// }
-
 	tlsType, err := cc.getTLSType()
 	if err != nil {
 		return err
 	}
 
-	if tlsType == secretRefType {
-		err := cc.checkSecretRef(ctx)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	}
-
-	if tlsType == certManagerType {
-		err := cc.checkCertManager(ctx)
-		if err != nil {
-			return err
-		}
-
-		return nil
+	switch tlsType {
+	case secretRefType:
+		return cc.checkSecretRef(ctx)
+	case certManagerType:
+		return cc.checkCertManager(ctx)
+	case autoDiscoveryType:
+		return cc.checkAutoDiscovery(ctx)
 	}
 
 	return ErrZeroParam
@@ -254,7 +289,7 @@ func (cc *TlsConfigController) Validate(ctx context.Context) error {
 func (cc *TlsConfigController) checkSecretRef(ctx context.Context) error {
 	namespacedName := types.NamespacedName{
 		Name:      cc.TlsConfig.SecretRef.Name,
-		Namespace: cc.TlsConfig.SecretRef.Namespace,
+		Namespace: cc.Namespace,
 	}
 
 	return cc.checkKubernetesSecret(ctx, namespacedName)
@@ -329,6 +364,24 @@ func (cc *TlsConfigController) checkCertManager(ctx context.Context) error {
 	return nil
 }
 
+// Check if AutoDiscovery set.
+func (cc *TlsConfigController) checkAutoDiscovery(ctx context.Context) error {
+	secrets, err := cc.getCertificateSecrets(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, vhDomain := range cc.VirtualHost.Domains {
+		for _, secret := range secrets {
+			if !containDomain(vhDomain, strings.Split(secret.Annotations[domainAnnotation], ",")) {
+				return fmt.Errorf("%w. Domain: %s", ErrDicoverNotFound, vhDomain)
+			}
+		}
+	}
+
+	return nil
+}
+
 func (cc *TlsConfigController) getIssuer() (iType, iName string, err error) {
 	if cc.TlsConfig.CertManager.Issuer != nil {
 		if cc.TlsConfig.CertManager.ClusterIssuer != nil {
@@ -360,15 +413,58 @@ func (cc *TlsConfigController) getIssuer() (iType, iName string, err error) {
 
 func (cc *TlsConfigController) getTLSType() (string, error) {
 	if cc.TlsConfig.SecretRef != nil {
-		if cc.TlsConfig.CertManager != nil {
+		if cc.TlsConfig.CertManager != nil || cc.TlsConfig.AutoDiscovery != nil {
 			return "", ErrManyParam
 		}
-
 		return secretRefType, nil
 	}
 
 	if cc.TlsConfig.CertManager != nil {
+		if cc.TlsConfig.AutoDiscovery != nil {
+			return "", ErrManyParam
+		}
 		return certManagerType, nil
 	}
+
+	if cc.TlsConfig.AutoDiscovery != nil {
+		return autoDiscoveryType, nil
+	}
+
 	return "", ErrZeroParam
+}
+
+func (cc *TlsConfigController) getCertificateSecrets(ctx context.Context) ([]corev1.Secret, error) {
+	requirement, err := labels.NewRequirement(autoDiscoveryLabel, "==", []string{"true"})
+	if err != nil {
+		return nil, err
+	}
+	labelSelector := labels.NewSelector().Add(*requirement)
+	listOpt := client.ListOptions{
+		LabelSelector: labelSelector,
+		Namespace:     cc.Namespace,
+	}
+	return k8s.ListSecret(ctx, cc.client, listOpt)
+}
+
+// if n domains contain something like *.domain.com
+// it's contains with www.domain.com
+func containDomain(domain string, domains []string) bool {
+	domainSpl := strings.Split(domain, ".")
+
+C1:
+	for _, d := range domains {
+		dSpl := strings.Split(d, ".")
+
+		for i, v := range dSpl {
+			if v == "*" {
+				continue
+			}
+			if v == domainSpl[i] {
+				continue
+			}
+			continue C1
+		}
+		return true
+	}
+	return false
 }

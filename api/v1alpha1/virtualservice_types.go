@@ -35,6 +35,9 @@ type VirtualServiceSpec struct {
 type TlsConfig struct {
 	CertManager *CertManager `json:"certManager,omitempty"`
 	SecretRef   *ResourceRef `json:"secretRef,omitempty"`
+
+	// Find secret with domain in annotation "envoy.kaasops.io/domains"
+	AutoDiscovery *bool `json:"autoDiscovery,omitempty"`
 }
 
 type CertManager struct {
@@ -47,8 +50,8 @@ type CertManager struct {
 }
 
 type ResourceRef struct {
-	Name      string `json:"name,omitempty"`
-	Namespace string `json:"namespace,omitempty"`
+	Name string `json:"name,omitempty"`
+	// Namespace string `json:"namespace,omitempty"`
 }
 
 // VirtualServiceStatus defines the observed state of VirtualService

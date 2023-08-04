@@ -54,7 +54,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if api_errors.IsNotFound(err) {
 			log.Info("Cluster instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance, r.Cache) {
-				if err := r.Cache.Delete(nodeID, &clusterv3.Cluster{}, getResourceName(req.Namespace, req.Name)); err != nil {
+				if err := r.Cache.Delete(nodeID, &clusterv3.Cluster{}, req.Name); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -74,7 +74,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
-		if err := r.Cache.Update(nodeID, cluster, getResourceName(instance.Namespace, instance.Name)); err != nil {
+		if err := r.Cache.Update(nodeID, cluster, instance.Name); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

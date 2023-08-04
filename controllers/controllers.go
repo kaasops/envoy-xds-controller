@@ -13,7 +13,7 @@ const (
 	DefaultListenerName         = "default-https"
 	VirtualServiceListenerFeild = "spec.listener.name"
 	nodeIDAnnotation            = "envoy.kaasops.io/node-id"
-	defaultNodeID               = "main"
+	defaultNodeID               = "default"
 )
 
 var (
