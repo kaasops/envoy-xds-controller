@@ -45,6 +45,16 @@ spec:
         args:
           {{- toYaml . | nindent 10 }}
         {{- end }}
+        env:
+          - name: XDS_PORT
+            value: "{{ .Values.xds.port }}"
+        {{- with .Values.envs }}
+          {{- tpl . $ | nindent 10 }}
+        {{- end }}
+        ports:
+          - name: http
+            containerPort: {{ .Values.xds.port }}
+            protocol: TCP
         {{- with .Values.securityContext }}
         securityContext:
           {{- toYaml . | nindent 10 }}

@@ -2,6 +2,9 @@ fullnameOverride: ""
 nameOverride: ""
 namespaceOverride: ""
 
+xds:
+  port: 8080
+
 replicaCount: 1
 
 image:
@@ -34,6 +37,8 @@ securityContext: {}
 
 podSecurityContext: {}
 
+envs: {}
+
 tolerations: {}
 
 resources:
@@ -43,6 +48,13 @@ resources:
   requests:
     cpu: 100m
     memory: 50Mi
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
 
 serviceAccount:
   # Specifies whether a service account should be created
