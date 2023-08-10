@@ -35,27 +35,35 @@ spec:
           spec:
             description: VirtualServiceSpec defines the desired state of VirtualService
             properties:
+              accessLog:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               listener:
                 properties:
                   name:
                     type: string
-                  namespace:
-                    type: string
                 type: object
               tlsConfig:
                 properties:
+                  autoDiscovery:
+                    description: Find secret with domain in annotation "envoy.kaasops.io/domains"
+                    type: boolean
                   certManager:
                     properties:
                       clusterIssuer:
                         type: string
+                      enabled:
+                        description: Enabled used if Issuer and ClusterIssuer not
+                          set (If you want use default issuer fron ENV) If install
+                          Enabled and Issuer or ClusterIssuer - specified issuer will
+                          be used
+                        type: boolean
                       issuer:
                         type: string
                     type: object
                   secretRef:
                     properties:
                       name:
-                        type: string
-                      namespace:
                         type: string
                     type: object
                 type: object
@@ -65,6 +73,14 @@ spec:
             type: object
           status:
             description: VirtualServiceStatus defines the observed state of VirtualService
+            properties:
+              errors:
+                additionalProperties:
+                  type: string
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: object
             type: object
         type: object
     served: true
