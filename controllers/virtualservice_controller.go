@@ -21,13 +21,17 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -35,9 +39,11 @@ import (
 // VirtualServiceReconciler reconciles a VirtualService object
 type VirtualServiceReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Cache       xdscache.Cache
-	Unmarshaler *protojson.UnmarshalOptions
+	Scheme          *runtime.Scheme
+	Cache           *xdscache.Cache
+	Unmarshaler     *protojson.UnmarshalOptions
+	DiscoveryClient *discovery.DiscoveryClient
+	Config          config.Config
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
@@ -45,8 +51,8 @@ type VirtualServiceReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices/finalizers,verbs=update
 
 func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	log := log.FromContext(ctx).WithValues("VirtualService", req.NamespacedName)
+	log.Info("Reconciling VirtualService")
 
 	instance := &v1alpha1.VirtualService{}
 	err := r.Get(ctx, req.NamespacedName, instance)
@@ -61,6 +67,23 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if instance.Spec.VirtualHost == nil {
 		log.Error(err, "VirtualHost could not be empty")
 		return ctrl.Result{}, ErrEmptySpec
+	}
+
+	// Validate Virtual Service
+	// Get envoy virtualhost from virtualSerive spec
+	virtualHost := &routev3.VirtualHost{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.VirtualHost.Raw, virtualHost); err != nil {
+		return ctrl.Result{}, err
+	}
+	certsProvider := tls.New(r.Client, r.DiscoveryClient, instance.Spec.TlsConfig, virtualHost, r.Config, instance.Namespace)
+	errorList, err := certsProvider.Validate(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if len(errorList) > 0 {
+		instance.Status.Errors = errorList
+		r.Client.Status().Update(ctx, instance)
 	}
 
 	// Set default listener if listener not set

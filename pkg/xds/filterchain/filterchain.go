@@ -1,6 +1,8 @@
 package filterchain
 
 import (
+	"strings"
+
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -14,8 +16,8 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(virtualHost *routev3.VirtualHost, accessLog *accesslogv3.AccessLog) Builder
-	WithFilterChainMatch(virtualHost *routev3.VirtualHost) Builder
+	WithHttpConnectionManager(name string, domains []string, routes []*routev3.Route, accessLog *accesslogv3.AccessLog) Builder
+	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
 }
 
@@ -50,20 +52,22 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost, accessLog *accesslogv3.AccessLog) Builder {
+func (b *builder) WithHttpConnectionManager(name string, domains []string, routes []*routev3.Route, accessLog *accesslogv3.AccessLog) Builder {
+	objName := getFilterChainName(name, domains)
+
 	rte := &routev3.RouteConfiguration{
-		Name: v.Name,
+		Name: objName,
 		VirtualHosts: []*routev3.VirtualHost{{
-			Name:    v.Name,
-			Domains: v.Domains,
-			Routes:  v.Routes,
+			Name:    objName,
+			Domains: domains,
+			Routes:  routes,
 		}},
 	}
 	routerConfig, _ := anypb.New(&router.Router{})
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: v.Name,
+		StatPrefix: objName,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: rte,
 		},
@@ -84,18 +88,18 @@ func (b *builder) WithHttpConnectionManager(v *routev3.VirtualHost, accessLog *a
 	return b
 }
 
-func (b *builder) WithFilterChainMatch(virtualHost *routev3.VirtualHost) Builder {
+func (b *builder) WithFilterChainMatch(domains []string) Builder {
 	filterChainMatch := &listenerv3.FilterChainMatch{
-		ServerNames: virtualHost.Domains,
+		ServerNames: domains,
 	}
 	b.filterChainMatch = filterChainMatch
 	return b
 }
 
 func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
-
+	// I'm get name from prefix. Not good idea
 	filterchain := &listenerv3.FilterChain{
-		// Name: name,
+		Name: b.httpConnectionManager.StatPrefix,
 	}
 
 	pbst, err := anypb.New(b.httpConnectionManager)
@@ -133,4 +137,13 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	b.filterchain = filterchain
 
 	return filterchain, nil
+}
+
+func getFilterChainName(name string, domains []string) string {
+	objName := name
+	if len(domains) == 1 {
+		objName = strings.ToLower(strings.ReplaceAll(domains[0], ".", "-"))
+	}
+
+	return objName
 }

@@ -50,7 +50,7 @@ var listenerReconciliationChannel = make(chan event.GenericEvent)
 type ListenerReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	Cache           xdscache.Cache
+	Cache           *xdscache.Cache
 	Unmarshaler     *protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          config.Config
@@ -129,7 +129,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService) ([]*listenerv3.FilterChain, error) {
 	var chains []*listenerv3.FilterChain
 	for _, vs := range virtualServices {
-		log.WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
+		log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
 
 		// Get envoy virtualhost from virtualSerive spec
 		virtualHost := &routev3.VirtualHost{}
@@ -147,8 +147,13 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 		}
 
 		if vs.Spec.TlsConfig == nil {
-			f, err := b.WithHttpConnectionManager(virtualHost, accessLog).
-				WithFilterChainMatch(virtualHost).
+			f, err := b.WithHttpConnectionManager(
+				virtualHost.Name,
+				virtualHost.Domains,
+				virtualHost.Routes,
+				accessLog,
+			).
+				WithFilterChainMatch(virtualHost.Domains).
 				Build(vs.Name)
 			if err != nil {
 				return nil, err
@@ -163,15 +168,17 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			}
 
 			var wg sync.WaitGroup
-			limit := make(chan struct{}, 10)
+			limit := make(chan struct{}, 1)
 			for certName, domains := range certs {
 				wg.Add(1)
 				limit <- struct{}{}
 
+				// TODO: Need to convert []*routev3.Route to []routev3.Route. (Because of this, there is no way to work with parallel, because. routes into pointers are replaced by all goroutines)
 				go func(log logr.Logger,
 					domains []string,
 					certName string,
-					virtualHost *routev3.VirtualHost,
+					name string,
+					routes []*routev3.Route,
 					vs v1alpha1.VirtualService,
 				) {
 					defer func() {
@@ -179,19 +186,18 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 						<-limit
 					}()
 
-					virtualHost.Domains = domains
 					f, err := b.WithDownstreamTlsContext(certName).
-						WithFilterChainMatch(virtualHost).
-						WithHttpConnectionManager(virtualHost, accessLog).
+						WithFilterChainMatch(domains).
+						WithHttpConnectionManager(name, domains, routes, accessLog).
 						Build(vs.Name)
 					if err != nil {
 						log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
 					}
-					chains = append(chains, f)
-				}(log, domains, certName, virtualHost, vs)
 
-				wg.Wait()
+					chains = append(chains, f)
+				}(log, domains, certName, virtualHost.Name, virtualHost.Routes, vs)
 			}
+			wg.Wait()
 		}
 	}
 	return chains, nil

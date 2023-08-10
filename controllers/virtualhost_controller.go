@@ -34,7 +34,7 @@ import (
 type VirtualHostReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
-	Cache       xdscache.Cache
+	Cache       *xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
 }
 
