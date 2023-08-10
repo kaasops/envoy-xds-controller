@@ -202,7 +202,7 @@ func TestProvide(t *testing.T) {
 			client:    getClient_With_Secret(),
 			dc:        getDiscoveryClient_With_CertManager_CRDs(t),
 			wantCerts: map[string][]string{
-				"default-test": []string{"test.io"},
+				"default-test": {"test.io"},
 			},
 			wantErr: nil,
 		},
@@ -216,7 +216,7 @@ func TestProvide(t *testing.T) {
 			client:    getClient_With_Secret(),
 			dc:        getDiscoveryClient_With_CertManager_CRDs(t),
 			wantCerts: map[string][]string{
-				"default-test": []string{"test.io", "kaasops.io", "domain.com"},
+				"default-test": {"test.io", "kaasops.io", "domain.com"},
 			},
 			wantErr: nil,
 		},
@@ -308,7 +308,7 @@ func TestProvide(t *testing.T) {
 			client:    getClient_With_Secret_And_CertManager_CRDs("test", "default"),
 			dc:        getDiscoveryClient_With_CertManager_CRDs(t),
 			wantCerts: map[string][]string{
-				"default-test-io": []string{"test.io"},
+				"default-test-io": {"test.io"},
 			},
 			wantErr: nil,
 		},
@@ -322,9 +322,9 @@ func TestProvide(t *testing.T) {
 			client:    getClient_With_Secret_And_CertManager_CRDs("test", "default"),
 			dc:        getDiscoveryClient_With_CertManager_CRDs(t),
 			wantCerts: map[string][]string{
-				"default-test-io":    []string{"test.io"},
-				"default-kaasops-io": []string{"kaasops.io"},
-				"default-domain-com": []string{"domain.com"},
+				"default-test-io":    {"test.io"},
+				"default-kaasops-io": {"kaasops.io"},
+				"default-domain-com": {"domain.com"},
 			},
 			wantErr: nil,
 		},

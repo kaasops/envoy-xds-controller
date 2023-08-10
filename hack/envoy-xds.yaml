@@ -20,7 +20,7 @@ dynamic_resources:
     ads: {}
 node:
   cluster: default
-  id: main
+  id: default
 static_resources:
   clusters:
   - typed_extension_protocol_options:

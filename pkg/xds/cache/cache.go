@@ -43,8 +43,8 @@ type Cache struct {
 	SnapshotCache cachev3.SnapshotCache
 }
 
-func New() Cache {
-	return Cache{
+func New() *Cache {
+	return &Cache{
 		SnapshotCache: cachev3.NewSnapshotCache(true, cachev3.IDHash{}, nil),
 	}
 }

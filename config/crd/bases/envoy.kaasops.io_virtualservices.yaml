@@ -73,6 +73,14 @@ spec:
             type: object
           status:
             description: VirtualServiceStatus defines the observed state of VirtualService
+            properties:
+              errors:
+                additionalProperties:
+                  type: string
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster Important: Run "make" to regenerate code after modifying
+                  this file'
+                type: object
             type: object
         type: object
     served: true
