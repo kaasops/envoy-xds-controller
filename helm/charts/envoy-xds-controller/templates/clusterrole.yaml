@@ -81,7 +81,7 @@ rules:
   - routes
   - secrets
   - upstreams
-  - virtrualhosts
+  - virtualhosts
   - virtualservices
   verbs:
   - create
@@ -91,6 +91,21 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - clusters/status
+  - endpoints/status
+  - listeners/status
+  - routes/status
+  - secrets/status
+  - upstreams/status
+  - virtualhosts/status
+  - virtualservices/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - monitoring.coreos.com
   resources:
