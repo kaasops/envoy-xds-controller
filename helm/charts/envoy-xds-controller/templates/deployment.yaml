@@ -52,7 +52,7 @@ spec:
           {{- tpl . $ | nindent 10 }}
         {{- end }}
         ports:
-          - name: http
+          - name: grpc
             containerPort: {{ .Values.xds.port }}
             protocol: TCP
         {{- with .Values.securityContext }}
