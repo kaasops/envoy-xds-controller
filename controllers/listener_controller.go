@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"sync"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -167,37 +166,16 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 				return nil, err
 			}
 
-			var wg sync.WaitGroup
-			limit := make(chan struct{}, 1)
 			for certName, domains := range certs {
-				wg.Add(1)
-				limit <- struct{}{}
-
-				// TODO: Need to convert []*routev3.Route to []routev3.Route. (Because of this, there is no way to work with parallel, because. routes into pointers are replaced by all goroutines)
-				go func(log logr.Logger,
-					domains []string,
-					certName string,
-					name string,
-					routes []*routev3.Route,
-					vs v1alpha1.VirtualService,
-				) {
-					defer func() {
-						wg.Done()
-						<-limit
-					}()
-
-					f, err := b.WithDownstreamTlsContext(certName).
-						WithFilterChainMatch(domains).
-						WithHttpConnectionManager(name, domains, routes, accessLog).
-						Build(vs.Name)
-					if err != nil {
-						log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
-					}
-
-					chains = append(chains, f)
-				}(log, domains, certName, virtualHost.Name, virtualHost.Routes, vs)
+				f, err := b.WithDownstreamTlsContext(certName).
+					WithFilterChainMatch(domains).
+					WithHttpConnectionManager(virtualHost.Name, domains, virtualHost.Routes, accessLog).
+					Build(vs.Name)
+				if err != nil {
+					log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
+				}
+				chains = append(chains, f)
 			}
-			wg.Wait()
 		}
 	}
 	return chains, nil

@@ -159,6 +159,10 @@ func (cc *TlsConfigController) autoDiscoveryProvide(ctx context.Context, log log
 	limit := make(chan struct{}, 10)
 	// time.Sleep(1 * time.Minute)
 	for _, domain := range cc.VirtualHost.Domains {
+		// TODO: add logic for regexp, like: "~^v2-(?<projectid>\\d+)-(?<branch>\\w+\\-\\d+).site.com"
+		if strings.Contains(domain, "^") || strings.Contains(domain, "~") {
+			continue
+		}
 		wg.Add(1)
 		limit <- struct{}{}
 		go func(log logr.Logger, domain string, errorList map[string]string) {
