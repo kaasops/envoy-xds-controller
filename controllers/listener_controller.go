@@ -122,6 +122,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	log.Info("Listener reconcilation finished")
+
 	return ctrl.Result{}, nil
 }
 
