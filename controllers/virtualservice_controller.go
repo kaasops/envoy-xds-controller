@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,12 +28,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/hash"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"github.com/kaasops/k8s-utils"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -67,6 +71,16 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if instance.Spec.VirtualHost == nil {
 		log.Error(err, "VirtualHost could not be empty")
 		return ctrl.Result{}, ErrEmptySpec
+	}
+
+	// Check VirtualService hash
+	checkResult, err := checkHash(instance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if checkResult {
+		log.Info("VirtualService has no changes. Finish Reconcile")
+		return ctrl.Result{}, nil
 	}
 
 	// Validate Virtual Service
@@ -112,6 +126,11 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	log.Info("Updating last applied hash")
+	if err := setLastAppliedHash(ctx, r.Client, instance); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)
 
 	listenerReconciliationChannel <- event.GenericEvent{Object: listener}
@@ -133,5 +152,44 @@ func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.VirtualService{}).
+		WithEventFilter(predicate.GenerationChangedPredicate{}).
+		WithEventFilter(predicate.AnnotationChangedPredicate{}).
+		WithEventFilter(predicate.LabelChangedPredicate{}).
 		Complete(r)
+}
+
+func checkHash(virtualService *v1alpha1.VirtualService) (bool, error) {
+	hash, err := getHash(virtualService)
+	if err != nil {
+		return false, err
+	}
+
+	if virtualService.Status.LastAppliedHash != nil && *hash == *virtualService.Status.LastAppliedHash {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func setLastAppliedHash(ctx context.Context, client client.Client, virtualService *v1alpha1.VirtualService) error {
+	hash, err := getHash(virtualService)
+	if err != nil {
+		return err
+	}
+	virtualService.Status.LastAppliedHash = hash
+
+	return k8s.UpdateStatus(ctx, virtualService, client)
+}
+
+func getHash(virtualService *v1alpha1.VirtualService) (*uint32, error) {
+	specHash, err := json.Marshal(virtualService.Spec)
+	if err != nil {
+		return nil, err
+	}
+	annotationHash, err := json.Marshal(virtualService.Annotations)
+	if err != nil {
+		return nil, err
+	}
+	hash := hash.Get(specHash) + hash.Get(annotationHash)
+	return &hash, nil
 }

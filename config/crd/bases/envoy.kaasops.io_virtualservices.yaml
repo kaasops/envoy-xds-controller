@@ -74,6 +74,9 @@ spec:
           status:
             description: VirtualServiceStatus defines the observed state of VirtualService
             properties:
+              LastAppliedHash:
+                format: int32
+                type: integer
               errors:
                 additionalProperties:
                   type: string
