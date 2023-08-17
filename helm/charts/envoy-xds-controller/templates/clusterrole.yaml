@@ -112,4 +112,13 @@ rules:
   - podmonitors
   verbs:
   - '*'
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificaterequests
+  - certificates
+  - clusterissuers
+  - issuers
+  verbs:
+  - '*'
 {{- end -}}
