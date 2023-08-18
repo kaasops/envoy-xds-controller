@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/avast/retry-go/v4 v4.3.4
 	github.com/cert-manager/cert-manager v1.12.2
-	github.com/envoyproxy/go-control-plane v0.11.2-0.20230627031301-134d7a73f7a5
+	github.com/envoyproxy/go-control-plane v0.11.1-0.20230524094728-9239064ad72f
 	github.com/go-logr/logr v1.2.4
 	github.com/kaasops/k8s-utils v0.0.1
 	github.com/kelseyhightower/envconfig v1.4.0
