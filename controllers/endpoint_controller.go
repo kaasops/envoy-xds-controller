@@ -54,7 +54,7 @@ func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if api_errors.IsNotFound(err) {
 			log.Info("Endpoint instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance, r.Cache) {
-				if err := r.Cache.Delete(nodeID, &endpointv3.Endpoint{}, getResourceName(req.Namespace, req.Name)); err != nil {
+				if err := r.Cache.Delete(nodeID, &endpointv3.Endpoint{}); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -74,7 +74,7 @@ func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
-		if err := r.Cache.Update(nodeID, endpoint, getResourceName(instance.Namespace, instance.Name)); err != nil {
+		if err := r.Cache.Update(nodeID, endpoint); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

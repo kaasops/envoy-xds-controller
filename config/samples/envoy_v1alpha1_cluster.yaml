@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: envoy-xds-controller
   name: cluster-sample
+  namespace: envoy-xds-controller
 spec:
   name: cluster-sample
   connect_timeout: 1s

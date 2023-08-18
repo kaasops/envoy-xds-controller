@@ -56,7 +56,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if api_errors.IsNotFound(err) {
 			log.Info("Secret not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(kubeSecret, r.Cache) {
-				if err := r.Cache.Delete(nodeID, &tlsv3.Secret{}, getResourceName(req.Namespace, req.Name)); err != nil {
+				if err := r.Cache.Delete(nodeID, &tlsv3.Secret{}); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -70,7 +70,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	for _, nodeID := range NodeIDs(kubeSecret, r.Cache) {
-		if err := r.Cache.Update(nodeID, r.envoySecret(kubeSecret), getResourceName(kubeSecret.Namespace, kubeSecret.Name)); err != nil {
+		if err := r.Cache.Update(nodeID, r.envoySecret(kubeSecret)); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

@@ -3,9 +3,11 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -44,18 +46,29 @@ type Cache struct {
 }
 
 func New() *Cache {
-	return &Cache{
+	c := &Cache{
 		SnapshotCache: cachev3.NewSnapshotCache(true, cachev3.IDHash{}, nil),
 	}
+	go func(c *Cache) {
+		for {
+			time.Sleep(15 * time.Second)
+			cache, v, _ := c.getAll("default")
+			fmt.Printf("VERSION: %+v\n", v)
+
+			for type1, res := range cache {
+				fmt.Printf("Type: %+v\nLen: %+v\n", type1, len(res))
+			}
+			fmt.Println("--------")
+		}
+	}(c)
+	return c
 }
 
-func (c *Cache) Update(nodeID string, resource types.Resource, resourceName string) error {
+func (c *Cache) Update(nodeID string, resource types.Resource) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if resourceName == "" {
-		resourceName = cachev3.GetResourceName(resource)
-	}
+	resourceName := cachev3.GetResourceName(resource)
 
 	if resourceName == "" {
 		return ErrEmptyResourceName
@@ -94,10 +107,9 @@ func (c *Cache) Update(nodeID string, resource types.Resource, resourceName stri
 	return nil
 }
 
-func (c *Cache) Delete(nodeID string, resource types.Resource, resourceName string) error {
-	if resourceName == "" {
-		resourceName = cachev3.GetResourceName(resource)
-	}
+func (c *Cache) Delete(nodeID string, resource types.Resource) error {
+
+	resourceName := cachev3.GetResourceName(resource)
 
 	if resourceName == "" {
 		return ErrEmptyResourceName

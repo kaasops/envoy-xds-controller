@@ -70,7 +70,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if api_errors.IsNotFound(err) {
 			log.Info("Listener instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance, r.Cache) {
-				if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}, getResourceName(req.Namespace, req.Name)); err != nil {
+				if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -88,6 +88,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	listener.Name = getResourceName(req.Namespace, req.Name)
 
 	// Get VirtualService objects with matching listener
 	virtualServices := &v1alpha1.VirtualServiceList{}
@@ -111,13 +113,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
 		if len(listener.FilterChains) == 0 {
 			log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
-			if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}, getResourceName(req.Namespace, req.Name)); err != nil {
-				return ctrl.Result{}, nil
+			if err := r.Cache.Delete(nodeID, listener); err != nil {
+				return ctrl.Result{}, err
 			}
 			return ctrl.Result{}, nil
 		}
 
-		if err := r.Cache.Update(nodeID, listener, getResourceName(req.Namespace, req.Name)); err != nil {
+		if err := r.Cache.Update(nodeID, listener); err != nil {
 			return ctrl.Result{}, err
 		}
 	}

@@ -53,7 +53,7 @@ func (r *VirtualHostReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if api_errors.IsNotFound(err) {
 			log.Info("Virtualhost instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance, r.Cache) {
-				if err := r.Cache.Delete(nodeID, &routev3.VirtualHost{}, getResourceName(req.Namespace, req.Name)); err != nil {
+				if err := r.Cache.Delete(nodeID, &routev3.VirtualHost{}); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -73,7 +73,7 @@ func (r *VirtualHostReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
-		if err := r.Cache.Update(nodeID, virtualhost, getResourceName(instance.Namespace, instance.Name)); err != nil {
+		if err := r.Cache.Update(nodeID, virtualhost); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
