@@ -68,7 +68,7 @@ func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	// get envoy route from route instance spec
-	route := &routev3.Route{}
+	route := &routev3.RouteConfiguration{}
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, route); err != nil {
 		return ctrl.Result{}, err
 	}
