@@ -63,7 +63,7 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []s
 			Domains: domains,
 			Routes:  vh.Routes,
 		}},
-		ResponseHeadersToAdd: vh.RequestHeadersToAdd,
+		RequestHeadersToAdd: vh.RequestHeadersToAdd,
 	}
 	routerConfig, _ := anypb.New(&router.Router{})
 

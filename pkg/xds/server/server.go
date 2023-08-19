@@ -24,10 +24,10 @@ import (
 )
 
 const (
-	grpcKeepaliveTime        = 30 * time.Second
-	grpcKeepaliveTimeout     = 5 * time.Second
-	grpcKeepaliveMinTime     = 30 * time.Second
-	grpcMaxConcurrentStreams = 1000000
+	grpcKeepaliveTime        = 300 * time.Second
+	grpcKeepaliveTimeout     = 50 * time.Second
+	grpcKeepaliveMinTime     = 300 * time.Second
+	grpcMaxConcurrentStreams = 10000000
 )
 
 type Server struct {
