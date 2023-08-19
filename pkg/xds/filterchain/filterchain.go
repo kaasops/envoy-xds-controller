@@ -12,6 +12,8 @@ import (
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
+
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 )
 
 type Builder interface {
@@ -59,13 +61,18 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []s
 	rte := &routev3.RouteConfiguration{
 		Name: objName,
 		VirtualHosts: []*routev3.VirtualHost{{
-			Name:    objName,
-			Domains: domains,
-			Routes:  vh.Routes,
+			Name:                objName,
+			Domains:             domains,
+			Routes:              vh.Routes,
+			RequestHeadersToAdd: vh.RequestHeadersToAdd,
 		}},
-		RequestHeadersToAdd: vh.RequestHeadersToAdd,
 	}
 	routerConfig, _ := anypb.New(&router.Router{})
+
+	// TODO: it's hardcode!
+	useRemoteAddress := wrappers.BoolValue{
+		Value: true,
+	}
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
@@ -73,6 +80,7 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []s
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
 			RouteConfig: rte,
 		},
+		UseRemoteAddress: &useRemoteAddress,
 		HttpFilters: []*hcm.HttpFilter{{
 			Name: wellknown.Router,
 			ConfigType: &hcm.HttpFilter_TypedConfig{
