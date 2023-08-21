@@ -103,7 +103,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	builder := filterchain.NewBuilder()
-	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items)
+	chains, routes, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -119,6 +119,12 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, nil
 		}
 
+		for _, route := range routes {
+			if err := r.Cache.Update(nodeID, route); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 		if err := r.Cache.Update(nodeID, listener); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -129,15 +135,16 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService) ([]*listenerv3.FilterChain, error) {
+func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
 	var chains []*listenerv3.FilterChain
+	var routes []*routev3.RouteConfiguration
 	for _, vs := range virtualServices {
 		log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
 
 		// Get envoy virtualhost from virtualSerive spec
 		virtualHost := &routev3.VirtualHost{}
 		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		// Get envoy AccessLog from virtualService spec
@@ -145,12 +152,12 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 		if vs.Spec.AccessLog != nil {
 			accessLog = &accesslogv3.AccessLog{}
 			if err := r.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, accessLog); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 
 		if vs.Spec.TlsConfig == nil {
-			f, err := b.WithHttpConnectionManager(
+			f, route, err := b.WithHttpConnectionManager(
 				virtualHost,
 				virtualHost.Domains,
 				accessLog,
@@ -158,19 +165,20 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 				WithFilterChainMatch(virtualHost.Domains).
 				Build(vs.Name)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			chains = append(chains, f)
+			routes = append(routes, route)
 			continue
 		} else {
 			certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, r.Config, vs.Namespace)
 			certs, err := certsProvider.Provide(ctx, log)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			for certName, domains := range certs {
-				f, err := b.WithDownstreamTlsContext(certName).
+				f, route, err := b.WithDownstreamTlsContext(certName).
 					WithFilterChainMatch(domains).
 					WithHttpConnectionManager(virtualHost, domains, accessLog).
 					Build(vs.Name)
@@ -178,10 +186,11 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 					log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
 				}
 				chains = append(chains, f)
+				routes = append(routes, route)
 			}
 		}
 	}
-	return chains, nil
+	return chains, routes, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

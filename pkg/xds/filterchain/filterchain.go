@@ -18,7 +18,7 @@ type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
 	WithHttpConnectionManager(vh *routev3.VirtualHost, domains []string, accessLog *accesslogv3.AccessLog) Builder
 	WithFilterChainMatch(domains []string) Builder
-	Build(name string) (*listenerv3.FilterChain, error)
+	Build(name string) (*listenerv3.FilterChain, *routev3.RouteConfiguration, error)
 }
 
 type builder struct {
@@ -26,6 +26,7 @@ type builder struct {
 	downstreamTlsContext  *tlsv3.DownstreamTlsContext
 	httpConnectionManager *hcm.HttpConnectionManager
 	filterChainMatch      *listenerv3.FilterChainMatch
+	routeConfiguration    *routev3.RouteConfiguration
 }
 
 func NewBuilder() *builder {
@@ -65,13 +66,20 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []s
 		}},
 		ResponseHeadersToAdd: vh.RequestHeadersToAdd,
 	}
+	b.routeConfiguration = rte
 	routerConfig, _ := anypb.New(&router.Router{})
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
 		StatPrefix: objName,
-		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: rte,
+		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+			Rds: &hcm.Rds{
+				ConfigSource: &corev3.ConfigSource{
+					ResourceApiVersion:    corev3.ApiVersion_V3,
+					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{},
+				},
+				RouteConfigName: objName,
+			},
 		},
 		HttpFilters: []*hcm.HttpFilter{{
 			Name: wellknown.Router,
@@ -98,7 +106,7 @@ func (b *builder) WithFilterChainMatch(domains []string) Builder {
 	return b
 }
 
-func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
+func (b *builder) Build(name string) (*listenerv3.FilterChain, *routev3.RouteConfiguration, error) {
 	// I'm get name from prefix. Not good idea
 	filterchain := &listenerv3.FilterChain{
 		Name: b.httpConnectionManager.StatPrefix,
@@ -107,7 +115,7 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	pbst, err := anypb.New(b.httpConnectionManager)
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	filters := []*listenerv3.Filter{{
@@ -124,7 +132,7 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	if b.downstreamTlsContext != nil {
 		scfg, err := anypb.New(b.downstreamTlsContext)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		transportSocker := &corev3.TransportSocket{
@@ -138,7 +146,7 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 
 	b.filterchain = filterchain
 
-	return filterchain, nil
+	return filterchain, b.routeConfiguration, nil
 }
 
 func getFilterChainName(name string, domains []string) string {

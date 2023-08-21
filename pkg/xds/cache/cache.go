@@ -205,9 +205,9 @@ func (c *Cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]ty
 		return err
 	}
 
-	if err := snapshot.Consistent(); err != nil {
-		return err
-	}
+	// if err := snapshot.Consistent(); err != nil {
+	// 	return err
+	// }
 
 	if err := c.SnapshotCache.SetSnapshot(context.Background(), nodeID, snapshot); err != nil {
 		return err
@@ -220,7 +220,7 @@ func getResourceType(res types.Resource) resourcev3.Type {
 	switch res.(type) {
 	case *clusterv3.Cluster:
 		return resourcev3.ClusterType
-	case *routev3.Route:
+	case *routev3.RouteConfiguration:
 		return resourcev3.RouteType
 	case *routev3.ScopedRouteConfiguration:
 		return resourcev3.ScopedRouteType
