@@ -26,13 +26,10 @@ type builder struct {
 	downstreamTlsContext  *tlsv3.DownstreamTlsContext
 	httpConnectionManager *hcm.HttpConnectionManager
 	filterChainMatch      *listenerv3.FilterChainMatch
-	prefix                string
 }
 
-func NewBuilder(prefix string) *builder {
-	return &builder{
-		prefix: prefix,
-	}
+func NewBuilder() *builder {
+	return &builder{}
 }
 
 func (b *builder) WithDownstreamTlsContext(secret string) Builder {

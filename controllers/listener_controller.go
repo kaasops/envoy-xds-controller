@@ -101,7 +101,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	builder := filterchain.NewBuilder(req.Namespace)
+	builder := filterchain.NewBuilder()
 	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items)
 	if err != nil {
 		return ctrl.Result{}, err
