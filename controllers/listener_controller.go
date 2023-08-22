@@ -170,6 +170,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			}
 
 			for certName, domains := range certs {
+				virtualHost.Domains = domains
 				f, err := b.WithDownstreamTlsContext(certName).
 					WithFilterChainMatch(domains).
 					WithHttpConnectionManager(virtualHost, accessLog, getResourceName(vs.Namespace, vs.Name)).
