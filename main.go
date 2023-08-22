@@ -18,7 +18,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -109,6 +111,19 @@ func main() {
 	xDSCache := xdscache.New()
 	xDSServer := server.New(xDSCache.SnapshotCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
+
+	go func(c *xdscache.Cache) {
+		for {
+			time.Sleep(10 * time.Second)
+			cache, v, _ := c.GetAll("default")
+			fmt.Printf("VERSION: %+v\n", v)
+
+			for type1, res := range cache {
+				fmt.Printf("Type: %+v\nLen: %+v\n", type1, len(res))
+			}
+
+		}
+	}(xDSCache)
 
 	unmarshaler := &protojson.UnmarshalOptions{
 		AllowPartial: false,

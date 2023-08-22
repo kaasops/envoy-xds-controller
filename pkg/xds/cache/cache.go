@@ -20,7 +20,6 @@ import (
 	// https://github.com/envoyproxy/go-control-plane/issues/390
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
-	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 )
 
 var (
@@ -49,13 +48,8 @@ func New() *Cache {
 	}
 }
 
-func (c *Cache) Update(nodeID string, resource types.Resource, resourceName string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if resourceName == "" {
-		resourceName = cachev3.GetResourceName(resource)
-	}
+func (c *Cache) Update(nodeID string, resource types.Resource) error {
+	resourceName := cachev3.GetResourceName(resource)
 
 	if resourceName == "" {
 		return ErrEmptyResourceName
@@ -67,8 +61,11 @@ func (c *Cache) Update(nodeID string, resource types.Resource, resourceName stri
 		return ErrUnknownResourceType
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	// Get all nodeID resources indexed by type
-	resources, version, err := c.getAll(nodeID)
+	resources, version, err := c.GetAll(nodeID)
 
 	if err != nil {
 		return nil
@@ -94,16 +91,11 @@ func (c *Cache) Update(nodeID string, resource types.Resource, resourceName stri
 	return nil
 }
 
-func (c *Cache) Delete(nodeID string, resource types.Resource, resourceName string) error {
-	if resourceName == "" {
-		resourceName = cachev3.GetResourceName(resource)
-	}
+func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error {
 
 	if resourceName == "" {
 		return ErrEmptyResourceName
 	}
-
-	resourceType := getResourceType(resource)
 
 	if resourceType == "" {
 		return ErrUnknownResourceType
@@ -113,7 +105,7 @@ func (c *Cache) Delete(nodeID string, resource types.Resource, resourceName stri
 	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
-	resources, version, err := c.getAll(nodeID)
+	resources, version, err := c.GetAll(nodeID)
 
 	if err != nil {
 		return nil
@@ -139,7 +131,7 @@ func (c *Cache) Delete(nodeID string, resource types.Resource, resourceName stri
 	return nil
 }
 
-func (c *Cache) getAll(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
+func (c *Cache) GetAll(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
 	version := 0
 	resources := make(map[resourcev3.Type][]types.Resource, 0)
 	for _, t := range resourceTypes {
@@ -193,9 +185,9 @@ func (c *Cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]ty
 		return err
 	}
 
-	if err := snapshot.Consistent(); err != nil {
-		return err
-	}
+	// if err := snapshot.Consistent(); err != nil {
+	// 	return err
+	// }
 
 	if err := c.SnapshotCache.SetSnapshot(context.Background(), nodeID, snapshot); err != nil {
 		return err
@@ -208,7 +200,7 @@ func getResourceType(res types.Resource) resourcev3.Type {
 	switch res.(type) {
 	case *clusterv3.Cluster:
 		return resourcev3.ClusterType
-	case *routev3.Route:
+	case *routev3.RouteConfiguration:
 		return resourcev3.RouteType
 	case *routev3.ScopedRouteConfiguration:
 		return resourcev3.ScopedRouteType

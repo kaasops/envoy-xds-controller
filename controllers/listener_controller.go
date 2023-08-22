@@ -36,6 +36,7 @@ import (
 	"github.com/go-logr/logr"
 
 	// "github.com/go-logr/logr"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
@@ -70,7 +71,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if api_errors.IsNotFound(err) {
 			log.Info("Listener instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance, r.Cache) {
-				if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}, getResourceName(req.Namespace, req.Name)); err != nil {
+				if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -100,24 +101,25 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	builder := filterchain.NewBuilder()
+	builder := filterchain.NewBuilder(req.Namespace)
 	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	listener.FilterChains = append(listener.FilterChains, chains...)
+	listener.Name = getResourceName(req.Namespace, req.Name)
 
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
 		if len(listener.FilterChains) == 0 {
 			log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
-			if err := r.Cache.Delete(nodeID, &listenerv3.Listener{}, getResourceName(req.Namespace, req.Name)); err != nil {
+			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, nil
 		}
 
-		if err := r.Cache.Update(nodeID, listener, getResourceName(req.Namespace, req.Name)); err != nil {
+		if err := r.Cache.Update(nodeID, listener); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -150,8 +152,8 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 		if vs.Spec.TlsConfig == nil {
 			f, err := b.WithHttpConnectionManager(
 				virtualHost,
-				virtualHost.Domains,
 				accessLog,
+				getResourceName(vs.Namespace, vs.Name),
 			).
 				WithFilterChainMatch(virtualHost.Domains).
 				Build(vs.Name)
@@ -170,7 +172,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			for certName, domains := range certs {
 				f, err := b.WithDownstreamTlsContext(certName).
 					WithFilterChainMatch(domains).
-					WithHttpConnectionManager(virtualHost, domains, accessLog).
+					WithHttpConnectionManager(virtualHost, accessLog, getResourceName(vs.Namespace, vs.Name)).
 					Build(vs.Name)
 				if err != nil {
 					log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")

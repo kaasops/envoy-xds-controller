@@ -1,8 +1,6 @@
 package filterchain
 
 import (
-	"strings"
-
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -18,7 +16,7 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(vh *routev3.VirtualHost, domains []string, accessLog *accesslogv3.AccessLog) Builder
+	WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder
 	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
 }
@@ -28,10 +26,13 @@ type builder struct {
 	downstreamTlsContext  *tlsv3.DownstreamTlsContext
 	httpConnectionManager *hcm.HttpConnectionManager
 	filterChainMatch      *listenerv3.FilterChainMatch
+	prefix                string
 }
 
-func NewBuilder() *builder {
-	return &builder{}
+func NewBuilder(prefix string) *builder {
+	return &builder{
+		prefix: prefix,
+	}
 }
 
 func (b *builder) WithDownstreamTlsContext(secret string) Builder {
@@ -54,19 +55,9 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []string, accessLog *accesslogv3.AccessLog) Builder {
-	objName := getFilterChainName(vh.Name, domains)
+func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder {
 
 	// TODO: Copy all fields from VirtualHost
-	rte := &routev3.RouteConfiguration{
-		Name: objName,
-		VirtualHosts: []*routev3.VirtualHost{{
-			Name:                objName,
-			Domains:             domains,
-			Routes:              vh.Routes,
-			RequestHeadersToAdd: vh.RequestHeadersToAdd,
-		}},
-	}
 	routerConfig, _ := anypb.New(&router.Router{})
 
 	// TODO: it's hardcode!
@@ -76,9 +67,15 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []s
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: objName,
-		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: rte,
+		StatPrefix: "http",
+		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+			Rds: &hcm.Rds{
+				ConfigSource: &corev3.ConfigSource{
+					ResourceApiVersion:    corev3.ApiVersion_V3,
+					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{},
+				},
+				RouteConfigName: routeConfigName,
+			},
 		},
 		UseRemoteAddress: &useRemoteAddress,
 		HttpFilters: []*hcm.HttpFilter{{
@@ -149,11 +146,15 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	return filterchain, nil
 }
 
-func getFilterChainName(name string, domains []string) string {
-	objName := name
-	if len(domains) == 1 {
-		objName = strings.ToLower(strings.ReplaceAll(domains[0], ".", "-"))
-	}
+func RouteConfig(vh *routev3.VirtualHost, name string) *routev3.RouteConfiguration {
 
-	return objName
+	return &routev3.RouteConfiguration{
+		Name: name,
+		VirtualHosts: []*routev3.VirtualHost{{
+			Name:                name,
+			Domains:             vh.Domains,
+			Routes:              vh.Routes,
+			RequestHeadersToAdd: vh.RequestHeadersToAdd,
+		}},
+	}
 }

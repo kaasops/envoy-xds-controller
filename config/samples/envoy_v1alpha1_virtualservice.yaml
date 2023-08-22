@@ -8,6 +8,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: envoy-xds-controller
   name: virtualservice-sample
+  namespace: envoy-xds-controller
 spec:
   virtualHost:
     name: vh-test
@@ -60,9 +61,9 @@ spec:
           upstream_response_time: "%RESPONSE_DURATION%"
           upstream_failure: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"
           balancer: "envoy"
-  # listener:
-  #   name: default-https
-  #   namespace: default
+  listener:
+    name: https
+    namespace: envoy-xds-controller
 ---
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
@@ -74,6 +75,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: envoy-xds-controller
   name: virtualservice-sample1
+  namespace: envoy-xds-controller
 spec:
   virtualHost:
     name: vh-test1
@@ -84,31 +86,11 @@ spec:
         prefix: "/"
       route: 
         cluster: cluster-sample
+  tlsConfig:
+    secretRef:
+      name: cert1
+      namespace: default
   listener:
-    name: custom-listener
-    namespace: default
+    name: https
+    namespace: envoy-xds-controller
 ---
-apiVersion: envoy.kaasops.io/v1alpha1
-kind: VirtualService
-metadata:
-  labels:
-    app.kubernetes.io/name: virtualservice
-    app.kubernetes.io/instance: virtualservice-sample
-    app.kubernetes.io/part-of: envoy-xds-controller
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: envoy-xds-controller
-  name: virtualservice-sample2
-spec:
-  virtualHost:
-    name: vh-test2
-    domains:
-    - "example2.io"
-    routes:
-    - match: 
-        prefix: "/"
-      route: 
-        cluster: cluster-sample
-  listener:
-    name: custom-listener
-    namespace: default
-

@@ -6,7 +6,7 @@ admin:
       port_value: 19000
 dynamic_resources:
   ads_config:
-    api_type: GRPC
+    api_type: DELTA_GRPC
     transport_api_version: V3
     set_node_on_first_message_only: true
     grpc_services:
@@ -51,7 +51,7 @@ layered_runtime:
           resource_api_version: V3
           api_config_source:
             transport_api_version: V3
-            api_type: GRPC
+            api_type: DELTA_GRPC
             grpc_services:
               envoy_grpc:
                 cluster_name: xds_cluster

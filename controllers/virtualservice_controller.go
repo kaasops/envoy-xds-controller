@@ -31,11 +31,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/hash"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 	"github.com/kaasops/k8s-utils"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -63,6 +65,11 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("VirtualService not found. Ignoring since object must be deleted")
+			for _, nodeID := range NodeIDs(instance, r.Cache) {
+				if err := r.Cache.Delete(nodeID, resourcev3.RouteType, getResourceName(req.Namespace, req.Name)); err != nil {
+					return ctrl.Result{}, err
+				}
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -124,6 +131,14 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := r.Client.Update(ctx, instance); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	routeConfig := filterchain.RouteConfig(virtualHost, getResourceName(req.Namespace, req.Name))
+
+	for _, nodeID := range NodeIDs(instance, r.Cache) {
+		if err := r.Cache.Update(nodeID, routeConfig); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	log.Info("Updating last applied hash")
