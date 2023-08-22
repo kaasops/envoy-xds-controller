@@ -67,7 +67,7 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: "http",
+		StatPrefix: routeConfigName,
 		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 			Rds: &hcm.Rds{
 				ConfigSource: &corev3.ConfigSource{
