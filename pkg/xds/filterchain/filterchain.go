@@ -153,11 +153,12 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 
 func MakeRouteConfig(vh *routev3.VirtualHost, name string) (*routev3.RouteConfiguration, error) {
 
+	// Replace Domains list, can make config problems!!!
 	routeConfig := &routev3.RouteConfiguration{
 		Name: name,
 		VirtualHosts: []*routev3.VirtualHost{{
 			Name:                name,
-			Domains:             vh.Domains,
+			Domains:             []string{"*"},
 			Routes:              vh.Routes,
 			RequestHeadersToAdd: vh.RequestHeadersToAdd,
 		}},
