@@ -26,7 +26,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestProvide(t *testing.T) {
@@ -60,10 +59,9 @@ func TestProvide(t *testing.T) {
 				// fmt.Println(err)
 			}
 
-			ctrl := New(cl, dc, tlsConfig, vh, cfg, namespace)
+			ctrl := New(cl, dc, cfg, namespace)
 
-			log := log.FromContext(context.TODO()).WithName("For test")
-			certs, err := ctrl.Provide(context.TODO(), log, make(map[string]corev1.Secret))
+			certs, err := ctrl.Provide(context.TODO(), make(map[string]corev1.Secret), vh, tlsConfig)
 			req.Equal(certs, wantCerts)
 
 			if !errors.Is(err, wantErr) {

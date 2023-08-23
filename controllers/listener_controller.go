@@ -102,7 +102,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	builder := filterchain.NewBuilder()
-	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items)
+	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -129,8 +129,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService) ([]*listenerv3.FilterChain, error) {
+func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string) ([]*listenerv3.FilterChain, error) {
 	var chains []*listenerv3.FilterChain
+	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace)
+	index, err := certsProvider.IndexCertificateSecrets(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for _, vs := range virtualServices {
 		log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
 
@@ -163,12 +168,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			continue
 		}
 
-		certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, r.Config, vs.Namespace)
-		index, err := certsProvider.IndexCertificateSecrets(ctx)
-		if err != nil {
-			return nil, err
-		}
-		certs, err := certsProvider.Provide(ctx, log, index)
+		certs, err := certsProvider.Provide(ctx, index, virtualHost, vs.Spec.TlsConfig)
 		if err != nil {
 			return nil, err
 		}
