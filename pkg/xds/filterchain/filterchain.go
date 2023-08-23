@@ -1,8 +1,6 @@
 package filterchain
 
 import (
-	"strings"
-
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -18,7 +16,7 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(vh *routev3.VirtualHost, domains []string, accessLog *accesslogv3.AccessLog) Builder
+	WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder
 	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
 }
@@ -54,19 +52,9 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []string, accessLog *accesslogv3.AccessLog) Builder {
-	objName := getFilterChainName(vh.Name, domains)
+func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder {
 
 	// TODO: Copy all fields from VirtualHost
-	rte := &routev3.RouteConfiguration{
-		Name: objName,
-		VirtualHosts: []*routev3.VirtualHost{{
-			Name:                objName,
-			Domains:             domains,
-			Routes:              vh.Routes,
-			RequestHeadersToAdd: vh.RequestHeadersToAdd,
-		}},
-	}
 	routerConfig, _ := anypb.New(&router.Router{})
 
 	// TODO: it's hardcode!
@@ -76,9 +64,15 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, domains []s
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: objName,
-		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
-			RouteConfig: rte,
+		StatPrefix: routeConfigName,
+		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+			Rds: &hcm.Rds{
+				ConfigSource: &corev3.ConfigSource{
+					ResourceApiVersion:    corev3.ApiVersion_V3,
+					ConfigSourceSpecifier: &corev3.ConfigSource_Ads{},
+				},
+				RouteConfigName: routeConfigName,
+			},
 		},
 		UseRemoteAddress: &useRemoteAddress,
 		HttpFilters: []*hcm.HttpFilter{{
@@ -112,6 +106,10 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 		Name: b.httpConnectionManager.StatPrefix,
 	}
 
+	if err := b.httpConnectionManager.ValidateAll(); err != nil {
+		return nil, err
+	}
+
 	pbst, err := anypb.New(b.httpConnectionManager)
 
 	if err != nil {
@@ -128,6 +126,10 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	filterchain.Filters = filters
 
 	filterchain.FilterChainMatch = b.filterChainMatch
+
+	if err := b.downstreamTlsContext.ValidateAll(); err != nil {
+		return nil, err
+	}
 
 	if b.downstreamTlsContext != nil {
 		scfg, err := anypb.New(b.downstreamTlsContext)
@@ -149,11 +151,22 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	return filterchain, nil
 }
 
-func getFilterChainName(name string, domains []string) string {
-	objName := name
-	if len(domains) == 1 {
-		objName = strings.ToLower(strings.ReplaceAll(domains[0], ".", "-"))
+func MakeRouteConfig(vh *routev3.VirtualHost, name string) (*routev3.RouteConfiguration, error) {
+
+	// Replace Domains list, can make config problems!!!
+	routeConfig := &routev3.RouteConfiguration{
+		Name: name,
+		VirtualHosts: []*routev3.VirtualHost{{
+			Name:                name,
+			Domains:             []string{"*"},
+			Routes:              vh.Routes,
+			RequestHeadersToAdd: vh.RequestHeadersToAdd,
+		}},
 	}
 
-	return objName
+	if err := routeConfig.ValidateAll(); err != nil {
+		return nil, err
+	}
+
+	return routeConfig, nil
 }
