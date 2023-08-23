@@ -30,6 +30,9 @@ type VirtualServiceSpec struct {
 	Listener    *ResourceRef          `json:"listener,omitempty"`
 	TlsConfig   *TlsConfig            `json:"tlsConfig,omitempty"`
 	AccessLog   *runtime.RawExtension `json:"accessLog,omitempty"`
+
+	// HTTPFilters for use custom HTTP filters
+	HTTPFilters []*runtime.RawExtension `json:"httpFilters,omitempty"`
 }
 
 type TlsConfig struct {
