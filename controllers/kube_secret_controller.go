@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -84,7 +83,6 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *KubeSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 100}).
 		Complete(r)
 }
 

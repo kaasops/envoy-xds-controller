@@ -114,7 +114,7 @@ func main() {
 
 	go func(c *xdscache.Cache) {
 		for {
-			time.Sleep(10 * time.Second)
+			time.Sleep(20 * time.Second)
 			cache, v, _ := c.GetAll("default")
 			fmt.Printf("VERSION: %+v\n", v)
 
