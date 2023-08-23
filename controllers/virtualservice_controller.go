@@ -80,6 +80,25 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, ErrEmptySpec
 	}
 
+	// Validate Virtual Service
+	// Get envoy virtualhost from virtualSerive spec
+	virtualHost := &routev3.VirtualHost{}
+	if err := r.Unmarshaler.Unmarshal(instance.Spec.VirtualHost.Raw, virtualHost); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	routeConfig, err := filterchain.MakeRouteConfig(virtualHost, getResourceName(req.Namespace, req.Name))
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	for _, nodeID := range NodeIDs(instance, r.Cache) {
+		if err := r.Cache.Update(nodeID, routeConfig); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	// Check VirtualService hash
 	checkResult, err := checkHash(instance)
 	if err != nil {
@@ -90,12 +109,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	// Validate Virtual Service
-	// Get envoy virtualhost from virtualSerive spec
-	virtualHost := &routev3.VirtualHost{}
-	if err := r.Unmarshaler.Unmarshal(instance.Spec.VirtualHost.Raw, virtualHost); err != nil {
-		return ctrl.Result{}, err
-	}
 	certsProvider := tls.New(r.Client, r.DiscoveryClient, instance.Spec.TlsConfig, virtualHost, r.Config, instance.Namespace)
 	errorList, err := certsProvider.Validate(ctx)
 	if err != nil {
@@ -131,14 +144,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := r.Client.Update(ctx, instance); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	routeConfig := filterchain.RouteConfig(virtualHost, getResourceName(req.Namespace, req.Name))
-
-	for _, nodeID := range NodeIDs(instance, r.Cache) {
-		if err := r.Cache.Update(nodeID, routeConfig); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	log.Info("Updating last applied hash")

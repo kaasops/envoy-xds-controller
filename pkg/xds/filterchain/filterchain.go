@@ -106,7 +106,7 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 		Name: b.httpConnectionManager.StatPrefix,
 	}
 
-	if err := b.httpConnectionManager.Validate(); err != nil {
+	if err := b.httpConnectionManager.ValidateAll(); err != nil {
 		return nil, err
 	}
 
@@ -127,7 +127,7 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 
 	filterchain.FilterChainMatch = b.filterChainMatch
 
-	if err := b.downstreamTlsContext.Validate(); err != nil {
+	if err := b.downstreamTlsContext.ValidateAll(); err != nil {
 		return nil, err
 	}
 
@@ -151,9 +151,9 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	return filterchain, nil
 }
 
-func RouteConfig(vh *routev3.VirtualHost, name string) *routev3.RouteConfiguration {
+func MakeRouteConfig(vh *routev3.VirtualHost, name string) (*routev3.RouteConfiguration, error) {
 
-	return &routev3.RouteConfiguration{
+	routeConfig := &routev3.RouteConfiguration{
 		Name: name,
 		VirtualHosts: []*routev3.VirtualHost{{
 			Name:                name,
@@ -162,4 +162,10 @@ func RouteConfig(vh *routev3.VirtualHost, name string) *routev3.RouteConfigurati
 			RequestHeadersToAdd: vh.RequestHeadersToAdd,
 		}},
 	}
+
+	if err := routeConfig.ValidateAll(); err != nil {
+		return nil, err
+	}
+
+	return routeConfig, nil
 }
