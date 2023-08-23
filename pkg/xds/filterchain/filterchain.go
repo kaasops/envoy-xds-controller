@@ -16,7 +16,11 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder
+	WithHttpConnectionManager(vh *routev3.VirtualHost,
+		accessLog *accesslogv3.AccessLog,
+		httpFilters []*hcm.HttpFilter,
+		routeConfigName string,
+	) Builder
 	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
 }
@@ -52,7 +56,11 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder {
+func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost,
+	accessLog *accesslogv3.AccessLog,
+	httpFilters []*hcm.HttpFilter,
+	routeConfigName string,
+) Builder {
 
 	// TODO: Copy all fields from VirtualHost
 	routerConfig, _ := anypb.New(&router.Router{})
@@ -61,6 +69,17 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *
 	useRemoteAddress := wrappers.BoolValue{
 		Value: true,
 	}
+
+	hfs := []*hcm.HttpFilter{}
+	if len(httpFilters) > 0 {
+		hfs = append(hfs, httpFilters...)
+	}
+	hfs = append(hfs, &hcm.HttpFilter{
+		Name: wellknown.Router,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: routerConfig,
+		},
+	})
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
@@ -75,12 +94,7 @@ func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *
 			},
 		},
 		UseRemoteAddress: &useRemoteAddress,
-		HttpFilters: []*hcm.HttpFilter{{
-			Name: wellknown.Router,
-			ConfigType: &hcm.HttpFilter_TypedConfig{
-				TypedConfig: routerConfig,
-			},
-		}},
+		HttpFilters:      hfs,
 	}
 
 	if accessLog != nil {
