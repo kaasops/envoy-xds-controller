@@ -106,6 +106,10 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 		Name: b.httpConnectionManager.StatPrefix,
 	}
 
+	if err := b.httpConnectionManager.Validate(); err != nil {
+		return nil, err
+	}
+
 	pbst, err := anypb.New(b.httpConnectionManager)
 
 	if err != nil {
@@ -122,6 +126,10 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	filterchain.Filters = filters
 
 	filterchain.FilterChainMatch = b.filterChainMatch
+
+	if err := b.downstreamTlsContext.Validate(); err != nil {
+		return nil, err
+	}
 
 	if b.downstreamTlsContext != nil {
 		scfg, err := anypb.New(b.downstreamTlsContext)
