@@ -12,6 +12,7 @@ import (
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	fakeconfig "github.com/kaasops/envoy-xds-controller/pkg/config/fake"
@@ -35,6 +36,7 @@ func TestProvide(t *testing.T) {
 		// nodeIDs []string,
 		cfg config.Config,
 		namespace string,
+		log logr.Logger,
 		cl client.Client,
 		dc *discovery.DiscoveryClient,
 		wantCerts map[string][]string,
@@ -59,9 +61,15 @@ func TestProvide(t *testing.T) {
 				// fmt.Println(err)
 			}
 
-			ctrl := New(cl, dc, cfg, namespace)
+			ctrl := New(cl, dc, cfg, namespace, log)
 
-			certs, err := ctrl.Provide(context.TODO(), make(map[string]corev1.Secret), vh, tlsConfig)
+			index, err := ctrl.IndexCertificateSecrets(context.TODO())
+
+			if !errors.Is(err, wantErr) {
+				req.Equal(err, wantErr)
+			}
+
+			certs, err := ctrl.Provide(context.TODO(), index, vh, tlsConfig)
 			req.Equal(certs, wantCerts)
 
 			if !errors.Is(err, wantErr) {
@@ -78,6 +86,7 @@ func TestProvide(t *testing.T) {
 		// nodeIDs   []string
 		cfg       config.Config
 		namespace string
+		log       logr.Logger
 		client    client.Client
 		dc        *discovery.DiscoveryClient
 		wantCerts map[string][]string
@@ -335,6 +344,7 @@ func TestProvide(t *testing.T) {
 			// tc.nodeIDs,
 			tc.cfg,
 			tc.namespace,
+			tc.log,
 			tc.client,
 			tc.dc,
 			tc.wantCerts,

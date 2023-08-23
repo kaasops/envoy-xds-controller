@@ -131,7 +131,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string) ([]*listenerv3.FilterChain, error) {
 	var chains []*listenerv3.FilterChain
-	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace)
+	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace, log)
 	index, err := certsProvider.IndexCertificateSecrets(ctx)
 	if err != nil {
 		return nil, err

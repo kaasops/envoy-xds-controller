@@ -73,6 +73,7 @@ func New(
 	dc *discovery.DiscoveryClient,
 	config config.Config,
 	namespace string,
+	log logr.Logger,
 
 ) *TlsConfigController {
 	return &TlsConfigController{
@@ -80,6 +81,7 @@ func New(
 		DiscoveryClient: dc,
 		Config:          config,
 		Namespace:       namespace,
+		log:             log,
 	}
 }
 
