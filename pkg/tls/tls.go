@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -479,7 +478,7 @@ func (cc *TlsConfigController) IndexCertificateSecrets(ctx context.Context) (map
 		for _, domain := range strings.Split(secret.Annotations[domainAnnotation], ",") {
 			_, ok := indexedSecrets[domain]
 			if ok {
-				log.Printf("Dublicate domain %s", domain)
+				cc.log.Info("Dublicate domain", "Domain:", domain)
 				continue
 			}
 			indexedSecrets[domain] = secret
