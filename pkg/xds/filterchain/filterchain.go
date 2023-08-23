@@ -16,7 +16,7 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder
+	WithHttpConnectionManager(accessLog *accesslogv3.AccessLog, routeConfigName string) Builder
 	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
 }
@@ -52,7 +52,7 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost, accessLog *accesslogv3.AccessLog, routeConfigName string) Builder {
+func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog, routeConfigName string) Builder {
 
 	// TODO: Copy all fields from VirtualHost
 	routerConfig, _ := anypb.New(&router.Router{})

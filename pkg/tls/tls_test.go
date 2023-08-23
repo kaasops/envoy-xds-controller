@@ -63,7 +63,7 @@ func TestProvide(t *testing.T) {
 			ctrl := New(cl, dc, tlsConfig, vh, cfg, namespace)
 
 			log := log.FromContext(context.TODO()).WithName("For test")
-			certs, err := ctrl.Provide(context.TODO(), log)
+			certs, err := ctrl.Provide(context.TODO(), log, make(map[string]corev1.Secret))
 			req.Equal(certs, wantCerts)
 
 			if !errors.Is(err, wantErr) {

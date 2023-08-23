@@ -151,7 +151,6 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 
 		if vs.Spec.TlsConfig == nil {
 			f, err := b.WithHttpConnectionManager(
-				virtualHost,
 				accessLog,
 				getResourceName(vs.Namespace, vs.Name),
 			).
@@ -162,25 +161,30 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			}
 			chains = append(chains, f)
 			continue
-		} else {
-			certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, r.Config, vs.Namespace)
-			certs, err := certsProvider.Provide(ctx, log)
-			if err != nil {
-				return nil, err
-			}
-
-			for certName, domains := range certs {
-				virtualHost.Domains = domains
-				f, err := b.WithDownstreamTlsContext(certName).
-					WithFilterChainMatch(domains).
-					WithHttpConnectionManager(virtualHost, accessLog, getResourceName(vs.Namespace, vs.Name)).
-					Build(vs.Name)
-				if err != nil {
-					log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
-				}
-				chains = append(chains, f)
-			}
 		}
+
+		certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, r.Config, vs.Namespace)
+		index, err := certsProvider.IndexCertificateSecrets(ctx)
+		if err != nil {
+			return nil, err
+		}
+		certs, err := certsProvider.Provide(ctx, log, index)
+		if err != nil {
+			return nil, err
+		}
+
+		for certName, domains := range certs {
+			virtualHost.Domains = domains
+			f, err := b.WithDownstreamTlsContext(certName).
+				WithFilterChainMatch(domains).
+				WithHttpConnectionManager(accessLog, getResourceName(vs.Namespace, vs.Name)).
+				Build(vs.Name)
+			if err != nil {
+				log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
+			}
+			chains = append(chains, f)
+		}
+
 	}
 	return chains, nil
 }

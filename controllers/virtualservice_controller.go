@@ -110,7 +110,11 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	certsProvider := tls.New(r.Client, r.DiscoveryClient, instance.Spec.TlsConfig, virtualHost, r.Config, instance.Namespace)
-	errorList, err := certsProvider.Validate(ctx)
+	index, err := certsProvider.IndexCertificateSecrets(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	errorList, err := certsProvider.Validate(ctx, index)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
