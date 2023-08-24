@@ -80,13 +80,13 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, ErrEmptySpec
 	}
 
-	// Validate Virtual Service
 	// Get envoy virtualhost from virtualSerive spec
 	virtualHost := &routev3.VirtualHost{}
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.VirtualHost.Raw, virtualHost); err != nil {
 		return ctrl.Result{}, err
 	}
 
+	// Generate RouteConfiguration and add to xds cache
 	routeConfig, err := filterchain.MakeRouteConfig(virtualHost, getResourceName(req.Namespace, req.Name))
 
 	if err != nil {
@@ -94,12 +94,13 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
+		log.Info("Adding route", "name:", routeConfig.Name)
 		if err := r.Cache.Update(nodeID, routeConfig); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	// Check VirtualService hash
+	// Check VirtualService hash and skip reconcile if no changes
 	checkResult, err := checkHash(instance)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -109,8 +110,13 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	certsProvider := tls.New(r.Client, r.DiscoveryClient, instance.Spec.TlsConfig, virtualHost, r.Config, instance.Namespace)
-	errorList, err := certsProvider.Validate(ctx)
+	// Check if tlsConfig valid
+	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, instance.Namespace, log)
+	index, err := certsProvider.IndexCertificateSecrets(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	errorList, err := certsProvider.Validate(ctx, index, virtualHost, instance.Spec.TlsConfig)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

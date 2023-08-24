@@ -16,8 +16,7 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(vh *routev3.VirtualHost,
-		accessLog *accesslogv3.AccessLog,
+	WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 		httpFilters []*hcm.HttpFilter,
 		routeConfigName string,
 	) Builder
@@ -56,8 +55,7 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(vh *routev3.VirtualHost,
-	accessLog *accesslogv3.AccessLog,
+func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 	httpFilters []*hcm.HttpFilter,
 	routeConfigName string,
 ) Builder {

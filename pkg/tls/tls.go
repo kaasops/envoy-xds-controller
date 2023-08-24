@@ -61,68 +61,64 @@ var (
 type TlsConfigController struct {
 	client          client.Client
 	DiscoveryClient *discovery.DiscoveryClient
-	TlsConfig       *v1alpha1.TlsConfig
-	VirtualHost     *routev3.VirtualHost
 	Config          config.Config
 	Namespace       string
-
-	mu sync.Mutex
+	log             logr.Logger
+	mu              sync.Mutex
 }
 
 func New(
 	client client.Client,
 	dc *discovery.DiscoveryClient,
-	tlsConfig *v1alpha1.TlsConfig,
-	vh *routev3.VirtualHost,
 	config config.Config,
 	namespace string,
+	log logr.Logger,
 
 ) *TlsConfigController {
 	return &TlsConfigController{
 		client:          client,
 		DiscoveryClient: dc,
-		TlsConfig:       tlsConfig,
-		VirtualHost:     vh,
 		Config:          config,
 		Namespace:       namespace,
+		log:             log,
 	}
 }
 
 // Provide return map[string][]string where:
 // key - name of TLS Certificate (is sDS cache (<NAMESPACE>-<NAME>)
 // value - domains
-func (cc *TlsConfigController) Provide(ctx context.Context, log logr.Logger) (map[string][]string, error) {
-	errorList, err := cc.Validate(ctx)
+func (cc *TlsConfigController) Provide(ctx context.Context, index map[string]corev1.Secret, vh *routev3.VirtualHost, tlsConfig *v1alpha1.TlsConfig) (map[string][]string, error) {
+	errorList, err := cc.Validate(ctx, index, vh, tlsConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	tlsType, _ := cc.getTLSType()
+	tlsType, _ := cc.getTLSType(tlsConfig)
 
 	switch tlsType {
 	case secretRefType:
 		secretName := fmt.Sprintf("%s-%s",
 			cc.Namespace,
-			cc.TlsConfig.SecretRef.Name,
+			tlsConfig.SecretRef.Name,
 		)
 		return map[string][]string{
-			secretName: cc.VirtualHost.Domains,
+			secretName: vh.Domains,
 		}, nil
 	case certManagerType:
-		return cc.certManagerProvide(ctx, log)
+		return cc.certManagerProvide(ctx, vh, tlsConfig)
 	case autoDiscoveryType:
-		return cc.autoDiscoveryProvide(ctx, log, errorList)
+		return cc.autoDiscoveryProvide(ctx, errorList, index, vh, tlsConfig)
 	}
 
 	return nil, nil
 }
 
-func (cc *TlsConfigController) certManagerProvide(ctx context.Context, log logr.Logger) (map[string][]string, error) {
+func (cc *TlsConfigController) certManagerProvide(ctx context.Context, vh *routev3.VirtualHost, tlsConfig *v1alpha1.TlsConfig) (map[string][]string, error) {
 	certs := map[string][]string{}
 
 	var wg sync.WaitGroup
 	limit := make(chan struct{}, 10)
-	for _, domain := range cc.VirtualHost.Domains {
+	for _, domain := range vh.Domains {
 		wg.Add(1)
 		limit <- struct{}{}
 		go func(log logr.Logger, domain string) {
@@ -133,14 +129,14 @@ func (cc *TlsConfigController) certManagerProvide(ctx context.Context, log logr.
 
 			objName := strings.ToLower(strings.ReplaceAll(domain, ".", "-"))
 
-			if err := cc.createCertificate(ctx, domain, objName); err != nil {
+			if err := cc.createCertificate(ctx, domain, objName, tlsConfig); err != nil {
 				log.WithValues("Domain", domain).Error(err, "Error to create certificate for Domain")
 			}
 
 			cc.mu.Lock()
 			certs[fmt.Sprintf("%s-%s", cc.Namespace, objName)] = []string{domain}
 			cc.mu.Unlock()
-		}(log, domain)
+		}(cc.log, domain)
 	}
 
 	wg.Wait()
@@ -148,17 +144,13 @@ func (cc *TlsConfigController) certManagerProvide(ctx context.Context, log logr.
 	return certs, nil
 }
 
-func (cc *TlsConfigController) autoDiscoveryProvide(ctx context.Context, log logr.Logger, errorList map[string]string) (map[string][]string, error) {
+func (cc *TlsConfigController) autoDiscoveryProvide(ctx context.Context, errorList map[string]string, index map[string]corev1.Secret, vh *routev3.VirtualHost, tlsConfig *v1alpha1.TlsConfig) (map[string][]string, error) {
 	certs := map[string][]string{}
-	secrets, err := cc.getCertificateSecrets(ctx)
-	if err != nil {
-		return nil, err
-	}
 
 	var wg sync.WaitGroup
 	limit := make(chan struct{}, 10)
 	// time.Sleep(1 * time.Minute)
-	for _, domain := range cc.VirtualHost.Domains {
+	for _, domain := range vh.Domains {
 		// TODO: add logic for regexp, like: "~^v2-(?<projectid>\\d+)-(?<branch>\\w+\\-\\d+).site.com"
 		if strings.Contains(domain, "^") || strings.Contains(domain, "~") {
 			continue
@@ -179,38 +171,37 @@ func (cc *TlsConfigController) autoDiscoveryProvide(ctx context.Context, log log
 			}
 
 			flag := false
-			for _, secret := range secrets {
-				if containDomain(domain, strings.Split(secret.Annotations[domainAnnotation], ",")) {
+			secret, ok := index[domain]
+
+			if ok {
+				cc.mu.Lock()
+				v, ok := certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)]
+				cc.mu.Unlock()
+				if ok {
+					v = append(v, domain)
 					cc.mu.Lock()
-					v, ok := certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)]
+					certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)] = v
 					cc.mu.Unlock()
-					if ok {
-						v = append(v, domain)
-						cc.mu.Lock()
-						certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)] = v
-						cc.mu.Unlock()
-					} else {
-						cc.mu.Lock()
-						certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)] = []string{domain}
-						cc.mu.Unlock()
-					}
-					flag = true
-					break
+				} else {
+					cc.mu.Lock()
+					certs[fmt.Sprintf("%s-%s", cc.Namespace, secret.Name)] = []string{domain}
+					cc.mu.Unlock()
 				}
+				flag = true
 			}
 
 			if !flag {
 				log.Error(ErrDicoverNotFound, domain)
 			}
-		}(log, domain, errorList)
+		}(cc.log, domain, errorList)
 	}
 	wg.Wait()
 
 	return certs, nil
 }
 
-func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, objName string) error {
-	iType, iName, err := cc.getIssuer()
+func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, objName string, tlsConfig *v1alpha1.TlsConfig) error {
+	iType, iName, err := cc.getIssuer(tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -293,33 +284,33 @@ func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, ob
 // 1. SecretRef - Use TLS from exist Kubernetes Secret
 // 2. CertManager - Use CertManager for create Kubernetes Secret with certificate and
 // 3. AutoDiscovery - try to find secret with TLS secret (based on domain annotation)
-func (cc *TlsConfigController) Validate(ctx context.Context) (map[string]string, error) {
+func (cc *TlsConfigController) Validate(ctx context.Context, index map[string]corev1.Secret, vh *routev3.VirtualHost, tlsConfig *v1alpha1.TlsConfig) (map[string]string, error) {
 	// Check if TLS not used
-	if cc.TlsConfig == nil {
+	if tlsConfig == nil {
 		return nil, ErrTlsConfigNotExist
 	}
 
-	tlsType, err := cc.getTLSType()
+	tlsType, err := cc.getTLSType(tlsConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	switch tlsType {
 	case secretRefType:
-		return nil, cc.checkSecretRef(ctx)
+		return nil, cc.checkSecretRef(ctx, vh, tlsConfig)
 	case certManagerType:
-		return nil, cc.checkCertManager(ctx)
+		return nil, cc.checkCertManager(ctx, tlsConfig)
 	case autoDiscoveryType:
-		return cc.checkAutoDiscovery(ctx)
+		return cc.checkAutoDiscovery(ctx, index, vh, tlsConfig)
 	}
 
 	return nil, ErrZeroParam
 }
 
 // Check if SecretRef set. Checked only present secret in Kubernetes and have TLS type
-func (cc *TlsConfigController) checkSecretRef(ctx context.Context) error {
+func (cc *TlsConfigController) checkSecretRef(ctx context.Context, vh *routev3.VirtualHost, tlsConfig *v1alpha1.TlsConfig) error {
 	namespacedName := types.NamespacedName{
-		Name:      cc.TlsConfig.SecretRef.Name,
+		Name:      tlsConfig.SecretRef.Name,
 		Namespace: cc.Namespace,
 	}
 
@@ -355,7 +346,7 @@ func (cc *TlsConfigController) checkKubernetesSecret(ctx context.Context, nn typ
 }
 
 // Check if CertManager set.
-func (cc *TlsConfigController) checkCertManager(ctx context.Context) error {
+func (cc *TlsConfigController) checkCertManager(ctx context.Context, tlsConfig *v1alpha1.TlsConfig) error {
 	// certManager installed in cluster (check CertManager CR)
 	for _, kind := range certManagerKinds {
 		exist, err := k8s.ResourceExists(cc.DiscoveryClient, cmapi.SchemeGroupVersion.String(), kind)
@@ -368,7 +359,7 @@ func (cc *TlsConfigController) checkCertManager(ctx context.Context) error {
 	}
 
 	// Check Issuer exist in Kubernetes
-	iType, iName, err := cc.getIssuer()
+	iType, iName, err := cc.getIssuer(tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -396,17 +387,11 @@ func (cc *TlsConfigController) checkCertManager(ctx context.Context) error {
 }
 
 // Check if AutoDiscovery set.
-func (cc *TlsConfigController) checkAutoDiscovery(ctx context.Context) (map[string]string, error) {
+func (cc *TlsConfigController) checkAutoDiscovery(ctx context.Context, index map[string]corev1.Secret, vh *routev3.VirtualHost, tlsConfig *v1alpha1.TlsConfig) (map[string]string, error) {
 	errorList := map[string]string{}
-
-	secrets, err := cc.getCertificateSecrets(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	var wg sync.WaitGroup
 	limit := make(chan struct{}, 50)
-	for _, vhDomain := range cc.VirtualHost.Domains {
+	for _, vhDomain := range vh.Domains {
 		wg.Add(1)
 		limit <- struct{}{}
 
@@ -416,10 +401,9 @@ func (cc *TlsConfigController) checkAutoDiscovery(ctx context.Context) (map[stri
 				<-limit
 			}()
 			flag := false
-			for _, secret := range secrets {
-				if containDomain(vhDomain, strings.Split(secret.Annotations[domainAnnotation], ",")) {
-					flag = true
-				}
+			_, ok := index[vhDomain]
+			if ok {
+				flag = true
 			}
 			if !flag {
 				cc.mu.Lock()
@@ -433,24 +417,24 @@ func (cc *TlsConfigController) checkAutoDiscovery(ctx context.Context) (map[stri
 	return errorList, nil
 }
 
-func (cc *TlsConfigController) getIssuer() (iType, iName string, err error) {
-	if cc.TlsConfig.CertManager.Issuer != nil {
-		if cc.TlsConfig.CertManager.ClusterIssuer != nil {
+func (cc *TlsConfigController) getIssuer(tlsConfig *v1alpha1.TlsConfig) (iType, iName string, err error) {
+	if tlsConfig.CertManager.Issuer != nil {
+		if tlsConfig.CertManager.ClusterIssuer != nil {
 			err = ErrTlsConfigManyParam
 			return
 		}
 		iType = cmapi.IssuerKind
-		iName = *cc.TlsConfig.CertManager.Issuer
+		iName = *tlsConfig.CertManager.Issuer
 		return
 	}
 
-	if cc.TlsConfig.CertManager.ClusterIssuer != nil {
+	if tlsConfig.CertManager.ClusterIssuer != nil {
 		iType = cmapi.ClusterIssuerKind
-		iName = *cc.TlsConfig.CertManager.ClusterIssuer
+		iName = *tlsConfig.CertManager.ClusterIssuer
 		return
 	}
 
-	if *cc.TlsConfig.CertManager.Enabled {
+	if *tlsConfig.CertManager.Enabled {
 		if cc.Config.GetDefaultIssuer() != "" {
 			iType = cmapi.ClusterIssuerKind
 			iName = cc.Config.GetDefaultIssuer()
@@ -462,26 +446,45 @@ func (cc *TlsConfigController) getIssuer() (iType, iName string, err error) {
 	return
 }
 
-func (cc *TlsConfigController) getTLSType() (string, error) {
-	if cc.TlsConfig.SecretRef != nil {
-		if cc.TlsConfig.CertManager != nil || cc.TlsConfig.AutoDiscovery != nil {
+func (cc *TlsConfigController) getTLSType(tlsConfig *v1alpha1.TlsConfig) (string, error) {
+	if tlsConfig.SecretRef != nil {
+		if tlsConfig.CertManager != nil || tlsConfig.AutoDiscovery != nil {
 			return "", ErrManyParam
 		}
 		return secretRefType, nil
 	}
 
-	if cc.TlsConfig.CertManager != nil {
-		if cc.TlsConfig.AutoDiscovery != nil {
+	if tlsConfig.CertManager != nil {
+		if tlsConfig.AutoDiscovery != nil {
 			return "", ErrManyParam
 		}
 		return certManagerType, nil
 	}
 
-	if cc.TlsConfig.AutoDiscovery != nil {
+	if tlsConfig.AutoDiscovery != nil {
 		return autoDiscoveryType, nil
 	}
 
 	return "", ErrZeroParam
+}
+
+func (cc *TlsConfigController) IndexCertificateSecrets(ctx context.Context) (map[string]corev1.Secret, error) {
+	indexedSecrets := make(map[string]corev1.Secret)
+	secrets, err := cc.getCertificateSecrets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, secret := range secrets {
+		for _, domain := range strings.Split(secret.Annotations[domainAnnotation], ",") {
+			_, ok := indexedSecrets[domain]
+			if ok {
+				cc.log.Info("Dublicate domain", "Domain:", domain)
+				continue
+			}
+			indexedSecrets[domain] = secret
+		}
+	}
+	return indexedSecrets, nil
 }
 
 func (cc *TlsConfigController) getCertificateSecrets(ctx context.Context) ([]corev1.Secret, error) {
@@ -495,30 +498,4 @@ func (cc *TlsConfigController) getCertificateSecrets(ctx context.Context) ([]cor
 		Namespace:     cc.Namespace,
 	}
 	return k8s.ListSecret(ctx, cc.client, listOpt)
-}
-
-// if n domains contain something like *.domain.com
-// it's contains with www.domain.com
-func containDomain(domain string, domains []string) bool {
-	domainSpl := strings.Split(domain, ".")
-
-C1:
-	for _, d := range domains {
-		dSpl := strings.Split(d, ".")
-		if len(domainSpl) != len(dSpl) {
-			continue
-		}
-
-		for i, v := range dSpl {
-			if v == "*" {
-				continue
-			}
-			if v == domainSpl[i] {
-				continue
-			}
-			continue C1
-		}
-		return true
-	}
-	return false
 }

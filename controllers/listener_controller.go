@@ -103,7 +103,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	builder := filterchain.NewBuilder()
-	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items)
+	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -130,8 +130,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService) ([]*listenerv3.FilterChain, error) {
+func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string) ([]*listenerv3.FilterChain, error) {
 	var chains []*listenerv3.FilterChain
+	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace, log)
+	index, err := certsProvider.IndexCertificateSecrets(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for _, vs := range virtualServices {
 		log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
 
@@ -162,7 +167,6 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 
 		if vs.Spec.TlsConfig == nil {
 			f, err := b.WithHttpConnectionManager(
-				virtualHost,
 				accessLog,
 				httpFilters,
 				getResourceName(vs.Namespace, vs.Name),
@@ -174,28 +178,26 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			}
 			chains = append(chains, f)
 			continue
-		} else {
-			certsProvider := tls.New(r.Client, r.DiscoveryClient, vs.Spec.TlsConfig, virtualHost, r.Config, vs.Namespace)
-			certs, err := certsProvider.Provide(ctx, log)
-			if err != nil {
-				return nil, err
-			}
+		}
 
-			for certName, domains := range certs {
-				virtualHost.Domains = domains
-				f, err := b.WithDownstreamTlsContext(certName).
-					WithFilterChainMatch(domains).
-					WithHttpConnectionManager(virtualHost,
-						accessLog,
-						httpFilters,
-						getResourceName(vs.Namespace, vs.Name),
-					).
-					Build(vs.Name)
-				if err != nil {
-					log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
-				}
-				chains = append(chains, f)
+		certs, err := certsProvider.Provide(ctx, index, virtualHost, vs.Spec.TlsConfig)
+		if err != nil {
+			return nil, err
+		}
+
+		for certName, domains := range certs {
+			virtualHost.Domains = domains
+			f, err := b.WithDownstreamTlsContext(certName).
+				WithFilterChainMatch(domains).
+				WithHttpConnectionManager(accessLog,
+					httpFilters,
+					getResourceName(vs.Namespace, vs.Name),
+				).
+				Build(vs.Name)
+			if err != nil {
+				log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
 			}
+			chains = append(chains, f)
 		}
 	}
 	return chains, nil

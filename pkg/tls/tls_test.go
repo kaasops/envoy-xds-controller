@@ -12,6 +12,7 @@ import (
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	fakeconfig "github.com/kaasops/envoy-xds-controller/pkg/config/fake"
@@ -26,7 +27,6 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestProvide(t *testing.T) {
@@ -36,6 +36,7 @@ func TestProvide(t *testing.T) {
 		// nodeIDs []string,
 		cfg config.Config,
 		namespace string,
+		log logr.Logger,
 		cl client.Client,
 		dc *discovery.DiscoveryClient,
 		wantCerts map[string][]string,
@@ -60,10 +61,15 @@ func TestProvide(t *testing.T) {
 				// fmt.Println(err)
 			}
 
-			ctrl := New(cl, dc, tlsConfig, vh, cfg, namespace)
+			ctrl := New(cl, dc, cfg, namespace, log)
 
-			log := log.FromContext(context.TODO()).WithName("For test")
-			certs, err := ctrl.Provide(context.TODO(), log)
+			index, err := ctrl.IndexCertificateSecrets(context.TODO())
+
+			if !errors.Is(err, wantErr) {
+				req.Equal(err, wantErr)
+			}
+
+			certs, err := ctrl.Provide(context.TODO(), index, vh, tlsConfig)
 			req.Equal(certs, wantCerts)
 
 			if !errors.Is(err, wantErr) {
@@ -80,6 +86,7 @@ func TestProvide(t *testing.T) {
 		// nodeIDs   []string
 		cfg       config.Config
 		namespace string
+		log       logr.Logger
 		client    client.Client
 		dc        *discovery.DiscoveryClient
 		wantCerts map[string][]string
@@ -337,6 +344,7 @@ func TestProvide(t *testing.T) {
 			// tc.nodeIDs,
 			tc.cfg,
 			tc.namespace,
+			tc.log,
 			tc.client,
 			tc.dc,
 			tc.wantCerts,
