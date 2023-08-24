@@ -38,6 +38,12 @@ spec:
               accessLog:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              httpFilters:
+                description: HTTPFilters for use custom HTTP filters
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
               listener:
                 properties:
                   name:
