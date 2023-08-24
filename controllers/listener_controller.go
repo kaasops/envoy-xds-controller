@@ -33,6 +33,7 @@ import (
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/go-logr/logr"
 
 	// "github.com/go-logr/logr"
@@ -145,6 +146,16 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			return nil, err
 		}
 
+		// Get HTTP Filters for envoy VirtualHost
+		httpFilters := []*hcmv3.HttpFilter{}
+		for _, httpFilter := range vs.Spec.HTTPFilters {
+			hf := &hcmv3.HttpFilter{}
+			if err := r.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
+				return nil, err
+			}
+			httpFilters = append(httpFilters, hf)
+		}
+
 		// Get envoy AccessLog from virtualService spec
 		var accessLog *accesslogv3.AccessLog = nil
 		if vs.Spec.AccessLog != nil {
@@ -157,6 +168,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 		if vs.Spec.TlsConfig == nil {
 			f, err := b.WithHttpConnectionManager(
 				accessLog,
+				httpFilters,
 				getResourceName(vs.Namespace, vs.Name),
 			).
 				WithFilterChainMatch(virtualHost.Domains).
@@ -177,14 +189,16 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			virtualHost.Domains = domains
 			f, err := b.WithDownstreamTlsContext(certName).
 				WithFilterChainMatch(domains).
-				WithHttpConnectionManager(accessLog, getResourceName(vs.Namespace, vs.Name)).
+				WithHttpConnectionManager(accessLog,
+					httpFilters,
+					getResourceName(vs.Namespace, vs.Name),
+				).
 				Build(vs.Name)
 			if err != nil {
 				log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
 			}
 			chains = append(chains, f)
 		}
-
 	}
 	return chains, nil
 }

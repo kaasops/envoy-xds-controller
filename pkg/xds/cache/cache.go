@@ -16,10 +16,6 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-
-	// https://github.com/envoyproxy/go-control-plane/issues/390
-	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
-	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 )
 
 var (
