@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -51,7 +52,7 @@ var listenerReconciliationChannel = make(chan event.GenericEvent)
 type ListenerReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	Cache           *xdscache.Cache
+	Cache           xdscache.Cache
 	Unmarshaler     *protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          config.Config
@@ -138,7 +139,11 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 		return nil, err
 	}
 	for _, vs := range virtualServices {
-		log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
+		// log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
+
+		if vs.Name == "1x001.com" {
+			fmt.Printf("\nAL RAW: %+v\n\n\n\n\n\n\n\n", vs.Spec.AccessLog.Raw)
+		}
 
 		// Get envoy virtualhost from virtualSerive spec
 		virtualHost := &routev3.VirtualHost{}
@@ -163,6 +168,9 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			if err := r.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, accessLog); err != nil {
 				return nil, err
 			}
+		}
+		if vs.Name == "1x001.com" {
+			fmt.Printf("\nAL: %+v\n\n\n\n\n\n\n\n", accessLog)
 		}
 
 		if vs.Spec.TlsConfig == nil {

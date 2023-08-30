@@ -33,18 +33,27 @@ var (
 	ErrEmptyResourceName   = errors.New("empty resource name")
 )
 
-type Cache struct {
-	mu            sync.Mutex
-	SnapshotCache cachev3.SnapshotCache
+type Cache interface {
+	Update(nodeID string, resource types.Resource) error
+	Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error
+	GetCache() cachev3.SnapshotCache
+	GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error)
+	GetNodeIDs() []string
 }
 
-func New() *Cache {
-	return &Cache{
+type cache struct {
+	SnapshotCache cachev3.SnapshotCache
+
+	mu sync.Mutex
+}
+
+func New() Cache {
+	return &cache{
 		SnapshotCache: cachev3.NewSnapshotCache(true, cachev3.IDHash{}, nil),
 	}
 }
 
-func (c *Cache) Update(nodeID string, resource types.Resource) error {
+func (c *cache) Update(nodeID string, resource types.Resource) error {
 	resourceName := cachev3.GetResourceName(resource)
 
 	if resourceName == "" {
@@ -61,7 +70,7 @@ func (c *Cache) Update(nodeID string, resource types.Resource) error {
 	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
-	resources, version, err := c.GetAll(nodeID)
+	resources, version, err := c.GetResources(nodeID)
 
 	if err != nil {
 		return nil
@@ -87,7 +96,7 @@ func (c *Cache) Update(nodeID string, resource types.Resource) error {
 	return nil
 }
 
-func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error {
+func (c *cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error {
 
 	if resourceName == "" {
 		return ErrEmptyResourceName
@@ -101,7 +110,7 @@ func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName
 	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
-	resources, version, err := c.GetAll(nodeID)
+	resources, version, err := c.GetResources(nodeID)
 
 	if err != nil {
 		return nil
@@ -127,7 +136,11 @@ func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName
 	return nil
 }
 
-func (c *Cache) GetAll(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
+func (c *cache) GetCache() cachev3.SnapshotCache {
+	return c.SnapshotCache
+}
+
+func (c *cache) GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
 	version := 0
 	resources := make(map[resourcev3.Type][]types.Resource, 0)
 	for _, t := range resourceTypes {
@@ -158,8 +171,12 @@ func (c *Cache) GetAll(nodeID string) (map[resourcev3.Type][]types.Resource, int
 	return resources, version, nil
 }
 
+func (c *cache) GetNodeIDs() []string {
+	return c.SnapshotCache.GetStatusKeys()
+}
+
 // GetResourceFromCache return
-func (c *Cache) getByType(resourceType resourcev3.Type, nodeID string) (map[string]types.Resource, string, error) {
+func (c *cache) getByType(resourceType resourcev3.Type, nodeID string) (map[string]types.Resource, string, error) {
 	resSnap, err := c.SnapshotCache.GetSnapshot(nodeID)
 	if err == nil {
 		if resSnap.GetResources(resourceType) == nil {
@@ -173,7 +190,7 @@ func (c *Cache) getByType(resourceType resourcev3.Type, nodeID string) (map[stri
 	return nil, "", err
 }
 
-func (c *Cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]types.Resource, version int) error {
+func (c *cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]types.Resource, version int) error {
 
 	snapshot, err := cachev3.NewSnapshot(strconv.Itoa(version), resources)
 
@@ -221,10 +238,6 @@ func toSlice(resources map[string]types.Resource) []types.Resource {
 		res = append(res, r)
 	}
 	return res
-}
-
-func (c *Cache) GetAllNodeIDs() []string {
-	return c.SnapshotCache.GetStatusKeys()
 }
 
 // func (c *Cache) CheckSnapshotCache(nodeID string) error {

@@ -46,7 +46,7 @@ import (
 type VirtualServiceReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	Cache           *xdscache.Cache
+	Cache           xdscache.Cache
 	Unmarshaler     *protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          config.Config
