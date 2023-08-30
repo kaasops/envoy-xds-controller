@@ -71,14 +71,12 @@ func (c *cache) Update(nodeID string, resource types.Resource) error {
 
 	// Get all nodeID resources indexed by type
 	resources, version, err := c.GetResources(nodeID)
-
 	if err != nil {
-		return nil
+		return err
 	}
 
 	// Get resources by type indexed by resource name
 	updated, _, err := c.getByType(resourceType, nodeID)
-
 	if err != nil {
 		return err
 	}
