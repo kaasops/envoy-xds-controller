@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -164,9 +163,6 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			if err := r.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, accessLog); err != nil {
 				return nil, err
 			}
-		}
-		if vs.Name == "1x001.com" {
-			fmt.Printf("\nAL: %+v\n\n\n\n\n\n\n\n", accessLog)
 		}
 
 		if vs.Spec.TlsConfig == nil {
