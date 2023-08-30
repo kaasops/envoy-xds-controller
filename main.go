@@ -109,7 +109,7 @@ func main() {
 	}
 
 	xDSCache := xdscache.New()
-	xDSServer := server.New(xDSCache.GetCache(), &testv3.Callbacks{Debug: true})
+	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
 
 	go func(c xdscache.Cache) {

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -16,6 +17,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"k8s.io/utils/strings/slices"
 )
 
 var (
@@ -39,10 +41,14 @@ type Cache interface {
 	GetCache() cachev3.SnapshotCache
 	GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error)
 	GetNodeIDs() []string
+	Wait() error
 }
 
 type cache struct {
 	SnapshotCache cachev3.SnapshotCache
+
+	// List of node ID in cache. Temporary, wait PR - https://github.com/envoyproxy/go-control-plane/pull/769
+	nodeIDs []string
 
 	mu sync.Mutex
 }
@@ -89,6 +95,11 @@ func (c *cache) Update(nodeID string, resource types.Resource) error {
 
 	if err := c.createSnapshot(nodeID, resources, version); err != nil {
 		return err
+	}
+
+	// Add information about node ID to list
+	if !slices.Contains(c.nodeIDs, nodeID) {
+		c.nodeIDs = append(c.nodeIDs, nodeID)
 	}
 
 	return nil
@@ -170,7 +181,55 @@ func (c *cache) GetResources(nodeID string) (map[resourcev3.Type][]types.Resourc
 }
 
 func (c *cache) GetNodeIDs() []string {
-	return c.SnapshotCache.GetStatusKeys()
+	return c.nodeIDs
+}
+
+// Wait blocks if:
+// 1. There is no Listener for any NodeID.
+// 2. The number of resources in the cache has changed within 10 seconds.
+func (c *cache) Wait() error {
+	resourceCount, err := c.getResourceCount()
+	if err != nil {
+		return err
+	}
+
+	for {
+		time.Sleep(10 * time.Second)
+		resourceCountNew, err := c.getResourceCount()
+		if err != nil {
+			return err
+		}
+		if resourceCountNew == 0 {
+			continue
+		}
+		if resourceCountNew == resourceCount {
+			break
+		}
+		resourceCount = resourceCountNew
+	}
+
+	return nil
+}
+
+func (c *cache) getResourceCount() (int, error) {
+	resourceCount := 0
+
+	nodeIDs := c.GetNodeIDs()
+
+	for _, nodeID := range nodeIDs {
+		resources, _, err := c.GetResources(nodeID)
+		if err != nil {
+			return resourceCount, err
+		}
+		if len(resources[resourcev3.ListenerType]) == 0 {
+			continue
+		}
+
+		for _, resourceType := range resourceTypes {
+			resourceCount += len(resources[resourceType])
+		}
+	}
+	return resourceCount, nil
 }
 
 // GetResourceFromCache return
