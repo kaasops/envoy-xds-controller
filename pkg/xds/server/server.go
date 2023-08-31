@@ -6,9 +6,10 @@ import (
 	"net"
 	"time"
 
-	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	serverv3 "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
+
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -32,11 +33,13 @@ const (
 
 type Server struct {
 	xDSServer serverv3.Server
+	xDSCache  xdscache.Cache
 }
 
-func New(cache cachev3.SnapshotCache, cb *testv3.Callbacks) *Server {
+func New(cache xdscache.Cache, cb *testv3.Callbacks) *Server {
 	return &Server{
-		xDSServer: serverv3.NewServer(context.Background(), cache, cb),
+		xDSServer: serverv3.NewServer(context.Background(), cache.GetCache(), cb),
+		xDSCache:  cache,
 	}
 }
 
@@ -64,11 +67,15 @@ func (s *Server) Run(port int) {
 
 	s.registerServer(grpcServer)
 
+	// Wait xDS Cache is ready
+	if err := s.xDSCache.Wait(); err != nil {
+		log.Error(err, "Warmup xDS cache finished with errir")
+	}
+
 	log.Info("xDS Server started")
 	if err = grpcServer.Serve(lis); err != nil {
 		log.Error(err, "Can't start xDS GRPC Server")
 	}
-
 }
 
 func (s *Server) registerServer(grpcServer *grpc.Server) {

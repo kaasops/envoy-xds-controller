@@ -33,7 +33,7 @@ func GetNodeIDsAnnotation(obj client.Object) string {
 	return annotation
 }
 
-func NodeIDs(obj client.Object, cache *cache.Cache) []string {
+func NodeIDs(obj client.Object, cache cache.Cache) []string {
 	nodeIDStr := GetNodeIDsAnnotation(obj)
 
 	if nodeIDStr == "" {
@@ -41,7 +41,7 @@ func NodeIDs(obj client.Object, cache *cache.Cache) []string {
 	}
 
 	if nodeIDStr == "*" {
-		return cache.GetAllNodeIDs()
+		return cache.GetNodeIDs()
 	}
 
 	nodeIDs := strings.Split(nodeIDStr, ",")

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -16,6 +17,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"k8s.io/utils/strings/slices"
 )
 
 var (
@@ -33,18 +35,31 @@ var (
 	ErrEmptyResourceName   = errors.New("empty resource name")
 )
 
-type Cache struct {
-	mu            sync.Mutex
-	SnapshotCache cachev3.SnapshotCache
+type Cache interface {
+	Update(nodeID string, resource types.Resource) error
+	Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error
+	GetCache() cachev3.SnapshotCache
+	GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error)
+	GetNodeIDs() []string
+	Wait() error
 }
 
-func New() *Cache {
-	return &Cache{
+type cache struct {
+	SnapshotCache cachev3.SnapshotCache
+
+	// List of node ID in cache. Temporary, wait PR - https://github.com/envoyproxy/go-control-plane/pull/769
+	nodeIDs []string
+
+	mu sync.Mutex
+}
+
+func New() Cache {
+	return &cache{
 		SnapshotCache: cachev3.NewSnapshotCache(true, cachev3.IDHash{}, nil),
 	}
 }
 
-func (c *Cache) Update(nodeID string, resource types.Resource) error {
+func (c *cache) Update(nodeID string, resource types.Resource) error {
 	resourceName := cachev3.GetResourceName(resource)
 
 	if resourceName == "" {
@@ -61,15 +76,13 @@ func (c *Cache) Update(nodeID string, resource types.Resource) error {
 	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
-	resources, version, err := c.GetAll(nodeID)
-
+	resources, version, err := c.GetResources(nodeID)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	// Get resources by type indexed by resource name
 	updated, _, err := c.getByType(resourceType, nodeID)
-
 	if err != nil {
 		return err
 	}
@@ -84,10 +97,15 @@ func (c *Cache) Update(nodeID string, resource types.Resource) error {
 		return err
 	}
 
+	// Add information about node ID to list
+	if !slices.Contains(c.nodeIDs, nodeID) {
+		c.nodeIDs = append(c.nodeIDs, nodeID)
+	}
+
 	return nil
 }
 
-func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error {
+func (c *cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error {
 
 	if resourceName == "" {
 		return ErrEmptyResourceName
@@ -101,7 +119,7 @@ func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName
 	defer c.mu.Unlock()
 
 	// Get all nodeID resources indexed by type
-	resources, version, err := c.GetAll(nodeID)
+	resources, version, err := c.GetResources(nodeID)
 
 	if err != nil {
 		return nil
@@ -127,7 +145,11 @@ func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName
 	return nil
 }
 
-func (c *Cache) GetAll(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
+func (c *cache) GetCache() cachev3.SnapshotCache {
+	return c.SnapshotCache
+}
+
+func (c *cache) GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
 	version := 0
 	resources := make(map[resourcev3.Type][]types.Resource, 0)
 	for _, t := range resourceTypes {
@@ -158,8 +180,60 @@ func (c *Cache) GetAll(nodeID string) (map[resourcev3.Type][]types.Resource, int
 	return resources, version, nil
 }
 
+func (c *cache) GetNodeIDs() []string {
+	return c.nodeIDs
+}
+
+// Wait blocks if:
+// 1. There is no Listener for any NodeID.
+// 2. The number of resources in the cache has changed within 10 seconds.
+func (c *cache) Wait() error {
+	resourceCount, err := c.getResourceCount()
+	if err != nil {
+		return err
+	}
+
+	for {
+		time.Sleep(10 * time.Second)
+		resourceCountNew, err := c.getResourceCount()
+		if err != nil {
+			return err
+		}
+		if resourceCountNew == 0 {
+			continue
+		}
+		if resourceCountNew == resourceCount {
+			break
+		}
+		resourceCount = resourceCountNew
+	}
+
+	return nil
+}
+
+func (c *cache) getResourceCount() (int, error) {
+	resourceCount := 0
+
+	nodeIDs := c.GetNodeIDs()
+
+	for _, nodeID := range nodeIDs {
+		resources, _, err := c.GetResources(nodeID)
+		if err != nil {
+			return resourceCount, err
+		}
+		if len(resources[resourcev3.ListenerType]) == 0 {
+			continue
+		}
+
+		for _, resourceType := range resourceTypes {
+			resourceCount += len(resources[resourceType])
+		}
+	}
+	return resourceCount, nil
+}
+
 // GetResourceFromCache return
-func (c *Cache) getByType(resourceType resourcev3.Type, nodeID string) (map[string]types.Resource, string, error) {
+func (c *cache) getByType(resourceType resourcev3.Type, nodeID string) (map[string]types.Resource, string, error) {
 	resSnap, err := c.SnapshotCache.GetSnapshot(nodeID)
 	if err == nil {
 		if resSnap.GetResources(resourceType) == nil {
@@ -173,7 +247,7 @@ func (c *Cache) getByType(resourceType resourcev3.Type, nodeID string) (map[stri
 	return nil, "", err
 }
 
-func (c *Cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]types.Resource, version int) error {
+func (c *cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]types.Resource, version int) error {
 
 	snapshot, err := cachev3.NewSnapshot(strconv.Itoa(version), resources)
 
@@ -221,10 +295,6 @@ func toSlice(resources map[string]types.Resource) []types.Resource {
 		res = append(res, r)
 	}
 	return res
-}
-
-func (c *Cache) GetAllNodeIDs() []string {
-	return c.SnapshotCache.GetStatusKeys()
 }
 
 // func (c *Cache) CheckSnapshotCache(nodeID string) error {

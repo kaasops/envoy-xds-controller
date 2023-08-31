@@ -109,16 +109,16 @@ func main() {
 	}
 
 	xDSCache := xdscache.New()
-	xDSServer := server.New(xDSCache.SnapshotCache, &testv3.Callbacks{Debug: true})
+	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
 
-	go func(c *xdscache.Cache) {
+	go func(c xdscache.Cache) {
 		for {
 			time.Sleep(20 * time.Second)
-			cache, v, _ := c.GetAll("default")
+			cacheResources, v, _ := c.GetResources("default")
 			fmt.Printf("VERSION: %+v\n", v)
 
-			for type1, res := range cache {
+			for type1, res := range cacheResources {
 				fmt.Printf("Type: %+v\nLen: %+v\n", type1, len(res))
 			}
 
