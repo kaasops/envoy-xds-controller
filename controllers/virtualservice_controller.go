@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
@@ -178,9 +177,6 @@ func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.VirtualService{}).
-		WithEventFilter(predicate.GenerationChangedPredicate{}).
-		WithEventFilter(predicate.AnnotationChangedPredicate{}).
-		WithEventFilter(predicate.LabelChangedPredicate{}).
 		Complete(r)
 }
 
