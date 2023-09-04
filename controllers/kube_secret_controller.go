@@ -71,7 +71,11 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	for _, nodeID := range NodeIDs(kubeSecret, r.Cache) {
-		if err := r.Cache.Update(nodeID, r.envoySecret(kubeSecret)); err != nil {
+		envoySecret, err := r.makeEnvoySecret(kubeSecret)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if err := r.Cache.Update(nodeID, envoySecret); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -100,8 +104,8 @@ func valid(log logr.Logger, secret *corev1.Secret) bool {
 	return true
 }
 
-func (r *KubeSecretReconciler) envoySecret(kubeSecret *corev1.Secret) *tlsv3.Secret {
-	return &tlsv3.Secret{
+func (r *KubeSecretReconciler) makeEnvoySecret(kubeSecret *corev1.Secret) (*tlsv3.Secret, error) {
+	envoySecret := &tlsv3.Secret{
 		Name: fmt.Sprintf("%s-%s", kubeSecret.Namespace, kubeSecret.Name),
 		Type: &tlsv3.Secret_TlsCertificate{
 			TlsCertificate: &tlsv3.TlsCertificate{
@@ -118,4 +122,9 @@ func (r *KubeSecretReconciler) envoySecret(kubeSecret *corev1.Secret) *tlsv3.Sec
 			},
 		},
 	}
+	if err := envoySecret.ValidateAll(); err != nil {
+		return nil, err
+	}
+
+	return envoySecret, nil
 }
