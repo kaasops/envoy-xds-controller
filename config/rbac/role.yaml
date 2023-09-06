@@ -28,6 +28,32 @@ rules:
 - apiGroups:
   - envoy.kaasops.io
   resources:
+  - accesslogconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - accesslogconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
+  - accesslogconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - envoy.kaasops.io
+  resources:
   - clusters
   verbs:
   - create

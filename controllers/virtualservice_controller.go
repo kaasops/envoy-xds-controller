@@ -26,7 +26,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -125,6 +124,18 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		r.Client.Status().Update(ctx, instance)
 	}
 
+	if instance.Spec.AccessLogConfig != nil {
+		if instance.Spec.AccessLog != nil {
+			return ctrl.Result{}, err
+		}
+		accessLog := &v1alpha1.AccessLogConfig{}
+		err := r.Get(ctx, instance.Spec.AccessLogConfig.NamespacedName(instance.Namespace), accessLog)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		instance.Spec.AccessLog = accessLog.Spec
+	}
+
 	// Set default listener if listener not set
 	if instance.Spec.Listener == nil {
 		// TODO: fix default listerner namespace
@@ -158,7 +169,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)
 
-	listenerReconciliationChannel <- event.GenericEvent{Object: listener}
+	// listenerReconciliationChannel <- event.GenericEvent{Object: listener}
 
 	return ctrl.Result{}, nil
 }

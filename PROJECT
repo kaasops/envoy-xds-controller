@@ -83,4 +83,13 @@ resources:
   kind: VirtualService
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: kaasops.io
+  group: envoy
+  kind: AccessLogConfig
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
 version: "3"

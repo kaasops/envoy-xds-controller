@@ -22,7 +22,6 @@ spec:
   tlsConfig:
     secretRef:
       name: cert1
-      namespace: default
   accessLog:
     name: envoy.access_loggers
     typed_config:
@@ -63,7 +62,6 @@ spec:
           balancer: "envoy"
   listener:
     name: https
-    namespace: envoy-xds-controller
 ---
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
@@ -89,8 +87,6 @@ spec:
   tlsConfig:
     secretRef:
       name: cert1
-      namespace: default
   listener:
     name: https
-    namespace: envoy-xds-controller
 ---
