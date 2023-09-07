@@ -87,6 +87,8 @@ spec:
   tlsConfig:
     secretRef:
       name: cert1
+  accessLogConfig: 
+      name: accesslogconfig-sample
   listener:
     name: https
 ---
