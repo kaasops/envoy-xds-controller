@@ -218,7 +218,6 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		Owns(&v1alpha1.VirtualService{}).
 		Watches(&v1alpha1.VirtualService{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 
 			v := o.(*v1alpha1.VirtualService)
