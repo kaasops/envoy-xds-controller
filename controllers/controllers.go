@@ -17,9 +17,10 @@ const (
 )
 
 var (
-	ErrEmptySpec      = errors.New("spec could not be empty")
-	ErrInvalidSpec    = errors.New("invalid config component spec")
-	ErrNodeIDMismatch = errors.New("NodeID mismatch")
+	ErrEmptySpec               = errors.New("spec could not be empty")
+	ErrInvalidSpec             = errors.New("invalid config component spec")
+	ErrNodeIDMismatch          = errors.New("nodeID mismatch")
+	ErrMultipleAccessLogConfig = errors.New("only one access log config is allowed")
 )
 
 func GetNodeIDsAnnotation(obj client.Object) string {

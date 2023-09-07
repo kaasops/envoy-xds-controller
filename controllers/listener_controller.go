@@ -22,13 +22,13 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -44,8 +44,6 @@ import (
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 )
-
-var listenerReconciliationChannel = make(chan event.GenericEvent)
 
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
@@ -156,6 +154,19 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			httpFilters = append(httpFilters, hf)
 		}
 
+		if vs.Spec.AccessLogConfig != nil {
+			if vs.Spec.AccessLog != nil {
+				return nil, ErrMultipleAccessLogConfig
+			}
+			accessLog := &v1alpha1.AccessLogConfig{}
+			err := r.Get(ctx, vs.Spec.AccessLogConfig.NamespacedName(vs.Namespace), accessLog)
+			if err != nil {
+				return nil, err
+			}
+
+			vs.Spec.AccessLog = accessLog.Spec
+		}
+
 		// Get envoy AccessLog from virtualService spec
 		var accessLog *accesslogv3.AccessLog = nil
 		if vs.Spec.AccessLog != nil {
@@ -207,7 +218,17 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		WatchesRawSource(&source.Channel{Source: listenerReconciliationChannel}, &handler.EnqueueRequestForObject{}).
 		Owns(&v1alpha1.VirtualService{}).
+		Watches(&v1alpha1.VirtualService{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+
+			v := o.(*v1alpha1.VirtualService)
+
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      v.GetListener(),
+					Namespace: v.GetNamespace(),
+				}},
+			}
+		})).
 		Complete(r)
 }

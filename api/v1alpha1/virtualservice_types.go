@@ -26,10 +26,11 @@ import (
 
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
-	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
-	Listener    *ResourceRef          `json:"listener,omitempty"`
-	TlsConfig   *TlsConfig            `json:"tlsConfig,omitempty"`
-	AccessLog   *runtime.RawExtension `json:"accessLog,omitempty"`
+	VirtualHost     *runtime.RawExtension `json:"virtualHost,omitempty"`
+	Listener        *ResourceRef          `json:"listener,omitempty"`
+	TlsConfig       *TlsConfig            `json:"tlsConfig,omitempty"`
+	AccessLog       *runtime.RawExtension `json:"accessLog,omitempty"`
+	AccessLogConfig *ResourceRef          `json:"accessLogConfig,omitempty"`
 
 	// HTTPFilters for use custom HTTP filters
 	HTTPFilters []*runtime.RawExtension `json:"httpFilters,omitempty"`
@@ -88,4 +89,12 @@ type VirtualServiceList struct {
 
 func init() {
 	SchemeBuilder.Register(&VirtualService{}, &VirtualServiceList{})
+}
+
+func (v *VirtualService) GetListener() string {
+	return v.Spec.Listener.Name
+}
+
+func (v *VirtualService) GetAccessLogConfig() string {
+	return v.Spec.AccessLogConfig.Name
 }

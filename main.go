@@ -50,6 +50,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/controllers"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -64,6 +65,7 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(cmapi.AddToScheme(scheme))
+	utilruntime.Must(envoyv1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -218,6 +220,13 @@ func main() {
 		Config:          cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
+		os.Exit(1)
+	}
+	if err = (&controllers.AccessLogConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AccessLogConfig")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

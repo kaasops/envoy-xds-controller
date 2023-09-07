@@ -25,8 +25,6 @@ import (
 	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -143,22 +141,10 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if err := controllerutil.SetControllerReference(listener, instance, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.Client.Update(ctx, instance); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	log.Info("Updating last applied hash")
 	if err := setLastAppliedHash(ctx, r.Client, instance); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)
-
-	listenerReconciliationChannel <- event.GenericEvent{Object: listener}
 
 	return ctrl.Result{}, nil
 }

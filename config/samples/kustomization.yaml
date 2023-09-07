@@ -8,4 +8,5 @@ resources:
 - envoy_v1alpha1_secret.yaml
 - envoy_v1alpha1_upstream.yaml
 - envoy_v1alpha1_virtualservice.yaml
+- envoy_v1alpha1_accesslogconfig.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
