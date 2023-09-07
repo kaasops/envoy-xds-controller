@@ -25,7 +25,6 @@ import (
 	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -152,14 +151,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if !NodeIDsContains(NodeIDs(instance, r.Cache), NodeIDs(listener, r.Cache)) {
 			return ctrl.Result{}, ErrNodeIDMismatch
 		}
-	}
-
-	if err := controllerutil.SetControllerReference(listener, instance, r.Scheme); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if err := r.Client.Update(ctx, instance); err != nil {
-		return ctrl.Result{}, err
 	}
 
 	log.Info("Updating last applied hash")
