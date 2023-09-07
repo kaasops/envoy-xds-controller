@@ -25,7 +25,6 @@ import (
 	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -43,8 +42,6 @@ import (
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 )
-
-var listenerReconciliationChannel = make(chan event.GenericEvent)
 
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {

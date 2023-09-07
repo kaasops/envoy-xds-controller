@@ -160,8 +160,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)
 
-	// listenerReconciliationChannel <- event.GenericEvent{Object: listener}
-
 	return ctrl.Result{}, nil
 }
 
