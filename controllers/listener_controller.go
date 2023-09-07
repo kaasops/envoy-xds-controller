@@ -154,6 +154,19 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			httpFilters = append(httpFilters, hf)
 		}
 
+		if vs.Spec.AccessLogConfig != nil {
+			if vs.Spec.AccessLog != nil {
+				return nil, ErrMultipleAccessLogConfig
+			}
+			accessLog := &v1alpha1.AccessLogConfig{}
+			err := r.Get(ctx, vs.Spec.AccessLogConfig.NamespacedName(vs.Namespace), accessLog)
+			if err != nil {
+				return nil, err
+			}
+
+			vs.Spec.AccessLog = accessLog.Spec
+		}
+
 		// Get envoy AccessLog from virtualService spec
 		var accessLog *accesslogv3.AccessLog = nil
 		if vs.Spec.AccessLog != nil {

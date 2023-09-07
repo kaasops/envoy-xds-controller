@@ -123,18 +123,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		r.Client.Status().Update(ctx, instance)
 	}
 
-	if instance.Spec.AccessLogConfig != nil {
-		if instance.Spec.AccessLog != nil {
-			return ctrl.Result{}, err
-		}
-		accessLog := &v1alpha1.AccessLogConfig{}
-		err := r.Get(ctx, instance.Spec.AccessLogConfig.NamespacedName(instance.Namespace), accessLog)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		instance.Spec.AccessLog = accessLog.Spec
-	}
-
 	// Set default listener if listener not set
 	if instance.Spec.Listener == nil {
 		// TODO: fix default listerner namespace
@@ -157,8 +145,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := setLastAppliedHash(ctx, r.Client, instance); err != nil {
 		return ctrl.Result{}, err
 	}
-
-	log.Info("Triggering listener reconiliation", "Listener.name", instance.Spec.Listener.Name)
 
 	return ctrl.Result{}, nil
 }
