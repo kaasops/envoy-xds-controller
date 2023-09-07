@@ -90,3 +90,11 @@ type VirtualServiceList struct {
 func init() {
 	SchemeBuilder.Register(&VirtualService{}, &VirtualServiceList{})
 }
+
+func (v *VirtualService) GetListener() string {
+	return v.Spec.Listener.Name
+}
+
+func (v *VirtualService) GetAccessLogConfig() string {
+	return v.Spec.AccessLogConfig.Name
+}

@@ -22,11 +22,13 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -204,6 +206,16 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
 		Owns(&v1alpha1.VirtualService{}).
-		Watches(&v1alpha1.VirtualService{}, &handler.EnqueueRequestForObject{}).
+		Watches(&v1alpha1.VirtualService{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+
+			v := o.(*v1alpha1.VirtualService)
+
+			return []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      v.GetListener(),
+					Namespace: v.GetNamespace(),
+				}},
+			}
+		})).
 		Complete(r)
 }
