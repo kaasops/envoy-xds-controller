@@ -83,6 +83,21 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	if len(instance.Spec.AdditionalRoutes) != 0 {
+		for _, rt := range instance.Spec.AdditionalRoutes {
+			routesSpec := &v1alpha1.Route{}
+			err := r.Get(ctx, rt.NamespacedName(instance.Namespace), routesSpec)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			routes := &routev3.Route{}
+			if err := r.Unmarshaler.Unmarshal(routesSpec.Spec.Raw, routes); err != nil {
+				return ctrl.Result{}, err
+			}
+			virtualHost.Routes = append(virtualHost.Routes, routes)
+		}
+	}
+
 	// Generate RouteConfiguration and add to xds cache
 	routeConfig, err := filterchain.MakeRouteConfig(virtualHost, getResourceName(req.Namespace, req.Name))
 

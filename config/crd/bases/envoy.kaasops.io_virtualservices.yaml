@@ -43,6 +43,13 @@ spec:
                   name:
                     type: string
                 type: object
+              additionalRoutes:
+                items:
+                  properties:
+                    name:
+                      type: string
+                  type: object
+                type: array
               httpFilters:
                 description: HTTPFilters for use custom HTTP filters
                 items:

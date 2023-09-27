@@ -26,11 +26,12 @@ import (
 
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
-	VirtualHost     *runtime.RawExtension `json:"virtualHost,omitempty"`
-	Listener        *ResourceRef          `json:"listener,omitempty"`
-	TlsConfig       *TlsConfig            `json:"tlsConfig,omitempty"`
-	AccessLog       *runtime.RawExtension `json:"accessLog,omitempty"`
-	AccessLogConfig *ResourceRef          `json:"accessLogConfig,omitempty"`
+	VirtualHost      *runtime.RawExtension `json:"virtualHost,omitempty"`
+	Listener         *ResourceRef          `json:"listener,omitempty"`
+	TlsConfig        *TlsConfig            `json:"tlsConfig,omitempty"`
+	AccessLog        *runtime.RawExtension `json:"accessLog,omitempty"`
+	AccessLogConfig  *ResourceRef          `json:"accessLogConfig,omitempty"`
+	AdditionalRoutes []*ResourceRef        `json:"additionalRoutes,omitempty"`
 
 	// HTTPFilters for use custom HTTP filters
 	HTTPFilters []*runtime.RawExtension `json:"httpFilters,omitempty"`
