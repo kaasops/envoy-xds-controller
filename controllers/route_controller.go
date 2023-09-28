@@ -20,14 +20,11 @@ import (
 	"context"
 
 	"google.golang.org/protobuf/encoding/protojson"
-	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
@@ -47,38 +44,6 @@ type RouteReconciler struct {
 func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx).WithValues("Envoy Route", req.NamespacedName)
 	log.Info("Reconciling route")
-
-	// Get Route instance
-	instance := &v1alpha1.Route{}
-	err := r.Get(ctx, req.NamespacedName, instance)
-	if err != nil {
-		if api_errors.IsNotFound(err) {
-			log.Info("Route instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance, r.Cache) {
-				if err := r.Cache.Delete(nodeID, resourcev3.RouteType, getResourceName(req.Namespace, req.Name)); err != nil {
-					return ctrl.Result{}, err
-				}
-			}
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
-	}
-
-	if instance.Spec == nil {
-		return ctrl.Result{}, ErrEmptySpec
-	}
-
-	// get envoy route from route instance spec
-	route := &routev3.RouteConfiguration{}
-	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, route); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	for _, nodeID := range NodeIDs(instance, r.Cache) {
-		if err := r.Cache.Update(nodeID, route); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 
 	return ctrl.Result{}, nil
 }

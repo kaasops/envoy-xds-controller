@@ -89,6 +89,8 @@ spec:
       name: cert1
   accessLogConfig: 
       name: accesslogconfig-sample
+  additionalRoutes:
+    - name: route-sample
   listener:
     name: https
 ---
