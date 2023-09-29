@@ -341,8 +341,14 @@ func (in *Route) DeepCopyInto(out *Route) {
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	if in.Spec != nil {
 		in, out := &in.Spec, &out.Spec
-		*out = new(runtime.RawExtension)
-		(*in).DeepCopyInto(*out)
+		*out = make([]*runtime.RawExtension, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(runtime.RawExtension)
+				(*in).DeepCopyInto(*out)
+			}
+		}
 	}
 }
 
@@ -725,6 +731,17 @@ func (in *VirtualServiceSpec) DeepCopyInto(out *VirtualServiceSpec) {
 		in, out := &in.AccessLogConfig, &out.AccessLogConfig
 		*out = new(ResourceRef)
 		**out = **in
+	}
+	if in.AdditionalRoutes != nil {
+		in, out := &in.AdditionalRoutes, &out.AdditionalRoutes
+		*out = make([]*ResourceRef, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(ResourceRef)
+				**out = **in
+			}
+		}
 	}
 	if in.HTTPFilters != nil {
 		in, out := &in.HTTPFilters, &out.HTTPFilters

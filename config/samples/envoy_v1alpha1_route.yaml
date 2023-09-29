@@ -10,8 +10,13 @@ metadata:
   name: route-sample
   namespace: envoy-xds-controller
 spec:
-  name: main_route
-  match:
-    prefix: "/api"
-  route:
-    cluster: cluster-sample
+  - name: main_route
+    match:
+      prefix: "/api"
+    route:
+      cluster: cluster-sample
+  - name: version_route
+    match:
+      prefix: "/version"
+    route:
+      cluster: cluster-sample

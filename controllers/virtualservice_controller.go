@@ -84,17 +84,19 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if len(instance.Spec.AdditionalRoutes) != 0 {
-		for _, rt := range instance.Spec.AdditionalRoutes {
+		for _, rts := range instance.Spec.AdditionalRoutes {
 			routesSpec := &v1alpha1.Route{}
-			err := r.Get(ctx, rt.NamespacedName(instance.Namespace), routesSpec)
+			err := r.Get(ctx, rts.NamespacedName(instance.Namespace), routesSpec)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-			routes := &routev3.Route{}
-			if err := r.Unmarshaler.Unmarshal(routesSpec.Spec.Raw, routes); err != nil {
-				return ctrl.Result{}, err
+			for _, rt := range routesSpec.Spec {
+				routes := &routev3.Route{}
+				if err := r.Unmarshaler.Unmarshal(rt.Raw, routes); err != nil {
+					return ctrl.Result{}, err
+				}
+				virtualHost.Routes = append(virtualHost.Routes, routes)
 			}
-			virtualHost.Routes = append(virtualHost.Routes, routes)
 		}
 	}
 

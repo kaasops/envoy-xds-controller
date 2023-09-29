@@ -29,7 +29,7 @@ type Route struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec *runtime.RawExtension `json:"spec,omitempty"`
+	Spec []*runtime.RawExtension `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
