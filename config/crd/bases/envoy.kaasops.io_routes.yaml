@@ -33,8 +33,10 @@ spec:
           metadata:
             type: object
           spec:
-            type: object
-            x-kubernetes-preserve-unknown-fields: true
+            items:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+            type: array
         type: object
     served: true
     storage: true
