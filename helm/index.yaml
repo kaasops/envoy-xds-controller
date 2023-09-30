@@ -3,7 +3,7 @@ entries:
   envoy-xds-controller:
   - apiVersion: v2
     appVersion: v0.0.16
-    created: "2023-08-24T11:16:24.82891488+03:00"
+    created: "2023-09-30T17:36:38.101765+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: d24e9f62dee59a2a85906d76d4d701f892efac0b05488a9044dbde78d18e5935
     home: https://github.com/kaasops/envoy-xds-controller
@@ -16,7 +16,7 @@ entries:
     version: 0.0.16
   - apiVersion: v2
     appVersion: v0.0.15
-    created: "2023-08-24T11:16:24.828280576+03:00"
+    created: "2023-09-30T17:36:38.101453+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8a33a3d1aaf045f3f59cec0d4f8a013f47d8562ccc8a63a53b6ddd88cb89f01a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -29,7 +29,7 @@ entries:
     version: 0.0.15
   - apiVersion: v2
     appVersion: v0.0.14
-    created: "2023-08-24T11:16:24.827705465+03:00"
+    created: "2023-09-30T17:36:38.101137+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: a861e030413908fc69ec95a58fc567c0b108cdf7daf6db86f74f853257e37824
     home: https://github.com/kaasops/envoy-xds-controller
@@ -42,7 +42,7 @@ entries:
     version: 0.0.14
   - apiVersion: v2
     appVersion: v0.0.13
-    created: "2023-08-24T11:16:24.827168646+03:00"
+    created: "2023-09-30T17:36:38.100812+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8f8a4465903a83e7d85c7670497c7fe07bf8051cb2d58dbfb14e11ee9cb23928
     home: https://github.com/kaasops/envoy-xds-controller
@@ -55,7 +55,7 @@ entries:
     version: 0.0.13
   - apiVersion: v2
     appVersion: v0.0.12
-    created: "2023-08-24T11:16:24.826656126+03:00"
+    created: "2023-09-30T17:36:38.100455+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8304e845752464e3fa2804c28ed64370ff12c0ec5c9666c843879bf0b084ce5f
     home: https://github.com/kaasops/envoy-xds-controller
@@ -68,7 +68,7 @@ entries:
     version: 0.0.12
   - apiVersion: v2
     appVersion: v0.0.11
-    created: "2023-08-24T11:16:24.826168352+03:00"
+    created: "2023-09-30T17:36:38.100073+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 6b61ecfef85610861187e6d894a8ad921792704a9fd1ae1f089c6ed16f69c418
     home: https://github.com/kaasops/envoy-xds-controller
@@ -81,7 +81,7 @@ entries:
     version: 0.0.11
   - apiVersion: v2
     appVersion: v0.0.9
-    created: "2023-08-24T11:16:24.825634888+03:00"
+    created: "2023-09-30T17:36:38.099736+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: b43324376ec493ebb536c59dc51fca70e27c9a9b07033f453ff0d0c5d7b347b3
     home: https://github.com/kaasops/envoy-xds-controller
@@ -94,7 +94,7 @@ entries:
     version: 0.0.10
   - apiVersion: v2
     appVersion: v0.0.9
-    created: "2023-08-24T11:16:24.832253239+03:00"
+    created: "2023-09-30T17:36:38.104555+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f8f3211b30fb0f680bb060506bbd78f8a9e69e674ad8553acee9381dc2915d98
     home: https://github.com/kaasops/envoy-xds-controller
@@ -107,7 +107,7 @@ entries:
     version: 0.0.9
   - apiVersion: v2
     appVersion: v0.0.8
-    created: "2023-08-24T11:16:24.831904566+03:00"
+    created: "2023-09-30T17:36:38.104172+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: a75e2661c2e55bbf34c0aee4aab877d7aebb98153f963a98e7c9d19907acb39e
     home: https://github.com/kaasops/envoy-xds-controller
@@ -120,7 +120,7 @@ entries:
     version: 0.0.8
   - apiVersion: v2
     appVersion: v0.0.6
-    created: "2023-08-24T11:16:24.831531351+03:00"
+    created: "2023-09-30T17:36:38.103327+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 7cdaafedeec6bacd1cd72d8f03e647980ffc03408662f56baaf176c01b659cec
     home: https://github.com/kaasops/envoy-xds-controller
@@ -133,7 +133,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: v0.0.6
-    created: "2023-08-24T11:16:24.831038814+03:00"
+    created: "2023-09-30T17:36:38.103003+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: e772b50846eeaf8fc886063a10668f75b6abaa70a796c0facfd2358c0b2beb89
     home: https://github.com/kaasops/envoy-xds-controller
@@ -146,7 +146,7 @@ entries:
     version: 0.0.6
   - apiVersion: v2
     appVersion: v0.0.5
-    created: "2023-08-24T11:16:24.830614764+03:00"
+    created: "2023-09-30T17:36:38.102665+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8843b1fa9e6626c280824f101adf6e1a4100b91b0c6df6d69c7f63a382b84820
     home: https://github.com/kaasops/envoy-xds-controller
@@ -159,7 +159,7 @@ entries:
     version: 0.0.5
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2023-08-24T11:16:24.830236916+03:00"
+    created: "2023-09-30T17:36:38.102334+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 6255f997851ca4ae001e63c0445e771960b0f9dbb0c56d182252ef62fae65f0c
     home: https://github.com/kaasops/envoy-xds-controller
@@ -172,7 +172,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: v0.0.3
-    created: "2023-08-24T11:16:24.829422145+03:00"
+    created: "2023-09-30T17:36:38.102046+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 64d50deed6591c0b8a2e9516529dea16615e64045310c21fa38c9acd55d9dfcd
     home: https://github.com/kaasops/envoy-xds-controller
@@ -185,7 +185,7 @@ entries:
     version: 0.0.3
   - apiVersion: v2
     appVersion: v0.0.1
-    created: "2023-08-24T11:16:24.825209277+03:00"
+    created: "2023-09-30T17:36:38.099194+03:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 151225742ee62d504f23e573180e473b90ba80e4ec376f3b8d2422bd44a8d3a1
     home: https://github.com/kaasops/envoy-xds-controller
@@ -196,4 +196,4 @@ entries:
     urls:
     - https://kaasops.github.io/envoy-xds-controller/helm/packages/envoy-xds-controller-0.0.1.tgz
     version: 0.0.1
-generated: "2023-08-24T11:16:24.824827504+03:00"
+generated: "2023-09-30T17:36:38.098607+03:00"
