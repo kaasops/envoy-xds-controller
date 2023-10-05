@@ -69,7 +69,7 @@ func (s *Server) Run(port int) {
 
 	// Wait xDS Cache is ready
 	if err := s.xDSCache.Wait(); err != nil {
-		log.Error(err, "Warmup xDS cache finished with errir")
+		log.Error(err, "Warmup xDS cache finished with error")
 	}
 
 	log.Info("xDS Server started")

@@ -115,7 +115,7 @@ func (b *builder) WithFilterChainMatch(domains []string) Builder {
 func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	// I'm get name from prefix. Not good idea
 	filterchain := &listenerv3.FilterChain{
-		Name: b.httpConnectionManager.StatPrefix,
+		Name: name,
 	}
 
 	if err := b.httpConnectionManager.ValidateAll(); err != nil {

@@ -104,6 +104,7 @@ func main() {
 			&corev1.Secret{}: {Label: labels.Set{tls.SecretLabel: "true"}.AsSelector()},
 		}},
 		LeaderElectionReleaseOnCancel: true,
+		// ClientDisableCacheFor:         []client.Object{&corev1.Secret{}},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
