@@ -83,6 +83,7 @@ rules:
   - upstreams
   - virtualhosts
   - virtualservices
+  - accesslogconfigs
   verbs:
   - create
   - delete
