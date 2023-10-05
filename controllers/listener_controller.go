@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -204,7 +205,7 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 					httpFilters,
 					getResourceName(vs.Namespace, vs.Name),
 				).
-				Build(vs.Name)
+				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
 			if err != nil {
 				log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
 			}

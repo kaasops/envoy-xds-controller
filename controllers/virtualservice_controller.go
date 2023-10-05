@@ -72,12 +72,21 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	// Check VirtualService hash and skip reconcile if no changes
+	checkResult, err := checkHash(instance)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if checkResult {
+		log.Info("VirtualService has no changes. Finish Reconcile")
+		return ctrl.Result{}, nil
+	}
+
+	// Get envoy virtualhost from virtualSerive spec
 	if instance.Spec.VirtualHost == nil {
 		log.Error(err, "VirtualHost could not be empty")
 		return ctrl.Result{}, ErrEmptySpec
 	}
-
-	// Get envoy virtualhost from virtualSerive spec
 	virtualHost := &routev3.VirtualHost{}
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.VirtualHost.Raw, virtualHost); err != nil {
 		return ctrl.Result{}, err
@@ -112,16 +121,6 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if err := r.Cache.Update(nodeID, routeConfig); err != nil {
 			return ctrl.Result{}, err
 		}
-	}
-
-	// Check VirtualService hash and skip reconcile if no changes
-	checkResult, err := checkHash(instance)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	if checkResult {
-		log.Info("VirtualService has no changes. Finish Reconcile")
-		return ctrl.Result{}, nil
 	}
 
 	// Check if tlsConfig valid
