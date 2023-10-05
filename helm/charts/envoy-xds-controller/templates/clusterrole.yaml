@@ -103,6 +103,7 @@ rules:
   - upstreams/status
   - virtualhosts/status
   - virtualservices/status
+  - accesslogconfigs/status
   verbs:
   - get
   - patch
