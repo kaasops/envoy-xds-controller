@@ -37,11 +37,11 @@ func GetNodeIDsAnnotation(obj client.Object) string {
 func NodeIDs(obj client.Object, cache cache.Cache) []string {
 	nodeIDStr := GetNodeIDsAnnotation(obj)
 
-	if nodeIDStr == "" {
-		return []string{defaultNodeID}
-	}
+	// if nodeIDStr == "" {
+	// return []string{defaultNodeID}
+	// }
 
-	if nodeIDStr == "*" {
+	if nodeIDStr == "*" || nodeIDStr == "" {
 		return cache.GetNodeIDs()
 	}
 
