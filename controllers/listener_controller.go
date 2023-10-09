@@ -102,7 +102,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	builder := filterchain.NewBuilder()
-	chains, err := r.buildFilterChain(ctx, log, builder, virtualServices.Items, req.Namespace)
+	chains, rtConfigs, err := r.configComponents(ctx, log, builder, virtualServices.Items, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -110,6 +110,17 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	listener.FilterChains = append(listener.FilterChains, chains...)
 	listener.Name = getResourceName(req.Namespace, req.Name)
 
+	// Add routeConfigs to xds cache
+	for _, rtConfig := range rtConfigs {
+		for _, nodeID := range NodeIDs(instance, r.Cache) {
+			log.Info("Adding route", "name:", rtConfig.Name)
+			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
+	// Add listener to xds cache
 	for _, nodeID := range NodeIDs(instance, r.Cache) {
 		if len(listener.FilterChains) == 0 {
 			log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
@@ -129,40 +140,52 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string) ([]*listenerv3.FilterChain, error) {
+func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
 	var chains []*listenerv3.FilterChain
+	var routeConfig []*routev3.RouteConfiguration
 	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace, log)
 	index, err := certsProvider.IndexCertificateSecrets(ctx)
+
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+
 	for _, vs := range virtualServices {
 		log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
 
 		// Get envoy virtualhost from virtualSerive spec
 		virtualHost := &routev3.VirtualHost{}
 		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+
+		// Build route config
+		rtConfig, err := filterchain.MakeRouteConfig(virtualHost, getResourceName(vs.Namespace, vs.Name))
+
+		if err != nil {
+			return nil, nil, err
+		}
+
+		routeConfig = append(routeConfig, rtConfig)
 
 		// Get HTTP Filters for envoy VirtualHost
 		httpFilters := []*hcmv3.HttpFilter{}
 		for _, httpFilter := range vs.Spec.HTTPFilters {
 			hf := &hcmv3.HttpFilter{}
 			if err := r.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			httpFilters = append(httpFilters, hf)
 		}
 
 		if vs.Spec.AccessLogConfig != nil {
 			if vs.Spec.AccessLog != nil {
-				return nil, ErrMultipleAccessLogConfig
+				return nil, nil, ErrMultipleAccessLogConfig
 			}
 			accessLog := &v1alpha1.AccessLogConfig{}
 			err := r.Get(ctx, vs.Spec.AccessLogConfig.NamespacedName(vs.Namespace), accessLog)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			vs.Spec.AccessLog = accessLog.Spec
@@ -173,10 +196,11 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 		if vs.Spec.AccessLog != nil {
 			accessLog = &accesslogv3.AccessLog{}
 			if err := r.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, accessLog); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 
+		// Build filterchain without tls
 		if vs.Spec.TlsConfig == nil {
 			f, err := b.WithHttpConnectionManager(
 				accessLog,
@@ -186,17 +210,30 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 				WithFilterChainMatch(virtualHost.Domains).
 				Build(vs.Name)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			chains = append(chains, f)
 			continue
 		}
 
-		certs, err := certsProvider.Provide(ctx, index, virtualHost, vs.Spec.TlsConfig)
+		// Validate tls config
+		errorList, err := certsProvider.Validate(ctx, index, virtualHost, vs.Spec.TlsConfig)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
+		if len(errorList) > 0 {
+			vs.Status.Errors = errorList
+			r.Client.Status().Update(ctx, vs.DeepCopy())
+		}
+
+		// Get certs
+		certs, err := certsProvider.Provide(ctx, index, virtualHost, vs.Spec.TlsConfig)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		// Build filterchain with tls
 		for certName, domains := range certs {
 			virtualHost.Domains = domains
 			f, err := b.WithDownstreamTlsContext(certName).
@@ -212,16 +249,69 @@ func (r *ListenerReconciler) buildFilterChain(ctx context.Context, log logr.Logg
 			chains = append(chains, f)
 		}
 	}
-	return chains, nil
+	return chains, routeConfig, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Add listener name to index
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, VirtualServiceListenerFeild, func(rawObject client.Object) []string {
+		virtualService := rawObject.(*v1alpha1.VirtualService)
+		if virtualService.Spec.Listener == nil {
+			return []string{DefaultListenerName}
+		}
+		return []string{virtualService.Spec.Listener.Name}
+	}); err != nil {
+		return err
+	}
+
+	// EnqueueRequestsFromMapFunc
+	// List all VirtualServies and finds listener ref
+	listenerRequestMapper := handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		var virtualServiceList v1alpha1.VirtualServiceList
+		var reconcileRequests []reconcile.Request
+		uniq := make(map[v1alpha1.ResourceRef]struct{})
+		if err := mgr.GetCache().List(ctx, &virtualServiceList); err != nil {
+			fmt.Printf("failed to list VirtualService resources, %v", err)
+			return nil
+		}
+		for _, vs := range virtualServiceList.Items {
+			if refContains(virtualServiceResourceRefMapper(obj, vs), obj) {
+				name := vs.Spec.Listener.Name
+				namespace := obj.GetNamespace()
+				resourceRef := v1alpha1.ResourceRef{Name: name}
+				_, ok := uniq[resourceRef]
+				if ok {
+					continue
+				}
+				reconcileRequests = append(reconcileRequests, reconcile.Request{NamespacedName: types.NamespacedName{
+					Name:      name,
+					Namespace: namespace,
+				}})
+				uniq[resourceRef] = struct{}{}
+			}
+		}
+		return reconcileRequests
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
 		Watches(&v1alpha1.VirtualService{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-
 			v := o.(*v1alpha1.VirtualService)
+			checkResult, err := checkHash(v)
+			if err != nil {
+				return nil
+			}
+			if checkResult {
+				fmt.Println("VirtualService has no changes. Skip Reconcile")
+				return nil
+			}
+
+			fmt.Println("Updating last applied hash")
+			if err := setLastAppliedHash(ctx, r.Client, v); err != nil {
+				fmt.Println("Failed to update last applied hash")
+				return nil
+			}
 
 			return []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
@@ -230,5 +320,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}},
 			}
 		})).
+		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
+		Watches(&v1alpha1.Route{}, listenerRequestMapper).
 		Complete(r)
 }
