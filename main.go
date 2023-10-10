@@ -87,6 +87,11 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	unmarshaler := &protojson.UnmarshalOptions{
+		AllowPartial: false,
+		// DiscardUnknown: true,
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -114,8 +119,9 @@ func main() {
 		"/validate",
 		&webhook.Admission{
 			Handler: &handler.Handler{
-				Client: mgr.GetClient(),
-				Config: cfg,
+				Client:      mgr.GetClient(),
+				Unmarshaler: unmarshaler,
+				Config:      cfg,
 			},
 		},
 	)
@@ -123,24 +129,6 @@ func main() {
 	xDSCache := xdscache.New()
 	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
-
-	// go func(c xdscache.Cache) {
-	// 	for {
-	// 		time.Sleep(20 * time.Second)
-	// 		cacheResources, v, _ := c.GetResources("default")
-	// 		fmt.Printf("VERSION: %+v\n", v)
-
-	// 		for type1, res := range cacheResources {
-	// 			fmt.Printf("Type: %+v\nLen: %+v\n", type1, len(res))
-	// 		}
-
-	// 	}
-	// }(xDSCache)
-
-	unmarshaler := &protojson.UnmarshalOptions{
-		AllowPartial: false,
-		// DiscardUnknown: true,
-	}
 
 	config := ctrl.GetConfigOrDie()
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
