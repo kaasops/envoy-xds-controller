@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	DefaultListenerName         = "default-https"
+	DefaultListenerName         = "https"
 	VirtualServiceListenerFeild = "spec.listener.name"
 	nodeIDAnnotation            = "envoy.kaasops.io/node-id"
 	defaultNodeID               = "default"

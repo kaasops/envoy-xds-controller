@@ -257,6 +257,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add listener name to index
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, VirtualServiceListenerFeild, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)
+		// if listener feild is empty use default listener name as index
 		if virtualService.Spec.Listener == nil {
 			return []string{DefaultListenerName}
 		}

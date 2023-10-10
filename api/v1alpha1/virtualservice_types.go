@@ -26,7 +26,8 @@ import (
 
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
-	VirtualHost      *runtime.RawExtension `json:"virtualHost,omitempty"`
+	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
+	// +kubebuilder:validation:Required
 	Listener         *ResourceRef          `json:"listener,omitempty"`
 	TlsConfig        *TlsConfig            `json:"tlsConfig,omitempty"`
 	AccessLog        *runtime.RawExtension `json:"accessLog,omitempty"`
