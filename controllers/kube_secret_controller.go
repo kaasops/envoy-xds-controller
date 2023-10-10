@@ -56,7 +56,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("Secret not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(kubeSecret, r.Cache) {
+			for _, nodeID := range NodeIDs(kubeSecret) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -70,7 +70,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	for _, nodeID := range NodeIDs(kubeSecret, r.Cache) {
+	for _, nodeID := range NodeIDs(kubeSecret) {
 		envoySecret, err := r.makeEnvoySecret(kubeSecret)
 		if err != nil {
 			return ctrl.Result{}, err

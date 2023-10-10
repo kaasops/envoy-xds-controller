@@ -54,7 +54,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("Secret instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance, r.Cache) {
+			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -74,7 +74,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	for _, nodeID := range NodeIDs(instance, r.Cache) {
+	for _, nodeID := range NodeIDs(instance) {
 		if err := r.Cache.Update(nodeID, secret); err != nil {
 			return ctrl.Result{}, err
 		}

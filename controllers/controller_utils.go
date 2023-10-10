@@ -9,8 +9,8 @@ import (
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/hash"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/k8s-utils"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,7 +28,15 @@ var (
 	ErrMultipleAccessLogConfig = errors.New("only one access log config is allowed")
 )
 
-func GetNodeIDsAnnotation(obj client.Object) string {
+func NodeIDs(obj client.Object) []string {
+	annotation := NodeIDsAnnotation(obj)
+	if annotation == "" {
+		return nil
+	}
+	return strings.Split(NodeIDsAnnotation(obj), ",")
+}
+
+func NodeIDsAnnotation(obj client.Object) string {
 	annotations := obj.GetAnnotations()
 
 	annotation, ok := annotations[nodeIDAnnotation]
@@ -39,47 +47,23 @@ func GetNodeIDsAnnotation(obj client.Object) string {
 	return annotation
 }
 
-func NodeIDs(obj client.Object, cache cache.Cache) []string {
-	nodeIDStr := GetNodeIDsAnnotation(obj)
-
-	// if nodeIDStr == "" {
-	// return []string{defaultNodeID}
-	// }
-
-	if nodeIDStr == "*" || nodeIDStr == "" {
-		return cache.GetNodeIDs()
-	}
-
-	nodeIDs := strings.Split(nodeIDStr, ",")
-
-	return nodeIDs
-}
-
 func getResourceName(namespace, name string) string {
 	return fmt.Sprintf("%s-%s", namespace, name)
 }
 
 func NodeIDsContains(s1, s2 []string) bool {
+
 	if len(s1) > len(s2) {
 		return false
 	}
 
 	for _, e := range s1 {
-		if !contains(s2, e) {
+		if !slices.Contains(s2, e) {
 			return false
 		}
 	}
 
 	return true
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
 
 func checkHash(virtualService *v1alpha1.VirtualService) (bool, error) {

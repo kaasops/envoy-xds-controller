@@ -54,7 +54,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("Cluster instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance, r.Cache) {
+			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.ClusterType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -74,7 +74,22 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	for _, nodeID := range NodeIDs(instance, r.Cache) {
+	nodeIDs := NodeIDs(instance)
+	if len(nodeIDs) == 0 {
+		// TODO: Get all VirtualServices, Routes, Listeners that contains this cluster and set nodeIDs
+		listeners := &v1alpha1.ListenerList{}
+		listOpts := []client.ListOption{
+			client.InNamespace(req.Namespace),
+		}
+		if err = r.List(ctx, listeners, listOpts...); err != nil {
+			return ctrl.Result{}, err
+		}
+		for _, l := range listeners.Items {
+			nodeIDs = append(nodeIDs, NodeIDs(l.DeepCopy())...)
+		}
+	}
+
+	for _, nodeID := range nodeIDs {
 		if err := r.Cache.Update(nodeID, cluster); err != nil {
 			return ctrl.Result{}, err
 		}

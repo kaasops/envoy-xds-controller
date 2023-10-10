@@ -70,7 +70,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			log.Info("Listener instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance, r.Cache) {
+			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -102,7 +102,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	builder := filterchain.NewBuilder()
-	chains, rtConfigs, err := r.configComponents(ctx, log, builder, virtualServices.Items, req.Namespace)
+	chains, rtConfigs, err := r.configComponents(ctx, log, builder, virtualServices.Items, req.Namespace, NodeIDs(instance))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -112,7 +112,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Add routeConfigs to xds cache
 	for _, rtConfig := range rtConfigs {
-		for _, nodeID := range NodeIDs(instance, r.Cache) {
+		for _, nodeID := range NodeIDs(instance) {
 			log.Info("Adding route", "name:", rtConfig.Name)
 			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
 				return ctrl.Result{}, err
@@ -121,7 +121,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// Add listener to xds cache
-	for _, nodeID := range NodeIDs(instance, r.Cache) {
+	for _, nodeID := range NodeIDs(instance) {
 		if len(listener.FilterChains) == 0 {
 			log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
@@ -140,7 +140,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
+func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string, nodeIDs []string) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
 	var chains []*listenerv3.FilterChain
 	var routeConfig []*routev3.RouteConfiguration
 	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace, log)
@@ -151,7 +151,20 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 	}
 
 	for _, vs := range virtualServices {
-		log.V(1).WithValues("Virtual Service", vs.Name).Info("Generate Filter Chains for Virtual Service")
+		log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
+
+		vsNodeIDs := NodeIDs(vs.DeepCopy())
+
+		// If VirtualService nodeIDs is empty use listener nodeIds
+		if len(vsNodeIDs) == 0 {
+			vsNodeIDs = nodeIDs
+		}
+
+		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip
+		if !NodeIDsContains(vsNodeIDs, nodeIDs) {
+			log.Info("NodeID mismatch", "VirtualService", vs.Name)
+			continue
+		}
 
 		// Get envoy virtualhost from virtualSerive spec
 		virtualHost := &routev3.VirtualHost{}
