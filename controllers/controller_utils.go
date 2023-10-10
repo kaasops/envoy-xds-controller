@@ -121,3 +121,19 @@ func refContains(resources []*v1alpha1.ResourceRef, obj client.Object) bool {
 	}
 	return false
 }
+
+func defaultNodeIDs(ctx context.Context, cli client.Client, namespace string) ([]string, error) {
+	// TODO: Get all VirtualServices, Routes, Listeners that contains this object and set nodeIDs
+	var nodeIDs []string
+	listeners := &v1alpha1.ListenerList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(namespace),
+	}
+	if err := cli.List(ctx, listeners, listOpts...); err != nil {
+		return nil, err
+	}
+	for _, l := range listeners.Items {
+		nodeIDs = append(nodeIDs, NodeIDs(l.DeepCopy())...)
+	}
+	return nodeIDs, nil
+}

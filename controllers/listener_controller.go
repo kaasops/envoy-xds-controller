@@ -160,7 +160,7 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 			vsNodeIDs = nodeIDs
 		}
 
-		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip
+		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
 		if !NodeIDsContains(vsNodeIDs, nodeIDs) {
 			log.Info("NodeID mismatch", "VirtualService", vs.Name)
 			continue

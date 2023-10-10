@@ -70,7 +70,16 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	for _, nodeID := range NodeIDs(kubeSecret) {
+	nodeIDs := NodeIDs(kubeSecret)
+	if len(nodeIDs) == 0 {
+		defaultNodeIDs, err := defaultNodeIDs(ctx, r.Client, req.Namespace)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		nodeIDs = append(nodeIDs, defaultNodeIDs...)
+	}
+
+	for _, nodeID := range nodeIDs {
 		envoySecret, err := r.makeEnvoySecret(kubeSecret)
 		if err != nil {
 			return ctrl.Result{}, err

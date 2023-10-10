@@ -76,17 +76,11 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	nodeIDs := NodeIDs(instance)
 	if len(nodeIDs) == 0 {
-		// TODO: Get all VirtualServices, Routes, Listeners that contains this cluster and set nodeIDs
-		listeners := &v1alpha1.ListenerList{}
-		listOpts := []client.ListOption{
-			client.InNamespace(req.Namespace),
-		}
-		if err = r.List(ctx, listeners, listOpts...); err != nil {
+		defaultNodeIDs, err := defaultNodeIDs(ctx, r.Client, req.Namespace)
+		if err != nil {
 			return ctrl.Result{}, err
 		}
-		for _, l := range listeners.Items {
-			nodeIDs = append(nodeIDs, NodeIDs(l.DeepCopy())...)
-		}
+		nodeIDs = append(nodeIDs, defaultNodeIDs...)
 	}
 
 	for _, nodeID := range nodeIDs {
