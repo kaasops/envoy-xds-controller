@@ -144,15 +144,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
 		os.Exit(1)
 	}
-	if err = (&controllers.RouteReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cache:       xDSCache,
-		Unmarshaler: unmarshaler,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Route")
-		os.Exit(1)
-	}
 	if err = (&controllers.EndpointReconciler{
 		Client:      mgr.GetClient(),
 		Scheme:      mgr.GetScheme(),
