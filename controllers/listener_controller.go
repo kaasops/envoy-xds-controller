@@ -298,10 +298,18 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.Listener{}).
 		Watches(&v1alpha1.VirtualService{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
 			v := o.(*v1alpha1.VirtualService)
+			reconcileRequest := []reconcile.Request{
+				{NamespacedName: types.NamespacedName{
+					Name:      v.GetListener(),
+					Namespace: v.GetNamespace(),
+				}},
+			}
 			checkResult, err := checkHash(v)
 			if err != nil {
-				return nil
+				fmt.Println("Failed to get virtualService hash")
+				return reconcileRequest
 			}
+
 			if checkResult {
 				fmt.Println("VirtualService has no changes. Skip Reconcile")
 				return nil
@@ -310,15 +318,10 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			fmt.Println("Updating last applied hash")
 			if err := setLastAppliedHash(ctx, r.Client, v); err != nil {
 				fmt.Println("Failed to update last applied hash")
-				return nil
+				return reconcileRequest
 			}
 
-			return []reconcile.Request{
-				{NamespacedName: types.NamespacedName{
-					Name:      v.GetListener(),
-					Namespace: v.GetNamespace(),
-				}},
-			}
+			return reconcileRequest
 		})).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
