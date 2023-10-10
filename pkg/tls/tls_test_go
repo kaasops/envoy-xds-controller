@@ -1,4 +1,4 @@
-package tls
+// package tls
 
 import (
 	"context"
@@ -34,7 +34,7 @@ func TestProvide(t *testing.T) {
 		tlsConfig *v1alpha1.TlsConfig,
 		vh *routev3.VirtualHost,
 		// nodeIDs []string,
-		cfg config.Config,
+		cfg *config.Config,
 		namespace string,
 		log logr.Logger,
 		cl client.Client,
@@ -84,7 +84,7 @@ func TestProvide(t *testing.T) {
 		tlsConfig *v1alpha1.TlsConfig
 		vh        *routev3.VirtualHost
 		// nodeIDs   []string
-		cfg       config.Config
+		cfg       *config.Config
 		namespace string
 		log       logr.Logger
 		client    client.Client

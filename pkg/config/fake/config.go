@@ -1,6 +1,6 @@
 package fake
 
-type config struct {
+type Config struct {
 	CertManager struct {
 		ClusterIssuer string `default:"" envconfig:"DEFAULT_CLUSTER_ISSUER"`
 	}
@@ -10,8 +10,8 @@ type config struct {
 	}
 }
 
-func New(watchNamespace, defaultIssuer string, xdsPort int) *config {
-	var cfg config
+func New(watchNamespace, defaultIssuer string, xdsPort int) *Config {
+	var cfg Config
 
 	cfg.WatchNamespace = watchNamespace
 	cfg.CertManager.ClusterIssuer = defaultIssuer
@@ -20,14 +20,14 @@ func New(watchNamespace, defaultIssuer string, xdsPort int) *config {
 	return &cfg
 }
 
-func (c *config) GetWatchNamespace() string {
+func (c *Config) GetWatchNamespace() string {
 	return c.WatchNamespace
 }
 
-func (c *config) GetDefaultIssuer() string {
+func (c *Config) GetDefaultIssuer() string {
 	return c.CertManager.ClusterIssuer
 }
 
-func (c *config) GetXDSPort() int {
+func (c *Config) GetXDSPort() int {
 	return c.XDS.Port
 }

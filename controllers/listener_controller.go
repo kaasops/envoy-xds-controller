@@ -53,7 +53,7 @@ type ListenerReconciler struct {
 	Cache           xdscache.Cache
 	Unmarshaler     *protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
-	Config          config.Config
+	Config          *config.Config
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners,verbs=get;list;watch;create;update;patch;delete
