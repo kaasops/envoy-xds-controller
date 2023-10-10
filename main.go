@@ -18,9 +18,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -50,7 +48,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/controllers"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -65,7 +62,7 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(cmapi.AddToScheme(scheme))
-	utilruntime.Must(envoyv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -115,19 +112,6 @@ func main() {
 	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
 
-	go func(c xdscache.Cache) {
-		for {
-			time.Sleep(20 * time.Second)
-			cacheResources, v, _ := c.GetResources("default")
-			fmt.Printf("VERSION: %+v\n", v)
-
-			for type1, res := range cacheResources {
-				fmt.Printf("Type: %+v\nLen: %+v\n", type1, len(res))
-			}
-
-		}
-	}(xDSCache)
-
 	unmarshaler := &protojson.UnmarshalOptions{
 		AllowPartial: false,
 		// DiscardUnknown: true,
@@ -158,15 +142,6 @@ func main() {
 		Config:          cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
-		os.Exit(1)
-	}
-	if err = (&controllers.RouteReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cache:       xDSCache,
-		Unmarshaler: unmarshaler,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Route")
 		os.Exit(1)
 	}
 	if err = (&controllers.EndpointReconciler{
@@ -202,32 +177,6 @@ func main() {
 		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret Certificare")
-		os.Exit(1)
-	}
-	if err = (&controllers.UpstreamReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Unmarshaler: unmarshaler,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Upstream")
-		os.Exit(1)
-	}
-	if err = (&controllers.VirtualServiceReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Cache:           xDSCache,
-		Unmarshaler:     unmarshaler,
-		DiscoveryClient: dc,
-		Config:          cfg,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
-		os.Exit(1)
-	}
-	if err = (&controllers.AccessLogConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "AccessLogConfig")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
