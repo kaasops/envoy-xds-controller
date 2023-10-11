@@ -36,12 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
-	"github.com/kaasops/envoy-xds-controller/pkg/webhook/handler"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
 
@@ -104,36 +102,20 @@ func main() {
 		}},
 		LeaderElectionReleaseOnCancel: true,
 		// ClientDisableCacheFor:         []client.Object{&corev1.Secret{}},
-		WebhookServer: webhook.NewServer(webhook.Options{
-			Port:    cfg.GerWebhookPort(),
-			CertDir: "/Users/zvlb/Documents/work/certsforwebhook",
-		}),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
+	xDSCache := xdscache.New()
+	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
+	go xDSServer.Run(cfg.GetXDSPort())
+
 	unmarshaler := &protojson.UnmarshalOptions{
 		AllowPartial: false,
 		// DiscardUnknown: true,
 	}
-
-	// Register Webhook
-	mgr.GetWebhookServer().Register(
-		"/validate",
-		&webhook.Admission{
-			Handler: &handler.Handler{
-				Client:      mgr.GetClient(),
-				Unmarshaler: unmarshaler,
-				Config:      cfg,
-			},
-		},
-	)
-
-	xDSCache := xdscache.New()
-	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
-	go xDSServer.Run(cfg.GetXDSPort())
 
 	config := ctrl.GetConfigOrDie()
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
@@ -195,15 +177,6 @@ func main() {
 		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret Certificare")
-		os.Exit(1)
-	}
-	if err = (&controllers.WebhookReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Namespace: cfg.GetInstalationNamespace(),
-		Config:    cfg,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Webhook")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
