@@ -57,7 +57,7 @@ func (r *WebhookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.Log = log.FromContext(ctx).WithValues("Webhook", req.NamespacedName)
+	r.Log = log.Log.WithValues("controller", "webhook")
 	r.Log.Info("Reconciling Webhook")
 
 	certSecret := &corev1.Secret{}
