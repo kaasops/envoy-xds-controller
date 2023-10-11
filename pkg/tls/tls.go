@@ -52,7 +52,7 @@ var (
 	certManagerType   = "certManagetType"
 	autoDiscoveryType = "autoDiscoveryType"
 
-	SecretLabel        = "envoy.kaasops.io/sds-cached"
+	SecretLabel        = labels.Set{SecretLabelKey: SdsSecretLabelValue}
 	autoDiscoveryLabel = "envoy.kaasops.io/autoDiscovery"
 	domainAnnotation   = "envoy.kaasops.io/domains"
 
@@ -229,9 +229,7 @@ func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, ob
 				Kind: iType,
 			},
 			SecretTemplate: &cmapi.CertificateSecretTemplate{
-				Labels: map[string]string{
-					SecretLabel: "true",
-				},
+				Labels: SecretLabel,
 			},
 		},
 	}
@@ -340,13 +338,9 @@ func (cc *TlsConfigController) checkKubernetesSecret(ctx context.Context, nn typ
 	}
 
 	// Check control label
-	labels := secret.Labels
-	value, ok := labels[SecretLabel]
-	if !ok {
+	v, ok := secret.Labels[SecretLabelKey]
+	if !ok || v != SdsSecretLabelValue {
 		return fmt.Errorf("%w. %s/%s", ErrControlLabelNotExist, nn.Name, nn.Namespace)
-	}
-	if value != "true" {
-		return fmt.Errorf("%w. %s/%s", ErrControlLabelWrong, nn.Name, nn.Namespace)
 	}
 
 	return nil

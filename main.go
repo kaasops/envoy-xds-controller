@@ -97,7 +97,7 @@ func main() {
 		setupLog.Error(err, "Failed to build label requirement for secrets")
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgrOpts := ctrl.Options{
 		Scheme:                        scheme,
 		MetricsBindAddress:            metricsAddr,
 		Port:                          9443,
@@ -109,11 +109,15 @@ func main() {
 		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
 			&corev1.Secret{}: {Label: labels.NewSelector().Add(*secretReq)},
 		}},
-		WebhookServer: webhook.NewServer(webhook.Options{
-			Port:    cfg.GerWebhookPort(),
-			CertDir: "/Users/zvlb/Documents/work/certsforwebhook",
-		}),
-	})
+	}
+
+	if cfg.Webhook.Enable {
+		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+			Port: cfg.GerWebhookPort(),
+		})
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -124,22 +128,24 @@ func main() {
 		// DiscardUnknown: true,
 	}
 
+	// Register Webhook
+	if cfg.Webhook.Enable {
+		mgr.GetWebhookServer().Register(
+			"/validate",
+			&webhook.Admission{
+				Handler: &handler.Handler{
+					Unmarshaler: unmarshaler,
+				},
+			},
+		)
+	}
+
 	config := ctrl.GetConfigOrDie()
 	dc, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create discovery client")
 		os.Exit(1)
 	}
-
-	// Register Webhook
-	mgr.GetWebhookServer().Register(
-		"/validate",
-		&webhook.Admission{
-			Handler: &handler.Handler{
-				Unmarshaler: unmarshaler,
-			},
-		},
-	)
 
 	xDSCache := xdscache.New()
 	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})

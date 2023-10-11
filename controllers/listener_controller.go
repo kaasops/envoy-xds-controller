@@ -169,7 +169,8 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, b filterchain
 		// Get envoy virtualhost from virtualSerive spec
 		virtualHost := &routev3.VirtualHost{}
 		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
-			return nil, nil, err
+			r.log.Error(err, "Failed to unmatshal VirtualService", "Name", vs.Name)
+			continue
 		}
 
 		// Build route config

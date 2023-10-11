@@ -103,8 +103,8 @@ func (r *KubeSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Check if Kubernetes Secret it TLS secret with ALT names
 func (r *KubeSecretReconciler) valid(secret *corev1.Secret) bool {
-	_, ok := secret.Labels[tls.SecretLabel]
-	if !ok {
+	v, ok := secret.Labels[tls.SecretLabelKey]
+	if !ok || v != tls.SdsSecretLabelValue {
 		r.log.Info("Not a xds controller secret")
 		return false
 	}

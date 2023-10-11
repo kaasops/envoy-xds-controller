@@ -17,6 +17,7 @@ type Config struct {
 		Port int `default:"8888" envconfig:"XDS_PORT"`
 	}
 	Webhook struct {
+		Enable                   bool   `default:"true" envconfig:"WEBHOOK_ENABLE"`
 		TLSSecretName            string `default:"envoy-xds-controller-tls" envconfig:"TLS_SECRET_NAME"`
 		ValidatingWebhookCfgName string `default:"envoy-xds-controller-validating-webhook-cfg" envconfig:"VALIDATING_WEBHOOK_CFG_NAME"`
 		Port                     int    `default:"9443" envconfig:"WEBHOOK_PORT"`
