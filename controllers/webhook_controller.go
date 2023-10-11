@@ -10,8 +10,8 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"github.com/go-logr/logr"
+	"github.com/kaasops/cert"
 	"github.com/kaasops/envoy-xds-controller/controllers/utils"
-	"github.com/kaasops/envoy-xds-controller/pkg/cert"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
