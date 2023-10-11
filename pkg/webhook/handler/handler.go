@@ -9,7 +9,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"google.golang.org/protobuf/encoding/protojson"
-	v1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -23,14 +22,7 @@ type Handler struct {
 func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	// Check resource Group
 	if req.AdmissionRequest.Kind.Group != "envoy.kaasops.io" {
-		return admission.Response{
-			AdmissionResponse: v1.AdmissionResponse{
-				Allowed: false,
-				Warnings: []string{
-					"Validator only works for resources within the envoy.kaasops.io group",
-				},
-			},
-		}
+		return admission.Errored(http.StatusInternalServerError, errors.New("validator only works for resources within the envoy.kaasops.io group"))
 	}
 
 	switch res := req.AdmissionRequest.Kind.Kind; res {
