@@ -123,7 +123,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Add listener to xds cache
 	for _, nodeID := range NodeIDs(instance) {
 		if len(listener.FilterChains) == 0 {
-			log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
+			log.WithValues("NodeID", nodeID).Info("Listener FilterChain is empty, deleting")
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, nil
 			}
@@ -151,8 +151,6 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 	}
 
 	for _, vs := range virtualServices {
-		log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
-
 		vsNodeIDs := NodeIDs(vs.DeepCopy())
 
 		// If VirtualService nodeIDs is empty use listener nodeIds
@@ -215,6 +213,7 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 
 		// Build filterchain without tls
 		if vs.Spec.TlsConfig == nil {
+			log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
 			f, err := b.WithHttpConnectionManager(
 				accessLog,
 				httpFilters,
@@ -246,7 +245,14 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 			return nil, nil, err
 		}
 
+		if len(certs) == 0 {
+			log.Info("Failed to get secrets for VirtualService", "VirtualService", vs.Name)
+			continue
+		}
+
 		// Build filterchain with tls
+		log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
+
 		for certName, domains := range certs {
 			virtualHost.Domains = domains
 			f, err := b.WithDownstreamTlsContext(certName).

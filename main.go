@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -89,6 +90,11 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	secretReq, err := labels.NewRequirement(tls.SecretLabelKey, selection.In, []string{tls.SdsSecretLabelValue, tls.WebhookSecretLabelValue})
+	if err != nil {
+		setupLog.Error(err, "Failed to build label requirement for secrets")
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -98,10 +104,9 @@ func main() {
 		LeaderElectionID:       "80f8c36d.kaasops.io",
 		Namespace:              cfg.GetWatchNamespace(),
 		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
-			&corev1.Secret{}: {Label: labels.Set{tls.SecretLabel: "true"}.AsSelector()},
+			&corev1.Secret{}: {Label: labels.NewSelector().Add(*secretReq)},
 		}},
 		LeaderElectionReleaseOnCancel: true,
-		// ClientDisableCacheFor:         []client.Object{&corev1.Secret{}},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

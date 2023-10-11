@@ -27,6 +27,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
+const (
+	SecretLabelKey          = "envoy.kaasops.io/secret-type"
+	SdsSecretLabelValue     = "sds-cached"
+	WebhookSecretLabelValue = "webhook"
+)
+
 var (
 	ErrManyParam = errors.New(`not supported using more then 1 param for configure TLS.
 	You can choose one of 'secretRef', 'certManager', 'autoDiscovery'`)
