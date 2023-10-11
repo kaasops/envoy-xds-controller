@@ -54,6 +54,8 @@ type ListenerReconciler struct {
 	Unmarshaler     *protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          *config.Config
+
+	log logr.Logger
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners,verbs=get;list;watch;create;update;patch;delete
@@ -61,15 +63,15 @@ type ListenerReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/finalizers,verbs=update
 
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
-	log.Info("Reconciling listener")
+	r.log = log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
+	r.log.Info("Reconciling listener")
 
 	// Get listener instance
 	instance := &v1alpha1.Listener{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Listener instance not found. Delete object fron xDS cache")
+			r.log.Info("Listener instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
@@ -102,7 +104,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	builder := filterchain.NewBuilder()
-	chains, rtConfigs, err := r.configComponents(ctx, log, builder, virtualServices.Items, req.Namespace, NodeIDs(instance))
+	chains, rtConfigs, err := r.configComponents(ctx, builder, virtualServices.Items, req.Namespace, NodeIDs(instance))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -113,7 +115,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Add routeConfigs to xds cache
 	for _, rtConfig := range rtConfigs {
 		for _, nodeID := range NodeIDs(instance) {
-			log.Info("Adding route", "name:", rtConfig.Name)
+			r.log.Info("Adding route", "name:", rtConfig.Name)
 			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -123,7 +125,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Add listener to xds cache
 	for _, nodeID := range NodeIDs(instance) {
 		if len(listener.FilterChains) == 0 {
-			log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
+			r.log.WithValues("NodeID", nodeID).Info("Listener don't have route rule")
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, nil
 			}
@@ -135,15 +137,15 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	log.Info("Listener reconcilation finished")
+	r.log.Info("Listener reconcilation finished")
 
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logger, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string, nodeIDs []string) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
+func (r *ListenerReconciler) configComponents(ctx context.Context, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string, nodeIDs []string) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
 	var chains []*listenerv3.FilterChain
 	var routeConfig []*routev3.RouteConfiguration
-	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace, log)
+	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace)
 	index, err := certsProvider.IndexCertificateSecrets(ctx)
 
 	if err != nil {
@@ -151,7 +153,7 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 	}
 
 	for _, vs := range virtualServices {
-		log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
+		r.log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
 
 		vsNodeIDs := NodeIDs(vs.DeepCopy())
 
@@ -162,7 +164,7 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 
 		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
 		if !NodeIDsContains(vsNodeIDs, nodeIDs) {
-			log.Info("NodeID mismatch", "VirtualService", vs.Name)
+			r.log.Info("NodeID mismatch", "VirtualService", vs.Name)
 			continue
 		}
 
@@ -257,7 +259,7 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, log logr.Logg
 				).
 				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
 			if err != nil {
-				log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
+				r.log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
 			}
 			chains = append(chains, f)
 		}
