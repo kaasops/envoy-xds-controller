@@ -13,6 +13,7 @@ import (
 	"github.com/kaasops/cert"
 	"github.com/kaasops/envoy-xds-controller/controllers/utils"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -62,7 +63,14 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	certSecret := &corev1.Secret{}
 	if err := r.Client.Get(ctx, req.NamespacedName, certSecret); err != nil {
-		// Error reading the object - requeue the request.
+		if api_errors.IsNotFound(err) {
+			r.Log.Info("Secret with TLS was not found. Creating")
+			certSecret.Name = req.Name
+			certSecret.Namespace = req.Namespace
+			if err = r.Client.Create(ctx, certSecret); err != nil {
+				return reconcile.Result{}, err
+			}
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -98,7 +106,6 @@ func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecre
 		opts := cert.NewCertOpts(time.Now().Add(certificateValidity), fmt.Sprintf("envoy-xds-controller-webhook-service.%s.svc", r.Namespace))
 
 		crt, key, err := ca.GenerateCertificate(opts)
-		fmt.Println(string(crt.Bytes()))
 		if err != nil {
 			r.Log.Error(err, "Cannot generate new TLS certificate")
 
