@@ -113,6 +113,10 @@ func (r *VirtualService) Validate(cl client.Client, unmarshaler *protojson.Unmar
 	}
 
 	for _, vs := range virtualServices.Items {
+		if vs.Name == r.Name {
+			continue
+		}
+
 		vhVS := &routev3.VirtualHost{}
 		unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, vhVS)
 
