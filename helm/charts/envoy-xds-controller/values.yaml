@@ -85,3 +85,12 @@ secrets: {}
 #   data:
 #     username: "logstash"
 #     password: "password"
+
+
+# Validating Webhook Options
+webhook:
+  name: "envoy-xds-controller-validating-webhook-cfg"
+  port: 9443
+  tls:
+    # -- Name of the Envoy xDS Controller TLS Secret name when externally managed.
+    name: "envoy-xds-controller-tls"

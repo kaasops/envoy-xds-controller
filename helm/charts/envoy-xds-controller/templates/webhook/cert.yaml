@@ -1,0 +1,11 @@
+# Generate empty Secret for collect TLS data for Validation Webhook
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  name: {{ .Values.webhook.tls.name }}

@@ -61,7 +61,7 @@ var (
 type TlsConfigController struct {
 	client          client.Client
 	DiscoveryClient *discovery.DiscoveryClient
-	Config          config.Config
+	Config          *config.Config
 	Namespace       string
 	log             logr.Logger
 	mu              sync.Mutex
@@ -70,7 +70,7 @@ type TlsConfigController struct {
 func New(
 	client client.Client,
 	dc *discovery.DiscoveryClient,
-	config config.Config,
+	config *config.Config,
 	namespace string,
 	log logr.Logger,
 
