@@ -4,35 +4,47 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"google.golang.org/protobuf/encoding/protojson"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 type Handler struct {
-	client.Client
 	Unmarshaler *protojson.UnmarshalOptions
-	Config      *config.Config
 }
+
+var (
+	ErrWrongGroup = errors.New("validator works only for resources within the envoy.kaasops.io group")
+
+	ErrUnmarshal = errors.New("can't unmarshal resource")
+)
 
 func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.Response {
 	// Check resource Group
 	if req.AdmissionRequest.Kind.Group != "envoy.kaasops.io" {
-		return admission.Errored(http.StatusInternalServerError, errors.New("validator only works for resources within the envoy.kaasops.io group"))
+		return admission.Errored(http.StatusInternalServerError, ErrWrongGroup)
 	}
 
 	switch res := req.AdmissionRequest.Kind.Kind; res {
 	case "VirtualService":
 		vs := &v1alpha1.VirtualService{}
 		if err := json.Unmarshal(req.Object.Raw, vs); err != nil {
-			return admission.Errored(http.StatusInternalServerError, errors.New("validator error unmarshal Virtual Service"))
+			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
 		}
 
-		if err := vs.Validate(h.Client, h.Unmarshaler); err != nil {
+		if err := vs.Validate(ctx, h.Unmarshaler); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+	case "Listener":
+		l := &v1alpha1.Listener{}
+		if err := json.Unmarshal(req.Object.Raw, l); err != nil {
+			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+		}
+
+		if err := l.Validate(ctx, h.Unmarshaler); err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
 
