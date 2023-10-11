@@ -26,16 +26,21 @@ import (
 	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	"github.com/kaasops/envoy-xds-controller/pkg/webhook/handler"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
@@ -45,7 +50,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/controllers"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -60,7 +64,7 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(cmapi.AddToScheme(scheme))
-	utilruntime.Must(envoyv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -87,11 +91,6 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	unmarshaler := &protojson.UnmarshalOptions{
-		AllowPartial: false,
-		// DiscardUnknown: true,
-	}
-
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
@@ -100,10 +99,11 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "80f8c36d.kaasops.io",
 		Namespace:              cfg.GetWatchNamespace(),
-		// Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
-		// 	&corev1.Secret{}: {Label: labels.Set{tls.SecretLabel: "true"}.AsSelector()},
-		// }},
+		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
+			&corev1.Secret{}: {Label: labels.Set{tls.SecretLabel: "true"}.AsSelector()},
+		}},
 		LeaderElectionReleaseOnCancel: true,
+		// ClientDisableCacheFor:         []client.Object{&corev1.Secret{}},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    cfg.GerWebhookPort(),
 			CertDir: "/Users/zvlb/Documents/work/certsforwebhook",
@@ -112,6 +112,11 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	unmarshaler := &protojson.UnmarshalOptions{
+		AllowPartial: false,
+		// DiscardUnknown: true,
 	}
 
 	// Register Webhook
@@ -155,15 +160,6 @@ func main() {
 		Config:          cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
-		os.Exit(1)
-	}
-	if err = (&controllers.RouteReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cache:       xDSCache,
-		Unmarshaler: unmarshaler,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Route")
 		os.Exit(1)
 	}
 	if err = (&controllers.EndpointReconciler{
