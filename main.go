@@ -114,14 +114,19 @@ func main() {
 		// DiscardUnknown: true,
 	}
 
+	config := ctrl.GetConfigOrDie()
+	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create discovery client")
+		os.Exit(1)
+	}
+
 	// Register Webhook
 	mgr.GetWebhookServer().Register(
 		"/validate",
 		&webhook.Admission{
 			Handler: &handler.Handler{
-				Client:      mgr.GetClient(),
 				Unmarshaler: unmarshaler,
-				Config:      cfg,
 			},
 		},
 	)
@@ -129,13 +134,6 @@ func main() {
 	xDSCache := xdscache.New()
 	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
-
-	config := ctrl.GetConfigOrDie()
-	dc, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create discovery client")
-		os.Exit(1)
-	}
 
 	if err = (&controllers.ClusterReconciler{
 		Client:      mgr.GetClient(),

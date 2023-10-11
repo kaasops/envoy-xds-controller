@@ -35,7 +35,6 @@ var (
 	You can choose one of 'secretRef', 'certManager', 'autoDiscovery'.\
 	If you don't want use TLS for connection - don't install tlsConfig`)
 	// ErrNodeIDsEmpty           = errors.New("NodeID not set")
-	ErrTlsConfigNotExist      = errors.New("tls Config not set")
 	ErrSecretNotTLSType       = errors.New("kuberentes Secret is not a type TLS")
 	ErrControlLabelNotExist   = errors.New("kuberentes Secret doesn't have control label")
 	ErrControlLabelWrong      = errors.New("kubernetes Secret have label, but value not true")
@@ -289,9 +288,8 @@ func (cc *TlsConfigController) createCertificate(ctx context.Context, domain, ob
 // 2. CertManager - Use CertManager for create Kubernetes Secret with certificate and
 // 3. AutoDiscovery - try to find secret with TLS secret (based on domain annotation)
 func (cc *TlsConfigController) Validate(ctx context.Context, index map[string]corev1.Secret, vh *routev3.VirtualHost, tlsConfig *v1alpha1.TlsConfig) (map[string]string, error) {
-	// Check if TLS not used
-	if tlsConfig == nil {
-		return nil, ErrTlsConfigNotExist
+	if err := tlsConfig.Validate(); err != nil {
+		return nil, err
 	}
 
 	tlsType, err := cc.getTLSType(tlsConfig)
