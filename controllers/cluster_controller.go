@@ -27,6 +27,7 @@ import (
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/go-logr/logr"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +39,8 @@ type ClusterReconciler struct {
 	Scheme      *runtime.Scheme
 	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
+
+	log logr.Logger
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
@@ -45,15 +48,15 @@ type ClusterReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=clusters/finalizers,verbs=update
 
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx).WithValues("Envoy Cluster", req.NamespacedName)
-	log.Info("Reconciling cluster")
+	r.log = log.FromContext(ctx).WithValues("Envoy Cluster", req.NamespacedName)
+	r.log.Info("Reconciling cluster")
 
 	// Get Cluster instance
 	instance := &v1alpha1.Cluster{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Cluster instance not found. Delete object fron xDS cache")
+			r.log.Info("Cluster instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.ClusterType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err

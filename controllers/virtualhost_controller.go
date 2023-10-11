@@ -21,6 +21,7 @@ import (
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -37,6 +38,8 @@ type VirtualHostReconciler struct {
 	Scheme      *runtime.Scheme
 	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
+
+	log logr.Logger
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualhosts,verbs=get;list;watch;create;update;patch;delete
@@ -44,15 +47,15 @@ type VirtualHostReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualhosts/finalizers,verbs=update
 
 func (r *VirtualHostReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx).WithValues("Envoy Virtualhost", req.NamespacedName)
-	log.Info("Reconciling virtualhost")
+	r.log = log.FromContext(ctx).WithValues("Envoy Virtualhost", req.NamespacedName)
+	r.log.Info("Reconciling virtualhost")
 
 	// Get Virtualhost instance
 	instance := &v1alpha1.VirtualHost{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Virtualhost instance not found. Delete object fron xDS cache")
+			r.log.Info("Virtualhost instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.VirtualHostType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err

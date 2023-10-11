@@ -40,6 +40,8 @@ type KubeSecretReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	Cache  xdscache.Cache
+
+	log logr.Logger
 }
 
 //+kubebuilder:rbac:resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -47,15 +49,15 @@ type KubeSecretReconciler struct {
 //+kubebuilder:rbac:resources=secrets/finalizers,verbs=update
 
 func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx).WithValues("Kubernetes TLS Secret", req.NamespacedName)
-	log.Info("Reconciling kubernetes tls secrets")
+	r.log = log.FromContext(ctx).WithValues("Kubernetes TLS Secret", req.NamespacedName)
+	r.log.Info("Reconciling kubernetes tls secrets")
 
 	// Get secret
 	kubeSecret := &corev1.Secret{}
 	err := r.Get(ctx, req.NamespacedName, kubeSecret)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Secret not found. Delete object fron xDS cache")
+			r.log.Info("Secret not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(kubeSecret) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
@@ -66,7 +68,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, err
 	}
 
-	if !valid(log, kubeSecret) {
+	if !r.valid(kubeSecret) {
 		return ctrl.Result{}, nil
 	}
 
@@ -100,14 +102,14 @@ func (r *KubeSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 // Check if Kubernetes Secret it TLS secret with ALT names
-func valid(log logr.Logger, secret *corev1.Secret) bool {
+func (r *KubeSecretReconciler) valid(secret *corev1.Secret) bool {
 	_, ok := secret.Labels[tls.SecretLabel]
 	if !ok {
-		log.Info("Not a xds controller secret")
+		r.log.Info("Not a xds controller secret")
 		return false
 	}
 	if secret.Type != corev1.SecretTypeTLS {
-		log.Info("Kuberentes Secret is not a type TLS. Skip")
+		r.log.Info("Kuberentes Secret is not a type TLS. Skip")
 		return false
 	}
 	return true

@@ -28,6 +28,7 @@ import (
 
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
@@ -38,6 +39,8 @@ type SecretReconciler struct {
 	Scheme      *runtime.Scheme
 	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
+
+	log logr.Logger
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -45,15 +48,15 @@ type SecretReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=secrets/finalizers,verbs=update
 
 func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx).WithValues("Envoy Secret", req.NamespacedName)
-	log.Info("Reconciling secret")
+	r.log = log.FromContext(ctx).WithValues("Envoy Secret", req.NamespacedName)
+	r.log.Info("Reconciling secret")
 
 	// Get Secret instance
 	instance := &v1alpha1.Secret{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Secret instance not found. Delete object fron xDS cache")
+			r.log.Info("Secret instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err

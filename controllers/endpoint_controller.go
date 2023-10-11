@@ -28,6 +28,7 @@ import (
 
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
@@ -38,6 +39,8 @@ type EndpointReconciler struct {
 	Scheme      *runtime.Scheme
 	Cache       xdscache.Cache
 	Unmarshaler *protojson.UnmarshalOptions
+
+	log logr.Logger
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
@@ -45,15 +48,15 @@ type EndpointReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=endpoints/finalizers,verbs=update
 
 func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx).WithValues("Envoy Endpoint", req.NamespacedName)
-	log.Info("Reconciling endpoint")
+	r.log = log.FromContext(ctx).WithValues("Envoy Endpoint", req.NamespacedName)
+	r.log.Info("Reconciling endpoint")
 
 	// Get Endpoint instance
 	instance := &v1alpha1.Endpoint{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			log.Info("Endpoint instance not found. Delete object fron xDS cache")
+			r.log.Info("Endpoint instance not found. Delete object fron xDS cache")
 			for _, nodeID := range NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.EndpointType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err

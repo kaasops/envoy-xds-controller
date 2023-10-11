@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -63,8 +64,9 @@ type TlsConfigController struct {
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          *config.Config
 	Namespace       string
-	log             logr.Logger
 	mu              sync.Mutex
+
+	log logr.Logger
 }
 
 func New(
@@ -72,16 +74,18 @@ func New(
 	dc *discovery.DiscoveryClient,
 	config *config.Config,
 	namespace string,
-	log logr.Logger,
 
 ) *TlsConfigController {
-	return &TlsConfigController{
+	tcc := &TlsConfigController{
 		client:          client,
 		DiscoveryClient: dc,
 		Config:          config,
 		Namespace:       namespace,
-		log:             log,
 	}
+
+	tcc.log = log.Log.WithValues("package", "tls")
+
+	return tcc
 }
 
 // Provide return map[string][]string where:
