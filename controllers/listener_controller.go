@@ -288,7 +288,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		var reconcileRequests []reconcile.Request
 		uniq := make(map[v1alpha1.ResourceRef]struct{})
 		if err := mgr.GetCache().List(ctx, &virtualServiceList); err != nil {
-			fmt.Printf("failed to list VirtualService resources, %v", err)
+			r.log.Error(err, "failed to list VirtualService resources")
 			return nil
 		}
 		for _, vs := range virtualServiceList.Items {
@@ -322,18 +322,18 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 			checkResult, err := checkHash(v)
 			if err != nil {
-				fmt.Println("Failed to get virtualService hash")
+				r.log.Error(err, "failed to get virtualService hash")
 				return reconcileRequest
 			}
 
 			if checkResult {
-				fmt.Println("VirtualService has no changes. Skip Reconcile")
+				r.log.V(1).Info("VirtualService has no changes. Skip Reconcile")
 				return nil
 			}
 
-			fmt.Println("Updating last applied hash")
+			r.log.V(1).Info("Updating last applied hash")
 			if err := setLastAppliedHash(ctx, r.Client, v); err != nil {
-				fmt.Println("Failed to update last applied hash")
+				r.log.Error(err, "Failed to update last applied hash")
 				return reconcileRequest
 			}
 
