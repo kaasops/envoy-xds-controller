@@ -201,32 +201,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret Certificare")
 		os.Exit(1)
 	}
-	if err = (&controllers.UpstreamReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Unmarshaler: unmarshaler,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Upstream")
-		os.Exit(1)
-	}
-	if err = (&controllers.VirtualServiceReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Cache:           xDSCache,
-		Unmarshaler:     unmarshaler,
-		DiscoveryClient: dc,
-		Config:          cfg,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
-		os.Exit(1)
-	}
-	if err = (&controllers.AccessLogConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "AccessLogConfig")
-		os.Exit(1)
-	}
 	if err = (&controllers.WebhookReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
