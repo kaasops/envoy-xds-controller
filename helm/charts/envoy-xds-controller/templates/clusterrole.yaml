@@ -121,4 +121,10 @@ rules:
   - issuers
   verbs:
   - '*'
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - '*'
 {{- end -}}
