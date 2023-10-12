@@ -13,6 +13,7 @@ import (
 	"github.com/kaasops/cert"
 	"github.com/kaasops/envoy-xds-controller/controllers/utils"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/tls"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -67,6 +68,9 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			r.Log.Info("Secret with TLS was not found. Creating")
 			certSecret.Name = req.Name
 			certSecret.Namespace = req.Namespace
+			certSecret.Labels = map[string]string{
+				tls.SecretLabelKey: tls.WebhookSecretLabelValue,
+			}
 			if err = r.Client.Create(ctx, certSecret); err != nil {
 				return reconcile.Result{}, err
 			}

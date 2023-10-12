@@ -299,6 +299,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 		for _, vs := range virtualServiceList.Items {
+
 			if refContains(virtualServiceResourceRefMapper(obj, vs), obj) {
 				name := vs.Spec.Listener.Name
 				namespace := obj.GetNamespace()

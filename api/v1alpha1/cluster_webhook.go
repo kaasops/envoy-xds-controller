@@ -25,11 +25,6 @@ import (
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 )
 
-// var (
-// 	// Listener errors
-// 	ErrListenerCantBeEmpty = errors.New("virtualHost could not be empty")
-// )
-
 func (c *Cluster) Validate(
 	ctx context.Context,
 	unmarshaler *protojson.UnmarshalOptions,
