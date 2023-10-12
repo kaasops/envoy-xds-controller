@@ -173,6 +173,24 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, b filterchain
 			continue
 		}
 
+		// TODO: Dont get routes from cluster all the time
+		if len(vs.Spec.AdditionalRoutes) != 0 {
+			for _, rts := range vs.Spec.AdditionalRoutes {
+				routesSpec := &v1alpha1.Route{}
+				err := r.Get(ctx, rts.NamespacedName(vs.Namespace), routesSpec)
+				if err != nil {
+					return nil, nil, err
+				}
+				for _, rt := range routesSpec.Spec {
+					routes := &routev3.Route{}
+					if err := r.Unmarshaler.Unmarshal(rt.Raw, routes); err != nil {
+						return nil, nil, err
+					}
+					virtualHost.Routes = append(virtualHost.Routes, routes)
+				}
+			}
+		}
+
 		// Build route config
 		rtConfig, err := filterchain.MakeRouteConfig(virtualHost, getResourceName(vs.Namespace, vs.Name))
 
