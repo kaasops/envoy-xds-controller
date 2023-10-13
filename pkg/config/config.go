@@ -11,16 +11,16 @@ type Config struct {
 	CertManager struct {
 		ClusterIssuer string `default:"" envconfig:"DEFAULT_CLUSTER_ISSUER"`
 	}
-	WatchNamespace       string `default:"" envconfig:"WATCH_NAMESPACE"`
+	WatchNamespace       string `default:""                     envconfig:"WATCH_NAMESPACE"`
 	InstalationNamespace string `default:"envoy-xds-controller" envconfig:"INSTALATION_NAMESPACE"`
 	XDS                  struct {
 		Port int `default:"8888" envconfig:"XDS_PORT"`
 	}
 	Webhook struct {
-		Disable                  bool   `default:"false" envconfig:"WEBHOOK_DISABLE"`
-		TLSSecretName            string `default:"envoy-xds-controller-tls" envconfig:"TLS_SECRET_NAME"`
+		Disable                  bool   `default:"false"                                       envconfig:"WEBHOOK_DISABLE"`
+		TLSSecretName            string `default:"envoy-xds-controller-tls"                    envconfig:"TLS_SECRET_NAME"`
 		ValidatingWebhookCfgName string `default:"envoy-xds-controller-validating-webhook-cfg" envconfig:"VALIDATING_WEBHOOK_CFG_NAME"`
-		Port                     int    `default:"9443" envconfig:"WEBHOOK_PORT"`
+		Port                     int    `default:"9443"                                        envconfig:"WEBHOOK_PORT"`
 	}
 }
 
