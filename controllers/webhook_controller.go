@@ -65,27 +65,27 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	certSecret := &corev1.Secret{}
 	if err := r.Client.Get(ctx, req.NamespacedName, certSecret); err != nil {
 		if api_errors.IsNotFound(err) {
-			r.Log.Info("Secret with TLS was not found. Creating")
+			r.Log.V(1).Info("Secret with TLS was not found. Creating")
 			certSecret.Name = req.Name
 			certSecret.Namespace = req.Namespace
 			certSecret.Labels = map[string]string{
 				tls.SecretLabelKey: tls.WebhookSecretLabelValue,
 			}
 			if err = r.Client.Create(ctx, certSecret); err != nil {
-				return reconcile.Result{}, err
+				return reconcile.Result{}, fmt.Errorf("cannot create secret with certificate: %v", err)
 			}
 		}
 		return reconcile.Result{}, err
 	}
 
 	if err := r.ReconcileCertificates(ctx, certSecret); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("cannot reconcile TLS certificate: %v", err)
 	}
 
 	// Check certificate expiried time
 	certificate, err := cert.GetCertificateFromBytes(certSecret.Data[corev1.TLSCertKey])
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("cannot get certificate from bytes: %v", err)
 	}
 
 	now := time.Now()
@@ -104,16 +104,14 @@ func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecre
 
 		ca, err := cert.GenerateCertificateAuthority()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to generate ca certificate: %v", err)
 		}
 
 		opts := cert.NewCertOpts(time.Now().Add(certificateValidity), fmt.Sprintf("envoy-xds-controller-webhook-service.%s.svc", r.Namespace))
 
 		crt, key, err := ca.GenerateCertificate(opts)
 		if err != nil {
-			r.Log.Error(err, "Cannot generate new TLS certificate")
-
-			return err
+			return fmt.Errorf("failed to generate new TLS certificate: %v", err)
 		}
 
 		caCrt, _ := ca.CACertificatePem()
@@ -132,9 +130,7 @@ func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecre
 			return nil
 		})
 		if err != nil {
-			r.Log.Error(err, "cannot update Envoy xDS Controller TLS")
-
-			return err
+			return fmt.Errorf("cannot update Envoy xDS Controller TLS: %v", err)
 		}
 	}
 
@@ -158,12 +154,12 @@ func (r *WebhookReconciler) shouldUpdateCertificate(secret *corev1.Secret) bool 
 	}
 
 	if err := cert.ValidateCertificate(certificate, key, certificateExpirationThreshold); err != nil {
-		r.Log.Error(err, "failed to validate certificate, generating new one")
+		r.Log.V(1).Error(err, "failed to validate certificate, generating new one")
 
 		return true
 	}
 
-	r.Log.Info("Skipping TLS certificate generation as it is still valid")
+	r.Log.V(1).Info("Skipping TLS certificate generation as it is still valid")
 
 	return false
 }
@@ -173,9 +169,7 @@ func (r *WebhookReconciler) updateValidatingWebhookConfiguration(ctx context.Con
 		vw := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 		err = r.Get(ctx, types.NamespacedName{Name: r.Config.GetValidatingWebhookCfgName()}, vw)
 		if err != nil {
-			r.Log.Error(err, "cannot retrieve ValidatingWebhookConfiguration")
-
-			return err
+			return fmt.Errorf("cannot retrieve ValidatingWebhookConfiguration: %v", err)
 		}
 		for i, w := range vw.Webhooks {
 			// Updating CABundle only in case of an internal service reference
