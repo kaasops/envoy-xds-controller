@@ -158,6 +158,7 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServic
 
 		virtSvc, err := factory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
 
+		// TODO: Update status
 		if err != nil {
 			r.log.Error(err, "Skip")
 			continue

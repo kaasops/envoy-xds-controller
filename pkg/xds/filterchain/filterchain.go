@@ -4,7 +4,6 @@ import (
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -161,24 +160,4 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	b.filterchain = filterchain
 
 	return filterchain, nil
-}
-
-func MakeRouteConfig(vh *routev3.VirtualHost, name string) (*routev3.RouteConfiguration, error) {
-
-	// Replace Domains list, can make config problems!!!
-	routeConfig := &routev3.RouteConfiguration{
-		Name: name,
-		VirtualHosts: []*routev3.VirtualHost{{
-			Name:                name,
-			Domains:             []string{"*"},
-			Routes:              vh.Routes,
-			RequestHeadersToAdd: vh.RequestHeadersToAdd,
-		}},
-	}
-
-	if err := routeConfig.ValidateAll(); err != nil {
-		return nil, err
-	}
-
-	return routeConfig, nil
 }
