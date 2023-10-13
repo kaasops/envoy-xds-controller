@@ -13,7 +13,7 @@ import (
 )
 
 type Handler struct {
-	Unmarshaler *protojson.UnmarshalOptions
+	Unmarshaler protojson.UnmarshalOptions
 }
 
 var (

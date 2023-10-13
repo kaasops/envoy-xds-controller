@@ -31,17 +31,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/go-logr/logr"
 
 	// "github.com/go-logr/logr"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/controllers/factory/virtualservice"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
+	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 )
@@ -51,7 +52,7 @@ type ListenerReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
 	Cache           xdscache.Cache
-	Unmarshaler     *protojson.UnmarshalOptions
+	Unmarshaler     protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          *config.Config
 
@@ -72,7 +73,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			r.log.Info("Listener instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance) {
+			for _, nodeID := range k8s.NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -96,15 +97,14 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
-		client.MatchingFields{VirtualServiceListenerFeild: req.Name},
+		client.MatchingFields{options.VirtualServiceListenerFeild: req.Name},
 	}
 
 	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	builder := filterchain.NewBuilder()
-	chains, rtConfigs, err := r.configComponents(ctx, builder, virtualServices.Items, req.Namespace, NodeIDs(instance))
+	chains, rtConfigs, err := r.configComponents(ctx, virtualServices.Items, instance)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -114,7 +114,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Add routeConfigs to xds cache
 	for _, rtConfig := range rtConfigs {
-		for _, nodeID := range NodeIDs(instance) {
+		for _, nodeID := range k8s.NodeIDs(instance) {
 			r.log.Info("Adding route", "name:", rtConfig.Name)
 			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
 				return ctrl.Result{}, err
@@ -123,7 +123,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// Add listener to xds cache
-	for _, nodeID := range NodeIDs(instance) {
+	for _, nodeID := range k8s.NodeIDs(instance) {
 		if len(listener.FilterChains) == 0 {
 			r.log.WithValues("NodeID", nodeID).Info("Listener FilterChain is empty, deleting")
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
@@ -142,10 +142,10 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) configComponents(ctx context.Context, b filterchain.Builder, virtualServices []v1alpha1.VirtualService, namespace string, nodeIDs []string) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
+func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServices []v1alpha1.VirtualService, listener *v1alpha1.Listener) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
 	var chains []*listenerv3.FilterChain
-	var routeConfig []*routev3.RouteConfiguration
-	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, namespace)
+	var routeConfigs []*routev3.RouteConfiguration
+	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, listener.Namespace)
 	index, err := certsProvider.IndexCertificateSecrets(ctx)
 
 	if err != nil {
@@ -153,91 +153,35 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, b filterchain
 	}
 
 	for _, vs := range virtualServices {
-		vsNodeIDs := NodeIDs(vs.DeepCopy())
 
-		// If VirtualService nodeIDs is empty use listener nodeIds
-		if len(vsNodeIDs) == 0 {
-			vsNodeIDs = nodeIDs
+		factory := virtualservice.NewVirtualServiceFactory(r.Client, r.Unmarshaler, &vs, listener)
+
+		virtSvc, err := factory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
+
+		if err != nil {
+			r.log.Error(err, "Skip")
+			continue
 		}
 
 		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
-		if !NodeIDsContains(vsNodeIDs, nodeIDs) {
+		if !k8s.NodeIDsContains(virtSvc.NodeIDs, k8s.NodeIDs(listener)) {
 			r.log.Info("NodeID mismatch", "VirtualService", vs.Name)
 			continue
 		}
 
 		// Get envoy virtualhost from virtualSerive spec
-		virtualHost := &routev3.VirtualHost{}
-		if err := r.Unmarshaler.Unmarshal(vs.Spec.VirtualHost.Raw, virtualHost); err != nil {
-			r.log.Error(err, "Failed to unmatshal VirtualService", "Name", vs.Name)
-			continue
-		}
+		virtualHost := virtSvc.VirtualHost
 
-		// TODO: Dont get routes from cluster all the time
-		if len(vs.Spec.AdditionalRoutes) != 0 {
-			for _, rts := range vs.Spec.AdditionalRoutes {
-				routesSpec := &v1alpha1.Route{}
-				err := r.Get(ctx, rts.NamespacedName(vs.Namespace), routesSpec)
-				if err != nil {
-					return nil, nil, err
-				}
-				for _, rt := range routesSpec.Spec {
-					routes := &routev3.Route{}
-					if err := r.Unmarshaler.Unmarshal(rt.Raw, routes); err != nil {
-						return nil, nil, err
-					}
-					virtualHost.Routes = append(virtualHost.Routes, routes)
-				}
-			}
-		}
+		routeConfigs = append(routeConfigs, virtSvc.RouteConfig)
 
-		// Build route config
-		rtConfig, err := filterchain.MakeRouteConfig(virtualHost, getResourceName(vs.Namespace, vs.Name))
-
-		if err != nil {
-			return nil, nil, err
-		}
-
-		routeConfig = append(routeConfig, rtConfig)
-
-		// Get HTTP Filters for envoy VirtualHost
-		httpFilters := []*hcmv3.HttpFilter{}
-		for _, httpFilter := range vs.Spec.HTTPFilters {
-			hf := &hcmv3.HttpFilter{}
-			if err := r.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
-				return nil, nil, err
-			}
-			httpFilters = append(httpFilters, hf)
-		}
-
-		if vs.Spec.AccessLogConfig != nil {
-			if vs.Spec.AccessLog != nil {
-				return nil, nil, ErrMultipleAccessLogConfig
-			}
-			accessLog := &v1alpha1.AccessLogConfig{}
-			err := r.Get(ctx, vs.Spec.AccessLogConfig.NamespacedName(vs.Namespace), accessLog)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			vs.Spec.AccessLog = accessLog.Spec
-		}
-
-		// Get envoy AccessLog from virtualService spec
-		var accessLog *accesslogv3.AccessLog = nil
-		if vs.Spec.AccessLog != nil {
-			accessLog = &accesslogv3.AccessLog{}
-			if err := r.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, accessLog); err != nil {
-				return nil, nil, err
-			}
-		}
+		b := filterchain.NewBuilder()
 
 		// Build filterchain without tls
 		if vs.Spec.TlsConfig == nil {
 			r.log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
 			f, err := b.WithHttpConnectionManager(
-				accessLog,
-				httpFilters,
+				virtSvc.AccessLog,
+				virtSvc.HttpFilters,
 				getResourceName(vs.Namespace, vs.Name),
 			).
 				WithFilterChainMatch(virtualHost.Domains).
@@ -278,8 +222,8 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, b filterchain
 			virtualHost.Domains = domains
 			f, err := b.WithDownstreamTlsContext(certName).
 				WithFilterChainMatch(domains).
-				WithHttpConnectionManager(accessLog,
-					httpFilters,
+				WithHttpConnectionManager(virtSvc.AccessLog,
+					virtSvc.HttpFilters,
 					getResourceName(vs.Namespace, vs.Name),
 				).
 				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
@@ -289,17 +233,17 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, b filterchain
 			chains = append(chains, f)
 		}
 	}
-	return chains, routeConfig, nil
+	return chains, routeConfigs, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add listener name to index
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, VirtualServiceListenerFeild, func(rawObject client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceListenerFeild, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)
 		// if listener feild is empty use default listener name as index
 		if virtualService.Spec.Listener == nil {
-			return []string{DefaultListenerName}
+			return []string{options.DefaultListenerName}
 		}
 		return []string{virtualService.Spec.Listener.Name}
 	}); err != nil {

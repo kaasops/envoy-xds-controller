@@ -29,6 +29,7 @@ import (
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/go-logr/logr"
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -38,7 +39,7 @@ type ClusterReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	Cache       xdscache.Cache
-	Unmarshaler *protojson.UnmarshalOptions
+	Unmarshaler protojson.UnmarshalOptions
 
 	log logr.Logger
 }
@@ -57,7 +58,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			r.log.Info("Cluster instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance) {
+			for _, nodeID := range k8s.NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.ClusterType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -77,7 +78,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	nodeIDs := NodeIDs(instance)
+	nodeIDs := k8s.NodeIDs(instance)
 	if len(nodeIDs) == 0 {
 		defaultNodeIDs, err := defaultNodeIDs(ctx, r.Client, req.Namespace)
 		if err != nil {

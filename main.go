@@ -123,7 +123,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	unmarshaler := &protojson.UnmarshalOptions{
+	unmarshaler := protojson.UnmarshalOptions{
 		AllowPartial: false,
 		// DiscardUnknown: true,
 	}

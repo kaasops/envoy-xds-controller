@@ -32,7 +32,7 @@ import (
 
 func (l *Listener) Validate(
 	ctx context.Context,
-	unmarshaler *protojson.UnmarshalOptions,
+	unmarshaler protojson.UnmarshalOptions,
 ) error {
 	// Validate Listener spec
 	if l.Spec == nil {

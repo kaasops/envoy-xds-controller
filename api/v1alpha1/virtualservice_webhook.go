@@ -43,7 +43,7 @@ var (
 
 func (vs *VirtualService) Validate(
 	ctx context.Context,
-	unmarshaler *protojson.UnmarshalOptions,
+	unmarshaler protojson.UnmarshalOptions,
 ) error {
 	// Validate Virtual Host spec
 	if vs.Spec.VirtualHost == nil {

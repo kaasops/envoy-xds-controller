@@ -5,20 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/hash"
-	"github.com/kaasops/k8s-utils"
-	"k8s.io/utils/strings/slices"
+	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
+	k8s_utils "github.com/kaasops/k8s-utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	DefaultListenerName         = "https"
-	VirtualServiceListenerFeild = "spec.listener.name"
-	nodeIDAnnotation            = "envoy.kaasops.io/node-id"
-	defaultNodeID               = "default"
 )
 
 var (
@@ -28,42 +20,8 @@ var (
 	ErrMultipleAccessLogConfig = errors.New("only one access log config is allowed")
 )
 
-func NodeIDs(obj client.Object) []string {
-	annotation := NodeIDsAnnotation(obj)
-	if annotation == "" {
-		return nil
-	}
-	return strings.Split(NodeIDsAnnotation(obj), ",")
-}
-
-func NodeIDsAnnotation(obj client.Object) string {
-	annotations := obj.GetAnnotations()
-
-	annotation, ok := annotations[nodeIDAnnotation]
-	if !ok {
-		return ""
-	}
-
-	return annotation
-}
-
 func getResourceName(namespace, name string) string {
 	return fmt.Sprintf("%s-%s", namespace, name)
-}
-
-func NodeIDsContains(s1, s2 []string) bool {
-
-	if len(s1) > len(s2) {
-		return false
-	}
-
-	for _, e := range s1 {
-		if !slices.Contains(s2, e) {
-			return false
-		}
-	}
-
-	return true
 }
 
 func checkHash(virtualService *v1alpha1.VirtualService) (bool, error) {
@@ -86,7 +44,7 @@ func setLastAppliedHash(ctx context.Context, client client.Client, virtualServic
 	}
 	virtualService.Status.LastAppliedHash = hash
 
-	return k8s.UpdateStatus(ctx, virtualService, client)
+	return k8s_utils.UpdateStatus(ctx, virtualService, client)
 }
 
 func getHash(virtualService *v1alpha1.VirtualService) (*uint32, error) {
@@ -136,7 +94,7 @@ func defaultNodeIDs(ctx context.Context, cli client.Client, namespace string) ([
 		return nil, err
 	}
 	for _, l := range listeners.Items {
-		nodeIDs = append(nodeIDs, NodeIDs(l.DeepCopy())...)
+		nodeIDs = append(nodeIDs, k8s.NodeIDs(l.DeepCopy())...)
 	}
 	return nodeIDs, nil
 }

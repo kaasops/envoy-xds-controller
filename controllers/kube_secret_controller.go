@@ -32,6 +32,7 @@ import (
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/pkg/tls"
+	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
@@ -58,7 +59,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			r.log.Info("Secret not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(kubeSecret) {
+			for _, nodeID := range k8s.NodeIDs(kubeSecret) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -72,7 +73,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, nil
 	}
 
-	nodeIDs := NodeIDs(kubeSecret)
+	nodeIDs := k8s.NodeIDs(kubeSecret)
 	if len(nodeIDs) == 0 {
 		defaultNodeIDs, err := defaultNodeIDs(ctx, r.Client, req.Namespace)
 		if err != nil {

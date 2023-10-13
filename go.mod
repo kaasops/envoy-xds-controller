@@ -3,7 +3,7 @@ module github.com/kaasops/envoy-xds-controller
 go 1.21
 
 require (
-	github.com/avast/retry-go/v4 v4.3.4
+	github.com/avast/retry-go/v4 v4.5.0
 	github.com/cert-manager/cert-manager v1.12.2
 	github.com/envoyproxy/go-control-plane v0.11.1-0.20230524094728-9239064ad72f
 	github.com/go-logr/logr v1.2.4
@@ -13,6 +13,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	google.golang.org/grpc v1.56.0
 	google.golang.org/protobuf v1.30.0
 	k8s.io/api v0.27.2

@@ -23,6 +23,7 @@ import (
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"google.golang.org/protobuf/encoding/protojson"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,7 +38,7 @@ type VirtualHostReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	Cache       xdscache.Cache
-	Unmarshaler *protojson.UnmarshalOptions
+	Unmarshaler protojson.UnmarshalOptions
 
 	log logr.Logger
 }
@@ -56,7 +57,7 @@ func (r *VirtualHostReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			r.log.Info("Virtualhost instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance) {
+			for _, nodeID := range k8s.NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.VirtualHostType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -76,7 +77,7 @@ func (r *VirtualHostReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	for _, nodeID := range NodeIDs(instance) {
+	for _, nodeID := range k8s.NodeIDs(instance) {
 		if err := r.Cache.Update(nodeID, virtualhost); err != nil {
 			return ctrl.Result{}, err
 		}
