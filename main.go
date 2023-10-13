@@ -111,7 +111,7 @@ func main() {
 		}},
 	}
 
-	if cfg.Webhook.Enable {
+	if !cfg.Webhook.Disable {
 		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
 			Port: cfg.GerWebhookPort(),
 		})
@@ -123,13 +123,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	unmarshaler := &protojson.UnmarshalOptions{
+	unmarshaler := protojson.UnmarshalOptions{
 		AllowPartial: false,
 		// DiscardUnknown: true,
 	}
 
 	// Register Webhook
-	if cfg.Webhook.Enable {
+	if !cfg.Webhook.Disable {
 		mgr.GetWebhookServer().Register(
 			"/validate",
 			&webhook.Admission{

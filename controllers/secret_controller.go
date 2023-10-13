@@ -30,6 +30,7 @@ import (
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 )
 
@@ -38,7 +39,7 @@ type SecretReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
 	Cache       xdscache.Cache
-	Unmarshaler *protojson.UnmarshalOptions
+	Unmarshaler protojson.UnmarshalOptions
 
 	log logr.Logger
 }
@@ -57,7 +58,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			r.log.Info("Secret instance not found. Delete object fron xDS cache")
-			for _, nodeID := range NodeIDs(instance) {
+			for _, nodeID := range k8s.NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, err
 				}
@@ -77,7 +78,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	for _, nodeID := range NodeIDs(instance) {
+	for _, nodeID := range k8s.NodeIDs(instance) {
 		if err := r.Cache.Update(nodeID, secret); err != nil {
 			return ctrl.Result{}, err
 		}

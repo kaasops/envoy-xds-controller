@@ -16,6 +16,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/k8s-utils"
+	k8s_utils "github.com/kaasops/k8s-utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -499,5 +500,5 @@ func (cc *TlsConfigController) getCertificateSecrets(ctx context.Context) ([]cor
 		LabelSelector: labelSelector,
 		Namespace:     cc.Namespace,
 	}
-	return k8s.ListSecret(ctx, cc.client, listOpt)
+	return k8s_utils.ListSecret(ctx, cc.client, listOpt)
 }
