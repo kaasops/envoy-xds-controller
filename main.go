@@ -111,7 +111,7 @@ func main() {
 		}},
 	}
 
-	if cfg.Webhook.Enable {
+	if !cfg.Webhook.Disable {
 		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
 			Port: cfg.GerWebhookPort(),
 		})
@@ -129,7 +129,7 @@ func main() {
 	}
 
 	// Register Webhook
-	if cfg.Webhook.Enable {
+	if !cfg.Webhook.Disable {
 		mgr.GetWebhookServer().Register(
 			"/validate",
 			&webhook.Admission{
