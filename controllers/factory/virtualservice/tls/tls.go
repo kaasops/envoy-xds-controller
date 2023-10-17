@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -46,8 +45,6 @@ type TlsFactory struct {
 	Config          *config.Config
 	Namespace       string
 	Domains         []string
-
-	mu sync.Mutex
 
 	CertificatesIndex map[string]corev1.Secret
 
@@ -181,86 +178,47 @@ func (tf *TlsFactory) provideCertManager(ctx context.Context, tls *Tls) error {
 
 	// TODO: collect dif domains with same wildcard to 1 certificate
 	// Create Certificates for all domains
-	// var wg sync.WaitGroup
-	// limit := make(chan struct{}, 10)
 	for _, domain := range tf.Domains {
-		// wg.Add(1)
-		// limit <- struct{}{}
-		// go func(log logr.Logger, domain string) {
-		// defer func() {
-		// wg.Done()
-		// <-limit
-		// }()
-
 		objName := strings.ToLower(strings.ReplaceAll(domain, ".", "-"))
 
 		if err := tf.createCertificate(ctx, domain, objName); err != nil {
-			tf.mu.Lock()
 			tls.ErrorDomains[domain] = errors.CreateCertificateMessage
-			tf.mu.Unlock()
 			tf.log.WithValues("Domain", domain).Error(err, errors.CreateCertificateMessage)
 		}
-
-		tf.mu.Lock()
 		tls.CertificatesWithDomains[fmt.Sprintf("%s-%s", tf.Namespace, objName)] = []string{domain}
-		tf.mu.Unlock()
-		// }(tf.log, domain)
 	}
-
-	// wg.Wait()
 
 	return nil
 }
 
 func (tf *TlsFactory) provideAutoDiscovery(ctx context.Context, tls *Tls) error {
-	var wg sync.WaitGroup
-	limit := make(chan struct{}, 10)
+
 	for _, domain := range tf.Domains {
-		wg.Add(1)
-		limit <- struct{}{}
+		// If domain alredy exist in Error List - skip
+		_, ok := tls.ErrorDomains[domain]
+		if ok {
+			continue
+		}
 
-		go func(domain string) {
-			defer func() {
-				wg.Done()
-				<-limit
-			}()
+		// TODO (Webhook or validate all)
+		if strings.Contains(domain, "^") || strings.Contains(domain, "~") {
+			tls.ErrorDomains[domain] = errors.RegexDomainMessage
+		}
 
-			// If domain alredy exist in Error List - skip
-			tf.mu.Lock()
-			_, ok := tls.ErrorDomains[domain]
-			tf.mu.Unlock()
+		// Validate certificate exist in index!
+		secret, ok := tf.CertificatesIndex[domain]
+		if ok {
+			d, ok := tls.CertificatesWithDomains[fmt.Sprintf("%s-%s", tf.Namespace, secret.Name)]
 			if ok {
-				return
-			}
-
-			// TODO ??????
-			if strings.Contains(domain, "^") || strings.Contains(domain, "~") {
-				tls.ErrorDomains[domain] = errors.RegexDomainMessage
-			}
-
-			// Validate certificate exist in index!
-			secret, ok := tf.CertificatesIndex[domain]
-			if ok {
-				d, ok := tls.CertificatesWithDomains[fmt.Sprintf("%s-%s", tf.Namespace, secret.Name)]
-				if ok {
-					d = append(d, domain)
-					tf.mu.Lock()
-					tls.CertificatesWithDomains[fmt.Sprintf("%s-%s", tf.Namespace, secret.Name)] = d
-					tf.mu.Unlock()
-				} else {
-					tf.mu.Lock()
-					tls.CertificatesWithDomains[fmt.Sprintf("%s-%s", tf.Namespace, secret.Name)] = []string{domain}
-					tf.mu.Unlock()
-				}
+				d = append(d, domain)
+				tls.CertificatesWithDomains[fmt.Sprintf("%s-%s", tf.Namespace, secret.Name)] = d
 			} else {
-				tf.mu.Lock()
-				tls.ErrorDomains[domain] = errors.DicoverNotFoundMessage
-				tf.mu.Unlock()
+				tls.CertificatesWithDomains[fmt.Sprintf("%s-%s", tf.Namespace, secret.Name)] = []string{domain}
 			}
-
-		}(domain)
+		} else {
+			tls.ErrorDomains[domain] = errors.DicoverNotFoundMessage
+		}
 	}
-	wg.Wait()
 
 	return nil
 }
