@@ -112,8 +112,7 @@ func main() {
 
 	if !cfg.Webhook.Disable {
 		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
-			Port:    cfg.GerWebhookPort(),
-			CertDir: "/Users/zvlb/Documents/work/certsforwebhook",
+			Port: cfg.GerWebhookPort(),
 		})
 	}
 
