@@ -18,11 +18,11 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 )
 
 func (c *Cluster) Validate(
@@ -31,12 +31,12 @@ func (c *Cluster) Validate(
 ) error {
 	// Validate Listener spec
 	if c.Spec == nil {
-		return ErrListenerCantBeEmpty
+		return errors.New(errors.ListenerCantBeEmptyMessage)
 	}
 
 	cluster := &clusterv3.Cluster{}
 	if err := unmarshaler.Unmarshal(c.Spec.Raw, cluster); err != nil {
-		return fmt.Errorf("%w. %w", ErrUnmarshal, err)
+		return errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
 	return nil

@@ -47,7 +47,6 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 		if err := l.Validate(ctx, h.Unmarshaler); err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
-
 	}
 
 	return admission.Allowed("All ok")
