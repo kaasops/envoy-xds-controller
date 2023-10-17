@@ -20,20 +20,24 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	api_errors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/go-logr/logr"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"github.com/go-logr/logr"
-	"github.com/kaasops/envoy-xds-controller/pkg/tls"
-	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
+
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
+	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+
+	corev1 "k8s.io/api/core/v1"
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // SecretReconciler reconciles a Secret object
@@ -51,7 +55,7 @@ type KubeSecretReconciler struct {
 
 func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.log = log.FromContext(ctx).WithValues("Kubernetes TLS Secret", req.NamespacedName)
-	r.log.Info("Reconciling kubernetes tls secrets")
+	r.log.V(1).Info("Reconciling kubernetes tls secrets")
 
 	// Get secret
 	kubeSecret := &corev1.Secret{}
@@ -61,12 +65,12 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			r.log.Info("Secret not found. Delete object fron xDS cache")
 			for _, nodeID := range k8s.NodeIDs(kubeSecret) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
-					return ctrl.Result{}, err
+					return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 				}
 			}
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
 	if !r.valid(kubeSecret) {
@@ -77,7 +81,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if len(nodeIDs) == 0 {
 		defaultNodeIDs, err := defaultNodeIDs(ctx, r.Client, req.Namespace)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err, errors.GetDefaultNodeIDMessage)
 		}
 		nodeIDs = append(nodeIDs, defaultNodeIDs...)
 	}
@@ -85,10 +89,10 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	for _, nodeID := range nodeIDs {
 		envoySecret, err := r.makeEnvoySecret(kubeSecret)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err, "cannot generate xDS secret from Kubernetes Secret")
 		}
 		if err := r.Cache.Update(nodeID, envoySecret); err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
 		}
 	}
 
@@ -104,13 +108,13 @@ func (r *KubeSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Check if Kubernetes Secret it TLS secret with ALT names
 func (r *KubeSecretReconciler) valid(secret *corev1.Secret) bool {
-	v, ok := secret.Labels[tls.SecretLabelKey]
-	if !ok || v != tls.SdsSecretLabelValue {
-		r.log.Info("Not a xds controller secret")
+	v, ok := secret.Labels[options.SecretLabelKey]
+	if !ok || v != options.SdsSecretLabelValue {
+		r.log.V(1).Info("Not a xds controller secret")
 		return false
 	}
 	if secret.Type != corev1.SecretTypeTLS {
-		r.log.Info("Kuberentes Secret is not a type TLS. Skip")
+		r.log.V(1).Info("Kuberentes Secret is not a type TLS. Skip")
 		return false
 	}
 	return true
@@ -135,7 +139,7 @@ func (r *KubeSecretReconciler) makeEnvoySecret(kubeSecret *corev1.Secret) (*tlsv
 		},
 	}
 	if err := envoySecret.ValidateAll(); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot validate Envoy Secret")
 	}
 
 	return envoySecret, nil

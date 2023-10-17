@@ -41,7 +41,7 @@ import (
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
-	"github.com/kaasops/envoy-xds-controller/pkg/tls"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/webhook/handler"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
@@ -92,7 +92,7 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	secretReq, err := labels.NewRequirement(tls.SecretLabelKey, selection.In, []string{tls.SdsSecretLabelValue, tls.WebhookSecretLabelValue})
+	secretReq, err := labels.NewRequirement(options.SecretLabelKey, selection.In, []string{options.SdsSecretLabelValue, options.WebhookSecretLabelValue})
 	if err != nil {
 		setupLog.Error(err, "Failed to build label requirement for secrets")
 	}
@@ -100,7 +100,6 @@ func main() {
 	mgrOpts := ctrl.Options{
 		Scheme:                        scheme,
 		MetricsBindAddress:            metricsAddr,
-		Port:                          9443,
 		HealthProbeBindAddress:        probeAddr,
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              "80f8c36d.kaasops.io",
@@ -113,7 +112,8 @@ func main() {
 
 	if !cfg.Webhook.Disable {
 		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
-			Port: cfg.GerWebhookPort(),
+			Port:    cfg.GerWebhookPort(),
+			CertDir: "/Users/zvlb/Documents/work/certsforwebhook",
 		})
 	}
 
@@ -141,7 +141,7 @@ func main() {
 	}
 
 	config := ctrl.GetConfigOrDie()
-	dc, err := discovery.NewDiscoveryClientForConfig(config)
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create discovery client")
 		os.Exit(1)
@@ -165,7 +165,7 @@ func main() {
 		Scheme:          mgr.GetScheme(),
 		Cache:           xDSCache,
 		Unmarshaler:     unmarshaler,
-		DiscoveryClient: dc,
+		DiscoveryClient: discoveryClient,
 		Config:          cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
@@ -206,15 +206,15 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret Certificare")
 		os.Exit(1)
 	}
-	if err = (&controllers.WebhookReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		Namespace: cfg.GetInstalationNamespace(),
-		Config:    cfg,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Webhook")
-		os.Exit(1)
-	}
+	// if err = (&controllers.WebhookReconciler{
+	// 	Client:    mgr.GetClient(),
+	// 	Scheme:    mgr.GetScheme(),
+	// 	Namespace: cfg.GetInstalationNamespace(),
+	// 	Config:    cfg,
+	// }).SetupWithManager(mgr); err != nil {
+	// 	setupLog.Error(err, "unable to create controller", "controller", "Webhook")
+	// 	os.Exit(1)
+	// }
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

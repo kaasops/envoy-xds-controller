@@ -20,31 +20,34 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+
 	"google.golang.org/protobuf/encoding/protojson"
+
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+
+	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"github.com/kaasops/envoy-xds-controller/controllers/factory/virtualservice"
+	"github.com/kaasops/envoy-xds-controller/controllers/factory/virtualservice/tls"
+	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
+	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
+	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
+
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/go-logr/logr"
-
-	// "github.com/go-logr/logr"
-	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/controllers/factory/virtualservice"
-	"github.com/kaasops/envoy-xds-controller/pkg/config"
-	"github.com/kaasops/envoy-xds-controller/pkg/options"
-	"github.com/kaasops/envoy-xds-controller/pkg/tls"
-	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
-	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 )
 
 // ListenerReconciler reconciles a Listener object
@@ -72,25 +75,25 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			r.log.Info("Listener instance not found. Delete object fron xDS cache")
+			r.log.V(1).Info("Listener instance not found. Delete object fron xDS cache")
 			for _, nodeID := range k8s.NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
-					return ctrl.Result{}, err
+					return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 				}
 			}
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
 	if instance.Spec == nil {
-		return ctrl.Result{}, ErrEmptySpec
+		return ctrl.Result{}, errors.New(errors.EmptySpecMessage)
 	}
 
-	// get envoy listener from listener instance spec
+	// Get Envoy Listener from listener instance spec
 	listener := &listenerv3.Listener{}
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
 	// Get VirtualService objects with matching listener
@@ -99,14 +102,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		client.InNamespace(req.Namespace),
 		client.MatchingFields{options.VirtualServiceListenerFeild: req.Name},
 	}
-
 	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
 	chains, rtConfigs, err := r.configComponents(ctx, virtualServices.Items, instance)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, "failed to generated Filter Chains and Route Configs")
 	}
 
 	listener.FilterChains = append(listener.FilterChains, chains...)
@@ -115,9 +117,9 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// Add routeConfigs to xds cache
 	for _, rtConfig := range rtConfigs {
 		for _, nodeID := range k8s.NodeIDs(instance) {
-			r.log.Info("Adding route", "name:", rtConfig.Name)
+			r.log.V(1).Info("Adding route", "name:", rtConfig.Name)
 			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
-				return ctrl.Result{}, err
+				return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
 			}
 		}
 	}
@@ -127,13 +129,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if len(listener.FilterChains) == 0 {
 			r.log.WithValues("NodeID", nodeID).Info("Listener FilterChain is empty, deleting")
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
-				return ctrl.Result{}, nil
+				return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 			}
 			return ctrl.Result{}, nil
 		}
 
 		if err := r.Cache.Update(nodeID, listener); err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
 		}
 	}
 
@@ -145,28 +147,28 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServices []v1alpha1.VirtualService, listener *v1alpha1.Listener) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
 	var chains []*listenerv3.FilterChain
 	var routeConfigs []*routev3.RouteConfiguration
-	certsProvider := tls.New(r.Client, r.DiscoveryClient, r.Config, listener.Namespace)
-	index, err := certsProvider.IndexCertificateSecrets(ctx)
 
+	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, listener.Namespace)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "cannot generate Index with TLS certificates from Kubernetes secrets")
 	}
 
+L1:
 	for _, vs := range virtualServices {
-
 		factory := virtualservice.NewVirtualServiceFactory(r.Client, r.Unmarshaler, &vs, listener)
 
 		virtSvc, err := factory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
-
-		// TODO: Update status
 		if err != nil {
-			r.log.Error(err, "Skip")
+			if errors.NeedStatusUpdate(err) {
+				vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error())
+			}
 			continue
 		}
 
 		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
 		if !k8s.NodeIDsContains(virtSvc.NodeIDs, k8s.NodeIDs(listener)) {
 			r.log.Info("NodeID mismatch", "VirtualService", vs.Name)
+			vs.SetError(ctx, r.Client, "VirtualService nodeIDs is not empty and listener does not contains all of them")
 			continue
 		}
 
@@ -179,7 +181,7 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServic
 
 		// Build filterchain without tls
 		if vs.Spec.TlsConfig == nil {
-			r.log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
+			r.log.V(1).Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
 			f, err := b.WithHttpConnectionManager(
 				virtSvc.AccessLog,
 				virtSvc.HttpFilters,
@@ -188,38 +190,40 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServic
 				WithFilterChainMatch(virtualHost.Domains).
 				Build(vs.Name)
 			if err != nil {
-				return nil, nil, err
+				vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to generate Filter Chain").Error())
+				continue L1
 			}
 			chains = append(chains, f)
 			continue
 		}
 
-		// Validate tls config
-		errorList, err := certsProvider.Validate(ctx, index, virtualHost, vs.Spec.TlsConfig)
+		tlsFactory, err := tls.NewTlsFactory(ctx, vs.Spec.TlsConfig, r.Client, r.DiscoveryClient, r.Config, listener.Namespace, virtualHost.Domains, index)
 		if err != nil {
+			return nil, nil, errors.Wrap(err, "cannot create Tls Factory")
+		}
+		tls, err := tlsFactory.Provide(ctx)
+		if err != nil {
+			if errors.NeedStatusUpdate(err) {
+				vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot Provide TLS").Error())
+				continue
+			}
 			return nil, nil, err
 		}
 
-		if len(errorList) > 0 {
-			vs.Status.Errors = errorList
-			r.Client.Status().Update(ctx, vs.DeepCopy())
+		if len(tls.ErrorDomains) > 0 {
+			vs.SetDomainsStatus(ctx, r.Client, tls.ErrorDomains)
 		}
 
-		// Get certs
-		certs, err := certsProvider.Provide(ctx, index, virtualHost, vs.Spec.TlsConfig)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if len(certs) == 0 {
+		if len(tls.CertificatesWithDomains) == 0 {
 			r.log.Info("Failed to get secrets for VirtualService", "VirtualService", vs.Name)
+			vs.SetError(ctx, r.Client, "сould not find a certificate for any domain")
 			continue
 		}
 
 		// Build filterchain with tls
-		r.log.Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
+		r.log.V(1).Info("Generate Filter Chains for Virtual Service", "VirtualService", vs.Name)
 
-		for certName, domains := range certs {
+		for certName, domains := range tls.CertificatesWithDomains {
 			virtualHost.Domains = domains
 			f, err := b.WithDownstreamTlsContext(certName).
 				WithFilterChainMatch(domains).
@@ -230,9 +234,13 @@ func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServic
 				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
 			if err != nil {
 				r.log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
+				vs.SetError(ctx, r.Client, errors.Wrap(err, fmt.Sprintf("can't create Filter Chain for certificate: %+v, and domains: %+v", certName, domains)).Error())
+				continue L1
 			}
 			chains = append(chains, f)
 		}
+
+		vs.SetValid(ctx, r.Client)
 	}
 	return chains, routeConfigs, nil
 }
@@ -248,7 +256,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		}
 		return []string{virtualService.Spec.Listener.Name}
 	}); err != nil {
-		return err
+		return errors.Wrap(err, "cannot add Listener names to Listener Reconcile Index")
 	}
 
 	// EnqueueRequestsFromMapFunc
@@ -284,14 +292,14 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
 		Watches(&v1alpha1.VirtualService{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			v := o.(*v1alpha1.VirtualService)
+			vs := o.(*v1alpha1.VirtualService)
 			reconcileRequest := []reconcile.Request{
 				{NamespacedName: types.NamespacedName{
-					Name:      v.GetListener(),
-					Namespace: v.GetNamespace(),
+					Name:      vs.GetListener(),
+					Namespace: vs.GetNamespace(),
 				}},
 			}
-			checkResult, err := checkHash(v)
+			checkResult, err := vs.CheckHash()
 			if err != nil {
 				r.log.Error(err, "failed to get virtualService hash")
 				return reconcileRequest
@@ -303,7 +311,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}
 
 			r.log.V(1).Info("Updating last applied hash")
-			if err := setLastAppliedHash(ctx, r.Client, v); err != nil {
+			if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
 				r.log.Error(err, "Failed to update last applied hash")
 				return reconcileRequest
 			}

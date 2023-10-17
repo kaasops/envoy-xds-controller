@@ -19,19 +19,23 @@ package controllers
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"google.golang.org/protobuf/encoding/protojson"
-	api_errors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"github.com/go-logr/logr"
+
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // SecretReconciler reconciles a Secret object
@@ -60,27 +64,27 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			r.log.Info("Secret instance not found. Delete object fron xDS cache")
 			for _, nodeID := range k8s.NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.SecretType, getResourceName(req.Namespace, req.Name)); err != nil {
-					return ctrl.Result{}, err
+					return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 				}
 			}
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
 	if instance.Spec == nil {
-		return ctrl.Result{}, ErrEmptySpec
+		return ctrl.Result{}, errors.New(errors.EmptySpecMessage)
 	}
 
 	// get envoy secret from secret instance spec
 	secret := &tlsv3.Secret{}
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, secret); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
 	for _, nodeID := range k8s.NodeIDs(instance) {
 		if err := r.Cache.Update(nodeID, secret); err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
 		}
 	}
 

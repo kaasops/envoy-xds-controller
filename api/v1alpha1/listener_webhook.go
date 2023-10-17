@@ -18,11 +18,11 @@ package v1alpha1
 
 import (
 	"context"
-	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 )
 
 // var (
@@ -36,12 +36,12 @@ func (l *Listener) Validate(
 ) error {
 	// Validate Listener spec
 	if l.Spec == nil {
-		return ErrListenerCantBeEmpty
+		return errors.New(errors.ListenerCantBeEmptyMessage)
 	}
 
 	listener := &listenerv3.Listener{}
 	if err := unmarshaler.Unmarshal(l.Spec.Raw, listener); err != nil {
-		return fmt.Errorf("%w. %w", ErrUnmarshal, err)
+		return errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
 	return nil

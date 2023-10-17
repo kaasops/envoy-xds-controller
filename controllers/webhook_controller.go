@@ -5,18 +5,22 @@ import (
 	"fmt"
 	"time"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/util/retry"
-
 	"github.com/go-logr/logr"
+
 	"github.com/kaasops/cert"
+
 	"github.com/kaasops/envoy-xds-controller/controllers/utils"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
-	"github.com/kaasops/envoy-xds-controller/pkg/tls"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
+
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -69,23 +73,23 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			certSecret.Name = req.Name
 			certSecret.Namespace = req.Namespace
 			certSecret.Labels = map[string]string{
-				tls.SecretLabelKey: tls.WebhookSecretLabelValue,
+				options.SecretLabelKey: options.WebhookSecretLabelValue,
 			}
 			if err = r.Client.Create(ctx, certSecret); err != nil {
-				return reconcile.Result{}, fmt.Errorf("cannot create secret with certificate: %v", err)
+				return reconcile.Result{}, errors.Wrap(err, errors.CreateInKubernetesMessage)
 			}
 		}
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
 	if err := r.ReconcileCertificates(ctx, certSecret); err != nil {
-		return reconcile.Result{}, fmt.Errorf("cannot reconcile TLS certificate: %v", err)
+		return reconcile.Result{}, errors.Wrap(err, "cannot reconcile TLS certificate")
 	}
 
 	// Check certificate expiried time
 	certificate, err := cert.GetCertificateFromBytes(certSecret.Data[corev1.TLSCertKey])
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("cannot get certificate from bytes: %v", err)
+		return reconcile.Result{}, errors.Wrap(err, "cannot get certificate from bytes")
 	}
 
 	now := time.Now()
@@ -104,14 +108,14 @@ func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecre
 
 		ca, err := cert.GenerateCertificateAuthority()
 		if err != nil {
-			return fmt.Errorf("failed to generate ca certificate: %v", err)
+			return errors.Wrap(err, "failed to generate ca certificate")
 		}
 
 		opts := cert.NewCertOpts(time.Now().Add(certificateValidity), fmt.Sprintf("envoy-xds-controller-webhook-service.%s.svc", r.Namespace))
 
 		crt, key, err := ca.GenerateCertificate(opts)
 		if err != nil {
-			return fmt.Errorf("failed to generate new TLS certificate: %v", err)
+			return errors.Wrap(err, "failed to generate new TLS certificate")
 		}
 
 		caCrt, _ := ca.CACertificatePem()
@@ -130,13 +134,13 @@ func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecre
 			return nil
 		})
 		if err != nil {
-			return fmt.Errorf("cannot update Envoy xDS Controller TLS: %v", err)
+			return errors.Wrap(err, errors.UpdateInKubernetesMessage)
 		}
 	}
 
 	caBundle, ok := certSecret.Data[corev1.ServiceAccountRootCAKey]
 	if !ok {
-		return fmt.Errorf("missing %s field in %s secret", corev1.ServiceAccountRootCAKey, r.Config.GetTLSSecretName())
+		return errors.New(fmt.Sprintf("missing %s field in %s secret", corev1.ServiceAccountRootCAKey, r.Config.GetTLSSecretName()))
 	}
 
 	return r.updateValidatingWebhookConfiguration(ctx, caBundle)
@@ -169,7 +173,7 @@ func (r *WebhookReconciler) updateValidatingWebhookConfiguration(ctx context.Con
 		vw := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 		err = r.Get(ctx, types.NamespacedName{Name: r.Config.GetValidatingWebhookCfgName()}, vw)
 		if err != nil {
-			return fmt.Errorf("cannot retrieve ValidatingWebhookConfiguration: %v", err)
+			return errors.Wrap(err, "cannot retrieve ValidatingWebhookConfiguration")
 		}
 		for i, w := range vw.Webhooks {
 			// Updating CABundle only in case of an internal service reference

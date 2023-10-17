@@ -62,10 +62,11 @@ type ResourceRef struct {
 
 // VirtualServiceStatus defines the observed state of VirtualService
 type VirtualServiceStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Errors          map[string]string `json:"errors,omitempty"`
-	LastAppliedHash *uint32           `json:"LastAppliedHash,omitempty"`
+	Error   *string            `json:"error,omitempty"`
+	Valid   *bool              `json:"valid,omitempty"`
+	Domains *map[string]string `json:"domains,omitempty"`
+
+	LastAppliedHash *uint32 `json:"LastAppliedHash,omitempty"`
 }
 
 //+kubebuilder:object:root=true

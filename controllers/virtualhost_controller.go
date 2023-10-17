@@ -19,15 +19,20 @@ package controllers
 import (
 	"context"
 
+	"github.com/go-logr/logr"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"github.com/go-logr/logr"
+
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/util/k8s"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
-	"google.golang.org/protobuf/encoding/protojson"
+
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -56,30 +61,30 @@ func (r *VirtualHostReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			r.log.Info("Virtualhost instance not found. Delete object fron xDS cache")
+			r.log.V(1).Info("Virtualhost instance not found. Delete object fron xDS cache")
 			for _, nodeID := range k8s.NodeIDs(instance) {
 				if err := r.Cache.Delete(nodeID, resourcev3.VirtualHostType, getResourceName(req.Namespace, req.Name)); err != nil {
-					return ctrl.Result{}, err
+					return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 				}
 			}
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
 	if instance.Spec == nil {
-		return ctrl.Result{}, ErrEmptySpec
+		return ctrl.Result{}, errors.New(errors.EmptySpecMessage)
 	}
 
 	// get envoy virtualhost from virtualhost instance spec
 	virtualhost := &routev3.VirtualHost{}
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, virtualhost); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
 	for _, nodeID := range k8s.NodeIDs(instance) {
 		if err := r.Cache.Update(nodeID, virtualhost); err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
 		}
 	}
 

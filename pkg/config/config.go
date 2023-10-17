@@ -1,10 +1,8 @@
 package config
 
-import "github.com/kelseyhightower/envconfig"
-
-const (
-	IssuerType        = "Issuer"
-	ClusterIssuerType = "ClusterIssuer"
+import (
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
@@ -28,7 +26,7 @@ func New() (*Config, error) {
 	var cfg Config
 
 	err := envconfig.Process("APP", &cfg)
-	return &cfg, err
+	return &cfg, errors.Wrap(err, "Cannot get configs from ENVs")
 }
 
 func (c *Config) GetWatchNamespace() string {
