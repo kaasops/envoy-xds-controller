@@ -159,5 +159,9 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 
 	b.filterchain = filterchain
 
+	if err := filterchain.ValidateAll(); err != nil {
+		return nil, err
+	}
+
 	return filterchain, nil
 }
