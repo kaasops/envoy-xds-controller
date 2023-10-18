@@ -1,5 +1,5 @@
-# Generate empty Secret for collect TLS data for Validation Webhook
 {{- if .Values.webhook.enabled -}}
+# Generate empty Secret for collect TLS data for Validation Webhook
 apiVersion: v1
 kind: Secret
 metadata:
