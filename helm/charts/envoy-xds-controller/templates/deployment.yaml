@@ -57,12 +57,16 @@ spec:
         {{- if .Values.webhook.tls.name }}
           - name: TLS_SECRET_NAME
             value: {{ .Values.webhook.tls.name }}
-        {{- end}}
+        {{- end }}
         {{- if .Values.webhook.port }}
           - name: WEBHOOK_PORT
             value: "{{ .Values.webhook.port }}"
-        {{- end}}
-        {{- end}}
+        {{- end }}
+        {{- end }}
+        {{- if not .Values.webhook.enabled }}
+          - name: WEBHOOK_DISABLE
+            value: "true"
+        {{- end }}
         ports:
           - name: grpc
             containerPort: {{ .Values.xds.port }}
