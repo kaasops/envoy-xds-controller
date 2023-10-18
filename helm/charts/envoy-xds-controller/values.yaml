@@ -89,6 +89,7 @@ secrets: {}
 
 # Validating Webhook Options
 webhook:
+  enabled: true
   name: "envoy-xds-controller-validating-webhook-cfg"
   port: 9443
   tls:
