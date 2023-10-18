@@ -40,7 +40,11 @@ func (vs *VirtualService) SetDomainsStatus(ctx context.Context, cl client.Client
 }
 
 func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client) error {
+	if *vs.Status.Valid {
+		return nil
+	}
 	valid := true
+
 	vs.Status.Valid = &valid
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
@@ -57,6 +61,9 @@ func (vs *VirtualService) SetLastAppliedHash(ctx context.Context, cl client.Clie
 	hash, err := vs.getHash()
 	if err != nil {
 		return err
+	}
+	if vs.Status.LastAppliedHash != nil && *hash == *vs.Status.LastAppliedHash {
+		return nil
 	}
 	vs.Status.LastAppliedHash = hash
 
