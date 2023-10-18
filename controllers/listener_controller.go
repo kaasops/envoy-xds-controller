@@ -124,6 +124,10 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	if err := listener.ValidateAll(); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Add listener to xds cache
 	for _, nodeID := range k8s.NodeIDs(instance) {
 		if len(listener.FilterChains) == 0 {
@@ -240,7 +244,13 @@ L1:
 			chains = append(chains, f)
 		}
 
-		vs.SetValid(ctx, r.Client)
+		if err := vs.SetValid(ctx, r.Client); err != nil {
+			return nil, nil, errors.Wrap(err, "Failed to set status")
+		}
+
+		if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
+			return nil, nil, errors.Wrap(err, "Failed to update last applied hash")
+		}
 	}
 	return chains, routeConfigs, nil
 }
@@ -291,33 +301,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		Watches(&v1alpha1.VirtualService{}, handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
-			vs := o.(*v1alpha1.VirtualService)
-			reconcileRequest := []reconcile.Request{
-				{NamespacedName: types.NamespacedName{
-					Name:      vs.GetListener(),
-					Namespace: vs.GetNamespace(),
-				}},
-			}
-			checkResult, err := vs.CheckHash()
-			if err != nil {
-				r.log.Error(err, "failed to get virtualService hash")
-				return reconcileRequest
-			}
-
-			if checkResult {
-				r.log.V(1).Info("VirtualService has no changes. Skip Reconcile")
-				return nil
-			}
-
-			r.log.V(1).Info("Updating last applied hash")
-			if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
-				r.log.Error(err, "Failed to update last applied hash")
-				return reconcileRequest
-			}
-
-			return reconcileRequest
-		})).
+		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{}).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
 		Complete(r)
