@@ -29,10 +29,10 @@ import (
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/controllers/factory/virtualservice"
-	"github.com/kaasops/envoy-xds-controller/controllers/factory/virtualservice/tls"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/factory/virtualservice"
+	"github.com/kaasops/envoy-xds-controller/pkg/factory/virtualservice/tls"
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
@@ -165,8 +165,9 @@ L1:
 		if err != nil {
 			if errors.NeedStatusUpdate(err) {
 				vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error())
+				continue
 			}
-			continue
+			return nil, nil, err
 		}
 
 		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
@@ -219,7 +220,7 @@ L1:
 		}
 
 		if len(tls.CertificatesWithDomains) == 0 {
-			r.log.Info("Failed to get secrets for VirtualService", "VirtualService", vs.Name)
+			r.log.Info("Certificates not found", "VirtualService", vs.Name)
 			vs.SetError(ctx, r.Client, "сould not find a certificate for any domain")
 			continue
 		}

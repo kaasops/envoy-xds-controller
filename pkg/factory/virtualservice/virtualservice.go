@@ -50,22 +50,22 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 
 	accesslog, err := f.AccessLog(ctx)
 	if err != nil {
-		return VirtualService{}, errors.WrapUKS(err, "cannot create Access Log for Virtual Service")
+		return VirtualService{}, errors.Wrap(err, "cannot create Access Log for Virtual Service")
 	}
 
 	virtualHost, err := f.VirtualHost(ctx)
 	if err != nil {
-		return VirtualService{}, errors.WrapUKS(err, "cannot create Virtual Host for Virtual Service")
+		return VirtualService{}, errors.Wrap(err, "cannot create Virtual Host for Virtual Service")
 	}
 
 	httpFilters, err := f.HttpFilters(ctx, name)
 	if err != nil {
-		return VirtualService{}, errors.WrapUKS(err, "cannot create HTTP Filters for Virtual Service")
+		return VirtualService{}, errors.Wrap(err, "cannot create HTTP Filters for Virtual Service")
 	}
 
 	routeConfig, err := f.RouteConfiguration(name, virtualHost)
 	if err != nil {
-		return VirtualService{}, errors.WrapUKS(err, "cannot create Route Configs for Virtual Service")
+		return VirtualService{}, errors.Wrap(err, "cannot create Route Configs for Virtual Service")
 	}
 
 	return VirtualService{
@@ -102,11 +102,11 @@ func (f *VirtualServiceFactory) AccessLog(ctx context.Context) (*accesslogv3.Acc
 	}
 
 	if err := f.unmarshaler.Unmarshal(data, &accessLog); err != nil {
-		return nil, errors.Wrap(err, errors.UnmarshalMessage)
+		return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 	}
 
 	if err := accessLog.ValidateAll(); err != nil {
-		return nil, errors.Wrap(err, errors.CannotValidateCacheResourceMessage)
+		return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 	}
 
 	return &accessLog, nil
@@ -115,7 +115,7 @@ func (f *VirtualServiceFactory) AccessLog(ctx context.Context) (*accesslogv3.Acc
 func (f *VirtualServiceFactory) VirtualHost(ctx context.Context) (*routev3.VirtualHost, error) {
 	virtualHost := &routev3.VirtualHost{}
 	if err := f.unmarshaler.Unmarshal(f.Spec.VirtualHost.Raw, virtualHost); err != nil {
-		return nil, errors.Wrap(err, errors.UnmarshalMessage)
+		return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 	}
 
 	// TODO: Dont get routes from cluster all the time
@@ -129,7 +129,7 @@ func (f *VirtualServiceFactory) VirtualHost(ctx context.Context) (*routev3.Virtu
 			for _, rt := range routesSpec.Spec {
 				routes := &routev3.Route{}
 				if err := f.unmarshaler.Unmarshal(rt.Raw, routes); err != nil {
-					return nil, errors.Wrap(err, errors.UnmarshalMessage)
+					return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 				}
 				virtualHost.Routes = append(virtualHost.Routes, routes)
 			}
@@ -137,7 +137,7 @@ func (f *VirtualServiceFactory) VirtualHost(ctx context.Context) (*routev3.Virtu
 	}
 
 	if err := virtualHost.ValidateAll(); err != nil {
-		return nil, errors.Wrap(err, errors.CannotValidateCacheResourceMessage)
+		return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 	}
 
 	return virtualHost, nil
@@ -148,11 +148,11 @@ func (f *VirtualServiceFactory) HttpFilters(ctx context.Context, name string) ([
 	for _, httpFilter := range f.Spec.HTTPFilters {
 		hf := &hcmv3.HttpFilter{}
 		if err := f.unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
-			return nil, errors.Wrap(err, errors.UnmarshalMessage)
+			return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 		}
 
 		if err := hf.ValidateAll(); err != nil {
-			return nil, errors.Wrap(err, errors.CannotValidateCacheResourceMessage)
+			return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 		}
 
 		httpFilters = append(httpFilters, hf)
@@ -174,7 +174,7 @@ func (f *VirtualServiceFactory) RouteConfiguration(name string, vh *routev3.Virt
 	}
 
 	if err := routeConfig.ValidateAll(); err != nil {
-		return nil, errors.Wrap(err, errors.CannotValidateCacheResourceMessage)
+		return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 	}
 
 	return routeConfig, nil
