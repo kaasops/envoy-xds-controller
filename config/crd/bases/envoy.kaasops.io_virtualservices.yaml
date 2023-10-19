@@ -23,7 +23,7 @@ spec:
     - jsonPath: .status.valid
       name: Valid
       type: boolean
-    - jsonPath: .metadata.error
+    - jsonPath: .status.error
       name: Error
       type: string
     name: v1alpha1

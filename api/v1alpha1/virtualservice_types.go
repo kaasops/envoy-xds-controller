@@ -73,7 +73,7 @@ type VirtualServiceStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:resource:shortName=vs,categories=all
 //+kubebuilder:printcolumn:name="Valid",type="boolean",JSONPath=".status.valid"
-//+kubebuilder:printcolumn:name="Error",type="string",JSONPath=".metadata.error"
+//+kubebuilder:printcolumn:name="Error",type="string",JSONPath=".status.error"
 
 // VirtualService is the Schema for the virtualservices API
 type VirtualService struct {
