@@ -9,13 +9,24 @@ metadata:
 spec:
   group: envoy.kaasops.io
   names:
+    categories:
+    - all
     kind: VirtualService
     listKind: VirtualServiceList
     plural: virtualservices
+    shortNames:
+    - vs
     singular: virtualservice
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.valid
+      name: Valid
+      type: boolean
+    - jsonPath: .metadata.error
+      name: Error
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: VirtualService is the Schema for the virtualservices API
@@ -92,15 +103,15 @@ spec:
           status:
             description: VirtualServiceStatus defines the observed state of VirtualService
             properties:
-              LastAppliedHash:
-                format: int32
-                type: integer
               domains:
                 additionalProperties:
                   type: string
                 type: object
               error:
                 type: string
+              lastAppliedHash:
+                format: int32
+                type: integer
               valid:
                 type: boolean
             type: object
