@@ -68,10 +68,6 @@ type ListenerReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/finalizers,verbs=update
 
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	//vvfvdfvkjdflkv
-	if req.Name == "prometheus-metrics" {
-		return ctrl.Result{}, nil
-	}
 	r.log = log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
 	r.log.Info("Reconciling listener")
 
