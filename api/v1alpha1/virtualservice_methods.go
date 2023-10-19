@@ -40,7 +40,7 @@ func (vs *VirtualService) SetDomainsStatus(ctx context.Context, cl client.Client
 }
 
 func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client) error {
-	if *vs.Status.Valid {
+	if vs.Status.Valid != nil && *vs.Status.Valid {
 		return nil
 	}
 	valid := true
