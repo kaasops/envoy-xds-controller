@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"golang.org/x/exp/slices"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -67,6 +68,10 @@ type ListenerReconciler struct {
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners/finalizers,verbs=update
 
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	//vvfvdfvkjdflkv
+	if req.Name == "prometheus-metrics" {
+		return ctrl.Result{}, nil
+	}
 	r.log = log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
 	r.log.Info("Reconciling listener")
 
@@ -106,9 +111,12 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
-	chains, rtConfigs, err := r.configComponents(ctx, virtualServices.Items, instance)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to generated Filter Chains and Route Configs")
+	chains, rtConfigs, errs := r.configComponents(ctx, virtualServices.Items, instance)
+	if len(errs) != 0 {
+		for _, e := range errs {
+			r.log.V(1).Error(e, "")
+		}
+		return ctrl.Result{}, errors.Wrap(err, "failed to generate FilterChains and RouteConfigs")
 	}
 
 	listener.FilterChains = append(listener.FilterChains, chains...)
@@ -148,13 +156,14 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServices []v1alpha1.VirtualService, listener *v1alpha1.Listener) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, error) {
+func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServices []v1alpha1.VirtualService, listener *v1alpha1.Listener) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, []error) {
 	var chains []*listenerv3.FilterChain
 	var routeConfigs []*routev3.RouteConfiguration
+	var errs []error
 
 	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, listener.Namespace)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "cannot generate Index with TLS certificates from Kubernetes secrets")
+		return nil, nil, []error{errors.Wrap(err, "cannot generate Index with TLS certificates from Kubernetes secrets")}
 	}
 
 L1:
@@ -164,17 +173,21 @@ L1:
 		virtSvc, err := factory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
 		if err != nil {
 			if errors.NeedStatusUpdate(err) {
-				vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error())
-				continue
+				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error()); err != nil {
+					errs = append(errs, err)
+				}
+				continue L1
 			}
-			return nil, nil, err
+			errs = append(errs, err)
 		}
 
 		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
 		if !k8s.NodeIDsContains(virtSvc.NodeIDs, k8s.NodeIDs(listener)) {
 			r.log.Info("NodeID mismatch", "VirtualService", vs.Name)
-			vs.SetError(ctx, r.Client, "VirtualService nodeIDs is not empty and listener does not contains all of them")
-			continue
+			if err := vs.SetError(ctx, r.Client, "VirtualService nodeIDs is not empty and listener does not contains all of them"); err != nil {
+				errs = append(errs, err)
+			}
+			continue L1
 		}
 
 		// Get envoy virtualhost from virtualSerive spec
@@ -195,34 +208,39 @@ L1:
 				WithFilterChainMatch(virtualHost.Domains).
 				Build(vs.Name)
 			if err != nil {
-				vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to generate Filter Chain").Error())
+				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to generate Filter Chain").Error()); err != nil {
+					errs = append(errs, err)
+				}
 				continue L1
 			}
 			chains = append(chains, f)
-			continue
+			continue L1
 		}
 
-		tlsFactory, err := tls.NewTlsFactory(ctx, vs.Spec.TlsConfig, r.Client, r.DiscoveryClient, r.Config, listener.Namespace, virtualHost.Domains, index)
-		if err != nil {
-			return nil, nil, errors.Wrap(err, "cannot create Tls Factory")
-		}
+		tlsFactory := tls.NewTlsFactory(ctx, vs.Spec.TlsConfig, r.Client, r.DiscoveryClient, r.Config, listener.Namespace, virtualHost.Domains, index)
 		tls, err := tlsFactory.Provide(ctx)
 		if err != nil {
 			if errors.NeedStatusUpdate(err) {
-				vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot Provide TLS").Error())
-				continue
+				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot Provide TLS").Error()); err != nil {
+					errs = append(errs, err)
+				}
+				continue L1
 			}
-			return nil, nil, err
+			errs = append(errs, err)
 		}
 
 		if len(tls.ErrorDomains) > 0 {
-			vs.SetDomainsStatus(ctx, r.Client, tls.ErrorDomains)
+			if err := vs.SetDomainsStatus(ctx, r.Client, tls.ErrorDomains); err != nil {
+				errs = append(errs, err)
+			}
 		}
 
 		if len(tls.CertificatesWithDomains) == 0 {
 			r.log.Info("Certificates not found", "VirtualService", vs.Name)
-			vs.SetError(ctx, r.Client, "сould not find a certificate for any domain")
-			continue
+			if err := vs.SetError(ctx, r.Client, "сould not find a certificate for any domain"); err != nil {
+				errs = append(errs, err)
+			}
+			continue L1
 		}
 
 		// Build filterchain with tls
@@ -239,20 +257,28 @@ L1:
 				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
 			if err != nil {
 				r.log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
-				vs.SetError(ctx, r.Client, errors.Wrap(err, fmt.Sprintf("can't create Filter Chain for certificate: %+v, and domains: %+v", certName, domains)).Error())
+				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, fmt.Sprintf("can't create Filter Chain for certificate: %+v, and domains: %+v", certName, domains)).Error()); err != nil {
+					errs = append(errs, err)
+				}
 				continue L1
 			}
 			chains = append(chains, f)
 		}
 
 		if err := vs.SetValid(ctx, r.Client); err != nil {
-			return nil, nil, errors.Wrap(err, "Failed to set status")
+			errs = append(errs, err)
 		}
 
 		if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
-			return nil, nil, errors.Wrap(err, "Failed to update last applied hash")
+			errs = append(errs, err)
 		}
 	}
+
+	if len(errs) != 0 {
+		errs = slices.Compact(errs)
+		return nil, nil, errs
+	}
+
 	return chains, routeConfigs, nil
 }
 

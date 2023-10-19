@@ -66,11 +66,14 @@ type VirtualServiceStatus struct {
 	Valid   *bool              `json:"valid,omitempty"`
 	Domains *map[string]string `json:"domains,omitempty"`
 
-	LastAppliedHash *uint32 `json:"LastAppliedHash,omitempty"`
+	LastAppliedHash *uint32 `json:"lastAppliedHash,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=vs,categories=all
+//+kubebuilder:printcolumn:name="Valid",type="boolean",JSONPath=".status.valid"
+//+kubebuilder:printcolumn:name="Error",type="string",JSONPath=".metadata.error"
 
 // VirtualService is the Schema for the virtualservices API
 type VirtualService struct {

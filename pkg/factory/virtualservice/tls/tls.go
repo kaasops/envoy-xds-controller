@@ -60,7 +60,7 @@ func NewTlsFactory(
 	namespace string,
 	domains []string,
 	index map[string]corev1.Secret,
-) (*TlsFactory, error) {
+) *TlsFactory {
 	tf := &TlsFactory{
 		TlsConfig:         tlsConfig,
 		client:            client,
@@ -73,7 +73,7 @@ func NewTlsFactory(
 
 	tf.log = log.Log.WithValues("factory", "virtualservice", "package", "tls")
 
-	return tf, nil
+	return tf
 }
 
 func (tf *TlsFactory) Provide(ctx context.Context) (*Tls, error) {

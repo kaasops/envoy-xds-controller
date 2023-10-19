@@ -19,12 +19,16 @@ package v1alpha1
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/hash"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (vs *VirtualService) SetError(ctx context.Context, cl client.Client, msg string) error {
+	if vs.Status.Error != nil && *vs.Status.Error == msg {
+		return nil
+	}
 	vs.Status.Error = &msg
 
 	valid := false
@@ -34,6 +38,9 @@ func (vs *VirtualService) SetError(ctx context.Context, cl client.Client, msg st
 }
 
 func (vs *VirtualService) SetDomainsStatus(ctx context.Context, cl client.Client, domainsWithErrors map[string]string) error {
+	if reflect.DeepEqual(*vs.Status.Domains, domainsWithErrors) {
+		return nil
+	}
 	vs.Status.Domains = &domainsWithErrors
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
@@ -44,13 +51,16 @@ func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client) error 
 		return nil
 	}
 	valid := true
-
 	vs.Status.Valid = &valid
+	vs.Status.Error = nil
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
 
 func (vs *VirtualService) SetInvalid(ctx context.Context, cl client.Client) error {
+	if vs.Status.Valid != nil && !*vs.Status.Valid {
+		return nil
+	}
 	valid := false
 	vs.Status.Valid = &valid
 
