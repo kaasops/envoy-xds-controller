@@ -38,8 +38,10 @@ func (vs *VirtualService) SetError(ctx context.Context, cl client.Client, msg st
 }
 
 func (vs *VirtualService) SetDomainsStatus(ctx context.Context, cl client.Client, domainsWithErrors map[string]string) error {
-	if reflect.DeepEqual(*vs.Status.Domains, domainsWithErrors) {
-		return nil
+	if vs.Status.Domains != nil {
+		if reflect.DeepEqual(*vs.Status.Domains, domainsWithErrors) {
+			return nil
+		}
 	}
 	vs.Status.Domains = &domainsWithErrors
 
