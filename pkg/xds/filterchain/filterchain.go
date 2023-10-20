@@ -9,6 +9,7 @@ import (
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/utils/strings/slices"
 
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 )
@@ -104,6 +105,10 @@ func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 }
 
 func (b *builder) WithFilterChainMatch(domains []string) Builder {
+	if slices.Contains(domains, "*") {
+		return b
+	}
+
 	filterChainMatch := &listenerv3.FilterChainMatch{
 		ServerNames: domains,
 	}
