@@ -55,7 +55,7 @@ import (
 type ListenerReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
-	Cache           xdscache.Cache
+	Cache           *xdscache.Cache
 	Unmarshaler     protojson.UnmarshalOptions
 	DiscoveryClient *discovery.DiscoveryClient
 	Config          *config.Config
@@ -76,8 +76,12 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			r.log.V(1).Info("Listener instance not found. Delete object fron xDS cache")
-			for _, nodeID := range k8s.NodeIDs(instance) {
+			r.log.V(1).Info("Listener instance not found. Delete object from xDS cache")
+			nodeIDs, err := r.Cache.GetNodeIDsForResource(resourcev3.ListenerType, getResourceName(req.Namespace, req.Name))
+			if err != nil {
+				return ctrl.Result{}, errors.Wrap(err, errors.GetNodeIDForResource)
+			}
+			for _, nodeID := range nodeIDs {
 				if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 				}
