@@ -9,6 +9,7 @@ var (
 	NodeIDMismatchMessage   = "nodeID mismatch"
 	GetDefaultNodeIDMessage = "cannot get default NodeID"
 
+	GetNodeIDForResource               = "cannot get NodeID for xDS cache resource"
 	CannotDeleteFromCacheMessage       = "cannot delete from xDS cache"
 	CannotUpdateCacheMessage           = "cannot update xDS cache"
 	CannotValidateCacheResourceMessage = "cannot validate cache resource"

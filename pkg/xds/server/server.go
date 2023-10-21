@@ -33,10 +33,10 @@ const (
 
 type Server struct {
 	xDSServer serverv3.Server
-	xDSCache  xdscache.Cache
+	xDSCache  *xdscache.Cache
 }
 
-func New(cache xdscache.Cache, cb *testv3.Callbacks) *Server {
+func New(cache *xdscache.Cache, cb *testv3.Callbacks) *Server {
 	return &Server{
 		xDSServer: serverv3.NewServer(context.Background(), cache.GetCache(), cb),
 		xDSCache:  cache,

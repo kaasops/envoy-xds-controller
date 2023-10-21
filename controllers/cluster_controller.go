@@ -42,7 +42,7 @@ import (
 type ClusterReconciler struct {
 	client.Client
 	Scheme      *runtime.Scheme
-	Cache       xdscache.Cache
+	Cache       *xdscache.Cache
 	Unmarshaler protojson.UnmarshalOptions
 
 	log logr.Logger
@@ -62,7 +62,11 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		if api_errors.IsNotFound(err) {
 			r.log.Info("Cluster instance not found. Delete object fron xDS cache")
-			for _, nodeID := range k8s.NodeIDs(instance) {
+			nodeIDs, err := r.Cache.GetNodeIDsForResource(resourcev3.ClusterType, getResourceName(req.Namespace, req.Name))
+			if err != nil {
+				return ctrl.Result{}, errors.Wrap(err, errors.GetNodeIDForResource)
+			}
+			for _, nodeID := range nodeIDs {
 				if err := r.Cache.Delete(nodeID, resourcev3.ClusterType, getResourceName(req.Namespace, req.Name)); err != nil {
 					return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 				}

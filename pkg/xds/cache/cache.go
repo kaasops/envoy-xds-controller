@@ -35,16 +35,7 @@ var (
 	ErrEmptyResourceName   = errors.New("empty resource name")
 )
 
-type Cache interface {
-	Update(nodeID string, resource types.Resource) error
-	Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error
-	GetCache() cachev3.SnapshotCache
-	GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error)
-	GetNodeIDs() []string
-	Wait() error
-}
-
-type cache struct {
+type Cache struct {
 	SnapshotCache cachev3.SnapshotCache
 
 	// List of node ID in cache. Temporary, wait PR - https://github.com/envoyproxy/go-control-plane/pull/769
@@ -53,13 +44,13 @@ type cache struct {
 	mu sync.Mutex
 }
 
-func New() Cache {
-	return &cache{
+func New() *Cache {
+	return &Cache{
 		SnapshotCache: cachev3.NewSnapshotCache(true, cachev3.IDHash{}, nil),
 	}
 }
 
-func (c *cache) Update(nodeID string, resource types.Resource) error {
+func (c *Cache) Update(nodeID string, resource types.Resource) error {
 	resourceName := cachev3.GetResourceName(resource)
 
 	if resourceName == "" {
@@ -105,7 +96,7 @@ func (c *cache) Update(nodeID string, resource types.Resource) error {
 	return nil
 }
 
-func (c *cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error {
+func (c *Cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName string) error {
 
 	if resourceName == "" {
 		return ErrEmptyResourceName
@@ -145,11 +136,11 @@ func (c *cache) Delete(nodeID string, resourceType resourcev3.Type, resourceName
 	return nil
 }
 
-func (c *cache) GetCache() cachev3.SnapshotCache {
+func (c *Cache) GetCache() cachev3.SnapshotCache {
 	return c.SnapshotCache
 }
 
-func (c *cache) GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
+func (c *Cache) GetResources(nodeID string) (map[resourcev3.Type][]types.Resource, int, error) {
 	version := 0
 	resources := make(map[resourcev3.Type][]types.Resource, 0)
 	for _, t := range resourceTypes {
@@ -180,14 +171,14 @@ func (c *cache) GetResources(nodeID string) (map[resourcev3.Type][]types.Resourc
 	return resources, version, nil
 }
 
-func (c *cache) GetNodeIDs() []string {
+func (c *Cache) GetNodeIDs() []string {
 	return c.nodeIDs
 }
 
 // Wait blocks if:
 // 1. There is no Listener for any NodeID.
 // 2. The number of resources in the cache has changed within 10 seconds.
-func (c *cache) Wait() error {
+func (c *Cache) Wait() error {
 	resourceCount, err := c.getResourceCount()
 	if err != nil {
 		return err
@@ -211,7 +202,7 @@ func (c *cache) Wait() error {
 	return nil
 }
 
-func (c *cache) getResourceCount() (int, error) {
+func (c *Cache) getResourceCount() (int, error) {
 	resourceCount := 0
 
 	nodeIDs := c.GetNodeIDs()
@@ -233,7 +224,7 @@ func (c *cache) getResourceCount() (int, error) {
 }
 
 // GetResourceFromCache return
-func (c *cache) getByType(resourceType resourcev3.Type, nodeID string) (map[string]types.Resource, string, error) {
+func (c *Cache) getByType(resourceType resourcev3.Type, nodeID string) (map[string]types.Resource, string, error) {
 	resSnap, err := c.SnapshotCache.GetSnapshot(nodeID)
 	if err == nil {
 		if resSnap.GetResources(resourceType) == nil {
@@ -247,7 +238,7 @@ func (c *cache) getByType(resourceType resourcev3.Type, nodeID string) (map[stri
 	return nil, "", err
 }
 
-func (c *cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]types.Resource, version int) error {
+func (c *Cache) createSnapshot(nodeID string, resources map[resourcev3.Type][]types.Resource, version int) error {
 
 	snapshot, err := cachev3.NewSnapshot(strconv.Itoa(version), resources)
 
