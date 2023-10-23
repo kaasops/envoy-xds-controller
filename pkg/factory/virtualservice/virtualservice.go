@@ -72,19 +72,21 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 		return nil, errors.Wrap(nil, "сould not find a certificate for any domain")
 	}
 
-	for certName, domains := range vs.Tls.CertificatesWithDomains {
-		vs.VirtualHost.Domains = domains
-		f, err := b.WithDownstreamTlsContext(certName).
-			WithFilterChainMatch(domains).
-			WithHttpConnectionManager(vs.AccessLog,
-				vs.HttpFilters,
-				vs.Name,
-			).
-			Build(fmt.Sprintf("%s-%s", vs.Name, certName))
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate Filter Chain")
+	if vs.Tls != nil {
+		for certName, domains := range vs.Tls.CertificatesWithDomains {
+			vs.VirtualHost.Domains = domains
+			f, err := b.WithDownstreamTlsContext(certName).
+				WithFilterChainMatch(domains).
+				WithHttpConnectionManager(vs.AccessLog,
+					vs.HttpFilters,
+					vs.Name,
+				).
+				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to generate Filter Chain")
+			}
+			chains = append(chains, f)
 		}
-		chains = append(chains, f)
 	}
 	return chains, nil
 }
@@ -130,7 +132,7 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		tls, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
 
 		if err != nil {
-			return VirtualService{}, errors.Wrap(err, "cannot Provide TLS")
+			return VirtualService{}, errors.Wrap(err, "cannot Provide TLS certificates")
 		}
 
 		virtualService.Tls = tls

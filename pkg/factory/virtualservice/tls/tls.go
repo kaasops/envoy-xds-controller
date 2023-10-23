@@ -97,7 +97,7 @@ func (tf *TlsFactory) Provide(ctx context.Context, domains []string) (*Tls, erro
 			return nil, errors.Wrap(err, "cannot provide CertManager")
 		}
 	case v1alpha1.AutoDiscoveryType:
-		err := tf.provideAutoDiscovery(ctx, tls)
+		err := tf.provideAutoDiscovery(ctx, domains, tls)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot provide AutoDicsovery")
 		}
@@ -188,9 +188,9 @@ func (tf *TlsFactory) provideCertManager(ctx context.Context, tls *Tls) error {
 	return nil
 }
 
-func (tf *TlsFactory) provideAutoDiscovery(ctx context.Context, tls *Tls) error {
+func (tf *TlsFactory) provideAutoDiscovery(ctx context.Context, domains []string, tls *Tls) error {
 
-	for _, domain := range tf.Domains {
+	for _, domain := range domains {
 		// If domain alredy exist in Error List - skip
 		_, ok := tls.ErrorDomains[domain]
 		if ok {
