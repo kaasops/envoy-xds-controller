@@ -53,21 +53,6 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 
 	b := filterchain.NewBuilder()
 
-	if vs.Tls == nil {
-		f, err := b.WithHttpConnectionManager(
-			vs.AccessLog,
-			vs.HttpFilters,
-			vs.Name,
-		).
-			WithFilterChainMatch(vs.VirtualHost.Domains).
-			Build(vs.Name)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate Filter Chain")
-		}
-		chains = append(chains, f)
-		return chains, nil
-	}
-
 	if len(vs.Tls.CertificatesWithDomains) == 0 {
 		return nil, errors.Wrap(nil, "сould not find a certificate for any domain")
 	}
@@ -87,7 +72,21 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 			}
 			chains = append(chains, f)
 		}
+		return chains, nil
 	}
+
+	f, err := b.WithHttpConnectionManager(
+		vs.AccessLog,
+		vs.HttpFilters,
+		vs.Name,
+	).
+		WithFilterChainMatch(vs.VirtualHost.Domains).
+		Build(vs.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate Filter Chain")
+	}
+	chains = append(chains, f)
+
 	return chains, nil
 }
 
