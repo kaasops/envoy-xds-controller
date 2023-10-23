@@ -8,7 +8,6 @@ import (
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
@@ -42,7 +41,7 @@ type TlsFactory struct {
 
 	client          client.Client
 	DiscoveryClient *discovery.DiscoveryClient
-	Config          *config.Config
+	defaultIssuer   string
 	Namespace       string
 	Domains         []string
 
@@ -56,19 +55,17 @@ func NewTlsFactory(
 	tlsConfig *v1alpha1.TlsConfig,
 	client client.Client,
 	dc *discovery.DiscoveryClient,
-	config *config.Config,
+	defaultIssuer string,
 	namespace string,
-	domains []string,
 	index map[string]corev1.Secret,
 ) *TlsFactory {
 	tf := &TlsFactory{
 		TlsConfig:         tlsConfig,
 		client:            client,
 		DiscoveryClient:   dc,
-		Config:            config,
 		Namespace:         namespace,
-		Domains:           domains,
 		CertificatesIndex: index,
+		defaultIssuer:     defaultIssuer,
 	}
 
 	tf.log = log.Log.WithValues("factory", "virtualservice", "package", "tls")
@@ -76,7 +73,7 @@ func NewTlsFactory(
 	return tf
 }
 
-func (tf *TlsFactory) Provide(ctx context.Context) (*Tls, error) {
+func (tf *TlsFactory) Provide(ctx context.Context, domains []string) (*Tls, error) {
 	tls := &Tls{
 		ErrorDomains:            map[string]string{},
 		CertificatesWithDomains: map[string][]string{},

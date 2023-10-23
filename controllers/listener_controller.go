@@ -18,10 +18,8 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
-	"golang.org/x/exp/slices"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -37,7 +35,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -111,19 +108,83 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
-	chains, rtConfigs, errs := r.configComponents(ctx, virtualServices.Items, instance)
+	listener.Name = getResourceName(req.Namespace, req.Name)
+
+	var chains []*listenerv3.FilterChain
+	var routeConfigs []*routev3.RouteConfiguration
+	var errs []error
+	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, instance.Namespace)
+
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "cannot generate TLS certificates index from Kubernetes secrets")
+	}
+
+	for _, vs := range virtualServices.Items {
+		tlsFactory := tls.NewTlsFactory(ctx, vs.Spec.TlsConfig, r.Client, r.DiscoveryClient, r.Config.GetDefaultIssuer(), instance.Namespace, index)
+		vsFactory := virtualservice.NewVirtualServiceFactory(r.Client, r.Unmarshaler, &vs, instance, *tlsFactory)
+
+		virtSvc, err := vsFactory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
+		if err != nil {
+			if errors.NeedStatusUpdate(err) {
+				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error()); err != nil {
+					errs = append(errs, err)
+				}
+				continue
+			}
+			errs = append(errs, err)
+			continue
+		}
+
+		if len(virtSvc.Tls.ErrorDomains) > 0 {
+			if err := vs.SetDomainsStatus(ctx, r.Client, virtSvc.Tls.ErrorDomains); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
+		if !k8s.NodeIDsContains(virtSvc.NodeIDs, k8s.NodeIDs(instance)) {
+			r.log.Info("NodeID mismatch", "VirtualService", vs.Name)
+			if err := vs.SetError(ctx, r.Client, "VirtualService nodeIDs is not empty and listener does not contains all of them"); err != nil {
+				errs = append(errs, err)
+			}
+			continue
+		}
+
+		routeConfigs = append(routeConfigs, virtSvc.RouteConfig)
+
+		ch, err := virtualservice.FilterChains(&virtSvc)
+
+		if err != nil {
+			if errors.NeedStatusUpdate(err) {
+				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to get filterchain").Error()); err != nil {
+					errs = append(errs, err)
+				}
+			}
+			continue
+		}
+
+		chains = append(chains, ch...)
+
+		if err := vs.SetValid(ctx, r.Client); err != nil {
+			errs = append(errs, err)
+		}
+
+		if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	if len(errs) != 0 {
 		for _, e := range errs {
-			r.log.V(1).Error(e, "")
+			r.log.V(1).Error(e, "Can't create FilterChain for listener")
 		}
-		return ctrl.Result{}, errors.Wrap(err, "failed to generate FilterChains and RouteConfigs")
+		return ctrl.Result{}, errors.Wrap(nil, "failed to generate FilterChains or RouteConfigs")
 	}
 
 	listener.FilterChains = append(listener.FilterChains, chains...)
-	listener.Name = getResourceName(req.Namespace, req.Name)
 
 	// Add routeConfigs to xds cache
-	for _, rtConfig := range rtConfigs {
+	for _, rtConfig := range routeConfigs {
 		for _, nodeID := range k8s.NodeIDs(instance) {
 			r.log.V(1).Info("Adding route", "name:", rtConfig.Name)
 			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
@@ -154,132 +215,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	r.log.Info("Listener reconcilation finished")
 
 	return ctrl.Result{}, nil
-}
-
-func (r *ListenerReconciler) configComponents(ctx context.Context, virtualServices []v1alpha1.VirtualService, listener *v1alpha1.Listener) ([]*listenerv3.FilterChain, []*routev3.RouteConfiguration, []error) {
-	var chains []*listenerv3.FilterChain
-	var routeConfigs []*routev3.RouteConfiguration
-	var errs []error
-
-	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, listener.Namespace)
-	if err != nil {
-		return nil, nil, []error{errors.Wrap(err, "cannot generate Index with TLS certificates from Kubernetes secrets")}
-	}
-
-L1:
-	for _, vs := range virtualServices {
-		factory := virtualservice.NewVirtualServiceFactory(r.Client, r.Unmarshaler, &vs, listener)
-
-		virtSvc, err := factory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
-		if err != nil {
-			if errors.NeedStatusUpdate(err) {
-				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error()); err != nil {
-					errs = append(errs, err)
-				}
-				continue L1
-			}
-			errs = append(errs, err)
-		}
-
-		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
-		if !k8s.NodeIDsContains(virtSvc.NodeIDs, k8s.NodeIDs(listener)) {
-			r.log.Info("NodeID mismatch", "VirtualService", vs.Name)
-			if err := vs.SetError(ctx, r.Client, "VirtualService nodeIDs is not empty and listener does not contains all of them"); err != nil {
-				errs = append(errs, err)
-			}
-			continue L1
-		}
-
-		// Get envoy virtualhost from virtualSerive spec
-		virtualHost := virtSvc.VirtualHost
-
-		routeConfigs = append(routeConfigs, virtSvc.RouteConfig)
-
-		b := filterchain.NewBuilder()
-
-		// Build filterchain without tls
-		if vs.Spec.TlsConfig == nil {
-			r.log.V(1).Info("Generate Filter Chains for Virtual Service", "name:", vs.Name)
-			f, err := b.WithHttpConnectionManager(
-				virtSvc.AccessLog,
-				virtSvc.HttpFilters,
-				getResourceName(vs.Namespace, vs.Name),
-			).
-				WithFilterChainMatch(virtualHost.Domains).
-				Build(vs.Name)
-			if err != nil {
-				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to generate Filter Chain").Error()); err != nil {
-					errs = append(errs, err)
-				}
-				continue L1
-			}
-			chains = append(chains, f)
-			continue L1
-		}
-
-		tlsFactory := tls.NewTlsFactory(ctx, vs.Spec.TlsConfig, r.Client, r.DiscoveryClient, r.Config, listener.Namespace, virtualHost.Domains, index)
-		tls, err := tlsFactory.Provide(ctx)
-		if err != nil {
-			if errors.NeedStatusUpdate(err) {
-				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot Provide TLS").Error()); err != nil {
-					errs = append(errs, err)
-				}
-				continue L1
-			}
-			errs = append(errs, err)
-		}
-
-		if len(tls.ErrorDomains) > 0 {
-			if err := vs.SetDomainsStatus(ctx, r.Client, tls.ErrorDomains); err != nil {
-				errs = append(errs, err)
-			}
-		}
-
-		if len(tls.CertificatesWithDomains) == 0 {
-			r.log.Info("Certificates not found", "VirtualService", vs.Name)
-			if err := vs.SetError(ctx, r.Client, "сould not find a certificate for any domain"); err != nil {
-				errs = append(errs, err)
-			}
-			continue L1
-		}
-
-		// Build filterchain with tls
-		r.log.V(1).Info("Generate Filter Chains for Virtual Service", "VirtualService", vs.Name)
-
-		for certName, domains := range tls.CertificatesWithDomains {
-			virtualHost.Domains = domains
-			f, err := b.WithDownstreamTlsContext(certName).
-				WithFilterChainMatch(domains).
-				WithHttpConnectionManager(virtSvc.AccessLog,
-					virtSvc.HttpFilters,
-					getResourceName(vs.Namespace, vs.Name),
-				).
-				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
-			if err != nil {
-				r.log.WithValues("Certificate Name", certName).Error(err, "Can't create Filter Chain")
-				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, fmt.Sprintf("can't create Filter Chain for certificate: %+v, and domains: %+v", certName, domains)).Error()); err != nil {
-					errs = append(errs, err)
-				}
-				continue L1
-			}
-			chains = append(chains, f)
-		}
-
-		if err := vs.SetValid(ctx, r.Client); err != nil {
-			errs = append(errs, err)
-		}
-
-		if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(errs) != 0 {
-		errs = slices.Compact(errs)
-		return nil, nil, errs
-	}
-
-	return chains, routeConfigs, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
