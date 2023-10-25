@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
@@ -110,4 +111,8 @@ func GetCertificateSecrets(ctx context.Context, cl client.Client, namespace stri
 		Namespace:     namespace,
 	}
 	return ListSecrets(ctx, cl, listOpt)
+}
+
+func ResourceName(namespace, name string) string {
+	return fmt.Sprintf("%s-%s", namespace, name)
 }

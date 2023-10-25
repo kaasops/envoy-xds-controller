@@ -2,26 +2,32 @@ package virtualservice
 
 import (
 	"context"
+	"fmt"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/factory/virtualservice/tls"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type VirtualService struct {
+	Name        string
 	NodeIDs     []string
 	VirtualHost *routev3.VirtualHost
 	AccessLog   *accesslogv3.AccessLog
 	HttpFilters []*hcmv3.HttpFilter
 	RouteConfig *routev3.RouteConfiguration
+	Tls         *tls.Tls
 }
 
 type VirtualServiceFactory struct {
@@ -29,15 +35,55 @@ type VirtualServiceFactory struct {
 	client      client.Client
 	unmarshaler protojson.UnmarshalOptions
 	listener    *v1alpha1.Listener
+	tlsFactory  *tls.TlsFactory
 }
 
-func NewVirtualServiceFactory(client client.Client, unmarshaler protojson.UnmarshalOptions, vs *v1alpha1.VirtualService, listener *v1alpha1.Listener) *VirtualServiceFactory {
+func NewVirtualServiceFactory(client client.Client, unmarshaler protojson.UnmarshalOptions, vs *v1alpha1.VirtualService, listener *v1alpha1.Listener, tlsFactory tls.TlsFactory) *VirtualServiceFactory {
 	return &VirtualServiceFactory{
 		VirtualService: vs,
 		client:         client,
 		unmarshaler:    unmarshaler,
 		listener:       listener,
+		tlsFactory:     &tlsFactory,
 	}
+}
+
+func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
+	var chains []*listenerv3.FilterChain
+
+	b := filterchain.NewBuilder()
+
+	if vs.Tls != nil {
+		for certName, domains := range vs.Tls.CertificatesWithDomains {
+			vs.VirtualHost.Domains = domains
+			f, err := b.WithDownstreamTlsContext(certName).
+				WithFilterChainMatch(domains).
+				WithHttpConnectionManager(vs.AccessLog,
+					vs.HttpFilters,
+					vs.Name,
+				).
+				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to generate Filter Chain")
+			}
+			chains = append(chains, f)
+		}
+		return chains, nil
+	}
+
+	f, err := b.WithHttpConnectionManager(
+		vs.AccessLog,
+		vs.HttpFilters,
+		vs.Name,
+	).
+		WithFilterChainMatch(vs.VirtualHost.Domains).
+		Build(vs.Name)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate Filter Chain")
+	}
+	chains = append(chains, f)
+
+	return chains, nil
 }
 
 func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (VirtualService, error) {
@@ -68,13 +114,30 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		return VirtualService{}, errors.Wrap(err, "cannot create Route Configs for Virtual Service")
 	}
 
-	return VirtualService{
+	virtualService := VirtualService{
+		Name:        k8s.ResourceName(f.VirtualService.Namespace, f.VirtualService.Name),
 		NodeIDs:     nodeIDs,
 		VirtualHost: virtualHost,
 		AccessLog:   accesslog,
 		HttpFilters: httpFilters,
 		RouteConfig: routeConfig,
-	}, nil
+	}
+
+	if f.tlsFactory != nil {
+		tls, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
+
+		if err != nil {
+			return VirtualService{}, errors.Wrap(err, "TLS provider error")
+		}
+
+		if len(tls.CertificatesWithDomains) == 0 {
+			return VirtualService{}, errors.NewUKS("No certificates found")
+		}
+
+		virtualService.Tls = tls
+	}
+
+	return virtualService, nil
 }
 
 func (f *VirtualServiceFactory) AccessLog(ctx context.Context) (*accesslogv3.AccessLog, error) {

@@ -8,6 +8,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/utils/strings/slices"
 
@@ -123,13 +124,12 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	}
 
 	if err := b.httpConnectionManager.ValidateAll(); err != nil {
-		return nil, err
+		return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 	}
 
 	pbst, err := anypb.New(b.httpConnectionManager)
-
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to marshal httpConnectionManager to anypb")
 	}
 
 	filters := []*listenerv3.Filter{{
@@ -144,13 +144,13 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	filterchain.FilterChainMatch = b.filterChainMatch
 
 	if err := b.downstreamTlsContext.ValidateAll(); err != nil {
-		return nil, err
+		return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 	}
 
 	if b.downstreamTlsContext != nil {
 		scfg, err := anypb.New(b.downstreamTlsContext)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to marshal downstreamTlsContext to anypb")
 		}
 
 		transportSocker := &corev3.TransportSocket{
@@ -165,7 +165,7 @@ func (b *builder) Build(name string) (*listenerv3.FilterChain, error) {
 	b.filterchain = filterchain
 
 	if err := filterchain.ValidateAll(); err != nil {
-		return nil, err
+		return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 	}
 
 	return filterchain, nil

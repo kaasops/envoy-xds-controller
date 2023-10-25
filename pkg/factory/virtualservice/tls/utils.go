@@ -96,9 +96,9 @@ func (tf *TlsFactory) getIssuerTypeName() (string, string, error) {
 	}
 
 	if *tf.TlsConfig.CertManager.Enabled {
-		if tf.Config.GetDefaultIssuer() != "" {
+		if tf.defaultIssuer != "" {
 			iType := cmapi.ClusterIssuerKind
-			iName := tf.Config.GetDefaultIssuer()
+			iName := tf.defaultIssuer
 			return iType, iName, nil
 		}
 	}

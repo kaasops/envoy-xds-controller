@@ -2,12 +2,14 @@ package virtualservice
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -127,4 +129,35 @@ func (e *EnqueueRequestForVirtualService) Generic(ctx context.Context, evt event
 		Name:      vs.GetListener(),
 		Namespace: vs.GetNamespace(),
 	}})
+}
+
+var predicateLog = log.Log.WithName("eventhandler").WithName("GenerationOrMetadaChangedPredicate")
+
+type GenerationOrMetadataChangedPredicate struct {
+	predicate.Funcs
+}
+
+func (GenerationOrMetadataChangedPredicate) Update(e event.UpdateEvent) bool {
+	if e.ObjectOld == nil {
+		predicateLog.Error(nil, "Update event has no old object to update", "event", e)
+		return false
+	}
+	if e.ObjectNew == nil {
+		predicateLog.Error(nil, "Update event has no new object to update", "event", e)
+		return false
+	}
+
+	if !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations()) {
+		return true
+	}
+
+	if !reflect.DeepEqual(e.ObjectNew.GetLabels(), e.ObjectOld.GetLabels()) {
+		return true
+	}
+
+	if e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration() {
+		return true
+	}
+
+	return e.ObjectNew.GetGeneration() != e.ObjectOld.GetGeneration()
 }
