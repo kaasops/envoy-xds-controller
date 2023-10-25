@@ -53,10 +53,6 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 
 	b := filterchain.NewBuilder()
 
-	if len(vs.Tls.CertificatesWithDomains) == 0 {
-		return nil, errors.NewUKS("сould not find a certificate for any domain")
-	}
-
 	if vs.Tls != nil {
 		for certName, domains := range vs.Tls.CertificatesWithDomains {
 			vs.VirtualHost.Domains = domains
@@ -131,7 +127,11 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		tls, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
 
 		if err != nil {
-			return VirtualService{}, errors.Wrap(err, "cannot Provide TLS certificates")
+			return VirtualService{}, errors.Wrap(err, "TLS provider error")
+		}
+
+		if len(tls.CertificatesWithDomains) == 0 {
+			return VirtualService{}, errors.NewUKS("No certificates found")
 		}
 
 		virtualService.Tls = tls

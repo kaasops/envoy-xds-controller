@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/discovery"
 
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -173,8 +174,9 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if len(errs) != 0 {
+		r.log.Error(nil, "FilterChain build errors")
 		for _, e := range errs {
-			r.log.Error(e, "Can't create FilterChain for listener")
+			r.log.Error(e, "")
 		}
 		return ctrl.Result{}, errors.New("failed to generate FilterChains or RouteConfigs")
 	}
@@ -261,7 +263,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{}).
+		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{}, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
 		Complete(r)
