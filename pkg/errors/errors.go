@@ -39,6 +39,7 @@ func NewUKS(msg string) error {
 	}
 }
 
+// Checks if error is a custom error. If true return custom error if false wrap.
 func Wrap(err error, msg string) error {
 	if customErr, ok := err.(customError); ok {
 		return customError{
@@ -54,15 +55,8 @@ func Wrap(err error, msg string) error {
 	}
 }
 
+// Use if error should update status of kbuernetes object
 func WrapUKS(err error, msg string) error {
-	if _, ok := err.(customError); ok {
-		return customError{
-			originalError:    err,
-			message:          msg,
-			updateKubeStatus: true,
-		}
-	}
-
 	return customError{
 		originalError:    err,
 		message:          msg,

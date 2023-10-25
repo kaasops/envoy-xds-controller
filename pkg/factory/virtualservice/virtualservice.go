@@ -54,7 +54,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 	b := filterchain.NewBuilder()
 
 	if len(vs.Tls.CertificatesWithDomains) == 0 {
-		return nil, errors.Wrap(nil, "сould not find a certificate for any domain")
+		return nil, errors.NewUKS("сould not find a certificate for any domain")
 	}
 
 	if vs.Tls != nil {

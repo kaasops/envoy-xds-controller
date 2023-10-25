@@ -197,11 +197,6 @@ func (tf *TlsFactory) provideAutoDiscovery(ctx context.Context, domains []string
 			continue
 		}
 
-		// TODO (Webhook or validate all)
-		if strings.Contains(domain, "^") || strings.Contains(domain, "~") {
-			tls.ErrorDomains[domain] = errors.RegexDomainMessage
-		}
-
 		// Validate certificate exist in index!
 		secret, ok := tf.CertificatesIndex[domain]
 		if ok {

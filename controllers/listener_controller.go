@@ -114,7 +114,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	var routeConfigs []*routev3.RouteConfiguration
 	var errs []error
 	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, instance.Namespace)
-
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "cannot generate TLS certificates index from Kubernetes secrets")
 	}
@@ -153,7 +152,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		routeConfigs = append(routeConfigs, virtSvc.RouteConfig)
 
 		ch, err := virtualservice.FilterChains(&virtSvc)
-
 		if err != nil {
 			if errors.NeedStatusUpdate(err) {
 				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to get filterchain").Error()); err != nil {
@@ -176,9 +174,9 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	if len(errs) != 0 {
 		for _, e := range errs {
-			r.log.V(1).Error(e, "Can't create FilterChain for listener")
+			r.log.Error(e, "Can't create FilterChain for listener")
 		}
-		return ctrl.Result{}, errors.Wrap(nil, "failed to generate FilterChains or RouteConfigs")
+		return ctrl.Result{}, errors.New("failed to generate FilterChains or RouteConfigs")
 	}
 
 	listener.FilterChains = append(listener.FilterChains, chains...)
@@ -194,7 +192,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if err := listener.ValidateAll(); err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 	}
 
 	// Add listener to xds cache
