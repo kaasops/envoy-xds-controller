@@ -20,6 +20,7 @@ type Builder interface {
 	WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 		httpFilters []*hcm.HttpFilter,
 		routeConfigName string,
+		statPrefix string,
 	) Builder
 	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
@@ -58,7 +59,7 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 
 func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 	httpFilters []*hcm.HttpFilter,
-	routeConfigName string,
+	routeConfigName string, statPrefix string,
 ) Builder {
 
 	// TODO: Copy all fields from VirtualHost
@@ -73,6 +74,7 @@ func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 	if len(httpFilters) > 0 {
 		hfs = append(hfs, httpFilters...)
 	}
+
 	hfs = append(hfs, &hcm.HttpFilter{
 		Name: wellknown.Router,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -82,7 +84,7 @@ func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
-		StatPrefix: routeConfigName,
+		StatPrefix: statPrefix,
 		RouteSpecifier: &hcm.HttpConnectionManager_Rds{
 			Rds: &hcm.Rds{
 				ConfigSource: &corev3.ConfigSource{
