@@ -3,6 +3,7 @@ package virtualservice
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -53,6 +54,8 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 
 	b := filterchain.NewBuilder()
 
+	statPrefix := strings.ReplaceAll(vs.Name, ".", "-")
+
 	if vs.Tls != nil {
 		for certName, domains := range vs.Tls.CertificatesWithDomains {
 			vs.VirtualHost.Domains = domains
@@ -61,6 +64,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 				WithHttpConnectionManager(vs.AccessLog,
 					vs.HttpFilters,
 					vs.Name,
+					statPrefix,
 				).
 				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
 			if err != nil {
@@ -75,6 +79,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 		vs.AccessLog,
 		vs.HttpFilters,
 		vs.Name,
+		statPrefix,
 	).
 		WithFilterChainMatch(vs.VirtualHost.Domains).
 		Build(vs.Name)
