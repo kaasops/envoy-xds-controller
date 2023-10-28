@@ -128,7 +128,7 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		RouteConfig: routeConfig,
 	}
 
-	if f.tlsFactory != nil {
+	if f.tlsFactory.TlsConfig != nil {
 		tls, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
 
 		if err != nil {
@@ -224,6 +224,24 @@ func (f *VirtualServiceFactory) HttpFilters(ctx context.Context, name string) ([
 		}
 
 		httpFilters = append(httpFilters, hf)
+	}
+
+	// TODO: Dont get httpFilters from cluster all the time
+	if len(f.Spec.AdditionalHttpFilters) != 0 {
+		for _, hfs := range f.Spec.AdditionalHttpFilters {
+			hfSpec := &v1alpha1.HttpFilter{}
+			err := f.client.Get(ctx, hfs.NamespacedName(f.Namespace), hfSpec)
+			if err != nil {
+				return nil, errors.Wrap(err, errors.GetFromKubernetesMessage)
+			}
+			for _, httpFilter := range hfSpec.Spec {
+				hf := &hcmv3.HttpFilter{}
+				if err := f.unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
+					return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
+				}
+				httpFilters = append(httpFilters, hf)
+			}
+		}
 	}
 
 	return httpFilters, nil

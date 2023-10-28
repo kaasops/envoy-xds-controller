@@ -91,6 +91,8 @@ spec:
       name: accesslogconfig-sample
   additionalRoutes:
     - name: route-sample
+  additionalHttpFilters:
+    - name: httpfilter-sample
   listener:
     name: https
 ---
