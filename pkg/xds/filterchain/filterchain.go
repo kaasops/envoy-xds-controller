@@ -4,7 +4,6 @@ import (
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
@@ -60,10 +59,6 @@ func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 	httpFilters []*hcm.HttpFilter,
 	routeConfigName string,
 ) Builder {
-
-	// TODO: Copy all fields from VirtualHost
-	routerConfig, _ := anypb.New(&router.Router{})
-
 	// TODO: it's hardcode!
 	useRemoteAddress := wrappers.BoolValue{
 		Value: true,
@@ -73,12 +68,6 @@ func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 	if len(httpFilters) > 0 {
 		hfs = append(hfs, httpFilters...)
 	}
-	hfs = append(hfs, &hcm.HttpFilter{
-		Name: wellknown.Router,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: routerConfig,
-		},
-	})
 
 	manager := &hcm.HttpConnectionManager{
 		CodecType:  hcm.HttpConnectionManager_AUTO,
