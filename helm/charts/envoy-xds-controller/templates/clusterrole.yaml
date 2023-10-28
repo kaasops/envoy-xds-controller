@@ -83,6 +83,7 @@ rules:
   - virtualhosts
   - virtualservices
   - accesslogconfigs
+  - httpfilters
   verbs:
   - create
   - delete
@@ -102,6 +103,7 @@ rules:
   - virtualhosts/status
   - virtualservices/status
   - accesslogconfigs/status
+  - httpfilters/status
   verbs:
   - get
   - patch
