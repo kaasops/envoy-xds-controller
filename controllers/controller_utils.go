@@ -24,6 +24,8 @@ func virtualServiceResourceRefMapper(obj client.Object, vs v1alpha1.VirtualServi
 		return append(resources, vs.Spec.AccessLogConfig)
 	case *v1alpha1.Route:
 		return vs.Spec.AdditionalRoutes
+	case *v1alpha1.HttpFilter:
+		return vs.Spec.AdditionalHttpFilters
 	}
 	return nil
 }

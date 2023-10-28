@@ -135,9 +135,11 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			continue
 		}
 
-		if len(virtSvc.Tls.ErrorDomains) > 0 {
-			if err := vs.SetDomainsStatus(ctx, r.Client, virtSvc.Tls.ErrorDomains); err != nil {
-				errs = append(errs, err)
+		if virtSvc.Tls != nil {
+			if len(virtSvc.Tls.ErrorDomains) > 0 {
+				if err := vs.SetDomainsStatus(ctx, r.Client, virtSvc.Tls.ErrorDomains); err != nil {
+					errs = append(errs, err)
+				}
 			}
 		}
 
@@ -265,6 +267,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.Listener{}).
 		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{}, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
+		Watches(&v1alpha1.HttpFilter{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
 		Complete(r)
 }

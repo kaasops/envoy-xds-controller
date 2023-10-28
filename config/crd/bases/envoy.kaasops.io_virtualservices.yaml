@@ -54,6 +54,13 @@ spec:
                   name:
                     type: string
                 type: object
+              additionalHttpFilters:
+                items:
+                  properties:
+                    name:
+                      type: string
+                  type: object
+                type: array
               additionalRoutes:
                 items:
                   properties:

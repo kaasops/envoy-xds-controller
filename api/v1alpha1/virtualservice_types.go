@@ -28,11 +28,12 @@ import (
 type VirtualServiceSpec struct {
 	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
 	// +kubebuilder:validation:Required
-	Listener         *ResourceRef          `json:"listener,omitempty"`
-	TlsConfig        *TlsConfig            `json:"tlsConfig,omitempty"`
-	AccessLog        *runtime.RawExtension `json:"accessLog,omitempty"`
-	AccessLogConfig  *ResourceRef          `json:"accessLogConfig,omitempty"`
-	AdditionalRoutes []*ResourceRef        `json:"additionalRoutes,omitempty"`
+	Listener              *ResourceRef          `json:"listener,omitempty"`
+	TlsConfig             *TlsConfig            `json:"tlsConfig,omitempty"`
+	AccessLog             *runtime.RawExtension `json:"accessLog,omitempty"`
+	AccessLogConfig       *ResourceRef          `json:"accessLogConfig,omitempty"`
+	AdditionalHttpFilters []*ResourceRef        `json:"additionalHttpFilters,omitempty"`
+	AdditionalRoutes      []*ResourceRef        `json:"additionalRoutes,omitempty"`
 
 	// HTTPFilters for use custom HTTP filters
 	HTTPFilters []*runtime.RawExtension `json:"httpFilters,omitempty"`
