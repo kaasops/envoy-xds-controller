@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"context"
+	"fmt"
+	"sort"
 
 	"github.com/go-logr/logr"
 
@@ -114,11 +116,17 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	var chains []*listenerv3.FilterChain
 	var routeConfigs []*routev3.RouteConfiguration
 	var errs []error
+	activeDomains := make(map[string]struct{})
 	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, instance.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "cannot generate TLS certificates index from Kubernetes secrets")
 	}
 
+	sort.Slice(virtualServices.Items, func(i, j int) bool {
+		return virtualServices.Items[i].CreationTimestamp.Before(&virtualServices.Items[j].CreationTimestamp)
+	})
+
+L1:
 	for _, vs := range virtualServices.Items {
 		tlsFactory := tls.NewTlsFactory(ctx, vs.Spec.TlsConfig, r.Client, r.DiscoveryClient, r.Config.GetDefaultIssuer(), instance.Namespace, index)
 		vsFactory := virtualservice.NewVirtualServiceFactory(r.Client, r.Unmarshaler, &vs, instance, *tlsFactory)
@@ -133,6 +141,18 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			}
 			errs = append(errs, err)
 			continue
+		}
+
+		for _, domain := range virtSvc.VirtualHost.Domains {
+			_, ok := activeDomains[domain]
+			if ok {
+				r.log.Error(nil, "domain already in use", "name:", domain)
+				if err := vs.SetError(ctx, r.Client, fmt.Sprintf("duplicate domain: %s", domain)); err != nil {
+					errs = append(errs, err)
+				}
+				continue L1
+			}
+			activeDomains[domain] = struct{}{}
 		}
 
 		if virtSvc.Tls != nil {
