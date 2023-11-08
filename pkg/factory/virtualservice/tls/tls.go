@@ -92,7 +92,7 @@ func (tf *TlsFactory) Provide(ctx context.Context, domains []string) (*Tls, erro
 		}
 		return tls, nil
 	case v1alpha1.CertManagerType:
-		err := tf.provideCertManager(ctx, tls)
+		err := tf.provideCertManager(ctx, domains, tls)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot provide CertManager")
 		}
@@ -134,7 +134,7 @@ func (tf *TlsFactory) provideSecretRef(ctx context.Context, tls *Tls) error {
 	return nil
 }
 
-func (tf *TlsFactory) provideCertManager(ctx context.Context, tls *Tls) error {
+func (tf *TlsFactory) provideCertManager(ctx context.Context, domains []string, tls *Tls) error {
 	// Check CertManager CRs exist in Kubernetes
 	for _, kind := range certManagerKinds {
 		exist, err := k8s.ResourceExists(tf.DiscoveryClient, cmapi.SchemeGroupVersion.String(), kind)
@@ -175,7 +175,7 @@ func (tf *TlsFactory) provideCertManager(ctx context.Context, tls *Tls) error {
 
 	// TODO: collect dif domains with same wildcard to 1 certificate
 	// Create Certificates for all domains
-	for _, domain := range tf.Domains {
+	for _, domain := range domains {
 		objName := strings.ToLower(strings.ReplaceAll(domain, ".", "-"))
 
 		if err := tf.createCertificate(ctx, domain, objName); err != nil {
