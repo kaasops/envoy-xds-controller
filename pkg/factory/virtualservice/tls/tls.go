@@ -43,7 +43,7 @@ type TlsFactory struct {
 	DiscoveryClient *discovery.DiscoveryClient
 	defaultIssuer   string
 	Namespace       string
-	Domains         []string
+	// Domains         []string
 
 	CertificatesIndex map[string]corev1.Secret
 
@@ -86,7 +86,7 @@ func (tf *TlsFactory) Provide(ctx context.Context, domains []string) (*Tls, erro
 
 	switch tlsType {
 	case v1alpha1.SecretRefType:
-		err := tf.provideSecretRef(ctx, tls)
+		err := tf.provideSecretRef(ctx, domains, tls)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot provide SecretRef")
 		}
@@ -106,7 +106,7 @@ func (tf *TlsFactory) Provide(ctx context.Context, domains []string) (*Tls, erro
 	return tls, nil
 }
 
-func (tf *TlsFactory) provideSecretRef(ctx context.Context, tls *Tls) error {
+func (tf *TlsFactory) provideSecretRef(ctx context.Context, domains []string, tls *Tls) error {
 	namespacedName := types.NamespacedName{
 		Name:      tf.TlsConfig.SecretRef.Name,
 		Namespace: tf.Namespace,
@@ -129,7 +129,7 @@ func (tf *TlsFactory) provideSecretRef(ctx context.Context, tls *Tls) error {
 		tf.Namespace,
 		tf.TlsConfig.SecretRef.Name,
 	)
-	tls.CertificatesWithDomains[secretName] = tf.Domains
+	tls.CertificatesWithDomains[secretName] = domains
 
 	return nil
 }
