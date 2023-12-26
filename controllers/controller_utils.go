@@ -50,7 +50,20 @@ func defaultNodeIDs(ctx context.Context, cl client.Client, namespace string) ([]
 		return nil, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 	for _, l := range listeners.Items {
-		nodeIDs = append(nodeIDs, k8s.NodeIDs(l.DeepCopy())...)
+		for _, v := range k8s.NodeIDs(l.DeepCopy()) {
+			if !contains(nodeIDs, v) {
+				nodeIDs = append(nodeIDs, v)
+			}
+		}
 	}
 	return nodeIDs, nil
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

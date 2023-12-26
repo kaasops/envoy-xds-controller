@@ -62,7 +62,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	err := r.Get(ctx, req.NamespacedName, kubeSecret)
 	if err != nil {
 		if api_errors.IsNotFound(err) {
-			r.log.Info("Secret not found. Delete object fron xDS cache")
+			r.log.Info("Secret not found. Delete object from xDS cache")
 			nodeIDs, err := r.Cache.GetNodeIDsForResource(resourcev3.SecretType, getResourceName(req.Namespace, req.Name))
 			if err != nil {
 				return ctrl.Result{}, errors.Wrap(err, errors.GetNodeIDForResource)
@@ -90,13 +90,16 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		nodeIDs = append(nodeIDs, defaultNodeIDs...)
 	}
 
+	envoySecrets, err := r.makeEnvoySecrets(kubeSecret)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err, "cannot generate xDS secret from Kubernetes Secret")
+	}
+
 	for _, nodeID := range nodeIDs {
-		envoySecret, err := r.makeEnvoySecret(kubeSecret)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "cannot generate xDS secret from Kubernetes Secret")
-		}
-		if err := r.Cache.Update(nodeID, envoySecret); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
+		for _, envoySecret := range envoySecrets {
+			if err := r.Cache.Update(nodeID, envoySecret); err != nil {
+				return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
+			}
 		}
 	}
 
@@ -117,26 +120,40 @@ func (r *KubeSecretReconciler) valid(secret *corev1.Secret) bool {
 		r.log.V(1).Info("Not a xds controller secret")
 		return false
 	}
-	if secret.Type != corev1.SecretTypeTLS {
-		r.log.V(1).Info("Kuberentes Secret is not a type TLS. Skip")
+	if secret.Type != corev1.SecretTypeTLS && secret.Type != corev1.SecretTypeOpaque {
+		r.log.V(1).Info("Kuberentes Secret is not a type TLS or Opaque. Skip")
 		return false
 	}
 	return true
 }
 
-func (r *KubeSecretReconciler) makeEnvoySecret(kubeSecret *corev1.Secret) (*tlsv3.Secret, error) {
+// Generate xDS secret from Kubernetes Secret
+func (r *KubeSecretReconciler) makeEnvoySecrets(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
+	switch kubeSecret.Type {
+	case corev1.SecretTypeTLS:
+		return r.makeEnvoyTLSSecret(kubeSecret)
+	case corev1.SecretTypeOpaque:
+		return r.makeEnvoyOpaqueSecret(kubeSecret)
+	default:
+		return nil, fmt.Errorf("unsupported secret type %s", kubeSecret.Type)
+	}
+}
+
+func (r *KubeSecretReconciler) makeEnvoyTLSSecret(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
+	secrets := make([]*tlsv3.Secret, 0)
+
 	envoySecret := &tlsv3.Secret{
 		Name: fmt.Sprintf("%s-%s", kubeSecret.Namespace, kubeSecret.Name),
 		Type: &tlsv3.Secret_TlsCertificate{
 			TlsCertificate: &tlsv3.TlsCertificate{
 				CertificateChain: &corev3.DataSource{
 					Specifier: &corev3.DataSource_InlineBytes{
-						InlineBytes: kubeSecret.Data["tls.crt"],
+						InlineBytes: kubeSecret.Data[corev1.TLSCertKey],
 					},
 				},
 				PrivateKey: &corev3.DataSource{
 					Specifier: &corev3.DataSource_InlineBytes{
-						InlineBytes: kubeSecret.Data["tls.key"],
+						InlineBytes: kubeSecret.Data[corev1.TLSPrivateKeyKey],
 					},
 				},
 			},
@@ -146,5 +163,34 @@ func (r *KubeSecretReconciler) makeEnvoySecret(kubeSecret *corev1.Secret) (*tlsv
 		return nil, errors.Wrap(err, "cannot validate Envoy Secret")
 	}
 
-	return envoySecret, nil
+	secrets = append(secrets, envoySecret)
+
+	return secrets, nil
+}
+
+func (r *KubeSecretReconciler) makeEnvoyOpaqueSecret(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
+	secrets := make([]*tlsv3.Secret, 0)
+
+	for k, v := range kubeSecret.Data {
+		envoySecret := &tlsv3.Secret{
+			Name: fmt.Sprintf("%s-%s-%s", kubeSecret.Namespace, kubeSecret.Name, k),
+			Type: &tlsv3.Secret_GenericSecret{
+				GenericSecret: &tlsv3.GenericSecret{
+					Secret: &corev3.DataSource{
+						Specifier: &corev3.DataSource_InlineBytes{
+							InlineBytes: v,
+						},
+					},
+				},
+			},
+		}
+
+		if err := envoySecret.ValidateAll(); err != nil {
+			return nil, errors.Wrap(err, "cannot validate Envoy Secret")
+		}
+
+		secrets = append(secrets, envoySecret)
+	}
+
+	return secrets, nil
 }
