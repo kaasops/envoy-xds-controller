@@ -29,7 +29,7 @@ var (
 	ZeroParamMessage = `need choose one 1 param for configure TLS. \
 	You can choose one of 'secretRef', 'certManager', 'autoDiscovery'.\
 	If you don't want use TLS for connection - don't install tlsConfig`
-	NodeIDsEmpty                  = "NodeID not set"
+	NodeIDsEmpty                  = "Object don't have any NodeID"
 	SecretNotTLSTypeMessage       = "kuberentes Secret is not a type TLS"
 	ControlLabelNotExistMessage   = "kuberentes Secret doesn't have control label"
 	ControlLabelWrongMessage      = "kubernetes Secret have label, but value not true"

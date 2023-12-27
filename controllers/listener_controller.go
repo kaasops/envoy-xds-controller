@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 
 	"github.com/go-logr/logr"
@@ -75,6 +76,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	instance := &v1alpha1.Listener{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
+		// if listener not found, delete him from cache
 		if api_errors.IsNotFound(err) {
 			r.log.V(1).Info("Listener instance not found. Delete object from xDS cache")
 			nodeIDs, err := r.Cache.GetNodeIDsForResource(resourcev3.ListenerType, getResourceName(req.Namespace, req.Name))
@@ -95,6 +97,12 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.New(errors.EmptySpecMessage)
 	}
 
+	// Get listener NodeIDs
+	nodeIDs := k8s.NodeIDs(instance)
+	if len(nodeIDs) == 0 {
+		return ctrl.Result{}, errors.New(errors.NodeIDsEmpty)
+	}
+
 	// Get Envoy Listener from listener instance spec
 	listener := &listenerv3.Listener{}
 	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
@@ -113,114 +121,134 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	listener.Name = getResourceName(req.Namespace, req.Name)
 
-	var chains []*listenerv3.FilterChain
-	var routeConfigs []*routev3.RouteConfiguration
-	var errs []error
-	activeDomains := make(map[string]struct{})
+	// Create HashMap for fast searching of certificates
 	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, instance.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "cannot generate TLS certificates index from Kubernetes secrets")
 	}
 
+	// TODO: Why we sort it?
 	sort.Slice(virtualServices.Items, func(i, j int) bool {
 		return virtualServices.Items[i].CreationTimestamp.Before(&virtualServices.Items[j].CreationTimestamp)
 	})
 
-L1:
-	for _, vs := range virtualServices.Items {
-		tlsFactory := tls.NewTlsFactory(ctx, vs.Spec.TlsConfig, r.Client, r.DiscoveryClient, r.Config.GetDefaultIssuer(), instance.Namespace, index)
-		vsFactory := virtualservice.NewVirtualServiceFactory(r.Client, r.Unmarshaler, &vs, instance, *tlsFactory)
+	// Save listener FilterChains
+	listenerFilterChains := listener.FilterChains
 
-		virtSvc, err := vsFactory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
-		if err != nil {
-			if errors.NeedStatusUpdate(err) {
-				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error()); err != nil {
+	// Collect all VirtualServices for listener in each NodeID
+	for _, nodeID := range nodeIDs {
+		// errs for collect all errors with processing VirtualServices
+		var errs []error
+
+		// activeDomains for collect all domains with active VirtualServices. It's needed for check dublicates
+		activeDomains := make(map[string]struct{})
+
+		// routeConfigs for collect Routes for listener
+		var routeConfigs []*routev3.RouteConfiguration
+
+		// chains for collect Filter Chains for listener
+		var chains []*listenerv3.FilterChain
+
+		for _, vs := range virtualServices.Items {
+			// If Virtual Service has nodeID or Virtual Service don't have any nondeID (or all NodeID)
+			if slices.Contains(k8s.NodeIDs(&vs), nodeID) || k8s.NodeIDs(&vs) == nil {
+				// Create Factory for TLS
+				tlsFactory := tls.NewTlsFactory(
+					ctx,
+					vs.Spec.TlsConfig,
+					r.Client,
+					r.DiscoveryClient,
+					r.Config.GetDefaultIssuer(),
+					instance.Namespace,
+					index,
+				)
+
+				// Create Factory for VirtualService
+				vsFactory := virtualservice.NewVirtualServiceFactory(
+					r.Client,
+					r.Unmarshaler,
+					&vs,
+					instance,
+					*tlsFactory,
+				)
+
+				// Create VirtualService
+				virtSvc, err := vsFactory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
+				if err != nil {
+					if errors.NeedStatusUpdate(err) {
+						if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error()); err != nil {
+							errs = append(errs, err)
+						}
+						continue
+					}
+					errs = append(errs, err)
+					continue
+				}
+
+				// Check domain dublicates
+				for _, domain := range virtSvc.VirtualHost.Domains {
+					_, ok := activeDomains[domain]
+					if ok {
+						r.log.Error(nil, "domain already in use", "name:", domain)
+						if err := vs.SetError(ctx, r.Client, fmt.Sprintf("duplicate domain: %s", domain)); err != nil {
+							errs = append(errs, err)
+						}
+						continue
+					}
+					activeDomains[domain] = struct{}{}
+				}
+
+				// Set status about domains woth errors
+				if virtSvc.Tls != nil {
+					if len(virtSvc.Tls.ErrorDomains) > 0 {
+						if err := vs.SetDomainsStatus(ctx, r.Client, virtSvc.Tls.ErrorDomains); err != nil {
+							errs = append(errs, err)
+						}
+					}
+				}
+
+				// Collect routes
+				routeConfigs = append(routeConfigs, virtSvc.RouteConfig)
+
+				// Get and collect Filter Chains
+				filterChains, err := virtualservice.FilterChains(&virtSvc)
+				if err != nil {
+					if errors.NeedStatusUpdate(err) {
+						if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to get filterchain").Error()); err != nil {
+							errs = append(errs, err)
+						}
+						continue
+					}
+					errs = append(errs, err)
+					continue
+				}
+
+				chains = append(chains, filterChains...)
+
+				if err := vs.SetValid(ctx, r.Client); err != nil {
 					errs = append(errs, err)
 				}
-				continue
-			}
-			errs = append(errs, err)
-			continue
-		}
 
-		for _, domain := range virtSvc.VirtualHost.Domains {
-			_, ok := activeDomains[domain]
-			if ok {
-				r.log.Error(nil, "domain already in use", "name:", domain)
-				if err := vs.SetError(ctx, r.Client, fmt.Sprintf("duplicate domain: %s", domain)); err != nil {
-					errs = append(errs, err)
-				}
-				continue L1
-			}
-			activeDomains[domain] = struct{}{}
-		}
-
-		if virtSvc.Tls != nil {
-			if len(virtSvc.Tls.ErrorDomains) > 0 {
-				if err := vs.SetDomainsStatus(ctx, r.Client, virtSvc.Tls.ErrorDomains); err != nil {
+				if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
 					errs = append(errs, err)
 				}
 			}
 		}
 
-		// If VirtualService nodeIDs is not empty and listener does not contains all of them - skip. TODO: Add to status
-		if !k8s.NodeIDsContains(virtSvc.NodeIDs, k8s.NodeIDs(instance)) {
-			r.log.Info("NodeID mismatch", "VirtualService", vs.Name)
-			if err := vs.SetError(ctx, r.Client, "VirtualService nodeIDs is not empty and listener does not contains all of them"); err != nil {
-				errs = append(errs, err)
+		// Check errors
+		if len(errs) != 0 {
+			r.log.Error(nil, "FilterChain build errors")
+			for _, e := range errs {
+				r.log.Error(e, "")
 			}
-			continue
+			return ctrl.Result{}, errors.New("failed to generate FilterChains or RouteConfigs")
 		}
 
-		routeConfigs = append(routeConfigs, virtSvc.RouteConfig)
+		// Add builded FilterChains to Listener
+		listener.FilterChains = listenerFilterChains
+		listener.FilterChains = append(listener.FilterChains, chains...)
 
-		ch, err := virtualservice.FilterChains(&virtSvc)
-		if err != nil {
-			if errors.NeedStatusUpdate(err) {
-				if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to get filterchain").Error()); err != nil {
-					errs = append(errs, err)
-				}
-			}
-			continue
-		}
-
-		chains = append(chains, ch...)
-
-		if err := vs.SetValid(ctx, r.Client); err != nil {
-			errs = append(errs, err)
-		}
-
-		if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
-			errs = append(errs, err)
-		}
-	}
-
-	if len(errs) != 0 {
-		r.log.Error(nil, "FilterChain build errors")
-		for _, e := range errs {
-			r.log.Error(e, "")
-		}
-		return ctrl.Result{}, errors.New("failed to generate FilterChains or RouteConfigs")
-	}
-
-	listener.FilterChains = append(listener.FilterChains, chains...)
-
-	// Add routeConfigs to xds cache
-	for _, rtConfig := range routeConfigs {
-		for _, nodeID := range k8s.NodeIDs(instance) {
-			r.log.V(1).Info("Adding route", "name:", rtConfig.Name)
-			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
-				return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
-			}
-		}
-	}
-
-	if err := listener.ValidateAll(); err != nil {
-		return reconcile.Result{}, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
-	}
-
-	// Add listener to xds cache
-	for _, nodeID := range k8s.NodeIDs(instance) {
+		// Clear Listener, if don'r have FilterChains
 		if len(listener.FilterChains) == 0 {
 			r.log.WithValues("NodeID", nodeID).Info("Listener FilterChain is empty, deleting")
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
@@ -229,9 +257,30 @@ L1:
 			return ctrl.Result{}, nil
 		}
 
+		// Validate Listener
+		if err := listener.ValidateAll(); err != nil {
+			return reconcile.Result{}, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
+		}
+
+		// Update listener in xDS cache
+		r.log.V(1).WithValues("NodeID", nodeID).Info("Update listener", "name:", listener.Name)
 		if err := r.Cache.Update(nodeID, listener); err != nil {
 			return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
 		}
+
+		// Update routes in xDS cache
+		for _, rtConfig := range routeConfigs {
+			// Validate RouteConfig
+			if err := rtConfig.ValidateAll(); err != nil {
+				return reconcile.Result{}, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
+			}
+
+			r.log.V(1).WithValues("NodeID", nodeID).Info("Update route", "name:", rtConfig.Name)
+			if err := r.Cache.Update(nodeID, rtConfig); err != nil {
+				return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
+			}
+		}
+
 	}
 
 	r.log.Info("Listener reconcilation finished")
