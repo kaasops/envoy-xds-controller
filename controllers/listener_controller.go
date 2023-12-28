@@ -25,6 +25,7 @@ import (
 	"github.com/go-logr/logr"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -144,10 +145,10 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		activeDomains := make(map[string]struct{})
 
 		// routeConfigs for collect Routes for listener
-		var routeConfigs []*routev3.RouteConfiguration
+		routeConfigs := make([]*routev3.RouteConfiguration, 0)
 
 		// chains for collect Filter Chains for listener
-		var chains []*listenerv3.FilterChain
+		chains := make([]*listenerv3.FilterChain, 0)
 
 		for _, vs := range virtualServices.Items {
 			// If Virtual Service has nodeID or Virtual Service don't have any nondeID (or all NodeID)
@@ -245,8 +246,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 
 		// Add builded FilterChains to Listener
-		listener.FilterChains = listenerFilterChains
-		listener.FilterChains = append(listener.FilterChains, chains...)
+		listener.FilterChains = append(listenerFilterChains, chains...)
+		applyListener := proto.Clone(listener).(*listenerv3.Listener)
 
 		// Clear Listener, if don'r have FilterChains
 		if len(listener.FilterChains) == 0 {
@@ -264,7 +265,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		// Update listener in xDS cache
 		r.log.V(1).WithValues("NodeID", nodeID).Info("Update listener", "name:", listener.Name)
-		if err := r.Cache.Update(nodeID, listener); err != nil {
+		if err := r.Cache.Update(nodeID, applyListener); err != nil {
 			return ctrl.Result{}, errors.Wrap(err, errors.CannotUpdateCacheMessage)
 		}
 
