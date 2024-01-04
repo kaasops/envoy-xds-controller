@@ -1,0 +1,195 @@
+basePath: /
+definitions:
+  cache.Address:
+    properties:
+      bind:
+        type: string
+      port:
+        type: integer
+    type: object
+  cache.Cluster:
+    properties:
+      endpoints:
+        items:
+          $ref: '#/definitions/cache.Endpoint'
+        type: array
+      lb_policy:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
+  cache.Endpoint:
+    properties:
+      address:
+        type: string
+      port:
+        type: integer
+    type: object
+  cache.Filter:
+    properties:
+      cluster:
+        type: string
+      http_filters:
+        items:
+          type: string
+        type: array
+      rds:
+        type: string
+      route:
+        $ref: '#/definitions/cache.Route'
+      stat_prefix:
+        type: string
+      type:
+        type: string
+    type: object
+  cache.FilterChain:
+    properties:
+      filter_chain_match:
+        $ref: '#/definitions/cache.FilterChainMatch'
+      filters:
+        items:
+          $ref: '#/definitions/cache.Filter'
+        type: array
+      name:
+        type: string
+      transport_socket:
+        $ref: '#/definitions/cache.TransportSocket'
+    type: object
+  cache.FilterChainMatch:
+    properties:
+      domains:
+        items:
+          type: string
+        type: array
+    type: object
+  cache.Heades:
+    properties:
+      name:
+        type: string
+      value:
+        type: string
+    type: object
+  cache.Listener:
+    properties:
+      address:
+        $ref: '#/definitions/cache.Address'
+      filter_chains:
+        items:
+          $ref: '#/definitions/cache.FilterChain'
+        type: array
+      name:
+        type: string
+    type: object
+  cache.RequestsHeadersToAdd:
+    properties:
+      action:
+        type: string
+      header:
+        $ref: '#/definitions/cache.Heades'
+    type: object
+  cache.Route:
+    properties:
+      name:
+        type: string
+      virtual_hosts:
+        items:
+          $ref: '#/definitions/cache.VirtualHost'
+        type: array
+    type: object
+  cache.Secret:
+    properties:
+      name:
+        type: string
+    type: object
+  cache.TransportSocket:
+    properties:
+      name:
+        type: string
+    type: object
+  cache.VirtualHost:
+    properties:
+      domains:
+        items:
+          type: string
+        type: array
+      requests_headers_to_adds:
+        items:
+          $ref: '#/definitions/cache.RequestsHeadersToAdd'
+        type: array
+      routes:
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.GetCacheResponse:
+    properties:
+      clusters:
+        items:
+          $ref: '#/definitions/cache.Cluster'
+        type: array
+      endpoints:
+        items:
+          $ref: '#/definitions/cache.Endpoint'
+        type: array
+      listeners:
+        items:
+          $ref: '#/definitions/cache.Listener'
+        type: array
+      routes:
+        items:
+          $ref: '#/definitions/cache.Route'
+        type: array
+      secrets:
+        items:
+          $ref: '#/definitions/cache.Secret'
+        type: array
+      version:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: This is a sample server for Envoy XDS Cache Rest API.
+  title: Envoy XDS Cache Rest API
+  version: "1.0"
+paths:
+  /cache:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Node ID
+        in: query
+        name: node_id
+        required: true
+        type: string
+      - description: Resource type
+        enum:
+        - clusters
+        - endpoints
+        - routes
+        - listeners
+        - secrets
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetCacheResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get cache for a specific node ID
+      tags:
+      - cache
+schemes:
+- http
+swagger: "2.0"
