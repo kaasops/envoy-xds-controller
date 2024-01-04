@@ -41,9 +41,17 @@ spec:
       {{- end }}
       containers:
       - image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
-        {{- with .Values.args }}
+        {{- if .Values.args }}
         args:
-          {{- toYaml . | nindent 10 }}
+          {{- toYaml .Values.args | nindent 10 }}
+          {{- if .Values.cacheAPI.enabled }}
+          - --cache-api-port={{ .Values.cacheAPI.port }}
+          - --enable-cache-api=true
+          {{- end }}
+        {{- else if .Values.cacheAPI.enabled }}
+        args:
+          - --cache-api-port={{ .Values.cacheAPI.port }}
+          - --enable-cache-api=true
         {{- end }}
         env:
           - name: XDS_PORT

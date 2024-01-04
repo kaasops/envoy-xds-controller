@@ -5,6 +5,11 @@ namespaceOverride: ""
 xds:
   port: 8080
 
+cacheAPI:
+  enabled: false
+  port: 9999
+
+
 replicaCount: 1
 
 image:
