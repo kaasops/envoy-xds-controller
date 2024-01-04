@@ -73,9 +73,11 @@ func (s *Server) Run(port int) {
 	}
 
 	log.Info("xDS Server started")
-	if err = grpcServer.Serve(lis); err != nil {
-		log.Error(err, "Can't start xDS GRPC Server")
-	}
+	go func() {
+		if err = grpcServer.Serve(lis); err != nil {
+			log.Error(err, "Can't start xDS GRPC Server")
+		}
+	}()
 }
 
 func (s *Server) registerServer(grpcServer *grpc.Server) {

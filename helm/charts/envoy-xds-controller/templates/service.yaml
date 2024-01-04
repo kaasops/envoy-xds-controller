@@ -16,3 +16,25 @@ spec:
       name: grpc
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}
+
+{{- if .Values.cacheAPI.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "chart.fullname" . }}-cache-api
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  {{- with .Values.extraLabels }}
+    {{ toYaml . | indent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.cacheAPI.port }}
+      targetPort: {{ .Values.cacheAPI.port }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+{{- end }}

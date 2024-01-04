@@ -44,6 +44,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/webhook/handler"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
+	xdsclient "github.com/kaasops/envoy-xds-controller/pkg/xds/client"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
 
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
@@ -73,11 +74,15 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var enableCacheAPI bool
+	var cacheAPIPort int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&enableCacheAPI, "enable-cache-api", false, "Enable Cache API, for debug")
+	flag.IntVar(&cacheAPIPort, "cache-api-port", 9999, "Cache API port")
 
 	cfg, err := config.New()
 	if err != nil {
@@ -149,6 +154,15 @@ func main() {
 	xDSCache := xdscache.New()
 	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
 	go xDSServer.Run(cfg.GetXDSPort())
+
+	if enableCacheAPI {
+		go func() {
+			if err := xdsclient.New(xDSCache).Run(cacheAPIPort); err != nil {
+				setupLog.Error(err, "cannot run http xDS server")
+				os.Exit(1)
+			}
+		}()
+	}
 
 	if err = (&controllers.ClusterReconciler{
 		Client:      mgr.GetClient(),
