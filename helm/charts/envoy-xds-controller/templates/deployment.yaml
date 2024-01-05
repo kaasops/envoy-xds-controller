@@ -54,6 +54,8 @@ spec:
         args:
           - --cache-api-port={{ .Values.cacheAPI.port }}
           - --enable-cache-api=true
+          - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
+          - --cache-api-addr={{ .Values.cacheAPI.address }}
         {{- end }}
         env:
           - name: XDS_PORT
