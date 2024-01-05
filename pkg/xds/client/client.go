@@ -31,7 +31,7 @@ func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	// Register swagger
 	docs.SwaggerInfo.Schemes = []string{cacheAPIScheme}
 	docs.SwaggerInfo.Host = cacheAPIAddr
-	url := ginSwagger.URL(fmt.Sprintf("http://localhost:%d/swagger/doc.json", port))
+	url := ginSwagger.URL(fmt.Sprintf("%v://%v/swagger/doc.json", cacheAPIScheme, cacheAPIAddr))
 	server.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 
 	// Run server
