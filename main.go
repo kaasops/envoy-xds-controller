@@ -76,6 +76,8 @@ func main() {
 	var probeAddr string
 	var enableCacheAPI bool
 	var cacheAPIPort int
+	var cacheAPIScheme string
+	var cacheAPIAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -83,6 +85,8 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&enableCacheAPI, "enable-cache-api", false, "Enable Cache API, for debug")
 	flag.IntVar(&cacheAPIPort, "cache-api-port", 9999, "Cache API port")
+	flag.StringVar(&cacheAPIScheme, "cache-api-scheme", "http", "Cache API scheme")
+	flag.StringVar(&cacheAPIAddr, "cache-api-addr", "localhost:9999", "Cache API address")
 
 	cfg, err := config.New()
 	if err != nil {
@@ -157,7 +161,7 @@ func main() {
 
 	if enableCacheAPI {
 		go func() {
-			if err := xdsclient.New(xDSCache).Run(cacheAPIPort); err != nil {
+			if err := xdsclient.New(xDSCache).Run(cacheAPIPort, cacheAPIScheme, cacheAPIAddr); err != nil {
 				setupLog.Error(err, "cannot run http xDS server")
 				os.Exit(1)
 			}

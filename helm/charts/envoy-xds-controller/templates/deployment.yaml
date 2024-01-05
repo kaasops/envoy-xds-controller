@@ -45,8 +45,10 @@ spec:
         args:
           {{- toYaml .Values.args | nindent 10 }}
           {{- if .Values.cacheAPI.enabled }}
-          - --cache-api-port={{ .Values.cacheAPI.port }}
           - --enable-cache-api=true
+          - --cache-api-port={{ .Values.cacheAPI.port }}
+          - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
+          - --cache-api-addr={{ .Values.cacheAPI.address }}
           {{- end }}
         {{- else if .Values.cacheAPI.enabled }}
         args:
