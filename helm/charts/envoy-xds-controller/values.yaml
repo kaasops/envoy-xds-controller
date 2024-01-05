@@ -8,6 +8,8 @@ xds:
 cacheAPI:
   enabled: false
   port: 9999
+  address: "localhost:9999"
+  scheme: "http"
 
 
 replicaCount: 1

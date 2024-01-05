@@ -23,13 +23,14 @@ func New(cache *xdscache.Cache) *Client {
 	}
 }
 
-func (c *Client) Run(port int) error {
+func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	server := gin.Default()
 
 	handlers.RegisterRoutes(server, c.Cache)
 
 	// Register swagger
-	docs.SwaggerInfo.Host = fmt.Sprintf("localhost:%d", port)
+	docs.SwaggerInfo.Schemes = []string{cacheAPIScheme}
+	docs.SwaggerInfo.Host = cacheAPIAddr
 	url := ginSwagger.URL(fmt.Sprintf("http://localhost:%d/swagger/doc.json", port))
 	server.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 
