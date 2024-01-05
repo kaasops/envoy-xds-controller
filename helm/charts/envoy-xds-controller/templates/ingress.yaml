@@ -50,14 +50,5 @@ spec:
                 port:
                   number: {{ $svcPort }}
           {{- end }}
-          {{- if $.Values.cacheAPI.enabled }}
-          - path: /swagger
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $fullName }}-cache-api
-                port:
-                  number: {{ $.Values.cacheAPI.port }}
-          {{- end }}
     {{- end }}
 {{- end }}
