@@ -67,7 +67,7 @@ type GetHCMFilterResponse struct {
 // @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetHCMFilterResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
-// @Router /api/v1/filter [get]
+// @Router /api/v1/filters [get]
 func (h *handler) getFilter(ctx *gin.Context) {
 	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
 	if err != nil {
@@ -105,7 +105,7 @@ type GetTCPProxyFilterResponse struct {
 // @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetTCPProxyFilterResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
-// @Router /api/v1/filtersTCP [get]
+// @Router /api/v1/filtersTCPProxy [get]
 func (h *handler) getTCPProxyFilters(ctx *gin.Context) {
 	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
 	if err != nil {

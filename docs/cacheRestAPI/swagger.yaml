@@ -6366,7 +6366,58 @@ paths:
       summary: Get clusters for a specific node ID.
       tags:
       - cluster
-  /api/v1/filter:
+  /api/v1/filterType:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - default: '""'
+        description: Node ID
+        example: '"node-id-1"'
+        format: string
+        in: query
+        name: node_id
+        required: true
+        type: string
+      - default: '""'
+        description: Listener name
+        example: '"listener-1"'
+        format: string
+        in: query
+        name: listener_name
+        required: true
+        type: string
+      - default: '""'
+        description: Filter chain name
+        example: '"filter-chain-1"'
+        format: string
+        in: query
+        name: filter_chain_name
+        type: string
+      - default: '""'
+        description: Filter name
+        example: '"filter-1"'
+        format: string
+        in: query
+        name: filter_name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.getFilterTypeResponse'
+        "400":
+          description: 'error": "node_id not found in cache", "node_id": nodeID'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get filter type retrieves the filter type for a specific Filter
+      tags:
+      - filter
+  /api/v1/filters:
     get:
       consumes:
       - application/json
@@ -6419,58 +6470,7 @@ paths:
         and Node ID. (only http_connection_manager)
       tags:
       - filter
-  /api/v1/filterType:
-    get:
-      consumes:
-      - application/json
-      parameters:
-      - default: '""'
-        description: Node ID
-        example: '"node-id-1"'
-        format: string
-        in: query
-        name: node_id
-        required: true
-        type: string
-      - default: '""'
-        description: Listener name
-        example: '"listener-1"'
-        format: string
-        in: query
-        name: listener_name
-        required: true
-        type: string
-      - default: '""'
-        description: Filter chain name
-        example: '"filter-chain-1"'
-        format: string
-        in: query
-        name: filter_chain_name
-        type: string
-      - default: '""'
-        description: Filter name
-        example: '"filter-1"'
-        format: string
-        in: query
-        name: filter_name
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.getFilterTypeResponse'
-        "400":
-          description: 'error": "node_id not found in cache", "node_id": nodeID'
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Get filter type retrieves the filter type for a specific Filter
-      tags:
-      - filter
-  /api/v1/filtersTCP:
+  /api/v1/filtersTCPProxy:
     get:
       consumes:
       - application/json
@@ -6724,7 +6724,7 @@ paths:
       summary: Get listeners for a specific node ID
       tags:
       - listener
-  /api/v1/node_ids:
+  /api/v1/nodeIDs:
     get:
       consumes:
       - application/json
