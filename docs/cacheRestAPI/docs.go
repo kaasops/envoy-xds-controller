@@ -67,77 +67,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/filter": {
-            "get": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "filter"
-                ],
-                "summary": "Get Filters retrieves the filters for a specific Filter Chain, Listener and Node ID. (only http_connection_manager)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "string",
-                        "default": "\"\"",
-                        "example": "\"node-id-1\"",
-                        "description": "Node ID",
-                        "name": "node_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "string",
-                        "default": "\"\"",
-                        "example": "\"listener-1\"",
-                        "description": "Listener name",
-                        "name": "listener_name",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "string",
-                        "default": "\"\"",
-                        "example": "\"filter-chain-1\"",
-                        "description": "Filter chain name. If not set works only if the listener has only one Filter Chain",
-                        "name": "filter_chain_name",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "format": "string",
-                        "default": "\"\"",
-                        "example": "\"filter-1\"",
-                        "description": "Filter name",
-                        "name": "filter_name",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.GetHCMFilterResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/api/v1/filterType": {
             "get": {
                 "consumes": [
@@ -209,7 +138,78 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/filtersTCP": {
+        "/api/v1/filters": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "filter"
+                ],
+                "summary": "Get Filters retrieves the filters for a specific Filter Chain, Listener and Node ID. (only http_connection_manager)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-chain-1\"",
+                        "description": "Filter chain name. If not set works only if the listener has only one Filter Chain",
+                        "name": "filter_chain_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-1\"",
+                        "description": "Filter name",
+                        "name": "filter_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetHCMFilterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/filtersTCPProxy": {
             "get": {
                 "consumes": [
                     "application/json"
@@ -563,7 +563,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/node_ids": {
+        "/api/v1/nodeIDs": {
             "get": {
                 "consumes": [
                     "application/json"
