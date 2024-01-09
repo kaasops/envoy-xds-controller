@@ -15,7 +15,7 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/cache": {
+        "/api/v1/clusters": {
             "get": {
                 "consumes": [
                     "application/json"
@@ -24,28 +24,27 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cache"
+                    "cluster"
                 ],
-                "summary": "Get cache for a specific node ID",
+                "summary": "Get clusters for a specific node ID.",
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
                         "in": "query",
                         "required": true
                     },
                     {
-                        "enum": [
-                            "clusters",
-                            "endpoints",
-                            "routes",
-                            "listeners",
-                            "secrets"
-                        ],
                         "type": "string",
-                        "description": "Resource type",
-                        "name": "type",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"cluster-1\"",
+                        "description": "Cluster name",
+                        "name": "clusters_name",
                         "in": "query"
                     }
                 ],
@@ -53,7 +52,581 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/handlers.GetCacheResponse"
+                            "$ref": "#/definitions/handlers.GetClustersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/filter": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "filter"
+                ],
+                "summary": "Get Filters retrieves the filters for a specific Filter Chain, Listener and Node ID. (only http_connection_manager)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-chain-1\"",
+                        "description": "Filter chain name. If not set works only if the listener has only one Filter Chain",
+                        "name": "filter_chain_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-1\"",
+                        "description": "Filter name",
+                        "name": "filter_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetHCMFilterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/filterType": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "filter"
+                ],
+                "summary": "Get filter type retrieves the filter type for a specific Filter",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-chain-1\"",
+                        "description": "Filter chain name",
+                        "name": "filter_chain_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-1\"",
+                        "description": "Filter name",
+                        "name": "filter_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.getFilterTypeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/filtersTCP": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "filter"
+                ],
+                "summary": "Get TCP filters for a specific Filter Chain, Listener and Node ID.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-chain-1\"",
+                        "description": "Filter chain name",
+                        "name": "filter_chain_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-1\"",
+                        "description": "Filter name",
+                        "name": "filter_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetTCPProxyFilterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/httpFilterRBAC": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "filter"
+                ],
+                "summary": "Get HTTP filter RBAC for a specific Filter.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-chain-1\"",
+                        "description": "Filter chain name",
+                        "name": "filter_chain_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-1\"",
+                        "description": "Filter name",
+                        "name": "filter_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"http-filter-1\"",
+                        "description": "HTTP filter name",
+                        "name": "http_filter_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetHttpFilterRBACResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/httpFilterRouter": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "filter"
+                ],
+                "summary": "Get HTTP filter router for a specific Filter.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-chain-1\"",
+                        "description": "Filter chain name",
+                        "name": "filter_chain_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-1\"",
+                        "description": "Filter name",
+                        "name": "filter_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"http-filter-1\"",
+                        "description": "HTTP filter name",
+                        "name": "http_filter_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetHttpFilterRouterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/httpsFilters": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "filter"
+                ],
+                "summary": "Get HTTP filters for a specific Filter.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-chain-1\"",
+                        "description": "Filter chain name",
+                        "name": "filter_chain_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"filter-1\"",
+                        "description": "Filter name",
+                        "name": "filter_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetHttpsFilterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/listeners": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "listener"
+                ],
+                "summary": "Get listeners for a specific node ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetListenersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "error\": \"node_id not found in cache\", \"node_id\": nodeID",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/node_ids": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "nodeids",
+                    "cache"
+                ],
+                "summary": "Get exists node ID in xDS cache",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/routes": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "routeConfiguration"
+                ],
+                "summary": "Get routesConfigurations for a specific node ID. If set param name, return only one route configuration.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "default": "\"\"",
+                        "example": "\"route-config-1\"",
+                        "description": "RouteConfiguration name",
+                        "name": "route_configuration_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetRouteConfigurationsResponse"
                         }
                     },
                     "400": {
@@ -70,231 +643,5655 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "cache.Address": {
+        "accesslogv3.AccessLog": {
             "type": "object",
             "properties": {
-                "bind": {
-                    "type": "string"
+                "configType": {
+                    "description": "Custom configuration that must be set according to the access logger extension being instantiated.\n[#extension-category: envoy.access_loggers]\n\nTypes that are assignable to ConfigType:\n\n\t*AccessLog_TypedConfig"
                 },
-                "port": {
-                    "type": "integer"
-                }
-            }
-        },
-        "cache.Cluster": {
-            "type": "object",
-            "properties": {
-                "endpoints": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cache.Endpoint"
-                    }
-                },
-                "lb_policy": {
-                    "type": "string"
+                "filter": {
+                    "description": "Filter which is used to determine if the access log needs to be written.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/accesslogv3.AccessLogFilter"
+                        }
+                    ]
                 },
                 "name": {
-                    "type": "string"
-                },
-                "type": {
+                    "description": "The name of the access log extension configuration.",
                     "type": "string"
                 }
             }
         },
-        "cache.Endpoint": {
+        "accesslogv3.AccessLogFilter": {
             "type": "object",
             "properties": {
-                "address": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
+                "filterSpecifier": {
+                    "description": "Types that are assignable to FilterSpecifier:\n\n\t*AccessLogFilter_StatusCodeFilter\n\t*AccessLogFilter_DurationFilter\n\t*AccessLogFilter_NotHealthCheckFilter\n\t*AccessLogFilter_TraceableFilter\n\t*AccessLogFilter_RuntimeFilter\n\t*AccessLogFilter_AndFilter\n\t*AccessLogFilter_OrFilter\n\t*AccessLogFilter_HeaderFilter\n\t*AccessLogFilter_ResponseFlagFilter\n\t*AccessLogFilter_GrpcStatusFilter\n\t*AccessLogFilter_ExtensionFilter\n\t*AccessLogFilter_MetadataFilter\n\t*AccessLogFilter_LogTypeFilter"
                 }
             }
         },
-        "cache.Filter": {
+        "any.Any": {
             "type": "object",
             "properties": {
-                "cluster": {
-                    "type": "string"
-                },
-                "http_filters": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "rds": {
-                    "type": "string"
-                },
-                "route": {
-                    "$ref": "#/definitions/cache.Route"
-                },
-                "stat_prefix": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "cache.FilterChain": {
-            "type": "object",
-            "properties": {
-                "filter_chain_match": {
-                    "$ref": "#/definitions/cache.FilterChainMatch"
-                },
-                "filters": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cache.Filter"
-                    }
-                },
-                "name": {
-                    "type": "string"
-                },
-                "transport_socket": {
-                    "$ref": "#/definitions/cache.TransportSocket"
-                }
-            }
-        },
-        "cache.FilterChainMatch": {
-            "type": "object",
-            "properties": {
-                "domains": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "cache.Heades": {
-            "type": "object",
-            "properties": {
-                "name": {
+                "type_url": {
+                    "description": "A URL/resource name that uniquely identifies the type of the serialized\nprotocol buffer message. This string must contain at least\none \"/\" character. The last segment of the URL's path must represent\nthe fully qualified name of the type (as in\n` + "`" + `path/google.protobuf.Duration` + "`" + `). The name should be in a canonical form\n(e.g., leading \".\" is not accepted).\n\nIn practice, teams usually precompile into the binary all types that they\nexpect it to use in the context of Any. However, for URLs which use the\nscheme ` + "`" + `http` + "`" + `, ` + "`" + `https` + "`" + `, or no scheme, one can optionally set up a type\nserver that maps type URLs to message definitions as follows:\n\n  - If no scheme is provided, ` + "`" + `https` + "`" + ` is assumed.\n  - An HTTP GET on the URL must yield a [google.protobuf.Type][]\n    value in binary format, or produce an error.\n  - Applications are allowed to cache lookup results based on the\n    URL, or have them precompiled into a binary to avoid any\n    lookup. Therefore, binary compatibility needs to be preserved\n    on changes to types. (Use versioned type names to manage\n    breaking changes.)\n\nNote: this functionality is not currently available in the official\nprotobuf release, and it is not used for type URLs beginning with\ntype.googleapis.com. As of May 2023, there are no widely used type server\nimplementations and no plans to implement one.\n\nSchemes other than ` + "`" + `http` + "`" + `, ` + "`" + `https` + "`" + ` (or the empty scheme) might be\nused with implementation specific semantics.",
                     "type": "string"
                 },
                 "value": {
+                    "description": "Must be a valid serialized protocol buffer of the above specified type.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "clusterv3.CircuitBreakers": {
+            "type": "object",
+            "properties": {
+                "per_host_thresholds": {
+                    "description": "Optional per-host limits which apply to each individual host in a cluster.\n\n.. note::\n\n\tcurrently only the :ref:` + "`" + `max_connections\n\t\u003cenvoy_v3_api_field_config.cluster.v3.CircuitBreakers.Thresholds.max_connections\u003e` + "`" + ` field is supported for per-host limits.\n\nIf multiple per-host :ref:` + "`" + `Thresholds\u003cenvoy_v3_api_msg_config.cluster.v3.CircuitBreakers.Thresholds\u003e` + "`" + `\nare defined with the same :ref:` + "`" + `RoutingPriority\u003cenvoy_v3_api_enum_config.core.v3.RoutingPriority\u003e` + "`" + `,\nthe first one in the list is used. If no per-host Thresholds are defined for a given\n:ref:` + "`" + `RoutingPriority\u003cenvoy_v3_api_enum_config.core.v3.RoutingPriority\u003e` + "`" + `,\nthe cluster will not have per-host limits.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clusterv3.CircuitBreakers_Thresholds"
+                    }
+                },
+                "thresholds": {
+                    "description": "If multiple :ref:` + "`" + `Thresholds\u003cenvoy_v3_api_msg_config.cluster.v3.CircuitBreakers.Thresholds\u003e` + "`" + `\nare defined with the same :ref:` + "`" + `RoutingPriority\u003cenvoy_v3_api_enum_config.core.v3.RoutingPriority\u003e` + "`" + `,\nthe first one in the list is used. If no Thresholds is defined for a given\n:ref:` + "`" + `RoutingPriority\u003cenvoy_v3_api_enum_config.core.v3.RoutingPriority\u003e` + "`" + `, the default values\nare used.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clusterv3.CircuitBreakers_Thresholds"
+                    }
+                }
+            }
+        },
+        "clusterv3.CircuitBreakers_Thresholds": {
+            "type": "object",
+            "properties": {
+                "max_connection_pools": {
+                    "description": "The maximum number of connection pools per cluster that Envoy will concurrently support at\nonce. If not specified, the default is unlimited. Set this for clusters which create a\nlarge number of connection pools. See\n:ref:` + "`" + `Circuit Breaking \u003carch_overview_circuit_break_cluster_maximum_connection_pools\u003e` + "`" + ` for\nmore details.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_connections": {
+                    "description": "The maximum number of connections that Envoy will make to the upstream\ncluster. If not specified, the default is 1024.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_pending_requests": {
+                    "description": "The maximum number of pending requests that Envoy will allow to the\nupstream cluster. If not specified, the default is 1024.\nThis limit is applied as a connection limit for non-HTTP traffic.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_requests": {
+                    "description": "The maximum number of parallel requests that Envoy will make to the\nupstream cluster. If not specified, the default is 1024.\nThis limit does not apply to non-HTTP traffic.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_retries": {
+                    "description": "The maximum number of parallel retries that Envoy will allow to the\nupstream cluster. If not specified, the default is 3.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "priority": {
+                    "description": "The :ref:` + "`" + `RoutingPriority\u003cenvoy_v3_api_enum_config.core.v3.RoutingPriority\u003e` + "`" + `\nthe specified CircuitBreaker settings apply to.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.RoutingPriority"
+                        }
+                    ]
+                },
+                "retry_budget": {
+                    "description": "Specifies a limit on concurrent retries in relation to the number of active requests. This\nparameter is optional.\n\n.. note::\n\n\tIf this field is set, the retry budget will override any configured retry circuit\n\tbreaker.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.CircuitBreakers_Thresholds_RetryBudget"
+                        }
+                    ]
+                },
+                "track_remaining": {
+                    "description": "If track_remaining is true, then stats will be published that expose\nthe number of resources remaining until the circuit breakers open. If\nnot specified, the default is false.\n\n.. note::\n\n\tIf a retry budget is used in lieu of the max_retries circuit breaker,\n\tthe remaining retry resources remaining will not be tracked.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "clusterv3.CircuitBreakers_Thresholds_RetryBudget": {
+            "type": "object",
+            "properties": {
+                "budget_percent": {
+                    "description": "Specifies the limit on concurrent retries as a percentage of the sum of active requests and\nactive pending requests. For example, if there are 100 active requests and the\nbudget_percent is set to 25, there may be 25 active retries.\n\nThis parameter is optional. Defaults to 20%.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.Percent"
+                        }
+                    ]
+                },
+                "min_retry_concurrency": {
+                    "description": "Specifies the minimum retry concurrency allowed for the retry budget. The limit on the\nnumber of active retries may never go below this number.\n\nThis parameter is optional. Defaults to 3.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.Cluster": {
+            "type": "object",
+            "properties": {
+                "alt_stat_name": {
+                    "description": "An optional alternative to the cluster name to be used for observability. This name is used\nemitting stats for the cluster and access logging the cluster name. This will appear as\nadditional information in configuration dumps of a cluster's current status as\n:ref:` + "`" + `observability_name \u003cenvoy_v3_api_field_admin.v3.ClusterStatus.observability_name\u003e` + "`" + `\nand as an additional tag \"upstream_cluster.name\" while tracing. Note: Any “:“ in the name\nwill be converted to “_“ when emitting statistics. This should not be confused with\n:ref:` + "`" + `Router Filter Header \u003cconfig_http_filters_router_x-envoy-upstream-alt-stat-name\u003e` + "`" + `.",
+                    "type": "string"
+                },
+                "circuit_breakers": {
+                    "description": "Optional :ref:` + "`" + `circuit breaking \u003carch_overview_circuit_break\u003e` + "`" + ` for the cluster.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.CircuitBreakers"
+                        }
+                    ]
+                },
+                "cleanup_interval": {
+                    "description": "The interval for removing stale hosts from a cluster type\n:ref:` + "`" + `ORIGINAL_DST\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.ORIGINAL_DST\u003e` + "`" + `.\nHosts are considered stale if they have not been used\nas upstream destinations during this interval. New hosts are added\nto original destination clusters on demand as new connections are\nredirected to Envoy, causing the number of hosts in the cluster to\ngrow over time. Hosts that are not stale (they are actively used as\ndestinations) are kept in the cluster, which allows connections to\nthem remain open, saving the latency that would otherwise be spent\non opening new connections. If this setting is not specified, the\nvalue defaults to 5000ms. For cluster types other than\n:ref:` + "`" + `ORIGINAL_DST\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.ORIGINAL_DST\u003e` + "`" + `\nthis setting is ignored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "close_connections_on_host_health_failure": {
+                    "description": "If an upstream host becomes unhealthy (as determined by the configured health checks\nor outlier detection), immediately close all connections to the failed host.\n\n.. note::\n\n\tThis is currently only supported for connections created by tcp_proxy.\n\n.. note::\n\n\tThe current implementation of this feature closes all connections immediately when\n\tthe unhealthy status is detected. If there are a large number of connections open\n\tto an upstream host that becomes unhealthy, Envoy may spend a substantial amount of\n\ttime exclusively closing these connections, and not processing any other traffic.",
+                    "type": "boolean"
+                },
+                "clusterDiscoveryType": {
+                    "description": "Types that are assignable to ClusterDiscoveryType:\n\n\t*Cluster_Type\n\t*Cluster_ClusterType"
+                },
+                "common_http_protocol_options": {
+                    "description": "Additional options when handling HTTP requests upstream. These options will be applicable to\nboth HTTP1 and HTTP2 requests.\nThis has been deprecated in favor of\n:ref:` + "`" + `common_http_protocol_options \u003cenvoy_v3_api_field_extensions.upstreams.http.v3.HttpProtocolOptions.common_http_protocol_options\u003e` + "`" + `\nin the :ref:` + "`" + `http_protocol_options \u003cenvoy_v3_api_msg_extensions.upstreams.http.v3.HttpProtocolOptions\u003e` + "`" + ` message.\ncommon_http_protocol_options can be set via the cluster's\n:ref:` + "`" + `extension_protocol_options\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.typed_extension_protocol_options\u003e` + "`" + `.\nSee :ref:` + "`" + `upstream_http_protocol_options\n\u003cenvoy_v3_api_field_extensions.upstreams.http.v3.HttpProtocolOptions.upstream_http_protocol_options\u003e` + "`" + `\nfor example usage.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HttpProtocolOptions"
+                        }
+                    ]
+                },
+                "common_lb_config": {
+                    "description": "Common configuration for all load balancer implementations.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_CommonLbConfig"
+                        }
+                    ]
+                },
+                "connect_timeout": {
+                    "description": "The timeout for new network connections to hosts in the cluster.\nIf not set, a default value of 5s will be used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "connection_pool_per_downstream_connection": {
+                    "description": "If “connection_pool_per_downstream_connection“ is true, the cluster will use a separate\nconnection pool for every downstream connection",
+                    "type": "boolean"
+                },
+                "dns_failure_refresh_rate": {
+                    "description": "If the DNS failure refresh rate is specified and the cluster type is either\n:ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + `,\nor :ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + `,\nthis is used as the cluster’s DNS refresh rate when requests are failing. If this setting is\nnot specified, the failure refresh rate defaults to the DNS refresh rate. For cluster types\nother than :ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + ` and\n:ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + ` this setting is\nignored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_RefreshRate"
+                        }
+                    ]
+                },
+                "dns_lookup_family": {
+                    "description": "The DNS IP address resolution policy. If this setting is not specified, the\nvalue defaults to\n:ref:` + "`" + `AUTO\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DnsLookupFamily.AUTO\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_DnsLookupFamily"
+                        }
+                    ]
+                },
+                "dns_refresh_rate": {
+                    "description": "If the DNS refresh rate is specified and the cluster type is either\n:ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + `,\nor :ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + `,\nthis value is used as the cluster’s DNS refresh\nrate. The value configured must be at least 1ms. If this setting is not specified, the\nvalue defaults to 5000ms. For cluster types other than\n:ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + `\nand :ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + `\nthis setting is ignored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "dns_resolution_config": {
+                    "description": "DNS resolution configuration which includes the underlying dns resolver addresses and options.\nThis field is deprecated in favor of\n:ref:` + "`" + `typed_dns_resolver_config \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.typed_dns_resolver_config\u003e` + "`" + `.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.DnsResolutionConfig"
+                        }
+                    ]
+                },
+                "dns_resolvers": {
+                    "description": "If DNS resolvers are specified and the cluster type is either\n:ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + `,\nor :ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + `,\nthis value is used to specify the cluster’s dns resolvers.\nIf this setting is not specified, the value defaults to the default\nresolver, which uses /etc/resolv.conf for configuration. For cluster types\nother than\n:ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + `\nand :ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + `\nthis setting is ignored.\nThis field is deprecated in favor of “dns_resolution_config“\nwhich aggregates all of the DNS resolver configuration in a single message.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.Address"
+                    }
+                },
+                "eds_cluster_config": {
+                    "description": "Configuration to use for EDS updates for the Cluster.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_EdsClusterConfig"
+                        }
+                    ]
+                },
+                "filters": {
+                    "description": "An (optional) network filter chain, listed in the order the filters should be applied.\nThe chain will be applied to all outgoing connections that Envoy makes to the upstream\nservers of this cluster.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clusterv3.Filter"
+                    }
+                },
+                "health_checks": {
+                    "description": "Optional :ref:` + "`" + `active health checking \u003carch_overview_health_checking\u003e` + "`" + `\nconfiguration for the cluster. If no\nconfiguration is specified no health checking will be done and all cluster\nmembers will be considered healthy at all times.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HealthCheck"
+                    }
+                },
+                "http2_protocol_options": {
+                    "description": "Even if default HTTP2 protocol options are desired, this field must be\nset so that Envoy will assume that the upstream supports HTTP/2 when\nmaking new HTTP connection pool connections. Currently, Envoy only\nsupports prior knowledge for upstream connections. Even if TLS is used\nwith ALPN, “http2_protocol_options“ must be specified. As an aside this allows HTTP/2\nconnections to happen over plain text.\nThis has been deprecated in favor of http2_protocol_options fields in the\n:ref:` + "`" + `http_protocol_options \u003cenvoy_v3_api_msg_extensions.upstreams.http.v3.HttpProtocolOptions\u003e` + "`" + `\nmessage. http2_protocol_options can be set via the cluster's\n:ref:` + "`" + `extension_protocol_options\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.typed_extension_protocol_options\u003e` + "`" + `.\nSee :ref:` + "`" + `upstream_http_protocol_options\n\u003cenvoy_v3_api_field_extensions.upstreams.http.v3.HttpProtocolOptions.upstream_http_protocol_options\u003e` + "`" + `\nfor example usage.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Http2ProtocolOptions"
+                        }
+                    ]
+                },
+                "http_protocol_options": {
+                    "description": "Additional options when handling HTTP1 requests.\nThis has been deprecated in favor of http_protocol_options fields in the\n:ref:` + "`" + `http_protocol_options \u003cenvoy_v3_api_msg_extensions.upstreams.http.v3.HttpProtocolOptions\u003e` + "`" + ` message.\nhttp_protocol_options can be set via the cluster's\n:ref:` + "`" + `extension_protocol_options\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.typed_extension_protocol_options\u003e` + "`" + `.\nSee :ref:` + "`" + `upstream_http_protocol_options\n\u003cenvoy_v3_api_field_extensions.upstreams.http.v3.HttpProtocolOptions.upstream_http_protocol_options\u003e` + "`" + `\nfor example usage.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Http1ProtocolOptions"
+                        }
+                    ]
+                },
+                "ignore_health_on_host_removal": {
+                    "description": "If set to true, Envoy will ignore the health value of a host when processing its removal\nfrom service discovery. This means that if active health checking is used, Envoy will *not*\nwait for the endpoint to go unhealthy before removing it.",
+                    "type": "boolean"
+                },
+                "lbConfig": {
+                    "description": "Optional configuration for the load balancing algorithm selected by\nLbPolicy. Currently only\n:ref:` + "`" + `RING_HASH\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbPolicy.RING_HASH\u003e` + "`" + `,\n:ref:` + "`" + `MAGLEV\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbPolicy.MAGLEV\u003e` + "`" + ` and\n:ref:` + "`" + `LEAST_REQUEST\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbPolicy.LEAST_REQUEST\u003e` + "`" + `\nhas additional configuration options.\nSpecifying ring_hash_lb_config or maglev_lb_config or least_request_lb_config without setting the corresponding\nLbPolicy will generate an error at runtime.\n\nTypes that are assignable to LbConfig:\n\n\t*Cluster_RingHashLbConfig_\n\t*Cluster_MaglevLbConfig_\n\t*Cluster_OriginalDstLbConfig_\n\t*Cluster_LeastRequestLbConfig_\n\t*Cluster_RoundRobinLbConfig_"
+                },
+                "lb_policy": {
+                    "description": "The :ref:` + "`" + `load balancer type \u003carch_overview_load_balancing_types\u003e` + "`" + ` to use\nwhen picking a host in the cluster.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_LbPolicy"
+                        }
+                    ]
+                },
+                "lb_subset_config": {
+                    "description": "Configuration for load balancing subsetting.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_LbSubsetConfig"
+                        }
+                    ]
+                },
+                "load_assignment": {
+                    "description": "Setting this is required for specifying members of\n:ref:` + "`" + `STATIC\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STATIC\u003e` + "`" + `,\n:ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + `\nor :ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + ` clusters.\nThis field supersedes the “hosts“ field in the v2 API.\n\n.. attention::\n\n\tSetting this allows non-EDS cluster types to contain embedded EDS equivalent\n\t:ref:` + "`" + `endpoint assignments\u003cenvoy_v3_api_msg_config.endpoint.v3.ClusterLoadAssignment\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/endpointv3.ClusterLoadAssignment"
+                        }
+                    ]
+                },
+                "load_balancing_policy": {
+                    "description": "If this field is set and is supported by the client, it will supersede the value of\n:ref:` + "`" + `lb_policy\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.lb_policy\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.LoadBalancingPolicy"
+                        }
+                    ]
+                },
+                "lrs_server": {
+                    "description": "[#not-implemented-hide:]\nIf present, tells the client where to send load reports via LRS. If not present, the\nclient will fall back to a client-side default, which may be either (a) don't send any\nload reports or (b) send load reports for all clusters to a single default server\n(which may be configured in the bootstrap file).\n\nNote that if multiple clusters point to the same LRS server, the client may choose to\ncreate a separate stream for each cluster or it may choose to coalesce the data for\nmultiple clusters onto a single stream. Either way, the client must make sure to send\nthe data for any given cluster on no more than one stream.\n\n[#next-major-version: In the v3 API, we should consider restructuring this somehow,\nmaybe by allowing LRS to go on the ADS stream, or maybe by moving some of the negotiation\nfrom the LRS stream here.]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.ConfigSource"
+                        }
+                    ]
+                },
+                "max_requests_per_connection": {
+                    "description": "Optional maximum requests for a single upstream connection. This parameter\nis respected by both the HTTP/1.1 and HTTP/2 connection pool\nimplementations. If not specified, there is no limit. Setting this\nparameter to 1 will effectively disable keep alive.\n\n.. attention::\n\n\tThis field has been deprecated in favor of the :ref:` + "`" + `max_requests_per_connection \u003cenvoy_v3_api_field_config.core.v3.HttpProtocolOptions.max_requests_per_connection\u003e` + "`" + ` field.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "description": "The Metadata field can be used to provide additional information about the\ncluster. It can be used for stats, logging, and varying filter behavior.\nFields should use reverse DNS notation to denote which entity within Envoy\nwill need the information. For instance, if the metadata is intended for\nthe Router filter, the filter name should be specified as “envoy.filters.http.router“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "Supplies the name of the cluster which must be unique across all clusters.\nThe cluster name is used when emitting\n:ref:` + "`" + `statistics \u003cconfig_cluster_manager_cluster_stats\u003e` + "`" + ` if :ref:` + "`" + `alt_stat_name\n\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.alt_stat_name\u003e` + "`" + ` is not provided.\nAny “:“ in the cluster name will be converted to “_“ when emitting statistics.",
+                    "type": "string"
+                },
+                "outlier_detection": {
+                    "description": "If specified, outlier detection will be enabled for this upstream cluster.\nEach of the configuration values can be overridden via\n:ref:` + "`" + `runtime values \u003cconfig_cluster_manager_cluster_runtime_outlier_detection\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.OutlierDetection"
+                        }
+                    ]
+                },
+                "per_connection_buffer_limit_bytes": {
+                    "description": "Soft limit on size of the cluster’s connections read and write buffers. If\nunspecified, an implementation defined default is applied (1MiB).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "preconnect_policy": {
+                    "description": "Preconnect configuration for this cluster.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_PreconnectPolicy"
+                        }
+                    ]
+                },
+                "protocol_selection": {
+                    "description": "Determines how Envoy selects the protocol used to speak to upstream hosts.\nThis has been deprecated in favor of setting explicit protocol selection\nin the :ref:` + "`" + `http_protocol_options\n\u003cenvoy_v3_api_msg_extensions.upstreams.http.v3.HttpProtocolOptions\u003e` + "`" + ` message.\nhttp_protocol_options can be set via the cluster's\n:ref:` + "`" + `extension_protocol_options\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.typed_extension_protocol_options\u003e` + "`" + `.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_ClusterProtocolSelection"
+                        }
+                    ]
+                },
+                "respect_dns_ttl": {
+                    "description": "Optional configuration for setting cluster's DNS refresh rate. If the value is set to true,\ncluster's DNS refresh rate will be set to resource record's TTL which comes from DNS\nresolution.",
+                    "type": "boolean"
+                },
+                "track_cluster_stats": {
+                    "description": "Configuration to track optional cluster stats.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.TrackClusterStats"
+                        }
+                    ]
+                },
+                "track_timeout_budgets": {
+                    "description": "If track_timeout_budgets is true, the :ref:` + "`" + `timeout budget histograms\n\u003cconfig_cluster_manager_cluster_stats_timeout_budgets\u003e` + "`" + ` will be published for each\nrequest. These show what percentage of a request's per try and global timeout was used. A value\nof 0 would indicate that none of the timeout was used or that the timeout was infinite. A value\nof 100 would indicate that the request took the entirety of the timeout given to it.\n\n.. attention::\n\n\tThis field has been deprecated in favor of ` + "`" + `` + "`" + `timeout_budgets` + "`" + `` + "`" + `, part of\n\t:ref:` + "`" + `track_cluster_stats \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.track_cluster_stats\u003e` + "`" + `.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "type": "boolean"
+                },
+                "transport_socket": {
+                    "description": "Optional custom transport socket implementation to use for upstream connections.\nTo setup TLS, set a transport socket with name “envoy.transport_sockets.tls“ and\n:ref:` + "`" + `UpstreamTlsContexts \u003cenvoy_v3_api_msg_extensions.transport_sockets.tls.v3.UpstreamTlsContext\u003e` + "`" + ` in the “typed_config“.\nIf no transport socket configuration is specified, new connections\nwill be set up with plaintext.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TransportSocket"
+                        }
+                    ]
+                },
+                "transport_socket_matches": {
+                    "description": "Configuration to use different transport sockets for different endpoints.\nThe entry of “envoy.transport_socket_match“ in the\n:ref:` + "`" + `LbEndpoint.Metadata \u003cenvoy_v3_api_field_config.endpoint.v3.LbEndpoint.metadata\u003e` + "`" + `\nis used to match against the transport sockets as they appear in the list. The first\n:ref:` + "`" + `match \u003cenvoy_v3_api_msg_config.cluster.v3.Cluster.TransportSocketMatch\u003e` + "`" + ` is used.\nFor example, with the following match\n\n.. code-block:: yaml\n\n\ttransport_socket_matches:\n\t- name: \"enableMTLS\"\n\t  match:\n\t    acceptMTLS: true\n\t  transport_socket:\n\t    name: envoy.transport_sockets.tls\n\t    config: { ... } # tls socket configuration\n\t- name: \"defaultToPlaintext\"\n\t  match: {}\n\t  transport_socket:\n\t    name: envoy.transport_sockets.raw_buffer\n\nConnections to the endpoints whose metadata value under “envoy.transport_socket_match“\nhaving \"acceptMTLS\"/\"true\" key/value pair use the \"enableMTLS\" socket configuration.\n\nIf a :ref:` + "`" + `socket match \u003cenvoy_v3_api_msg_config.cluster.v3.Cluster.TransportSocketMatch\u003e` + "`" + ` with empty match\ncriteria is provided, that always match any endpoint. For example, the \"defaultToPlaintext\"\nsocket match in case above.\n\nIf an endpoint metadata's value under “envoy.transport_socket_match“ does not match any\n“TransportSocketMatch“, socket configuration fallbacks to use the “tls_context“ or\n“transport_socket“ specified in this cluster.\n\nThis field allows gradual and flexible transport socket configuration changes.\n\nThe metadata of endpoints in EDS can indicate transport socket capabilities. For example,\nan endpoint's metadata can have two key value pairs as \"acceptMTLS\": \"true\",\n\"acceptPlaintext\": \"true\". While some other endpoints, only accepting plaintext traffic\nhas \"acceptPlaintext\": \"true\" metadata information.\n\nThen the xDS server can configure the CDS to a client, Envoy A, to send mutual TLS\ntraffic for endpoints with \"acceptMTLS\": \"true\", by adding a corresponding\n“TransportSocketMatch“ in this field. Other client Envoys receive CDS without\n“transport_socket_match“ set, and still send plain text traffic to the same cluster.\n\nThis field can be used to specify custom transport socket configurations for health\nchecks by adding matching key/value pairs in a health check's\n:ref:` + "`" + `transport socket match criteria \u003cenvoy_v3_api_field_config.core.v3.HealthCheck.transport_socket_match_criteria\u003e` + "`" + ` field.\n\n[#comment:TODO(incfly): add a detailed architecture doc on intended usage.]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clusterv3.Cluster_TransportSocketMatch"
+                    }
+                },
+                "typed_dns_resolver_config": {
+                    "description": "DNS resolver type configuration extension. This extension can be used to configure c-ares, apple,\nor any other DNS resolver types and the related parameters.\nFor example, an object of\n:ref:` + "`" + `CaresDnsResolverConfig \u003cenvoy_v3_api_msg_extensions.network.dns_resolver.cares.v3.CaresDnsResolverConfig\u003e` + "`" + `\ncan be packed into this “typed_dns_resolver_config“. This configuration replaces the\n:ref:` + "`" + `dns_resolution_config \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.dns_resolution_config\u003e` + "`" + `\nconfiguration.\nDuring the transition period when both “dns_resolution_config“ and “typed_dns_resolver_config“ exists,\nwhen “typed_dns_resolver_config“ is in place, Envoy will use it and ignore “dns_resolution_config“.\nWhen “typed_dns_resolver_config“ is missing, the default behavior is in place.\n[#extension-category: envoy.network.dns_resolver]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "typed_extension_protocol_options": {
+                    "description": "The extension_protocol_options field is used to provide extension-specific protocol options\nfor upstream connections. The key should match the extension filter name, such as\n\"envoy.filters.network.thrift_proxy\". See the extension's documentation for details on\nspecific options.\n[#next-major-version: make this a list of typed extensions.]",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/any.Any"
+                    }
+                },
+                "upstream_bind_config": {
+                    "description": "Optional configuration used to bind newly established upstream connections.\nThis overrides any bind_config specified in the bootstrap proto.\nIf the address and port are empty, no bind will be performed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.BindConfig"
+                        }
+                    ]
+                },
+                "upstream_config": {
+                    "description": "Optional customization and configuration of upstream connection pool, and upstream type.\n\nCurrently this field only applies for HTTP traffic but is designed for eventual use for custom\nTCP upstreams.\n\nFor HTTP traffic, Envoy will generally take downstream HTTP and send it upstream as upstream\nHTTP, using the http connection pool and the codec from “http2_protocol_options“\n\nFor routes where CONNECT termination is configured, Envoy will take downstream CONNECT\nrequests and forward the CONNECT payload upstream over raw TCP using the tcp connection pool.\n\nThe default pool used is the generic connection pool which creates the HTTP upstream for most\nHTTP requests, and the TCP upstream if CONNECT termination is configured.\n\nIf users desire custom connection pool or upstream behavior, for example terminating\nCONNECT only if a custom filter indicates it is appropriate, the custom factories\ncan be registered and configured here.\n[#extension-category: envoy.upstreams]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "upstream_connection_options": {
+                    "description": "Optional options for upstream connections.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.UpstreamConnectionOptions"
+                        }
+                    ]
+                },
+                "upstream_http_protocol_options": {
+                    "description": "HTTP protocol options that are applied only to upstream HTTP connections.\nThese options apply to all HTTP versions.\nThis has been deprecated in favor of\n:ref:` + "`" + `upstream_http_protocol_options \u003cenvoy_v3_api_field_extensions.upstreams.http.v3.HttpProtocolOptions.upstream_http_protocol_options\u003e` + "`" + `\nin the :ref:` + "`" + `http_protocol_options \u003cenvoy_v3_api_msg_extensions.upstreams.http.v3.HttpProtocolOptions\u003e` + "`" + ` message.\nupstream_http_protocol_options can be set via the cluster's\n:ref:` + "`" + `extension_protocol_options\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.typed_extension_protocol_options\u003e` + "`" + `.\nSee :ref:` + "`" + `upstream_http_protocol_options\n\u003cenvoy_v3_api_field_extensions.upstreams.http.v3.HttpProtocolOptions.upstream_http_protocol_options\u003e` + "`" + `\nfor example usage.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.UpstreamHttpProtocolOptions"
+                        }
+                    ]
+                },
+                "use_tcp_for_dns_lookups": {
+                    "description": "Always use TCP queries instead of UDP queries for DNS lookups.\nThis field is deprecated in favor of “dns_resolution_config“\nwhich aggregates all of the DNS resolver configuration in a single message.\n\nDeprecated: Marked as deprecated in envoy/config/cluster/v3/cluster.proto.",
+                    "type": "boolean"
+                },
+                "wait_for_warm_on_init": {
+                    "description": "Optional configuration for having cluster readiness block on warm-up. Currently, only applicable for\n:ref:` + "`" + `STRICT_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.STRICT_DNS\u003e` + "`" + `,\nor :ref:` + "`" + `LOGICAL_DNS\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.DiscoveryType.LOGICAL_DNS\u003e` + "`" + `,\nor :ref:` + "`" + `Redis Cluster\u003carch_overview_redis\u003e` + "`" + `.\nIf true, cluster readiness blocks on warm-up. If false, the cluster will complete\ninitialization whether or not warm-up has completed. Defaults to true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.Cluster_ClusterProtocolSelection": {
+            "type": "integer",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "Cluster_USE_CONFIGURED_PROTOCOL",
+                "Cluster_USE_DOWNSTREAM_PROTOCOL"
+            ]
+        },
+        "clusterv3.Cluster_CommonLbConfig": {
+            "type": "object",
+            "properties": {
+                "close_connections_on_host_set_change": {
+                    "description": "If set to “true“, the cluster manager will drain all existing\nconnections to upstream hosts whenever hosts are added or removed from the cluster.",
+                    "type": "boolean"
+                },
+                "consistent_hashing_lb_config": {
+                    "description": "Common Configuration for all consistent hashing load balancers (MaglevLb, RingHashLb, etc.)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_CommonLbConfig_ConsistentHashingLbConfig"
+                        }
+                    ]
+                },
+                "healthy_panic_threshold": {
+                    "description": "Configures the :ref:` + "`" + `healthy panic threshold \u003carch_overview_load_balancing_panic_threshold\u003e` + "`" + `.\nIf not specified, the default is 50%.\nTo disable panic mode, set to 0%.\n\n.. note::\n\n\tThe specified percent will be truncated to the nearest 1%.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.Percent"
+                        }
+                    ]
+                },
+                "ignore_new_hosts_until_first_hc": {
+                    "description": "If set to true, Envoy will :ref:` + "`" + `exclude \u003carch_overview_load_balancing_excluded\u003e` + "`" + ` new hosts\nwhen computing load balancing weights until they have been health checked for the first time.\nThis will have no effect unless active health checking is also configured.",
+                    "type": "boolean"
+                },
+                "localityConfigSpecifier": {
+                    "description": "Types that are assignable to LocalityConfigSpecifier:\n\n\t*Cluster_CommonLbConfig_ZoneAwareLbConfig_\n\t*Cluster_CommonLbConfig_LocalityWeightedLbConfig_"
+                },
+                "override_host_status": {
+                    "description": "This controls what hosts are considered valid when using\n:ref:` + "`" + `host overrides \u003carch_overview_load_balancing_override_host\u003e` + "`" + `, which is used by some\nfilters to modify the load balancing decision.\n\nIf this is unset then [UNKNOWN, HEALTHY, DEGRADED] will be applied by default. If this is\nset with an empty set of statuses then host overrides will be ignored by the load balancing.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HealthStatusSet"
+                        }
+                    ]
+                },
+                "update_merge_window": {
+                    "description": "If set, all health check/weight/metadata updates that happen within this duration will be\nmerged and delivered in one shot when the duration expires. The start of the duration is when\nthe first update happens. This is useful for big clusters, with potentially noisy deploys\nthat might trigger excessive CPU usage due to a constant stream of healthcheck state changes\nor metadata updates. The first set of updates to be seen apply immediately (e.g.: a new\ncluster). Please always keep in mind that the use of sandbox technologies may change this\nbehavior.\n\nIf this is not set, we default to a merge window of 1000ms. To disable it, set the merge\nwindow to 0.\n\nNote: merging does not apply to cluster membership changes (e.g.: adds/removes); this is\nbecause merging those updates isn't currently safe. See\nhttps://github.com/envoyproxy/envoy/pull/3941.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.Cluster_CommonLbConfig_ConsistentHashingLbConfig": {
+            "type": "object",
+            "properties": {
+                "hash_balance_factor": {
+                    "description": "Configures percentage of average cluster load to bound per upstream host. For example, with a value of 150\nno upstream host will get a load more than 1.5 times the average load of all the hosts in the cluster.\nIf not specified, the load is not bounded for any upstream host. Typical value for this parameter is between 120 and 200.\nMinimum is 100.\n\nApplies to both Ring Hash and Maglev load balancers.\n\nThis is implemented based on the method described in the paper https://arxiv.org/abs/1608.01350. For the specified\n“hash_balance_factor“, requests to any upstream host are capped at “hash_balance_factor/100“ times the average number of requests\nacross the cluster. When a request arrives for an upstream host that is currently serving at its max capacity, linear probing\nis used to identify an eligible host. Further, the linear probe is implemented using a random jump in hosts ring/table to identify\nthe eligible host (this technique is as described in the paper https://arxiv.org/abs/1908.08762 - the random jump avoids the\ncascading overflow effect when choosing the next host in the ring/table).\n\nIf weights are specified on the hosts, they are respected.\n\nThis is an O(N) algorithm, unlike other load balancers. Using a lower “hash_balance_factor“ results in more hosts\nbeing probed, so use a higher value if you require better performance.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "use_hostname_for_hashing": {
+                    "description": "If set to “true“, the cluster will use hostname instead of the resolved\naddress as the key to consistently hash to an upstream host. Only valid for StrictDNS clusters with hostnames which resolve to a single IP address.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "clusterv3.Cluster_DnsLookupFamily": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "x-enum-varnames": [
+                "Cluster_AUTO",
+                "Cluster_V4_ONLY",
+                "Cluster_V6_ONLY",
+                "Cluster_V4_PREFERRED",
+                "Cluster_ALL"
+            ]
+        },
+        "clusterv3.Cluster_EdsClusterConfig": {
+            "type": "object",
+            "properties": {
+                "eds_config": {
+                    "description": "Configuration for the source of EDS updates for this Cluster.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.ConfigSource"
+                        }
+                    ]
+                },
+                "service_name": {
+                    "description": "Optional alternative to cluster name to present to EDS. This does not\nhave the same restrictions as cluster name, i.e. it may be arbitrary\nlength. This may be a xdstp:// URL.",
                     "type": "string"
                 }
             }
         },
-        "cache.Listener": {
+        "clusterv3.Cluster_LbPolicy": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                5,
+                6,
+                7
+            ],
+            "x-enum-varnames": [
+                "Cluster_ROUND_ROBIN",
+                "Cluster_LEAST_REQUEST",
+                "Cluster_RING_HASH",
+                "Cluster_RANDOM",
+                "Cluster_MAGLEV",
+                "Cluster_CLUSTER_PROVIDED",
+                "Cluster_LOAD_BALANCING_POLICY_CONFIG"
+            ]
+        },
+        "clusterv3.Cluster_LbSubsetConfig": {
+            "type": "object",
+            "properties": {
+                "default_subset": {
+                    "description": "Specifies the default subset of endpoints used during fallback if\nfallback_policy is\n:ref:` + "`" + `DEFAULT_SUBSET\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFallbackPolicy.DEFAULT_SUBSET\u003e` + "`" + `.\nEach field in default_subset is\ncompared to the matching LbEndpoint.Metadata under the “envoy.lb“\nnamespace. It is valid for no hosts to match, in which case the behavior\nis the same as a fallback_policy of\n:ref:` + "`" + `NO_FALLBACK\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFallbackPolicy.NO_FALLBACK\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_golang_protobuf_ptypes_struct.Struct"
+                        }
+                    ]
+                },
+                "fallback_policy": {
+                    "description": "The behavior used when no endpoint subset matches the selected route's\nmetadata. The value defaults to\n:ref:` + "`" + `NO_FALLBACK\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetFallbackPolicy.NO_FALLBACK\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_LbSubsetConfig_LbSubsetFallbackPolicy"
+                        }
+                    ]
+                },
+                "list_as_any": {
+                    "description": "If true, metadata specified for a metadata key will be matched against the corresponding\nendpoint metadata if the endpoint metadata matches the value exactly OR it is a list value\nand any of the elements in the list matches the criteria.",
+                    "type": "boolean"
+                },
+                "locality_weight_aware": {
+                    "description": "If true, routing to subsets will take into account the localities and locality weights of the\nendpoints when making the routing decision.\n\nThere are some potential pitfalls associated with enabling this feature, as the resulting\ntraffic split after applying both a subset match and locality weights might be undesirable.\n\nConsider for example a situation in which you have 50/50 split across two localities X/Y\nwhich have 100 hosts each without subsetting. If the subset LB results in X having only 1\nhost selected but Y having 100, then a lot more load is being dumped on the single host in X\nthan originally anticipated in the load balancing assignment delivered via EDS.",
+                    "type": "boolean"
+                },
+                "metadata_fallback_policy": {
+                    "description": "Fallback mechanism that allows to try different route metadata until a host is found.\nIf load balancing process, including all its mechanisms (like\n:ref:` + "`" + `fallback_policy\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.LbSubsetConfig.fallback_policy\u003e` + "`" + `)\nfails to select a host, this policy decides if and how the process is repeated using another metadata.\n\nThe value defaults to\n:ref:` + "`" + `METADATA_NO_FALLBACK\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetMetadataFallbackPolicy.METADATA_NO_FALLBACK\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_LbSubsetConfig_LbSubsetMetadataFallbackPolicy"
+                        }
+                    ]
+                },
+                "panic_mode_any": {
+                    "description": "If true, when a fallback policy is configured and its corresponding subset fails to find\na host this will cause any host to be selected instead.\n\nThis is useful when using the default subset as the fallback policy, given the default\nsubset might become empty. With this option enabled, if that happens the LB will attempt\nto select a host from the entire cluster.",
+                    "type": "boolean"
+                },
+                "scale_locality_weight": {
+                    "description": "When used with locality_weight_aware, scales the weight of each locality by the ratio\nof hosts in the subset vs hosts in the original subset. This aims to even out the load\ngoing to an individual locality if said locality is disproportionately affected by the\nsubset predicate.",
+                    "type": "boolean"
+                },
+                "subset_selectors": {
+                    "description": "For each entry, LbEndpoint.Metadata's\n“envoy.lb“ namespace is traversed and a subset is created for each unique\ncombination of key and value. For example:\n\n.. code-block:: json\n\n\t{ \"subset_selectors\": [\n\t    { \"keys\": [ \"version\" ] },\n\t    { \"keys\": [ \"stage\", \"hardware_type\" ] }\n\t]}\n\nA subset is matched when the metadata from the selected route and\nweighted cluster contains the same keys and values as the subset's\nmetadata. The same host may appear in multiple subsets.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clusterv3.Cluster_LbSubsetConfig_LbSubsetSelector"
+                    }
+                }
+            }
+        },
+        "clusterv3.Cluster_LbSubsetConfig_LbSubsetFallbackPolicy": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "Cluster_LbSubsetConfig_NO_FALLBACK",
+                "Cluster_LbSubsetConfig_ANY_ENDPOINT",
+                "Cluster_LbSubsetConfig_DEFAULT_SUBSET"
+            ]
+        },
+        "clusterv3.Cluster_LbSubsetConfig_LbSubsetMetadataFallbackPolicy": {
+            "type": "integer",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "Cluster_LbSubsetConfig_METADATA_NO_FALLBACK",
+                "Cluster_LbSubsetConfig_FALLBACK_LIST"
+            ]
+        },
+        "clusterv3.Cluster_LbSubsetConfig_LbSubsetSelector": {
+            "type": "object",
+            "properties": {
+                "fallback_keys_subset": {
+                    "description": "Subset of\n:ref:` + "`" + `keys\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetSelector.keys\u003e` + "`" + ` used by\n:ref:` + "`" + `KEYS_SUBSET\u003cenvoy_v3_api_enum_value_config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetSelector.LbSubsetSelectorFallbackPolicy.KEYS_SUBSET\u003e` + "`" + `\nfallback policy.\nIt has to be a non empty list if KEYS_SUBSET fallback policy is selected.\nFor any other fallback policy the parameter is not used and should not be set.\nOnly values also present in\n:ref:` + "`" + `keys\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.LbSubsetConfig.LbSubsetSelector.keys\u003e` + "`" + ` are allowed, but\n“fallback_keys_subset“ cannot be equal to “keys“.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "fallback_policy": {
+                    "description": "The behavior used when no endpoint subset matches the selected route's\nmetadata.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clusterv3.Cluster_LbSubsetConfig_LbSubsetSelector_LbSubsetSelectorFallbackPolicy"
+                        }
+                    ]
+                },
+                "keys": {
+                    "description": "List of keys to match with the weighted cluster metadata.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "single_host_per_subset": {
+                    "description": "Selects a mode of operation in which each subset has only one host. This mode uses the same rules for\nchoosing a host, but updating hosts is faster, especially for large numbers of hosts.\n\nIf a match is found to a host, that host will be used regardless of priority levels.\n\nWhen this mode is enabled, configurations that contain more than one host with the same metadata value for the single key in “keys“\nwill use only one of the hosts with the given key; no requests will be routed to the others. The cluster gauge\n:ref:` + "`" + `lb_subsets_single_host_per_subset_duplicate\u003cconfig_cluster_manager_cluster_stats_subset_lb\u003e` + "`" + ` indicates how many duplicates are\npresent in the current configuration.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "clusterv3.Cluster_LbSubsetConfig_LbSubsetSelector_LbSubsetSelectorFallbackPolicy": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "x-enum-varnames": [
+                "Cluster_LbSubsetConfig_LbSubsetSelector_NOT_DEFINED",
+                "Cluster_LbSubsetConfig_LbSubsetSelector_NO_FALLBACK",
+                "Cluster_LbSubsetConfig_LbSubsetSelector_ANY_ENDPOINT",
+                "Cluster_LbSubsetConfig_LbSubsetSelector_DEFAULT_SUBSET",
+                "Cluster_LbSubsetConfig_LbSubsetSelector_KEYS_SUBSET"
+            ]
+        },
+        "clusterv3.Cluster_PreconnectPolicy": {
+            "type": "object",
+            "properties": {
+                "per_upstream_preconnect_ratio": {
+                    "description": "Indicates how many streams (rounded up) can be anticipated per-upstream for each\nincoming stream. This is useful for high-QPS or latency-sensitive services. Preconnecting\nwill only be done if the upstream is healthy and the cluster has traffic.\n\nFor example if this is 2, for an incoming HTTP/1.1 stream, 2 connections will be\nestablished, one for the new incoming stream, and one for a presumed follow-up stream. For\nHTTP/2, only one connection would be established by default as one connection can\nserve both the original and presumed follow-up stream.\n\nIn steady state for non-multiplexed connections a value of 1.5 would mean if there were 100\nactive streams, there would be 100 connections in use, and 50 connections preconnected.\nThis might be a useful value for something like short lived single-use connections,\nfor example proxying HTTP/1.1 if keep-alive were false and each stream resulted in connection\ntermination. It would likely be overkill for long lived connections, such as TCP proxying SMTP\nor regular HTTP/1.1 with keep-alive. For long lived traffic, a value of 1.05 would be more\nreasonable, where for every 100 connections, 5 preconnected connections would be in the queue\nin case of unexpected disconnects where the connection could not be reused.\n\nIf this value is not set, or set explicitly to one, Envoy will fetch as many connections\nas needed to serve streams in flight. This means in steady state if a connection is torn down,\na subsequent streams will pay an upstream-rtt latency penalty waiting for a new connection.\n\nThis is limited somewhat arbitrarily to 3 because preconnecting too aggressively can\nharm latency more than the preconnecting helps.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.DoubleValue"
+                        }
+                    ]
+                },
+                "predictive_preconnect_ratio": {
+                    "description": "Indicates how many streams (rounded up) can be anticipated across a cluster for each\nstream, useful for low QPS services. This is currently supported for a subset of\ndeterministic non-hash-based load-balancing algorithms (weighted round robin, random).\nUnlike “per_upstream_preconnect_ratio“ this preconnects across the upstream instances in a\ncluster, doing best effort predictions of what upstream would be picked next and\npre-establishing a connection.\n\nPreconnecting will be limited to one preconnect per configured upstream in the cluster and will\nonly be done if there are healthy upstreams and the cluster has traffic.\n\nFor example if preconnecting is set to 2 for a round robin HTTP/2 cluster, on the first\nincoming stream, 2 connections will be preconnected - one to the first upstream for this\ncluster, one to the second on the assumption there will be a follow-up stream.\n\nIf this value is not set, or set explicitly to one, Envoy will fetch as many connections\nas needed to serve streams in flight, so during warm up and in steady state if a connection\nis closed (and per_upstream_preconnect_ratio is not set), there will be a latency hit for\nconnection establishment.\n\nIf both this and preconnect_ratio are set, Envoy will make sure both predicted needs are met,\nbasically preconnecting max(predictive-preconnect, per-upstream-preconnect), for each\nupstream.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.DoubleValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.Cluster_RefreshRate": {
+            "type": "object",
+            "properties": {
+                "base_interval": {
+                    "description": "Specifies the base interval between refreshes. This parameter is required and must be greater\nthan zero and less than\n:ref:` + "`" + `max_interval \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.RefreshRate.max_interval\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_interval": {
+                    "description": "Specifies the maximum interval between refreshes. This parameter is optional, but must be\ngreater than or equal to the\n:ref:` + "`" + `base_interval \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.RefreshRate.base_interval\u003e` + "`" + `  if set. The default\nis 10 times the :ref:` + "`" + `base_interval \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.RefreshRate.base_interval\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.Cluster_TransportSocketMatch": {
+            "type": "object",
+            "properties": {
+                "match": {
+                    "description": "Optional endpoint metadata match criteria.\nThe connection to the endpoint with metadata matching what is set in this field\nwill use the transport socket configuration specified here.\nThe endpoint's metadata entry in “envoy.transport_socket_match“ is used to match\nagainst the values specified in this field.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_golang_protobuf_ptypes_struct.Struct"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The name of the match, used in stats generation.",
+                    "type": "string"
+                },
+                "transport_socket": {
+                    "description": "The configuration of the transport socket.\n[#extension-category: envoy.transport_sockets.upstream]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TransportSocket"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.Filter": {
+            "type": "object",
+            "properties": {
+                "config_discovery": {
+                    "description": "Configuration source specifier for an extension configuration discovery\nservice. In case of a failure and without the default configuration, the\nlistener closes the connections.\nOnly one of typed_config or config_discovery can be used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.ExtensionConfigSource"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The name of the filter configuration.",
+                    "type": "string"
+                },
+                "typed_config": {
+                    "description": "Filter specific configuration which depends on the filter being\ninstantiated. See the supported filters for further documentation.\nNote that Envoy's :ref:` + "`" + `downstream network\nfilters \u003cconfig_network_filters\u003e` + "`" + ` are not valid upstream filters.\nOnly one of typed_config or config_discovery can be used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/any.Any"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.LoadBalancingPolicy": {
+            "type": "object",
+            "properties": {
+                "policies": {
+                    "description": "Each client will iterate over the list in order and stop at the first policy that it\nsupports. This provides a mechanism for starting to use new LB policies that are not yet\nsupported by all clients.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clusterv3.LoadBalancingPolicy_Policy"
+                    }
+                }
+            }
+        },
+        "clusterv3.LoadBalancingPolicy_Policy": {
+            "type": "object",
+            "properties": {
+                "typed_extension_config": {
+                    "description": "[#extension-category: envoy.load_balancing_policies]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.OutlierDetection": {
+            "type": "object",
+            "properties": {
+                "base_ejection_time": {
+                    "description": "The base time that a host is ejected for. The real time is equal to the\nbase time multiplied by the number of times the host has been ejected and is\ncapped by :ref:` + "`" + `max_ejection_time\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.max_ejection_time\u003e` + "`" + `.\nDefaults to 30000ms or 30s.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "consecutive_5xx": {
+                    "description": "The number of consecutive server-side error responses (for HTTP traffic,\n5xx responses; for TCP traffic, connection failures; for Redis, failure to\nrespond PONG; etc.) before a consecutive 5xx ejection occurs. Defaults to 5.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "consecutive_gateway_failure": {
+                    "description": "The number of consecutive gateway failures (502, 503, 504 status codes)\nbefore a consecutive gateway failure ejection occurs. Defaults to 5.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "consecutive_local_origin_failure": {
+                    "description": "The number of consecutive locally originated failures before ejection\noccurs. Defaults to 5. Parameter takes effect only when\n:ref:` + "`" + `split_external_local_origin_errors\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.split_external_local_origin_errors\u003e` + "`" + `\nis set to true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "enforcing_consecutive_5xx": {
+                    "description": "The % chance that a host will be actually ejected when an outlier status\nis detected through consecutive 5xx. This setting can be used to disable\nejection or to ramp it up slowly. Defaults to 100.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "enforcing_consecutive_gateway_failure": {
+                    "description": "The % chance that a host will be actually ejected when an outlier status\nis detected through consecutive gateway failures. This setting can be\nused to disable ejection or to ramp it up slowly. Defaults to 0.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "enforcing_consecutive_local_origin_failure": {
+                    "description": "The % chance that a host will be actually ejected when an outlier status\nis detected through consecutive locally originated failures. This setting can be\nused to disable ejection or to ramp it up slowly. Defaults to 100.\nParameter takes effect only when\n:ref:` + "`" + `split_external_local_origin_errors\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.split_external_local_origin_errors\u003e` + "`" + `\nis set to true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "enforcing_failure_percentage": {
+                    "description": "The % chance that a host will be actually ejected when an outlier status is detected through\nfailure percentage statistics. This setting can be used to disable ejection or to ramp it up\nslowly. Defaults to 0.\n\n[#next-major-version: setting this without setting failure_percentage_threshold should be\ninvalid in v4.]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "enforcing_failure_percentage_local_origin": {
+                    "description": "The % chance that a host will be actually ejected when an outlier status is detected through\nlocal-origin failure percentage statistics. This setting can be used to disable ejection or to\nramp it up slowly. Defaults to 0.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "enforcing_local_origin_success_rate": {
+                    "description": "The % chance that a host will be actually ejected when an outlier status\nis detected through success rate statistics for locally originated errors.\nThis setting can be used to disable ejection or to ramp it up slowly. Defaults to 100.\nParameter takes effect only when\n:ref:` + "`" + `split_external_local_origin_errors\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.split_external_local_origin_errors\u003e` + "`" + `\nis set to true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "enforcing_success_rate": {
+                    "description": "The % chance that a host will be actually ejected when an outlier status\nis detected through success rate statistics. This setting can be used to\ndisable ejection or to ramp it up slowly. Defaults to 100.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "failure_percentage_minimum_hosts": {
+                    "description": "The minimum number of hosts in a cluster in order to perform failure percentage-based ejection.\nIf the total number of hosts in the cluster is less than this value, failure percentage-based\nejection will not be performed. Defaults to 5.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "failure_percentage_request_volume": {
+                    "description": "The minimum number of total requests that must be collected in one interval (as defined by the\ninterval duration above) to perform failure percentage-based ejection for this host. If the\nvolume is lower than this setting, failure percentage-based ejection will not be performed for\nthis host. Defaults to 50.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "failure_percentage_threshold": {
+                    "description": "The failure percentage to use when determining failure percentage-based outlier detection. If\nthe failure percentage of a given host is greater than or equal to this value, it will be\nejected. Defaults to 85.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "interval": {
+                    "description": "The time interval between ejection analysis sweeps. This can result in\nboth new ejections as well as hosts being returned to service. Defaults\nto 10000ms or 10s.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_ejection_percent": {
+                    "description": "The maximum % of an upstream cluster that can be ejected due to outlier\ndetection. Defaults to 10% but will eject at least one host regardless of the value.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_ejection_time": {
+                    "description": "The maximum time that a host is ejected for. See :ref:` + "`" + `base_ejection_time\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.base_ejection_time\u003e` + "`" + `\nfor more information. If not specified, the default value (300000ms or 300s) or\n:ref:` + "`" + `base_ejection_time\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.base_ejection_time\u003e` + "`" + ` value is applied, whatever is larger.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_ejection_time_jitter": {
+                    "description": "The maximum amount of jitter to add to the ejection time, in order to prevent\na 'thundering herd' effect where all proxies try to reconnect to host at the same time.\nSee :ref:` + "`" + `max_ejection_time_jitter\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.base_ejection_time\u003e` + "`" + `\nDefaults to 0s.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "split_external_local_origin_errors": {
+                    "description": "Determines whether to distinguish local origin failures from external errors. If set to true\nthe following configuration parameters are taken into account:\n:ref:` + "`" + `consecutive_local_origin_failure\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.consecutive_local_origin_failure\u003e` + "`" + `,\n:ref:` + "`" + `enforcing_consecutive_local_origin_failure\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.enforcing_consecutive_local_origin_failure\u003e` + "`" + `\nand\n:ref:` + "`" + `enforcing_local_origin_success_rate\u003cenvoy_v3_api_field_config.cluster.v3.OutlierDetection.enforcing_local_origin_success_rate\u003e` + "`" + `.\nDefaults to false.",
+                    "type": "boolean"
+                },
+                "success_rate_minimum_hosts": {
+                    "description": "The number of hosts in a cluster that must have enough request volume to\ndetect success rate outliers. If the number of hosts is less than this\nsetting, outlier detection via success rate statistics is not performed\nfor any host in the cluster. Defaults to 5.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "success_rate_request_volume": {
+                    "description": "The minimum number of total requests that must be collected in one\ninterval (as defined by the interval duration above) to include this host\nin success rate based outlier detection. If the volume is lower than this\nsetting, outlier detection via success rate statistics is not performed\nfor that host. Defaults to 100.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "success_rate_stdev_factor": {
+                    "description": "This factor is used to determine the ejection threshold for success rate\noutlier ejection. The ejection threshold is the difference between the\nmean success rate, and the product of this factor and the standard\ndeviation of the mean success rate: mean - (stdev *\nsuccess_rate_stdev_factor). This factor is divided by a thousand to get a\ndouble. That is, if the desired factor is 1.9, the runtime value should\nbe 1900. Defaults to 1900.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "successful_active_health_check_uneject_host": {
+                    "description": "If active health checking is enabled and a host is ejected by outlier detection, a successful active health check\nunejects the host by default and considers it as healthy. Unejection also clears all the outlier detection counters.\nTo change this default behavior set this config to “false“ where active health checking will not uneject the host.\nDefaults to true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "clusterv3.TrackClusterStats": {
+            "type": "object",
+            "properties": {
+                "per_endpoint_stats": {
+                    "description": "If true, some stats will be emitted per-endpoint, similar to the stats in admin “/clusters“\noutput.\n\nThis does not currently output correct stats during a hot-restart.\n\nThis is not currently implemented by all stat sinks.\n\nThese stats do not honor filtering or tag extraction rules in :ref:` + "`" + `StatsConfig\n\u003cenvoy_v3_api_msg_config.metrics.v3.StatsConfig\u003e` + "`" + ` (but fixed-value tags are supported). Admin\nendpoint filtering is supported.\n\nThis may not be used at the same time as\n:ref:` + "`" + `load_stats_config \u003cenvoy_v3_api_field_config.bootstrap.v3.ClusterManager.load_stats_config\u003e` + "`" + `.",
+                    "type": "boolean"
+                },
+                "request_response_sizes": {
+                    "description": "If request_response_sizes is true, then the :ref:` + "`" + `histograms\n\u003cconfig_cluster_manager_cluster_stats_request_response_sizes\u003e` + "`" + `  tracking header and body sizes\nof requests and responses will be published.",
+                    "type": "boolean"
+                },
+                "timeout_budgets": {
+                    "description": "If timeout_budgets is true, the :ref:` + "`" + `timeout budget histograms\n\u003cconfig_cluster_manager_cluster_stats_timeout_budgets\u003e` + "`" + ` will be published for each\nrequest. These show what percentage of a request's per try and global timeout was used. A value\nof 0 would indicate that none of the timeout was used or that the timeout was infinite. A value\nof 100 would indicate that the request took the entirety of the timeout given to it.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "clusterv3.UpstreamConnectionOptions": {
+            "type": "object",
+            "properties": {
+                "set_local_interface_name_on_upstream_connections": {
+                    "description": "If enabled, associates the interface name of the local address with the upstream connection.\nThis can be used by extensions during processing of requests. The association mechanism is\nimplementation specific. Defaults to false due to performance concerns.",
+                    "type": "boolean"
+                },
+                "tcp_keepalive": {
+                    "description": "If set then set SO_KEEPALIVE on the socket to enable TCP Keepalives.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TcpKeepalive"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.Address": {
             "type": "object",
             "properties": {
                 "address": {
-                    "$ref": "#/definitions/cache.Address"
-                },
-                "filter_chains": {
+                    "description": "Types that are assignable to Address:\n\n\t*Address_SocketAddress\n\t*Address_Pipe\n\t*Address_EnvoyInternalAddress"
+                }
+            }
+        },
+        "corev3.ApiVersion": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "ApiVersion_AUTO",
+                "ApiVersion_V2",
+                "ApiVersion_V3"
+            ]
+        },
+        "corev3.BindConfig": {
+            "type": "object",
+            "properties": {
+                "additional_source_addresses": {
+                    "description": "Deprecated by\n:ref:` + "`" + `extra_source_addresses \u003cenvoy_v3_api_field_config.core.v3.BindConfig.extra_source_addresses\u003e` + "`" + `\n\nDeprecated: Marked as deprecated in envoy/config/core/v3/address.proto.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cache.FilterChain"
+                        "$ref": "#/definitions/corev3.SocketAddress"
                     }
                 },
-                "name": {
+                "extra_source_addresses": {
+                    "description": "Extra source addresses appended to the address specified in the “source_address“\nfield. This enables to specify multiple source addresses.\nThe source address selection is determined by :ref:` + "`" + `local_address_selector\n\u003cenvoy_v3_api_field_config.core.v3.BindConfig.local_address_selector\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.ExtraSourceAddress"
+                    }
+                },
+                "freebind": {
+                    "description": "Whether to set the “IP_FREEBIND“ option when creating the socket. When this\nflag is set to true, allows the :ref:` + "`" + `source_address\n\u003cenvoy_v3_api_field_config.core.v3.BindConfig.source_address\u003e` + "`" + ` to be an IP address\nthat is not configured on the system running Envoy. When this flag is set\nto false, the option “IP_FREEBIND“ is disabled on the socket. When this\nflag is not set (default), the socket is not modified, i.e. the option is\nneither enabled nor disabled.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "local_address_selector": {
+                    "description": "Custom local address selector to override the default (i.e.\n:ref:` + "`" + `DefaultLocalAddressSelector\n\u003cenvoy_v3_api_msg_config.upstream.local_address_selector.v3.DefaultLocalAddressSelector\u003e` + "`" + `).\n[#extension-category: envoy.upstream.local_address_selector]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "socket_options": {
+                    "description": "Additional socket options that may not be present in Envoy source code or\nprecompiled binaries.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.SocketOption"
+                    }
+                },
+                "source_address": {
+                    "description": "The address to bind to when creating a socket.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SocketAddress"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.ConfigSource": {
+            "type": "object",
+            "properties": {
+                "authorities": {
+                    "description": "Authorities that this config source may be used for. An authority specified in a xdstp:// URL\nis resolved to a “ConfigSource“ prior to configuration fetch. This field provides the\nassociation between authority name and configuration source.\n[#not-implemented-hide:]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v3.Authority"
+                    }
+                },
+                "configSourceSpecifier": {
+                    "description": "Types that are assignable to ConfigSourceSpecifier:\n\n\t*ConfigSource_Path\n\t*ConfigSource_PathConfigSource\n\t*ConfigSource_ApiConfigSource\n\t*ConfigSource_Ads\n\t*ConfigSource_Self"
+                },
+                "initial_fetch_timeout": {
+                    "description": "When this timeout is specified, Envoy will wait no longer than the specified time for first\nconfig response on this xDS subscription during the :ref:` + "`" + `initialization process\n\u003carch_overview_initialization\u003e` + "`" + `. After reaching the timeout, Envoy will move to the next\ninitialization phase, even if the first config is not delivered yet. The timer is activated\nwhen the xDS API subscription starts, and is disarmed on first config update or on error. 0\nmeans no timeout - Envoy will wait indefinitely for the first xDS config (unless another\ntimeout applies). The default is 15s.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "resource_api_version": {
+                    "description": "API version for xDS resources. This implies the type URLs that the client\nwill request for resources and the resource type that the client will in\nturn expect to be delivered.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.ApiVersion"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.DataSource": {
+            "type": "object",
+            "properties": {
+                "specifier": {
+                    "description": "Types that are assignable to Specifier:\n\n\t*DataSource_Filename\n\t*DataSource_InlineBytes\n\t*DataSource_InlineString\n\t*DataSource_EnvironmentVariable"
+                }
+            }
+        },
+        "corev3.DnsResolutionConfig": {
+            "type": "object",
+            "properties": {
+                "dns_resolver_options": {
+                    "description": "Configuration of DNS resolver option flags which control the behavior of the DNS resolver.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.DnsResolverOptions"
+                        }
+                    ]
+                },
+                "resolvers": {
+                    "description": "A list of dns resolver addresses. If specified, the DNS client library will perform resolution\nvia the underlying DNS resolvers. Otherwise, the default system resolvers\n(e.g., /etc/resolv.conf) will be used.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.Address"
+                    }
+                }
+            }
+        },
+        "corev3.DnsResolverOptions": {
+            "type": "object",
+            "properties": {
+                "no_default_search_domain": {
+                    "description": "Do not use the default search domains; only query hostnames as-is or as aliases.",
+                    "type": "boolean"
+                },
+                "use_tcp_for_dns_lookups": {
+                    "description": "Use TCP for all DNS queries instead of the default protocol UDP.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "corev3.EventServiceConfig": {
+            "type": "object",
+            "properties": {
+                "configSourceSpecifier": {
+                    "description": "Types that are assignable to ConfigSourceSpecifier:\n\n\t*EventServiceConfig_GrpcService"
+                }
+            }
+        },
+        "corev3.ExtensionConfigSource": {
+            "type": "object",
+            "properties": {
+                "apply_default_config_without_warming": {
+                    "description": "Use the default config as the initial configuration without warming and\nwaiting for the first discovery response. Requires the default configuration\nto be supplied.",
+                    "type": "boolean"
+                },
+                "config_source": {
+                    "$ref": "#/definitions/corev3.ConfigSource"
+                },
+                "default_config": {
+                    "description": "Optional default configuration to use as the initial configuration if\nthere is a failure to receive the initial extension configuration or if\n“apply_default_config_without_warming“ flag is set.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/any.Any"
+                        }
+                    ]
+                },
+                "type_urls": {
+                    "description": "A set of permitted extension type URLs. Extension configuration updates are rejected\nif they do not match any type URL in the set.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "corev3.ExtraSourceAddress": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "The additional address to bind.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SocketAddress"
+                        }
+                    ]
+                },
+                "socket_options": {
+                    "description": "Additional socket options that may not be present in Envoy source code or\nprecompiled binaries. If specified, this will override the\n:ref:` + "`" + `socket_options \u003cenvoy_v3_api_field_config.core.v3.BindConfig.socket_options\u003e` + "`" + `\nin the BindConfig. If specified with no\n:ref:` + "`" + `socket_options \u003cenvoy_v3_api_field_config.core.v3.SocketOptionsOverride.socket_options\u003e` + "`" + `\nor an empty list of :ref:` + "`" + `socket_options \u003cenvoy_v3_api_field_config.core.v3.SocketOptionsOverride.socket_options\u003e` + "`" + `,\nit means no socket option will apply.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SocketOptionsOverride"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.HeaderValue": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "description": "Header name.",
+                    "type": "string"
+                },
+                "raw_value": {
+                    "description": "Header value is encoded as bytes which can support non-utf8 characters.\nOnly one of “value“ or “raw_value“ can be set.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "value": {
+                    "description": "Header value.\n\nThe same :ref:` + "`" + `format specifier \u003cconfig_access_log_format\u003e` + "`" + ` as used for\n:ref:` + "`" + `HTTP access logging \u003cconfig_access_log\u003e` + "`" + ` applies here, however\nunknown header values are replaced with the empty string instead of “-“.\nHeader value is encoded as string. This does not work for non-utf8 characters.\nOnly one of “value“ or “raw_value“ can be set.",
                     "type": "string"
                 }
             }
         },
-        "cache.RequestsHeadersToAdd": {
+        "corev3.HeaderValueOption": {
+            "type": "object",
+            "properties": {
+                "append": {
+                    "description": "Should the value be appended? If true (default), the value is appended to\nexisting values. Otherwise it replaces any existing values.\nThis field is deprecated and please use\n:ref:` + "`" + `append_action \u003cenvoy_v3_api_field_config.core.v3.HeaderValueOption.append_action\u003e` + "`" + ` as replacement.\n\n.. note::\n\n\tThe :ref:` + "`" + `external authorization service \u003cenvoy_v3_api_msg_service.auth.v3.CheckResponse\u003e` + "`" + ` and\n\t:ref:` + "`" + `external processor service \u003cenvoy_v3_api_msg_service.ext_proc.v3.ProcessingResponse\u003e` + "`" + ` have\n\tdefault value (` + "`" + `` + "`" + `false` + "`" + `` + "`" + `) for this field.\n\nDeprecated: Marked as deprecated in envoy/config/core/v3/base.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "append_action": {
+                    "description": "Describes the action taken to append/overwrite the given value for an existing header\nor to only add this header if it's absent.\nValue defaults to :ref:` + "`" + `APPEND_IF_EXISTS_OR_ADD\n\u003cenvoy_v3_api_enum_value_config.core.v3.HeaderValueOption.HeaderAppendAction.APPEND_IF_EXISTS_OR_ADD\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HeaderValueOption_HeaderAppendAction"
+                        }
+                    ]
+                },
+                "header": {
+                    "description": "Header name/value pair that this option applies to.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HeaderValue"
+                        }
+                    ]
+                },
+                "keep_empty_value": {
+                    "description": "Is the header value allowed to be empty? If false (default), custom headers with empty values are dropped,\notherwise they are added.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "corev3.HeaderValueOption_HeaderAppendAction": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "HeaderValueOption_APPEND_IF_EXISTS_OR_ADD",
+                "HeaderValueOption_ADD_IF_ABSENT",
+                "HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD",
+                "HeaderValueOption_OVERWRITE_IF_EXISTS"
+            ]
+        },
+        "corev3.HealthCheck": {
+            "type": "object",
+            "properties": {
+                "alt_port": {
+                    "description": "[#not-implemented-hide:] Non-serving port for health checking.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "always_log_health_check_failures": {
+                    "description": "If set to true, health check failure events will always be logged. If set to false, only the\ninitial health check failure event will be logged.\nThe default value is false.",
+                    "type": "boolean"
+                },
+                "event_log_path": {
+                    "description": ".. attention::\nThis field is deprecated in favor of the extension\n:ref:` + "`" + `event_logger \u003cenvoy_v3_api_field_config.core.v3.HealthCheck.event_logger\u003e` + "`" + ` and\n:ref:` + "`" + `event_log_path \u003cenvoy_v3_api_field_extensions.health_check.event_sinks.file.v3.HealthCheckEventFileSink.event_log_path\u003e` + "`" + `\nin the file sink extension.\n\nSpecifies the path to the :ref:` + "`" + `health check event log \u003carch_overview_health_check_logging\u003e` + "`" + `.\n\nDeprecated: Marked as deprecated in envoy/config/core/v3/health_check.proto.",
+                    "type": "string"
+                },
+                "event_logger": {
+                    "description": "A list of event log sinks to process the health check event.\n[#extension-category: envoy.health_check.event_sinks]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                    }
+                },
+                "event_service": {
+                    "description": "[#not-implemented-hide:]\nThe gRPC service for the health check event service.\nIf empty, health check events won't be sent to a remote endpoint.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.EventServiceConfig"
+                        }
+                    ]
+                },
+                "healthChecker": {
+                    "description": "Types that are assignable to HealthChecker:\n\n\t*HealthCheck_HttpHealthCheck_\n\t*HealthCheck_TcpHealthCheck_\n\t*HealthCheck_GrpcHealthCheck_\n\t*HealthCheck_CustomHealthCheck_"
+                },
+                "healthy_edge_interval": {
+                    "description": "The \"healthy edge interval\" is a special health check interval that is used for the first\nhealth check right after a host is marked as healthy. For subsequent health checks\nEnvoy will shift back to using the standard health check interval that is defined.\n\nThe default value for \"healthy edge interval\" is the same as the default interval.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "healthy_threshold": {
+                    "description": "The number of healthy health checks required before a host is marked\nhealthy. Note that during startup, only a single successful health check is\nrequired to mark a host healthy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "initial_jitter": {
+                    "description": "An optional jitter amount in milliseconds. If specified, Envoy will start health\nchecking after for a random time in ms between 0 and initial_jitter. This only\napplies to the first health check.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "interval": {
+                    "description": "The interval between health checks.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "interval_jitter": {
+                    "description": "An optional jitter amount in milliseconds. If specified, during every\ninterval Envoy will add interval_jitter to the wait time.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "interval_jitter_percent": {
+                    "description": "An optional jitter amount as a percentage of interval_ms. If specified,\nduring every interval Envoy will add “interval_ms“ *\n“interval_jitter_percent“ / 100 to the wait time.\n\nIf interval_jitter_ms and interval_jitter_percent are both set, both of\nthem will be used to increase the wait time.",
+                    "type": "integer"
+                },
+                "no_traffic_healthy_interval": {
+                    "description": "The \"no traffic healthy interval\" is a special health check interval that\nis used for hosts that are currently passing active health checking\n(including new hosts) when the cluster has received no traffic.\n\nThis is useful for when we want to send frequent health checks with\n“no_traffic_interval“ but then revert to lower frequency “no_traffic_healthy_interval“ once\na host in the cluster is marked as healthy.\n\nOnce a cluster has been used for traffic routing, Envoy will shift back to using the\nstandard health check interval that is defined.\n\nIf no_traffic_healthy_interval is not set, it will default to the\nno traffic interval and send that interval regardless of health state.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "no_traffic_interval": {
+                    "description": "The \"no traffic interval\" is a special health check interval that is used when a cluster has\nnever had traffic routed to it. This lower interval allows cluster information to be kept up to\ndate, without sending a potentially large amount of active health checking traffic for no\nreason. Once a cluster has been used for traffic routing, Envoy will shift back to using the\nstandard health check interval that is defined. Note that this interval takes precedence over\nany other.\n\nThe default value for \"no traffic interval\" is 60 seconds.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "reuse_connection": {
+                    "description": "Reuse health check connection between health checks. Default is true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "timeout": {
+                    "description": "The time to wait for a health check response. If the timeout is reached the\nhealth check attempt will be considered a failure.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "tls_options": {
+                    "description": "This allows overriding the cluster TLS settings, just for health check connections.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HealthCheck_TlsOptions"
+                        }
+                    ]
+                },
+                "transport_socket_match_criteria": {
+                    "description": "Optional key/value pairs that will be used to match a transport socket from those specified in the cluster's\n:ref:` + "`" + `tranport socket matches \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.transport_socket_matches\u003e` + "`" + `.\nFor example, the following match criteria\n\n.. code-block:: yaml\n\n\ttransport_socket_match_criteria:\n\t  useMTLS: true\n\nWill match the following :ref:` + "`" + `cluster socket match \u003cenvoy_v3_api_msg_config.cluster.v3.Cluster.TransportSocketMatch\u003e` + "`" + `\n\n.. code-block:: yaml\n\n\ttransport_socket_matches:\n\t- name: \"useMTLS\"\n\t  match:\n\t    useMTLS: true\n\t  transport_socket:\n\t    name: envoy.transport_sockets.tls\n\t    config: { ... } # tls socket configuration\n\nIf this field is set, then for health checks it will supersede an entry of “envoy.transport_socket“ in the\n:ref:` + "`" + `LbEndpoint.Metadata \u003cenvoy_v3_api_field_config.endpoint.v3.LbEndpoint.metadata\u003e` + "`" + `.\nThis allows using different transport socket capabilities for health checking versus proxying to the\nendpoint.\n\nIf the key/values pairs specified do not match any\n:ref:` + "`" + `transport socket matches \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.transport_socket_matches\u003e` + "`" + `,\nthe cluster's :ref:` + "`" + `transport socket \u003cenvoy_v3_api_field_config.cluster.v3.Cluster.transport_socket\u003e` + "`" + `\nwill be used for health check socket configuration.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_golang_protobuf_ptypes_struct.Struct"
+                        }
+                    ]
+                },
+                "unhealthy_edge_interval": {
+                    "description": "The \"unhealthy edge interval\" is a special health check interval that is used for the first\nhealth check right after a host is marked as unhealthy. For subsequent health checks\nEnvoy will shift back to using either \"unhealthy interval\" if present or the standard health\ncheck interval that is defined.\n\nThe default value for \"unhealthy edge interval\" is the same as \"unhealthy interval\".",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "unhealthy_interval": {
+                    "description": "The \"unhealthy interval\" is a health check interval that is used for hosts that are marked as\nunhealthy. As soon as the host is marked as healthy, Envoy will shift back to using the\nstandard health check interval that is defined.\n\nThe default value for \"unhealthy interval\" is the same as \"interval\".",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "unhealthy_threshold": {
+                    "description": "The number of unhealthy health checks required before a host is marked\nunhealthy. Note that for “http“ health checking if a host responds with a code not in\n:ref:` + "`" + `expected_statuses \u003cenvoy_v3_api_field_config.core.v3.HealthCheck.HttpHealthCheck.expected_statuses\u003e` + "`" + `\nor :ref:` + "`" + `retriable_statuses \u003cenvoy_v3_api_field_config.core.v3.HealthCheck.HttpHealthCheck.retriable_statuses\u003e` + "`" + `,\nthis threshold is ignored and the host is considered immediately unhealthy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.HealthCheck_TlsOptions": {
+            "type": "object",
+            "properties": {
+                "alpn_protocols": {
+                    "description": "Specifies the ALPN protocols for health check connections. This is useful if the\ncorresponding upstream is using ALPN-based :ref:` + "`" + `FilterChainMatch\n\u003cenvoy_v3_api_msg_config.listener.v3.FilterChainMatch\u003e` + "`" + ` along with different protocols for health checks\nversus data connections. If empty, no ALPN protocols will be set on health check connections.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "corev3.HealthStatus": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            "x-enum-varnames": [
+                "HealthStatus_UNKNOWN",
+                "HealthStatus_HEALTHY",
+                "HealthStatus_UNHEALTHY",
+                "HealthStatus_DRAINING",
+                "HealthStatus_TIMEOUT",
+                "HealthStatus_DEGRADED"
+            ]
+        },
+        "corev3.HealthStatusSet": {
+            "type": "object",
+            "properties": {
+                "statuses": {
+                    "description": "An order-independent set of health status.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HealthStatus"
+                    }
+                }
+            }
+        },
+        "corev3.Http1ProtocolOptions": {
+            "type": "object",
+            "properties": {
+                "accept_http_10": {
+                    "description": "Handle incoming HTTP/1.0 and HTTP 0.9 requests.\nThis is off by default, and not fully standards compliant. There is support for pre-HTTP/1.1\nstyle connect logic, dechunking, and handling lack of client host iff\n“default_host_for_http_10“ is configured.",
+                    "type": "boolean"
+                },
+                "allow_absolute_url": {
+                    "description": "Handle HTTP requests with absolute URLs in the requests. These requests\nare generally sent by clients to forward/explicit proxies. This allows clients to configure\nenvoy as their HTTP proxy. In Unix, for example, this is typically done by setting the\n“http_proxy“ environment variable.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "allow_chunked_length": {
+                    "description": "Allows Envoy to process requests/responses with both “Content-Length“ and “Transfer-Encoding“\nheaders set. By default such messages are rejected, but if option is enabled - Envoy will\nremove Content-Length header and process message.\nSee ` + "`" + `RFC7230, sec. 3.3.3 \u003chttps://tools.ietf.org/html/rfc7230#section-3.3.3\u003e` + "`" + `_ for details.\n\n.. attention::\n\n\tEnabling this option might lead to request smuggling vulnerability, especially if traffic\n\tis proxied via multiple layers of proxies.\n\n[#comment:TODO: This field is ignored when the\n:ref:` + "`" + `header validation configuration \u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.typed_header_validation_config\u003e` + "`" + `\nis present.]",
+                    "type": "boolean"
+                },
+                "allow_custom_methods": {
+                    "description": "[#not-implemented-hide:] Hiding so that field can be removed.\nIf true, and BalsaParser is used (either ` + "`" + `use_balsa_parser` + "`" + ` above is true,\nor ` + "`" + `envoy.reloadable_features.http1_use_balsa_parser` + "`" + ` is true and\n` + "`" + `use_balsa_parser` + "`" + ` is unset), then every non-empty method with only valid\ncharacters is accepted. Otherwise, methods not on the hard-coded list are\nrejected.\nOnce UHV is enabled, this field should be removed, and BalsaParser should\nallow any method. UHV validates the method, rejecting empty string or\ninvalid characters, and provides :ref:` + "`" + `restrict_http_methods\n\u003cenvoy_v3_api_field_extensions.http.header_validators.envoy_default.v3.HeaderValidatorConfig.restrict_http_methods\u003e` + "`" + `\nto reject custom methods.",
+                    "type": "boolean"
+                },
+                "default_host_for_http_10": {
+                    "description": "A default host for HTTP/1.0 requests. This is highly suggested if “accept_http_10“ is true as\nEnvoy does not otherwise support HTTP/1.0 without a Host header.\nThis is a no-op if “accept_http_10“ is not true.",
+                    "type": "string"
+                },
+                "enable_trailers": {
+                    "description": "Enables trailers for HTTP/1. By default the HTTP/1 codec drops proxied trailers.\n\n.. attention::\n\n\tNote that this only happens when Envoy is chunk encoding which occurs when:\n\t- The request is HTTP/1.1.\n\t- Is neither a HEAD only request nor a HTTP Upgrade.\n\t- Not a response to a HEAD request.\n\t- The content length header is not present.",
+                    "type": "boolean"
+                },
+                "header_key_format": {
+                    "description": "Describes how the keys for response headers should be formatted. By default, all header keys\nare lower cased.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Http1ProtocolOptions_HeaderKeyFormat"
+                        }
+                    ]
+                },
+                "override_stream_error_on_invalid_http_message": {
+                    "description": "Allows invalid HTTP messaging. When this option is false, then Envoy will terminate\nHTTP/1.1 connections upon receiving an invalid HTTP message. However,\nwhen this option is true, then Envoy will leave the HTTP/1.1 connection\nopen where possible.\nIf set, this overrides any HCM :ref:` + "`" + `stream_error_on_invalid_http_messaging\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_error_on_invalid_http_message\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "send_fully_qualified_url": {
+                    "description": "Allows sending fully qualified URLs when proxying the first line of the\nresponse. By default, Envoy will only send the path components in the first line.\nIf this is true, Envoy will create a fully qualified URI composing scheme\n(inferred if not present), host (from the host/:authority header) and path\n(from first line or :path header).",
+                    "type": "boolean"
+                },
+                "use_balsa_parser": {
+                    "description": "[#not-implemented-hide:] Hiding so that field can be removed after BalsaParser is rolled out.\nIf set, force HTTP/1 parser: BalsaParser if true, http-parser if false.\nIf unset, HTTP/1 parser is selected based on\nenvoy.reloadable_features.http1_use_balsa_parser.\nSee issue #21245.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.Http1ProtocolOptions_HeaderKeyFormat": {
+            "type": "object",
+            "properties": {
+                "headerFormat": {
+                    "description": "Types that are assignable to HeaderFormat:\n\n\t*Http1ProtocolOptions_HeaderKeyFormat_ProperCaseWords_\n\t*Http1ProtocolOptions_HeaderKeyFormat_StatefulFormatter"
+                }
+            }
+        },
+        "corev3.Http2ProtocolOptions": {
+            "type": "object",
+            "properties": {
+                "allow_connect": {
+                    "description": "Allows proxying Websocket and other upgrades over H2 connect.",
+                    "type": "boolean"
+                },
+                "allow_metadata": {
+                    "description": "[#not-implemented-hide:] Hiding until envoy has full metadata support.\nStill under implementation. DO NOT USE.\n\nAllows metadata. See [metadata\ndocs](https://github.com/envoyproxy/envoy/blob/main/source/docs/h2_metadata.md) for more\ninformation.",
+                    "type": "boolean"
+                },
+                "connection_keepalive": {
+                    "description": "Send HTTP/2 PING frames to verify that the connection is still healthy. If the remote peer\ndoes not respond within the configured timeout, the connection will be aborted.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.KeepaliveSettings"
+                        }
+                    ]
+                },
+                "custom_settings_parameters": {
+                    "description": "[#not-implemented-hide:]\nSpecifies SETTINGS frame parameters to be sent to the peer, with two exceptions:\n\n1. SETTINGS_ENABLE_PUSH (0x2) is not configurable as HTTP/2 server push is not supported by\nEnvoy.\n\n2. SETTINGS_ENABLE_CONNECT_PROTOCOL (0x8) is only configurable through the named field\n'allow_connect'.\n\nNote that custom parameters specified through this field can not also be set in the\ncorresponding named parameters:\n\n.. code-block:: text\n\n\tID    Field Name\n\t----------------\n\t0x1   hpack_table_size\n\t0x3   max_concurrent_streams\n\t0x4   initial_stream_window_size\n\nCollisions will trigger config validation failure on load/update. Likewise, inconsistencies\nbetween custom parameters with the same identifier will trigger a failure.\n\nSee ` + "`" + `IANA HTTP/2 Settings\n\u003chttps://www.iana.org/assignments/http2-parameters/http2-parameters.xhtml#settings\u003e` + "`" + `_ for\nstandardized identifiers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.Http2ProtocolOptions_SettingsParameter"
+                    }
+                },
+                "hpack_table_size": {
+                    "description": "` + "`" + `Maximum table size \u003chttps://httpwg.org/specs/rfc7541.html#rfc.section.4.2\u003e` + "`" + `_\n(in octets) that the encoder is permitted to use for the dynamic HPACK table. Valid values\nrange from 0 to 4294967295 (2^32 - 1) and defaults to 4096. 0 effectively disables header\ncompression.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "initial_connection_window_size": {
+                    "description": "Similar to “initial_stream_window_size“, but for connection-level flow-control\nwindow. Currently, this has the same minimum/maximum/default as “initial_stream_window_size“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "initial_stream_window_size": {
+                    "description": "` + "`" + `Initial stream-level flow-control window\n\u003chttps://httpwg.org/specs/rfc7540.html#rfc.section.6.9.2\u003e` + "`" + `_ size. Valid values range from 65535\n(2^16 - 1, HTTP/2 default) to 2147483647 (2^31 - 1, HTTP/2 maximum) and defaults to 268435456\n(256 * 1024 * 1024).\n\nNOTE: 65535 is the initial window size from HTTP/2 spec. We only support increasing the default\nwindow size now, so it's also the minimum.\n\nThis field also acts as a soft limit on the number of bytes Envoy will buffer per-stream in the\nHTTP/2 codec buffers. Once the buffer reaches this pointer, watermark callbacks will fire to\nstop the flow of data to the codec buffers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_concurrent_streams": {
+                    "description": "` + "`" + `Maximum concurrent streams \u003chttps://httpwg.org/specs/rfc7540.html#rfc.section.5.1.2\u003e` + "`" + `_\nallowed for peer on one HTTP/2 connection. Valid values range from 1 to 2147483647 (2^31 - 1)\nand defaults to 2147483647.\n\nFor upstream connections, this also limits how many streams Envoy will initiate concurrently\non a single connection. If the limit is reached, Envoy may queue requests or establish\nadditional connections (as allowed per circuit breaker limits).\n\nThis acts as an upper bound: Envoy will lower the max concurrent streams allowed on a given\nconnection based on upstream settings. Config dumps will reflect the configured upper bound,\nnot the per-connection negotiated limits.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_consecutive_inbound_frames_with_empty_payload": {
+                    "description": "Limit the number of consecutive inbound frames of types HEADERS, CONTINUATION and DATA with an\nempty payload and no end stream flag. Those frames have no legitimate use and are abusive, but\nmight be a result of a broken HTTP/2 implementation. The ` + "`" + `http2.inbound_empty_frames_flood“\nstat tracks the number of connections terminated due to flood mitigation.\nSetting this to 0 will terminate connection upon receiving first frame with an empty payload\nand no end stream flag. The default limit is 1.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_inbound_priority_frames_per_stream": {
+                    "description": "Limit the number of inbound PRIORITY frames allowed per each opened stream. If the number\nof PRIORITY frames received over the lifetime of connection exceeds the value calculated\nusing this formula::\n\n\t` + "`" + `` + "`" + `max_inbound_priority_frames_per_stream` + "`" + `` + "`" + ` * (1 + ` + "`" + `` + "`" + `opened_streams` + "`" + `` + "`" + `)\n\nthe connection is terminated. For downstream connections the “opened_streams“ is incremented when\nEnvoy receives complete response headers from the upstream server. For upstream connection the\n“opened_streams“ is incremented when Envoy send the HEADERS frame for a new stream. The\n“http2.inbound_priority_frames_flood“ stat tracks\nthe number of connections terminated due to flood mitigation. The default limit is 100.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_inbound_window_update_frames_per_data_frame_sent": {
+                    "description": "Limit the number of inbound WINDOW_UPDATE frames allowed per DATA frame sent. If the number\nof WINDOW_UPDATE frames received over the lifetime of connection exceeds the value calculated\nusing this formula::\n\n\t5 + 2 * (` + "`" + `` + "`" + `opened_streams` + "`" + `` + "`" + ` +\n\t         ` + "`" + `` + "`" + `max_inbound_window_update_frames_per_data_frame_sent` + "`" + `` + "`" + ` * ` + "`" + `` + "`" + `outbound_data_frames` + "`" + `` + "`" + `)\n\nthe connection is terminated. For downstream connections the “opened_streams“ is incremented when\nEnvoy receives complete response headers from the upstream server. For upstream connections the\n“opened_streams“ is incremented when Envoy sends the HEADERS frame for a new stream. The\n“http2.inbound_priority_frames_flood“ stat tracks the number of connections terminated due to\nflood mitigation. The default max_inbound_window_update_frames_per_data_frame_sent value is 10.\nSetting this to 1 should be enough to support HTTP/2 implementations with basic flow control,\nbut more complex implementations that try to estimate available bandwidth require at least 2.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_outbound_control_frames": {
+                    "description": "Limit the number of pending outbound downstream frames of types PING, SETTINGS and RST_STREAM,\npreventing high memory utilization when receiving continuous stream of these frames. Exceeding\nthis limit triggers flood mitigation and connection is terminated. The\n“http2.outbound_control_flood“ stat tracks the number of terminated connections due to flood\nmitigation. The default limit is 1000.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_outbound_frames": {
+                    "description": "Limit the number of pending outbound downstream frames of all types (frames that are waiting to\nbe written into the socket). Exceeding this limit triggers flood mitigation and connection is\nterminated. The “http2.outbound_flood“ stat tracks the number of terminated connections due\nto flood mitigation. The default limit is 10000.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "override_stream_error_on_invalid_http_message": {
+                    "description": "Allows invalid HTTP messaging and headers. When this option is disabled (default), then\nthe whole HTTP/2 connection is terminated upon receiving invalid HEADERS frame. However,\nwhen this option is enabled, only the offending stream is terminated.\n\nThis overrides any HCM :ref:` + "`" + `stream_error_on_invalid_http_messaging\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_error_on_invalid_http_message\u003e` + "`" + `\n\nSee ` + "`" + `RFC7540, sec. 8.1 \u003chttps://tools.ietf.org/html/rfc7540#section-8.1\u003e` + "`" + `_ for details.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "stream_error_on_invalid_http_messaging": {
+                    "description": "Allows invalid HTTP messaging and headers. When this option is disabled (default), then\nthe whole HTTP/2 connection is terminated upon receiving invalid HEADERS frame. However,\nwhen this option is enabled, only the offending stream is terminated.\n\nThis is overridden by HCM :ref:` + "`" + `stream_error_on_invalid_http_messaging\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_error_on_invalid_http_message\u003e` + "`" + `\niff present.\n\nThis is deprecated in favor of :ref:` + "`" + `override_stream_error_on_invalid_http_message\n\u003cenvoy_v3_api_field_config.core.v3.Http2ProtocolOptions.override_stream_error_on_invalid_http_message\u003e` + "`" + `\n\nSee ` + "`" + `RFC7540, sec. 8.1 \u003chttps://tools.ietf.org/html/rfc7540#section-8.1\u003e` + "`" + `_ for details.\n\nDeprecated: Marked as deprecated in envoy/config/core/v3/protocol.proto.",
+                    "type": "boolean"
+                },
+                "use_oghttp2_codec": {
+                    "description": "[#not-implemented-hide:] Hiding so that the field can be removed after oghttp2 is rolled out.\nIf set, force use of a particular HTTP/2 codec: oghttp2 if true, nghttp2 if false.\nIf unset, HTTP/2 codec is selected based on envoy.reloadable_features.http2_use_oghttp2.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.Http2ProtocolOptions_SettingsParameter": {
+            "type": "object",
+            "properties": {
+                "identifier": {
+                    "description": "The 16 bit parameter identifier.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "value": {
+                    "description": "The 32 bit parameter value.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.Http3ProtocolOptions": {
+            "type": "object",
+            "properties": {
+                "allow_extended_connect": {
+                    "description": "Allows proxying Websocket and other upgrades over HTTP/3 CONNECT using\nthe header mechanisms from the ` + "`" + `HTTP/2 extended connect RFC\n\u003chttps://datatracker.ietf.org/doc/html/rfc8441\u003e` + "`" + `_\nand settings ` + "`" + `proposed for HTTP/3\n\u003chttps://datatracker.ietf.org/doc/draft-ietf-httpbis-h3-websockets/\u003e` + "`" + `_\nNote that HTTP/3 CONNECT is not yet an RFC.",
+                    "type": "boolean"
+                },
+                "override_stream_error_on_invalid_http_message": {
+                    "description": "Allows invalid HTTP messaging and headers. When this option is disabled (default), then\nthe whole HTTP/3 connection is terminated upon receiving invalid HEADERS frame. However,\nwhen this option is enabled, only the offending stream is terminated.\n\nIf set, this overrides any HCM :ref:` + "`" + `stream_error_on_invalid_http_messaging\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_error_on_invalid_http_message\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "quic_protocol_options": {
+                    "$ref": "#/definitions/corev3.QuicProtocolOptions"
+                }
+            }
+        },
+        "corev3.HttpProtocolOptions": {
+            "type": "object",
+            "properties": {
+                "headers_with_underscores_action": {
+                    "description": "Action to take when a client request with a header name containing underscore characters is received.\nIf this setting is not specified, the value defaults to ALLOW.\nNote: upstream responses are not affected by this setting.\nNote: this only affects client headers. It does not affect headers added\nby Envoy filters and does not have any impact if added to cluster config.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HttpProtocolOptions_HeadersWithUnderscoresAction"
+                        }
+                    ]
+                },
+                "idle_timeout": {
+                    "description": "The idle timeout for connections. The idle timeout is defined as the\nperiod in which there are no active requests. When the\nidle timeout is reached the connection will be closed. If the connection is an HTTP/2\ndownstream connection a drain sequence will occur prior to closing the connection, see\n:ref:` + "`" + `drain_timeout\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.drain_timeout\u003e` + "`" + `.\nNote that request based timeouts mean that HTTP/2 PINGs will not keep the connection alive.\nIf not specified, this defaults to 1 hour. To disable idle timeouts explicitly set this to 0.\n\n.. warning::\n\n\tDisabling this timeout has a highly likelihood of yielding connection leaks due to lost TCP\n\tFIN packets, etc.\n\nIf the :ref:` + "`" + `overload action \u003cconfig_overload_manager_overload_actions\u003e` + "`" + ` \"envoy.overload_actions.reduce_timeouts\"\nis configured, this timeout is scaled for downstream connections according to the value for\n:ref:` + "`" + `HTTP_DOWNSTREAM_CONNECTION_IDLE \u003cenvoy_v3_api_enum_value_config.overload.v3.ScaleTimersOverloadActionConfig.TimerType.HTTP_DOWNSTREAM_CONNECTION_IDLE\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_connection_duration": {
+                    "description": "The maximum duration of a connection. The duration is defined as a period since a connection\nwas established. If not set, there is no max duration. When max_connection_duration is reached\nand if there are no active streams, the connection will be closed. If the connection is a\ndownstream connection and there are any active streams, the drain sequence will kick-in,\nand the connection will be force-closed after the drain period. See :ref:` + "`" + `drain_timeout\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.drain_timeout\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_headers_count": {
+                    "description": "The maximum number of headers. If unconfigured, the default\nmaximum number of request headers allowed is 100. Requests that exceed this limit will receive\na 431 response for HTTP/1.x and cause a stream reset for HTTP/2.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_requests_per_connection": {
+                    "description": "Optional maximum requests for both upstream and downstream connections.\nIf not specified, there is no limit.\nSetting this parameter to 1 will effectively disable keep alive.\nFor HTTP/2 and HTTP/3, due to concurrent stream processing, the limit is approximate.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_stream_duration": {
+                    "description": "Total duration to keep alive an HTTP request/response stream. If the time limit is reached the stream will be\nreset independent of any other timeouts. If not specified, this value is not set.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.HttpProtocolOptions_HeadersWithUnderscoresAction": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "HttpProtocolOptions_ALLOW",
+                "HttpProtocolOptions_REJECT_REQUEST",
+                "HttpProtocolOptions_DROP_HEADER"
+            ]
+        },
+        "corev3.JsonFormatOptions": {
+            "type": "object",
+            "properties": {
+                "sort_properties": {
+                    "description": "The output JSON string properties will be sorted.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "corev3.KeepaliveSettings": {
+            "type": "object",
+            "properties": {
+                "connection_idle_interval": {
+                    "description": "If the connection has been idle for this duration, send a HTTP/2 ping ahead\nof new stream creation, to quickly detect dead connections.\nIf this is zero, this type of PING will not be sent.\nIf an interval ping is outstanding, a second ping will not be sent as the\ninterval ping will determine if the connection is dead.\n\nThe same feature for HTTP/3 is given by inheritance from QUICHE which uses :ref:` + "`" + `connection idle_timeout \u003cenvoy_v3_api_field_config.listener.v3.QuicProtocolOptions.idle_timeout\u003e` + "`" + ` and the current PTO of the connection to decide whether to probe before sending a new request.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "interval": {
+                    "description": "Send HTTP/2 PING frames at this period, in order to test that the connection is still alive.\nIf this is zero, interval PINGs will not be sent.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "interval_jitter": {
+                    "description": "A random jitter amount as a percentage of interval that will be added to each interval.\nA value of zero means there will be no jitter.\nThe default value is 15%.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.Percent"
+                        }
+                    ]
+                },
+                "timeout": {
+                    "description": "How long to wait for a response to a keepalive PING. If a response is not received within this\ntime period, the connection will be aborted. Note that in order to prevent the influence of\nHead-of-line (HOL) blocking the timeout period is extended when *any* frame is received on\nthe connection, under the assumption that if a frame is received the connection is healthy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.Locality": {
+            "type": "object",
+            "properties": {
+                "region": {
+                    "description": "Region this :ref:` + "`" + `zone \u003cenvoy_v3_api_field_config.core.v3.Locality.zone\u003e` + "`" + ` belongs to.",
+                    "type": "string"
+                },
+                "sub_zone": {
+                    "description": "When used for locality of upstream hosts, this field further splits zone\ninto smaller chunks of sub-zones so they can be load balanced\nindependently.",
+                    "type": "string"
+                },
+                "zone": {
+                    "description": "Defines the local service zone where Envoy is running. Though optional, it\nshould be set if discovery service routing is used and the discovery\nservice exposes :ref:` + "`" + `zone data \u003cenvoy_v3_api_field_config.endpoint.v3.LocalityLbEndpoints.locality\u003e` + "`" + `,\neither in this message or via :option:` + "`" + `--service-zone` + "`" + `. The meaning of zone\nis context dependent, e.g. ` + "`" + `Availability Zone (AZ)\n\u003chttps://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html\u003e` + "`" + `_\non AWS, ` + "`" + `Zone \u003chttps://cloud.google.com/compute/docs/regions-zones/\u003e` + "`" + `_ on\nGCP, etc.",
+                    "type": "string"
+                }
+            }
+        },
+        "corev3.Metadata": {
+            "type": "object",
+            "properties": {
+                "filter_metadata": {
+                    "description": "Key is the reverse DNS filter name, e.g. com.acme.widget. The “envoy.*“\nnamespace is reserved for Envoy's built-in filters.\nIf both “filter_metadata“ and\n:ref:` + "`" + `typed_filter_metadata \u003cenvoy_v3_api_field_config.core.v3.Metadata.typed_filter_metadata\u003e` + "`" + `\nfields are present in the metadata with same keys,\nonly “typed_filter_metadata“ field will be parsed.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/github_com_golang_protobuf_ptypes_struct.Struct"
+                    }
+                },
+                "typed_filter_metadata": {
+                    "description": "Key is the reverse DNS filter name, e.g. com.acme.widget. The “envoy.*“\nnamespace is reserved for Envoy's built-in filters.\nThe value is encoded as google.protobuf.Any.\nIf both :ref:` + "`" + `filter_metadata \u003cenvoy_v3_api_field_config.core.v3.Metadata.filter_metadata\u003e` + "`" + `\nand “typed_filter_metadata“ fields are present in the metadata with same keys,\nonly “typed_filter_metadata“ field will be parsed.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/any.Any"
+                    }
+                }
+            }
+        },
+        "corev3.QuicKeepAliveSettings": {
+            "type": "object",
+            "properties": {
+                "initial_interval": {
+                    "description": "The interval to send the first few keep-alive probing packets to prevent connection from hitting the idle timeout. Subsequent probes will be sent, each one with an interval exponentially longer than previous one, till it reaches :ref:` + "`" + `max_interval \u003cenvoy_v3_api_field_config.core.v3.QuicKeepAliveSettings.max_interval\u003e` + "`" + `. And the probes afterwards will always use :ref:` + "`" + `max_interval \u003cenvoy_v3_api_field_config.core.v3.QuicKeepAliveSettings.max_interval\u003e` + "`" + `.\n\nThe value should be smaller than :ref:` + "`" + `connection idle_timeout \u003cenvoy_v3_api_field_config.listener.v3.QuicProtocolOptions.idle_timeout\u003e` + "`" + ` to prevent idle timeout and smaller than max_interval to take effect.\n\nIf absent or zero, disable keepalive probing for a server connection. For a client connection, if :ref:` + "`" + `max_interval \u003cenvoy_v3_api_field_config.core.v3.QuicKeepAliveSettings.max_interval\u003e` + "`" + `  is also zero, do not keepalive, otherwise use max_interval or QUICHE default to probe all the time.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_interval": {
+                    "description": "The max interval for a connection to send keep-alive probing packets (with PING or PATH_RESPONSE). The value should be smaller than :ref:` + "`" + `connection idle_timeout \u003cenvoy_v3_api_field_config.listener.v3.QuicProtocolOptions.idle_timeout\u003e` + "`" + ` to prevent idle timeout while not less than 1s to avoid throttling the connection or flooding the peer with probes.\n\nIf :ref:` + "`" + `initial_interval \u003cenvoy_v3_api_field_config.core.v3.QuicKeepAliveSettings.initial_interval\u003e` + "`" + ` is absent or zero, a client connection will use this value to start probing.\n\nIf zero, disable keepalive probing.\nIf absent, use the QUICHE default interval to probe.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.QuicProtocolOptions": {
+            "type": "object",
+            "properties": {
+                "client_connection_options": {
+                    "description": "A comma-separated list of strings representing QUIC client connection options defined in\n` + "`" + `QUICHE \u003chttps://github.com/google/quiche/blob/main/quiche/quic/core/crypto/crypto_protocol.h\u003e` + "`" + `_ and to be sent by upstream connections.",
+                    "type": "string"
+                },
+                "connection_keepalive": {
+                    "description": "Probes the peer at the configured interval to solicit traffic, i.e. ACK or PATH_RESPONSE, from the peer to push back connection idle timeout.\nIf absent, use the default keepalive behavior of which a client connection sends PINGs every 15s, and a server connection doesn't do anything.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.QuicKeepAliveSettings"
+                        }
+                    ]
+                },
+                "connection_options": {
+                    "description": "A comma-separated list of strings representing QUIC connection options defined in\n` + "`" + `QUICHE \u003chttps://github.com/google/quiche/blob/main/quiche/quic/core/crypto/crypto_protocol.h\u003e` + "`" + `_ and to be sent by upstream connections.",
+                    "type": "string"
+                },
+                "initial_connection_window_size": {
+                    "description": "Similar to “initial_stream_window_size“, but for connection-level\nflow-control. Valid values rage from 1 to 25165824 (24MB, maximum supported by QUICHE) and defaults to 65536 (2^16).\nwindow. Currently, this has the same minimum/default as “initial_stream_window_size“.\n\nNOTE: 16384 (2^14) is the minimum window size supported in Google QUIC. We only support increasing the default\nwindow size now, so it's also the minimum.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "initial_stream_window_size": {
+                    "description": "` + "`" + `Initial stream-level flow-control receive window\n\u003chttps://tools.ietf.org/html/draft-ietf-quic-transport-34#section-4.1\u003e` + "`" + `_ size. Valid values range from\n1 to 16777216 (2^24, maximum supported by QUICHE) and defaults to 65536 (2^16).\n\nNOTE: 16384 (2^14) is the minimum window size supported in Google QUIC. If configured smaller than it, we will use 16384 instead.\nQUICHE IETF Quic implementation supports 1 bytes window. We only support increasing the default window size now, so it's also the minimum.\n\nThis field also acts as a soft limit on the number of bytes Envoy will buffer per-stream in the\nQUIC stream send and receive buffers. Once the buffer reaches this pointer, watermark callbacks will fire to\nstop the flow of data to the stream buffers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_concurrent_streams": {
+                    "description": "Maximum number of streams that the client can negotiate per connection. 100\nif not specified.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "num_timeouts_to_trigger_port_migration": {
+                    "description": "The number of timeouts that can occur before port migration is triggered for QUIC clients.\nThis defaults to 4. If set to 0, port migration will not occur on path degrading.\nTimeout here refers to QUIC internal path degrading timeout mechanism, such as PTO.\nThis has no effect on server sessions.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.RoutingPriority": {
+            "type": "integer",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "RoutingPriority_DEFAULT",
+                "RoutingPriority_HIGH"
+            ]
+        },
+        "corev3.RuntimeFeatureFlag": {
+            "type": "object",
+            "properties": {
+                "default_value": {
+                    "description": "Default value if runtime value is not available.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "runtime_key": {
+                    "description": "Runtime key to get value for comparison. This value is used if defined. The boolean value must\nbe represented via its\n` + "`" + `canonical JSON encoding \u003chttps://developers.google.com/protocol-buffers/docs/proto3#json\u003e` + "`" + `_.",
+                    "type": "string"
+                }
+            }
+        },
+        "corev3.RuntimeFractionalPercent": {
+            "type": "object",
+            "properties": {
+                "default_value": {
+                    "description": "Default value if the runtime value's for the numerator/denominator keys are not available.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.FractionalPercent"
+                        }
+                    ]
+                },
+                "runtime_key": {
+                    "description": "Runtime key for a YAML representation of a FractionalPercent.",
+                    "type": "string"
+                }
+            }
+        },
+        "corev3.SchemeHeaderTransformation": {
+            "type": "object",
+            "properties": {
+                "transformation": {
+                    "description": "Types that are assignable to Transformation:\n\n\t*SchemeHeaderTransformation_SchemeToOverwrite"
+                }
+            }
+        },
+        "corev3.SocketAddress": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "The address for this socket. :ref:` + "`" + `Listeners \u003cconfig_listeners\u003e` + "`" + ` will bind\nto the address. An empty address is not allowed. Specify “0.0.0.0“ or “::“\nto bind to any address. [#comment:TODO(zuercher) reinstate when implemented:\nIt is possible to distinguish a Listener address via the prefix/suffix matching\nin :ref:` + "`" + `FilterChainMatch \u003cenvoy_v3_api_msg_config.listener.v3.FilterChainMatch\u003e` + "`" + `.] When used\nwithin an upstream :ref:` + "`" + `BindConfig \u003cenvoy_v3_api_msg_config.core.v3.BindConfig\u003e` + "`" + `, the address\ncontrols the source address of outbound connections. For :ref:` + "`" + `clusters\n\u003cenvoy_v3_api_msg_config.cluster.v3.Cluster\u003e` + "`" + `, the cluster type determines whether the\naddress must be an IP (“STATIC“ or “EDS“ clusters) or a hostname resolved by DNS\n(“STRICT_DNS“ or “LOGICAL_DNS“ clusters). Address resolution can be customized\nvia :ref:` + "`" + `resolver_name \u003cenvoy_v3_api_field_config.core.v3.SocketAddress.resolver_name\u003e` + "`" + `.",
+                    "type": "string"
+                },
+                "ipv4_compat": {
+                    "description": "When binding to an IPv6 address above, this enables ` + "`" + `IPv4 compatibility\n\u003chttps://tools.ietf.org/html/rfc3493#page-11\u003e` + "`" + `_. Binding to “::“ will\nallow both IPv4 and IPv6 connections, with peer IPv4 addresses mapped into\nIPv6 space as “::FFFF:\u003cIPv4-address\u003e“.",
+                    "type": "boolean"
+                },
+                "portSpecifier": {
+                    "description": "Types that are assignable to PortSpecifier:\n\n\t*SocketAddress_PortValue\n\t*SocketAddress_NamedPort"
+                },
+                "protocol": {
+                    "$ref": "#/definitions/corev3.SocketAddress_Protocol"
+                },
+                "resolver_name": {
+                    "description": "The name of the custom resolver. This must have been registered with Envoy. If\nthis is empty, a context dependent default applies. If the address is a concrete\nIP address, no resolution will occur. If address is a hostname this\nshould be set for resolution other than DNS. Specifying a custom resolver with\n“STRICT_DNS“ or “LOGICAL_DNS“ will generate an error at runtime.",
+                    "type": "string"
+                }
+            }
+        },
+        "corev3.SocketAddress_Protocol": {
+            "type": "integer",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "SocketAddress_TCP",
+                "SocketAddress_UDP"
+            ]
+        },
+        "corev3.SocketOption": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "description": "An optional name to give this socket option for debugging, etc.\nUniqueness is not required and no special meaning is assumed.",
+                    "type": "string"
+                },
+                "level": {
+                    "description": "Corresponding to the level value passed to setsockopt, such as IPPROTO_TCP",
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "The numeric name as passed to setsockopt",
+                    "type": "integer"
+                },
+                "state": {
+                    "description": "The state in which the option will be applied. When used in BindConfig\nSTATE_PREBIND is currently the only valid value.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SocketOption_SocketState"
+                        }
+                    ]
+                },
+                "value": {
+                    "description": "Types that are assignable to Value:\n\n\t*SocketOption_IntValue\n\t*SocketOption_BufValue"
+                }
+            }
+        },
+        "corev3.SocketOption_SocketState": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "SocketOption_STATE_PREBIND",
+                "SocketOption_STATE_BOUND",
+                "SocketOption_STATE_LISTENING"
+            ]
+        },
+        "corev3.SocketOptionsOverride": {
+            "type": "object",
+            "properties": {
+                "socket_options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.SocketOption"
+                    }
+                }
+            }
+        },
+        "corev3.SubstitutionFormatString": {
+            "type": "object",
+            "properties": {
+                "content_type": {
+                    "description": "Specify a “content_type“ field.\nIf this field is not set then “text/plain“ is used for “text_format“ and\n“application/json“ is used for “json_format“.\n\n.. validated-code-block:: yaml\n\n\t:type-name: envoy.config.core.v3.SubstitutionFormatString\n\n\tcontent_type: \"text/html; charset=UTF-8\"",
+                    "type": "string"
+                },
+                "format": {
+                    "description": "Types that are assignable to Format:\n\n\t*SubstitutionFormatString_TextFormat\n\t*SubstitutionFormatString_JsonFormat\n\t*SubstitutionFormatString_TextFormatSource"
+                },
+                "formatters": {
+                    "description": "Specifies a collection of Formatter plugins that can be called from the access log configuration.\nSee the formatters extensions documentation for details.\n[#extension-category: envoy.formatter]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                    }
+                },
+                "json_format_options": {
+                    "description": "If json_format is used, the options will be applied to the output JSON string.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.JsonFormatOptions"
+                        }
+                    ]
+                },
+                "omit_empty_values": {
+                    "description": "If set to true, when command operators are evaluated to null,\n\n  - for “text_format“, the output of the empty operator is changed from “-“ to an\n    empty string, so that empty values are omitted entirely.\n  - for “json_format“ the keys with null values are omitted in the output structure.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "corev3.TcpKeepalive": {
+            "type": "object",
+            "properties": {
+                "keepalive_interval": {
+                    "description": "The number of seconds between keep-alive probes. Default is to use the OS\nlevel configuration (unless overridden, Linux defaults to 75s.)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "keepalive_probes": {
+                    "description": "Maximum number of keepalive probes to send without response before deciding\nthe connection is dead. Default is to use the OS level configuration (unless\noverridden, Linux defaults to 9.)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "keepalive_time": {
+                    "description": "The number of seconds a connection needs to be idle before keep-alive probes\nstart being sent. Default is to use the OS level configuration (unless\noverridden, Linux defaults to 7200s (i.e., 2 hours.)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.TrafficDirection": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "TrafficDirection_UNSPECIFIED",
+                "TrafficDirection_INBOUND",
+                "TrafficDirection_OUTBOUND"
+            ]
+        },
+        "corev3.TransportSocket": {
+            "type": "object",
+            "properties": {
+                "configType": {
+                    "description": "Implementation specific configuration which depends on the implementation being instantiated.\nSee the supported transport socket implementations for further documentation.\n\nTypes that are assignable to ConfigType:\n\n\t*TransportSocket_TypedConfig"
+                },
+                "name": {
+                    "description": "The name of the transport socket to instantiate. The name must match a supported transport\nsocket implementation.",
+                    "type": "string"
+                }
+            }
+        },
+        "corev3.TypedExtensionConfig": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The name of an extension. This is not used to select the extension, instead\nit serves the role of an opaque identifier.",
+                    "type": "string"
+                },
+                "typed_config": {
+                    "description": "The typed config for the extension. The type URL will be used to identify\nthe extension. In the case that the type URL is “xds.type.v3.TypedStruct“\n(or, for historical reasons, “udpa.type.v1.TypedStruct“), the inner type\nURL of “TypedStruct“ will be utilized. See the\n:ref:` + "`" + `extension configuration overview\n\u003cconfig_overview_extension_configuration\u003e` + "`" + ` for further details.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/any.Any"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.UdpSocketConfig": {
+            "type": "object",
+            "properties": {
+                "max_rx_datagram_size": {
+                    "description": "The maximum size of received UDP datagrams. Using a larger size will cause Envoy to allocate\nmore memory per socket. Received datagrams above this size will be dropped. If not set\ndefaults to 1500 bytes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt64Value"
+                        }
+                    ]
+                },
+                "prefer_gro": {
+                    "description": "Configures whether Generic Receive Offload (GRO)\n\u003chttps://en.wikipedia.org/wiki/Large_receive_offload\u003e_ is preferred when reading from the\nUDP socket. The default is context dependent and is documented where UdpSocketConfig is used.\nThis option affects performance but not functionality. If GRO is not supported by the operating\nsystem, non-GRO receive will be used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "corev3.UpstreamHttpProtocolOptions": {
+            "type": "object",
+            "properties": {
+                "auto_san_validation": {
+                    "description": "Automatic validate upstream presented certificate for new upstream connections based on the\ndownstream HTTP host/authority header or any other arbitrary header when :ref:` + "`" + `override_auto_sni_header \u003cenvoy_v3_api_field_config.core.v3.UpstreamHttpProtocolOptions.override_auto_sni_header\u003e` + "`" + `\nis set, as seen by the :ref:` + "`" + `router filter \u003cconfig_http_filters_router\u003e` + "`" + `.\nThis field is intended to be set with “auto_sni“ field.\nDoes nothing if a filter before the http router filter sets the corresponding metadata.",
+                    "type": "boolean"
+                },
+                "auto_sni": {
+                    "description": "Set transport socket ` + "`" + `SNI \u003chttps://en.wikipedia.org/wiki/Server_Name_Indication\u003e` + "`" + `_ for new\nupstream connections based on the downstream HTTP host/authority header or any other arbitrary\nheader when :ref:` + "`" + `override_auto_sni_header \u003cenvoy_v3_api_field_config.core.v3.UpstreamHttpProtocolOptions.override_auto_sni_header\u003e` + "`" + `\nis set, as seen by the :ref:` + "`" + `router filter \u003cconfig_http_filters_router\u003e` + "`" + `.\nDoes nothing if a filter before the http router filter sets the corresponding metadata.",
+                    "type": "boolean"
+                },
+                "override_auto_sni_header": {
+                    "description": "An optional alternative to the host/authority header to be used for setting the SNI value.\nIt should be a valid downstream HTTP header, as seen by the\n:ref:` + "`" + `router filter \u003cconfig_http_filters_router\u003e` + "`" + `.\nIf unset, host/authority header will be used for populating the SNI. If the specified header\nis not found or the value is empty, host/authority header will be used instead.\nThis field is intended to be set with “auto_sni“ and/or “auto_san_validation“ fields.\nIf none of these fields are set then setting this would be a no-op.\nDoes nothing if a filter before the http router filter sets the corresponding metadata.",
+                    "type": "string"
+                }
+            }
+        },
+        "duration.Duration": {
+            "type": "object",
+            "properties": {
+                "nanos": {
+                    "description": "Signed fractions of a second at nanosecond resolution of the span\nof time. Durations less than one second are represented with a 0\n` + "`" + `seconds` + "`" + ` field and a positive or negative ` + "`" + `nanos` + "`" + ` field. For durations\nof one second or more, a non-zero value for the ` + "`" + `nanos` + "`" + ` field must be\nof the same sign as the ` + "`" + `seconds` + "`" + ` field. Must be from -999,999,999\nto +999,999,999 inclusive.",
+                    "type": "integer"
+                },
+                "seconds": {
+                    "description": "Signed seconds of the span of time. Must be from -315,576,000,000\nto +315,576,000,000 inclusive. Note: these bounds are computed from:\n60 sec/min * 60 min/hr * 24 hr/day * 365.25 days/year * 10000 years",
+                    "type": "integer"
+                }
+            }
+        },
+        "endpointv3.ClusterLoadAssignment": {
+            "type": "object",
+            "properties": {
+                "cluster_name": {
+                    "description": "Name of the cluster. This will be the :ref:` + "`" + `service_name\n\u003cenvoy_v3_api_field_config.cluster.v3.Cluster.EdsClusterConfig.service_name\u003e` + "`" + ` value if specified\nin the cluster :ref:` + "`" + `EdsClusterConfig\n\u003cenvoy_v3_api_msg_config.cluster.v3.Cluster.EdsClusterConfig\u003e` + "`" + `.",
+                    "type": "string"
+                },
+                "endpoints": {
+                    "description": "List of endpoints to load balance to.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/endpointv3.LocalityLbEndpoints"
+                    }
+                },
+                "named_endpoints": {
+                    "description": "Map of named endpoints that can be referenced in LocalityLbEndpoints.\n[#not-implemented-hide:]",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/endpointv3.Endpoint"
+                    }
+                },
+                "policy": {
+                    "description": "Load balancing policy settings.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/endpointv3.ClusterLoadAssignment_Policy"
+                        }
+                    ]
+                }
+            }
+        },
+        "endpointv3.ClusterLoadAssignment_Policy": {
+            "type": "object",
+            "properties": {
+                "drop_overloads": {
+                    "description": "Action to trim the overall incoming traffic to protect the upstream\nhosts. This action allows protection in case the hosts are unable to\nrecover from an outage, or unable to autoscale or unable to handle\nincoming traffic volume for any reason.\n\nAt the client each category is applied one after the other to generate\nthe 'actual' drop percentage on all outgoing traffic. For example:\n\n.. code-block:: json\n\n\t{ \"drop_overloads\": [\n\t    { \"category\": \"throttle\", \"drop_percentage\": 60 }\n\t    { \"category\": \"lb\", \"drop_percentage\": 50 }\n\t]}\n\nThe actual drop percentages applied to the traffic at the clients will be\n\n\t\"throttle\"_drop = 60%\n\t\"lb\"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.\n\tactual_outgoing_load = 20% // remaining after applying all categories.\n\n[#not-implemented-hide:]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/endpointv3.ClusterLoadAssignment_Policy_DropOverload"
+                    }
+                },
+                "endpoint_stale_after": {
+                    "description": "The max time until which the endpoints from this assignment can be used.\nIf no new assignments are received before this time expires the endpoints\nare considered stale and should be marked unhealthy.\nDefaults to 0 which means endpoints never go stale.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "overprovisioning_factor": {
+                    "description": "Priority levels and localities are considered overprovisioned with this\nfactor (in percentage). This means that we don't consider a priority\nlevel or locality unhealthy until the fraction of healthy hosts\nmultiplied by the overprovisioning factor drops below 100.\nWith the default value 140(1.4), Envoy doesn't consider a priority level\nor a locality unhealthy until their percentage of healthy hosts drops\nbelow 72%. For example:\n\n.. code-block:: json\n\n\t{ \"overprovisioning_factor\": 100 }\n\nRead more at :ref:` + "`" + `priority levels \u003carch_overview_load_balancing_priority_levels\u003e` + "`" + ` and\n:ref:` + "`" + `localities \u003carch_overview_load_balancing_locality_weighted_lb\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "weighted_priority_health": {
+                    "description": "If true, use the :ref:` + "`" + `load balancing weight\n\u003cenvoy_v3_api_field_config.endpoint.v3.LbEndpoint.load_balancing_weight\u003e` + "`" + ` of healthy and unhealthy\nhosts to determine the health of the priority level. If false, use the number of healthy and unhealthy hosts\nto determine the health of the priority level, or in other words assume each host has a weight of 1 for\nthis calculation.\n\nNote: this is not currently implemented for\n:ref:` + "`" + `locality weighted load balancing \u003carch_overview_load_balancing_locality_weighted_lb\u003e` + "`" + `.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "endpointv3.ClusterLoadAssignment_Policy_DropOverload": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "description": "Identifier for the policy specifying the drop.",
+                    "type": "string"
+                },
+                "drop_percentage": {
+                    "description": "Percentage of traffic that should be dropped for the category.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.FractionalPercent"
+                        }
+                    ]
+                }
+            }
+        },
+        "endpointv3.Endpoint": {
+            "type": "object",
+            "properties": {
+                "additional_addresses": {
+                    "description": "An ordered list of addresses that together with “address“ comprise the\nlist of addresses for an endpoint. The address given in the “address“ is\nprepended to this list. It is assumed that the list must already be\nsorted by preference order of the addresses. This will only be supported\nfor STATIC and EDS clusters.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/endpointv3.Endpoint_AdditionalAddress"
+                    }
+                },
+                "address": {
+                    "description": "The upstream host address.\n\n.. attention::\n\n\tThe form of host address depends on the given cluster type. For STATIC or EDS,\n\tit is expected to be a direct IP address (or something resolvable by the\n\tspecified :ref:` + "`" + `resolver \u003cenvoy_v3_api_field_config.core.v3.SocketAddress.resolver_name\u003e` + "`" + `\n\tin the Address). For LOGICAL or STRICT DNS, it is expected to be hostname,\n\tand will be resolved via DNS.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Address"
+                        }
+                    ]
+                },
+                "health_check_config": {
+                    "description": "The optional health check configuration is used as configuration for the\nhealth checker to contact the health checked host.\n\n.. attention::\n\n\tThis takes into effect only for upstream clusters with\n\t:ref:` + "`" + `active health checking \u003carch_overview_health_checking\u003e` + "`" + ` enabled.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/endpointv3.Endpoint_HealthCheckConfig"
+                        }
+                    ]
+                },
+                "hostname": {
+                    "description": "The hostname associated with this endpoint. This hostname is not used for routing or address\nresolution. If provided, it will be associated with the endpoint, and can be used for features\nthat require a hostname, like\n:ref:` + "`" + `auto_host_rewrite \u003cenvoy_v3_api_field_config.route.v3.RouteAction.auto_host_rewrite\u003e` + "`" + `.",
+                    "type": "string"
+                }
+            }
+        },
+        "endpointv3.Endpoint_AdditionalAddress": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "Additional address that is associated with the endpoint.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Address"
+                        }
+                    ]
+                }
+            }
+        },
+        "endpointv3.Endpoint_HealthCheckConfig": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "description": "Optional alternative health check host address.\n\n.. attention::\n\n\tThe form of the health check host address is expected to be a direct IP address.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Address"
+                        }
+                    ]
+                },
+                "disable_active_health_check": {
+                    "description": "Optional flag to control if perform active health check for this endpoint.\nActive health check is enabled by default if there is a health checker.",
+                    "type": "boolean"
+                },
+                "hostname": {
+                    "description": "By default, the host header for L7 health checks is controlled by cluster level configuration\n(see: :ref:` + "`" + `host \u003cenvoy_v3_api_field_config.core.v3.HealthCheck.HttpHealthCheck.host\u003e` + "`" + ` and\n:ref:` + "`" + `authority \u003cenvoy_v3_api_field_config.core.v3.HealthCheck.GrpcHealthCheck.authority\u003e` + "`" + `). Setting this\nto a non-empty value allows overriding the cluster level configuration for a specific\nendpoint.",
+                    "type": "string"
+                },
+                "port_value": {
+                    "description": "Optional alternative health check port value.\n\nBy default the health check address port of an upstream host is the same\nas the host's serving address port. This provides an alternative health\ncheck port. Setting this with a non-zero value allows an upstream host\nto have different health check address port.",
+                    "type": "integer"
+                }
+            }
+        },
+        "endpointv3.LbEndpoint": {
+            "type": "object",
+            "properties": {
+                "health_status": {
+                    "description": "Optional health status when known and supplied by EDS server.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HealthStatus"
+                        }
+                    ]
+                },
+                "hostIdentifier": {
+                    "description": "Upstream host identifier or a named reference.\n\nTypes that are assignable to HostIdentifier:\n\n\t*LbEndpoint_Endpoint\n\t*LbEndpoint_EndpointName"
+                },
+                "load_balancing_weight": {
+                    "description": "The optional load balancing weight of the upstream host; at least 1.\nEnvoy uses the load balancing weight in some of the built in load\nbalancers. The load balancing weight for an endpoint is divided by the sum\nof the weights of all endpoints in the endpoint's locality to produce a\npercentage of traffic for the endpoint. This percentage is then further\nweighted by the endpoint's locality's load balancing weight from\nLocalityLbEndpoints. If unspecified, will be treated as 1. The sum\nof the weights of all endpoints in the endpoint's locality must not\nexceed uint32_t maximal value (4294967295).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "description": "The endpoint metadata specifies values that may be used by the load\nbalancer to select endpoints in a cluster for a given request. The filter\nname should be specified as “envoy.lb“. An example boolean key-value pair\nis “canary“, providing the optional canary status of the upstream host.\nThis may be matched against in a route's\n:ref:` + "`" + `RouteAction \u003cenvoy_v3_api_msg_config.route.v3.RouteAction\u003e` + "`" + ` metadata_match field\nto subset the endpoints considered in cluster load balancing.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                }
+            }
+        },
+        "endpointv3.LocalityLbEndpoints": {
+            "type": "object",
+            "properties": {
+                "lbConfig": {
+                    "description": "[#not-implemented-hide:]\n\nTypes that are assignable to LbConfig:\n\n\t*LocalityLbEndpoints_LoadBalancerEndpoints\n\t*LocalityLbEndpoints_LedsClusterLocalityConfig"
+                },
+                "lb_endpoints": {
+                    "description": "The group of endpoints belonging to the locality specified.\n[#comment:TODO(adisuissa): Once LEDS is implemented this field needs to be\ndeprecated and replaced by “load_balancer_endpoints“.]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/endpointv3.LbEndpoint"
+                    }
+                },
+                "load_balancing_weight": {
+                    "description": "Optional: Per priority/region/zone/sub_zone weight; at least 1. The load\nbalancing weight for a locality is divided by the sum of the weights of all\nlocalities  at the same priority level to produce the effective percentage\nof traffic for the locality. The sum of the weights of all localities at\nthe same priority level must not exceed uint32_t maximal value (4294967295).\n\nLocality weights are only considered when :ref:` + "`" + `locality weighted load\nbalancing \u003carch_overview_load_balancing_locality_weighted_lb\u003e` + "`" + ` is\nconfigured. These weights are ignored otherwise. If no weights are\nspecified when locality weighted load balancing is enabled, the locality is\nassigned no load.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "locality": {
+                    "description": "Identifies location of where the upstream hosts run.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Locality"
+                        }
+                    ]
+                },
+                "priority": {
+                    "description": "Optional: the priority for this LocalityLbEndpoints. If unspecified this will\ndefault to the highest priority (0).\n\nUnder usual circumstances, Envoy will only select endpoints for the highest\npriority (0). In the event that enough endpoints for a particular priority are\nunavailable/unhealthy, Envoy will fail over to selecting endpoints for the\nnext highest priority group. Read more at :ref:` + "`" + `priority levels \u003carch_overview_load_balancing_priority_levels\u003e` + "`" + `.\n\nPriorities should range from 0 (highest) to N (lowest) without skipping.",
+                    "type": "integer"
+                },
+                "proximity": {
+                    "description": "Optional: Per locality proximity value which indicates how close this\nlocality is from the source locality. This value only provides ordering\ninformation (lower the value, closer it is to the source locality).\nThis will be consumed by load balancing schemes that need proximity order\nto determine where to route the requests.\n[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "expr.CheckedExpr": {
+            "type": "object",
+            "properties": {
+                "expr": {
+                    "description": "The checked expression. Semantically equivalent to the parsed ` + "`" + `expr` + "`" + `, but\nmay have structural differences.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/expr.Expr"
+                        }
+                    ]
+                },
+                "expr_version": {
+                    "description": "The expr version indicates the major / minor version number of the ` + "`" + `expr` + "`" + `\nrepresentation.\n\nThe most common reason for a version change will be to indicate to the CEL\nruntimes that transformations have been performed on the expr during static\nanalysis. In some cases, this will save the runtime the work of applying\nthe same or similar transformations prior to evaluation.",
+                    "type": "string"
+                },
+                "reference_map": {
+                    "description": "A map from expression ids to resolved references.\n\nThe following entries are in this table:\n\n  - An Ident or Select expression is represented here if it resolves to a\n    declaration. For instance, if ` + "`" + `a.b.c` + "`" + ` is represented by\n    ` + "`" + `select(select(id(a), b), c)` + "`" + `, and ` + "`" + `a.b` + "`" + ` resolves to a declaration,\n    while ` + "`" + `c` + "`" + ` is a field selection, then the reference is attached to the\n    nested select expression (but not to the id or or the outer select).\n    In turn, if ` + "`" + `a` + "`" + ` resolves to a declaration and ` + "`" + `b.c` + "`" + ` are field selections,\n    the reference is attached to the ident expression.\n  - Every Call expression has an entry here, identifying the function being\n    called.\n  - Every CreateStruct expression for a message has an entry, identifying\n    the message.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/expr.Reference"
+                    }
+                },
+                "source_info": {
+                    "description": "The source info derived from input that generated the parsed ` + "`" + `expr` + "`" + ` and\nany optimizations made during the type-checking pass.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/expr.SourceInfo"
+                        }
+                    ]
+                },
+                "type_map": {
+                    "description": "A map from expression ids to types.\n\nEvery expression node which has a type different than DYN has a mapping\nhere. If an expression has type DYN, it is omitted from this map to save\nspace.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/expr.Type"
+                    }
+                }
+            }
+        },
+        "expr.Constant": {
+            "type": "object",
+            "properties": {
+                "constantKind": {
+                    "description": "Required. The valid constant kinds.\n\nTypes that are assignable to ConstantKind:\n\n\t*Constant_NullValue\n\t*Constant_BoolValue\n\t*Constant_Int64Value\n\t*Constant_Uint64Value\n\t*Constant_DoubleValue\n\t*Constant_StringValue\n\t*Constant_BytesValue\n\t*Constant_DurationValue\n\t*Constant_TimestampValue"
+                }
+            }
+        },
+        "expr.Expr": {
+            "type": "object",
+            "properties": {
+                "exprKind": {
+                    "description": "Required. Variants of expressions.\n\nTypes that are assignable to ExprKind:\n\n\t*Expr_ConstExpr\n\t*Expr_IdentExpr\n\t*Expr_SelectExpr\n\t*Expr_CallExpr\n\t*Expr_ListExpr\n\t*Expr_StructExpr\n\t*Expr_ComprehensionExpr"
+                },
+                "id": {
+                    "description": "Required. An id assigned to this node by the parser which is unique in a\ngiven expression tree. This is used to associate type information and other\nattributes to a node in the parse tree.",
+                    "type": "integer"
+                }
+            }
+        },
+        "expr.Reference": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "The fully qualified name of the declaration.",
+                    "type": "string"
+                },
+                "overload_id": {
+                    "description": "For references to functions, this is a list of ` + "`" + `Overload.overload_id` + "`" + `\nvalues which match according to typing rules.\n\nIf the list has more than one element, overload resolution among the\npresented candidates must happen at runtime because of dynamic types. The\ntype checker attempts to narrow down this list as much as possible.\n\nEmpty if this is not a reference to a\n[Decl.FunctionDecl][google.api.expr.v1alpha1.Decl.FunctionDecl].",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "value": {
+                    "description": "For references to constants, this may contain the value of the\nconstant if known at compile time.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/expr.Constant"
+                        }
+                    ]
+                }
+            }
+        },
+        "expr.SourceInfo": {
+            "type": "object",
+            "properties": {
+                "line_offsets": {
+                    "description": "Monotonically increasing list of code point offsets where newlines\n` + "`" + `\\n` + "`" + ` appear.\n\nThe line number of a given position is the index ` + "`" + `i` + "`" + ` where for a given\n` + "`" + `id` + "`" + ` the ` + "`" + `line_offsets[i] \u003c id_positions[id] \u003c line_offsets[i+1]` + "`" + `. The\ncolumn may be derivd from ` + "`" + `id_positions[id] - line_offsets[i]` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "location": {
+                    "description": "The location name. All position information attached to an expression is\nrelative to this location.\n\nThe location could be a file, UI element, or similar. For example,\n` + "`" + `acme/app/AnvilPolicy.cel` + "`" + `.",
+                    "type": "string"
+                },
+                "macro_calls": {
+                    "description": "A map from the parse node id where a macro replacement was made to the\ncall ` + "`" + `Expr` + "`" + ` that resulted in a macro expansion.\n\nFor example, ` + "`" + `has(value.field)` + "`" + ` is a function call that is replaced by a\n` + "`" + `test_only` + "`" + ` field selection in the AST. Likewise, the call\n` + "`" + `list.exists(e, e \u003e 10)` + "`" + ` translates to a comprehension expression. The key\nin the map corresponds to the expression id of the expanded macro, and the\nvalue is the call ` + "`" + `Expr` + "`" + ` that was replaced.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/expr.Expr"
+                    }
+                },
+                "positions": {
+                    "description": "A map from the parse node id (e.g. ` + "`" + `Expr.id` + "`" + `) to the code point offset\nwithin the source.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "syntax_version": {
+                    "description": "The syntax version of the source, e.g. ` + "`" + `cel1` + "`" + `.",
+                    "type": "string"
+                }
+            }
+        },
+        "expr.Type": {
+            "type": "object",
+            "properties": {
+                "typeKind": {
+                    "description": "The kind of type.\n\nTypes that are assignable to TypeKind:\n\n\t*Type_Dyn\n\t*Type_Null\n\t*Type_Primitive\n\t*Type_Wrapper\n\t*Type_WellKnown\n\t*Type_ListType_\n\t*Type_MapType_\n\t*Type_Function\n\t*Type_MessageType\n\t*Type_TypeParam\n\t*Type_Type\n\t*Type_Error\n\t*Type_AbstractType_"
+                }
+            }
+        },
+        "github_com_envoyproxy_go-control-plane_envoy_config_rbac_v3.RBAC": {
             "type": "object",
             "properties": {
                 "action": {
-                    "type": "string"
+                    "description": "The action to take if a policy matches. Every action either allows or denies a request,\nand can also carry out action-specific operations.\n\nActions:\n\n  - “ALLOW“: Allows the request if and only if there is a policy that matches\n    the request.\n  - “DENY“: Allows the request if and only if there are no policies that\n    match the request.\n  - “LOG“: Allows all requests. If at least one policy matches, the dynamic\n    metadata key “access_log_hint“ is set to the value “true“ under the shared\n    key namespace “envoy.common“. If no policies match, it is set to “false“.\n    Other actions do not modify this key.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/rbacv3.RBAC_Action"
+                        }
+                    ]
                 },
-                "header": {
-                    "$ref": "#/definitions/cache.Heades"
-                }
-            }
-        },
-        "cache.Route": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
+                "audit_logging_options": {
+                    "description": "Audit logging options that include the condition for audit logging to happen\nand audit logger configurations.\n\n[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/rbacv3.RBAC_AuditLoggingOptions"
+                        }
+                    ]
                 },
-                "virtual_hosts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cache.VirtualHost"
+                "policies": {
+                    "description": "Maps from policy name to policy. A match occurs when at least one policy matches the request.\nThe policies are evaluated in lexicographic order of the policy name.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/rbacv3.Policy"
                     }
                 }
             }
         },
-        "cache.Secret": {
+        "github_com_envoyproxy_go-control-plane_envoy_extensions_filters_http_rbac_v3.RBAC": {
             "type": "object",
             "properties": {
-                "name": {
+                "matcher": {
+                    "description": "The match tree to use when resolving RBAC action for incoming requests. Requests do not\nmatch any matcher will be denied.\nIf absent, no enforcing RBAC matcher will be applied.\nIf present and empty, deny all requests.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.Matcher"
+                        }
+                    ]
+                },
+                "rules": {
+                    "description": "Specify the RBAC rules to be applied globally.\nIf absent, no enforcing RBAC policy will be applied.\nIf present and empty, DENY.\nIf both rules and matcher are configured, rules will be ignored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_envoyproxy_go-control-plane_envoy_config_rbac_v3.RBAC"
+                        }
+                    ]
+                },
+                "shadow_matcher": {
+                    "description": "The match tree to use for emitting stats and logs which can be used for rule testing for\nincoming requests.\nIf absent, no shadow matcher will be applied.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.Matcher"
+                        }
+                    ]
+                },
+                "shadow_rules": {
+                    "description": "Shadow rules are not enforced by the filter (i.e., returning a 403)\nbut will emit stats and logs and can be used for rule testing.\nIf absent, no shadow RBAC policy will be applied.\nIf both shadow rules and shadow matcher are configured, shadow rules will be ignored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_envoyproxy_go-control-plane_envoy_config_rbac_v3.RBAC"
+                        }
+                    ]
+                },
+                "shadow_rules_stat_prefix": {
+                    "description": "If specified, shadow rules will emit stats with the given prefix.\nThis is useful to distinguish the stat when there are more than 1 RBAC filter configured with\nshadow rules.",
                     "type": "string"
                 }
             }
         },
-        "cache.TransportSocket": {
+        "github_com_envoyproxy_go-control-plane_envoy_extensions_filters_http_router_v3.Router": {
             "type": "object",
             "properties": {
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "cache.VirtualHost": {
-            "type": "object",
-            "properties": {
-                "domains": {
+                "dynamic_stats": {
+                    "description": "Whether the router generates dynamic cluster statistics. Defaults to\ntrue. Can be disabled in high performance scenarios.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "respect_expected_rq_timeout": {
+                    "description": "If not set, ingress Envoy will ignore\n:ref:` + "`" + `config_http_filters_router_x-envoy-expected-rq-timeout-ms` + "`" + ` header, populated by egress\nEnvoy, when deriving timeout for upstream cluster.",
+                    "type": "boolean"
+                },
+                "start_child_span": {
+                    "description": "Whether to start a child span for egress routed calls. This can be\nuseful in scenarios where other filters (auth, ratelimit, etc.) make\noutbound calls and have child spans rooted at the same ingress\nparent. Defaults to false.\n\n.. attention::\n\n\tThis field is deprecated by the\n\t:ref:` + "`" + `spawn_upstream_span \u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.spawn_upstream_span\u003e` + "`" + `.\n\tPlease use that ` + "`" + `` + "`" + `spawn_upstream_span` + "`" + `` + "`" + ` field to control the span creation.\n\nDeprecated: Marked as deprecated in envoy/extensions/filters/http/router/v3/router.proto.",
+                    "type": "boolean"
+                },
+                "strict_check_headers": {
+                    "description": "Specifies a list of HTTP headers to strictly validate. Envoy will reject a\nrequest and respond with HTTP status 400 if the request contains an invalid\nvalue for any of the headers listed in this field. Strict header checking\nis only supported for the following headers:\n\nValue must be a ','-delimited list (i.e. no spaces) of supported retry\npolicy values:\n\n* :ref:` + "`" + `config_http_filters_router_x-envoy-retry-grpc-on` + "`" + `\n* :ref:` + "`" + `config_http_filters_router_x-envoy-retry-on` + "`" + `\n\nValue must be an integer:\n\n* :ref:` + "`" + `config_http_filters_router_x-envoy-max-retries` + "`" + `\n* :ref:` + "`" + `config_http_filters_router_x-envoy-upstream-rq-timeout-ms` + "`" + `\n* :ref:` + "`" + `config_http_filters_router_x-envoy-upstream-rq-per-try-timeout-ms` + "`" + `",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "requests_headers_to_adds": {
+                "suppress_envoy_headers": {
+                    "description": "Do not add any additional “x-envoy-“ headers to requests or responses. This\nonly affects the :ref:` + "`" + `router filter generated x-envoy- headers\n\u003cconfig_http_filters_router_headers_set\u003e` + "`" + `, other Envoy filters and the HTTP\nconnection manager may continue to set “x-envoy-“ headers.",
+                    "type": "boolean"
+                },
+                "suppress_grpc_request_failure_code_stats": {
+                    "description": "If set, Envoy will avoid incrementing HTTP failure code stats\non gRPC requests. This includes the individual status code value\n(e.g. upstream_rq_504) and group stats (e.g. upstream_rq_5xx).\nThis field is useful if interested in relying only on the gRPC\nstats filter to define success and failure metrics for gRPC requests\nas not all failed gRPC requests charge HTTP status code metrics. See\n:ref:` + "`" + `gRPC stats filter\u003cconfig_http_filters_grpc_stats\u003e` + "`" + ` documentation\nfor more details.",
+                    "type": "boolean"
+                },
+                "upstream_http_filters": {
+                    "description": ".. note::\n\n\tUpstream HTTP filters are currently in alpha.\n\nOptional HTTP filters for the upstream filter chain.\n\nThese filters will be applied for all requests that pass through the router.\nThey will also be applied to shadowed requests.\nUpstream filters cannot change route or cluster.\nUpstream filters specified on the cluster will override these filters.\n\nIf using upstream filters, please be aware that local errors sent by\nupstream filters will not trigger retries, and local errors sent by\nupstream filters will count as a final response if hedging is configured.\n[#extension-category: envoy.filters.http.upstream]",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cache.RequestsHeadersToAdd"
+                        "$ref": "#/definitions/http_connection_managerv3.HttpFilter"
                     }
                 },
-                "routes": {
+                "upstream_log": {
+                    "description": "Configuration for HTTP upstream logs emitted by the router. Upstream logs\nare configured in the same way as access logs, but each log entry represents\nan upstream request. Presuming retries are configured, multiple upstream\nrequests may be made for each downstream (inbound) request.",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/accesslogv3.AccessLog"
+                    }
+                },
+                "upstream_log_options": {
+                    "description": "Additional upstream access log options.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routerv3.Router_UpstreamAccessLogOptions"
+                        }
+                    ]
+                }
+            }
+        },
+        "github_com_golang_protobuf_ptypes_struct.Struct": {
+            "type": "object",
+            "properties": {
+                "fields": {
+                    "description": "Unordered map of dynamically typed values.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/google_golang_org_protobuf_types_known_structpb.Value"
                     }
                 }
             }
         },
-        "handlers.GetCacheResponse": {
+        "google_golang_org_protobuf_types_known_structpb.Value": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "The kind of value.\n\nTypes that are assignable to Kind:\n\n\t*Value_NullValue\n\t*Value_NumberValue\n\t*Value_StringValue\n\t*Value_BoolValue\n\t*Value_StructValue\n\t*Value_ListValue"
+                }
+            }
+        },
+        "handlers.GetClustersResponse": {
             "type": "object",
             "properties": {
                 "clusters": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cache.Cluster"
+                        "$ref": "#/definitions/clusterv3.Cluster"
                     }
-                },
-                "endpoints": {
+                }
+            }
+        },
+        "handlers.GetHCMFilterResponse": {
+            "type": "object",
+            "properties": {
+                "filters": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cache.Endpoint"
+                        "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager"
                     }
-                },
+                }
+            }
+        },
+        "handlers.GetHttpFilterRBACResponse": {
+            "type": "object",
+            "properties": {
+                "rbac": {
+                    "$ref": "#/definitions/github_com_envoyproxy_go-control-plane_envoy_extensions_filters_http_rbac_v3.RBAC"
+                }
+            }
+        },
+        "handlers.GetHttpFilterRouterResponse": {
+            "type": "object",
+            "properties": {
+                "router": {
+                    "$ref": "#/definitions/github_com_envoyproxy_go-control-plane_envoy_extensions_filters_http_router_v3.Router"
+                }
+            }
+        },
+        "handlers.GetHttpsFilterResponse": {
+            "type": "object",
+            "properties": {
+                "httpFilters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http_connection_managerv3.HttpFilter"
+                    }
+                }
+            }
+        },
+        "handlers.GetListenersResponse": {
+            "type": "object",
+            "properties": {
                 "listeners": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/cache.Listener"
-                    }
-                },
-                "routes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cache.Route"
-                    }
-                },
-                "secrets": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/cache.Secret"
+                        "$ref": "#/definitions/listenerv3.Listener"
                     }
                 },
                 "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.GetRouteConfigurationsResponse": {
+            "type": "object",
+            "properties": {
+                "routeConfigurations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.RouteConfiguration"
+                    }
+                }
+            }
+        },
+        "handlers.GetTCPProxyFilterResponse": {
+            "type": "object",
+            "properties": {
+                "filters": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tcp_proxyv3.TcpProxy"
+                    }
+                }
+            }
+        },
+        "handlers.getFilterTypeResponse": {
+            "type": "object",
+            "properties": {
+                "filter_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager": {
+            "type": "object",
+            "properties": {
+                "access_log": {
+                    "description": "Configuration for :ref:` + "`" + `HTTP access logs \u003carch_overview_access_logs\u003e` + "`" + `\nemitted by the connection manager.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/accesslogv3.AccessLog"
+                    }
+                },
+                "access_log_flush_interval": {
+                    "description": ".. attention::\nThis field is deprecated in favor of\n:ref:` + "`" + `access_log_flush_interval\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions.access_log_flush_interval\u003e` + "`" + `.\nNote that if both this field and :ref:` + "`" + `access_log_flush_interval\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions.access_log_flush_interval\u003e` + "`" + `\nare specified, the former (deprecated field) is ignored.\n\nDeprecated: Marked as deprecated in envoy/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "access_log_options": {
+                    "description": "Additional access log options for HTTP connection manager.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_HcmAccessLogOptions"
+                        }
+                    ]
+                },
+                "add_proxy_protocol_connection_state": {
+                    "description": "Whether the HCM will add ProxyProtocolFilterState to the Connection lifetime filter state. Defaults to “true“.\nThis should be set to “false“ in cases where Envoy's view of the downstream address may not correspond to the\nactual client address, for example, if there's another proxy in front of the Envoy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "add_user_agent": {
+                    "description": "Whether the connection manager manipulates the :ref:` + "`" + `config_http_conn_man_headers_user-agent` + "`" + `\nand :ref:` + "`" + `config_http_conn_man_headers_downstream-service-cluster` + "`" + ` headers. See the linked\ndocumentation for more information. Defaults to false.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "always_set_request_id_in_response": {
+                    "description": "If set, Envoy will always set :ref:` + "`" + `x-request-id \u003cconfig_http_conn_man_headers_x-request-id\u003e` + "`" + ` header in response.\nIf this is false or not set, the request ID is returned in responses only if tracing is forced using\n:ref:` + "`" + `x-envoy-force-trace \u003cconfig_http_conn_man_headers_x-envoy-force-trace\u003e` + "`" + ` header.",
+                    "type": "boolean"
+                },
+                "append_x_forwarded_port": {
+                    "description": "Append the “x-forwarded-port“ header with the port value client used to connect to Envoy. It\nwill be ignored if the “x-forwarded-port“ header has been set by any trusted proxy in front of Envoy.",
+                    "type": "boolean"
+                },
+                "codec_type": {
+                    "description": "Supplies the type of codec that the connection manager should use.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_CodecType"
+                        }
+                    ]
+                },
+                "common_http_protocol_options": {
+                    "description": "Additional settings for HTTP requests handled by the connection manager. These will be\napplicable to both HTTP1 and HTTP2 requests.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.HttpProtocolOptions"
+                        }
+                    ]
+                },
+                "delayed_close_timeout": {
+                    "description": "The delayed close timeout is for downstream connections managed by the HTTP connection manager.\nIt is defined as a grace period after connection close processing has been locally initiated\nduring which Envoy will wait for the peer to close (i.e., a TCP FIN/RST is received by Envoy\nfrom the downstream connection) prior to Envoy closing the socket associated with that\nconnection.\nNOTE: This timeout is enforced even when the socket associated with the downstream connection\nis pending a flush of the write buffer. However, any progress made writing data to the socket\nwill restart the timer associated with this timeout. This means that the total grace period for\na socket in this state will be\n\u003ctotal_time_waiting_for_write_buffer_flushes\u003e+\u003cdelayed_close_timeout\u003e.\n\nDelaying Envoy's connection close and giving the peer the opportunity to initiate the close\nsequence mitigates a race condition that exists when downstream clients do not drain/process\ndata in a connection's receive buffer after a remote close has been detected via a socket\nwrite(). This race leads to such clients failing to process the response code sent by Envoy,\nwhich could result in erroneous downstream processing.\n\nIf the timeout triggers, Envoy will close the connection's socket.\n\nThe default timeout is 1000 ms if this option is not specified.\n\n.. NOTE::\n\n\tTo be useful in avoiding the race condition described above, this timeout must be set\n\tto *at least* \u003cmax round trip time expected between clients and Envoy\u003e+\u003c100ms to account for\n\ta reasonable \"worst\" case processing time for a full iteration of Envoy's event loop\u003e.\n\n.. WARNING::\n\n\tA value of 0 will completely disable delayed close processing. When disabled, the downstream\n\tconnection's socket will be closed immediately after the write flush is completed or will\n\tnever close if the write flush does not complete.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "drain_timeout": {
+                    "description": "The time that Envoy will wait between sending an HTTP/2 “shutdown\nnotification” (GOAWAY frame with max stream ID) and a final GOAWAY frame.\nThis is used so that Envoy provides a grace period for new streams that\nrace with the final GOAWAY frame. During this grace period, Envoy will\ncontinue to accept new streams. After the grace period, a final GOAWAY\nframe is sent and Envoy will start refusing new streams. Draining occurs\nboth when a connection hits the idle timeout or during general server\ndraining. The default grace period is 5000 milliseconds (5 seconds) if this\noption is not specified.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "early_header_mutation_extensions": {
+                    "description": "The configuration for the early header mutation extensions.\n\nWhen configured the extensions will be called before any routing, tracing, or any filter processing.\nEach extension will be applied in the order they are configured.\nIf the same header is mutated by multiple extensions, then the last extension will win.\n\n[#extension-category: envoy.http.early_header_mutation]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v3.TypedExtensionConfig"
+                    }
+                },
+                "flush_access_log_on_new_request": {
+                    "description": ".. attention::\nThis field is deprecated in favor of\n:ref:` + "`" + `flush_access_log_on_new_request\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions.flush_access_log_on_new_request\u003e` + "`" + `.\nNote that if both this field and :ref:` + "`" + `flush_access_log_on_new_request\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions.flush_access_log_on_new_request\u003e` + "`" + `\nare specified, the former (deprecated field) is ignored.\n\nDeprecated: Marked as deprecated in envoy/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto.",
+                    "type": "boolean"
+                },
+                "forward_client_cert_details": {
+                    "description": "How to handle the :ref:` + "`" + `config_http_conn_man_headers_x-forwarded-client-cert` + "`" + ` (XFCC) HTTP\nheader.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_ForwardClientCertDetails"
+                        }
+                    ]
+                },
+                "generate_request_id": {
+                    "description": "Whether the connection manager will generate the :ref:` + "`" + `x-request-id\n\u003cconfig_http_conn_man_headers_x-request-id\u003e` + "`" + ` header if it does not exist. This defaults to\ntrue. Generating a random UUID4 is expensive so in high throughput scenarios where this feature\nis not desired it can be disabled.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "http2_protocol_options": {
+                    "description": "Additional HTTP/2 settings that are passed directly to the HTTP/2 codec.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Http2ProtocolOptions"
+                        }
+                    ]
+                },
+                "http3_protocol_options": {
+                    "description": "Additional HTTP/3 settings that are passed directly to the HTTP/3 codec.\n[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Http3ProtocolOptions"
+                        }
+                    ]
+                },
+                "http_filters": {
+                    "description": "A list of individual HTTP filters that make up the filter chain for\nrequests made to the connection manager. :ref:` + "`" + `Order matters \u003carch_overview_http_filters_ordering\u003e` + "`" + `\nas the filters are processed sequentially as request events happen.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http_connection_managerv3.HttpFilter"
+                    }
+                },
+                "http_protocol_options": {
+                    "description": "Additional HTTP/1 settings that are passed to the HTTP/1 codec.\n[#comment:TODO: The following fields are ignored when the\n:ref:` + "`" + `header validation configuration \u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.typed_header_validation_config\u003e` + "`" + `\nis present:\n1. :ref:` + "`" + `allow_chunked_length \u003cenvoy_v3_api_field_config.core.v3.Http1ProtocolOptions.allow_chunked_length\u003e` + "`" + `]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Http1ProtocolOptions"
+                        }
+                    ]
+                },
+                "internal_address_config": {
+                    "description": "Configures what network addresses are considered internal for stats and header sanitation\npurposes. If unspecified, only RFC1918 IP addresses will be considered internal.\nSee the documentation for :ref:` + "`" + `config_http_conn_man_headers_x-envoy-internal` + "`" + ` for more\ninformation about internal/external addresses.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_InternalAddressConfig"
+                        }
+                    ]
+                },
+                "local_reply_config": {
+                    "description": "The configuration to customize local reply returned by Envoy. It can customize status code,\nbody text and response content type. If not specified, status code and text body are hard\ncoded in Envoy, the response content type is plain text.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.LocalReplyConfig"
+                        }
+                    ]
+                },
+                "max_request_headers_kb": {
+                    "description": "The maximum request headers size for incoming connections.\nIf unconfigured, the default max request headers allowed is 60 KiB.\nRequests that exceed this limit will receive a 431 response.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "merge_slashes": {
+                    "description": "Determines if adjacent slashes in the path are merged into one before any processing of\nrequests by HTTP filters or routing. This affects the upstream “:path“ header as well. Without\nsetting this option, incoming requests with path “//dir///file“ will not match against route\nwith “prefix“ match set to “/dir“. Defaults to “false“. Note that slash merging is not part of\n` + "`" + `HTTP spec \u003chttps://tools.ietf.org/html/rfc3986\u003e` + "`" + `_ and is provided for convenience.\n[#comment:TODO: This field is ignored when the\n:ref:` + "`" + `header validation configuration \u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.typed_header_validation_config\u003e` + "`" + `\nis present.]",
+                    "type": "boolean"
+                },
+                "normalize_path": {
+                    "description": "Should paths be normalized according to RFC 3986 before any processing of\nrequests by HTTP filters or routing? This affects the upstream “:path“ header\nas well. For paths that fail this check, Envoy will respond with 400 to\npaths that are malformed. This defaults to false currently but will default\ntrue in the future. When not specified, this value may be overridden by the\nruntime variable\n:ref:` + "`" + `http_connection_manager.normalize_path\u003cconfig_http_conn_man_runtime_normalize_path\u003e` + "`" + `.\nSee ` + "`" + `Normalization and Comparison \u003chttps://tools.ietf.org/html/rfc3986#section-6\u003e` + "`" + `_\nfor details of normalization.\nNote that Envoy does not perform\n` + "`" + `case normalization \u003chttps://tools.ietf.org/html/rfc3986#section-6.2.2.1\u003e` + "`" + `_\n[#comment:TODO: This field is ignored when the\n:ref:` + "`" + `header validation configuration \u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.typed_header_validation_config\u003e` + "`" + `\nis present.]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "original_ip_detection_extensions": {
+                    "description": "The configuration for the original IP detection extensions.\n\nWhen configured the extensions will be called along with the request headers\nand information about the downstream connection, such as the directly connected address.\nEach extension will then use these parameters to decide the request's effective remote address.\nIf an extension fails to detect the original IP address and isn't configured to reject\nthe request, the HCM will try the remaining extensions until one succeeds or rejects\nthe request. If the request isn't rejected nor any extension succeeds, the HCM will\nfallback to using the remote address.\n\n.. WARNING::\n\n\tExtensions cannot be used in conjunction with :ref:` + "`" + `use_remote_address\n\t\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.use_remote_address\u003e` + "`" + `\n\tnor :ref:` + "`" + `xff_num_trusted_hops\n\t\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.xff_num_trusted_hops\u003e` + "`" + `.\n\n[#extension-category: envoy.http.original_ip_detection]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v3.TypedExtensionConfig"
+                    }
+                },
+                "path_normalization_options": {
+                    "description": "[#not-implemented-hide:] Path normalization configuration. This includes\nconfigurations for transformations (e.g. RFC 3986 normalization or merge\nadjacent slashes) and the policy to apply them. The policy determines\nwhether transformations affect the forwarded “:path“ header. RFC 3986 path\nnormalization is enabled by default and the default policy is that the\nnormalized header will be forwarded. See :ref:` + "`" + `PathNormalizationOptions\n\u003cenvoy_v3_api_msg_extensions.filters.network.http_connection_manager.v3.PathNormalizationOptions\u003e` + "`" + `\nfor details.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_PathNormalizationOptions"
+                        }
+                    ]
+                },
+                "path_with_escaped_slashes_action": {
+                    "description": "Action to take when request URL path contains escaped slash sequences (%2F, %2f, %5C and %5c).\nThe default value can be overridden by the :ref:` + "`" + `http_connection_manager.path_with_escaped_slashes_action\u003cconfig_http_conn_man_runtime_path_with_escaped_slashes_action\u003e` + "`" + `\nruntime variable.\nThe :ref:` + "`" + `http_connection_manager.path_with_escaped_slashes_action_sampling\u003cconfig_http_conn_man_runtime_path_with_escaped_slashes_action_enabled\u003e` + "`" + ` runtime\nvariable can be used to apply the action to a portion of all requests.\n[#comment:TODO: This field is ignored when the\n:ref:` + "`" + `header validation configuration \u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.typed_header_validation_config\u003e` + "`" + `\nis present.]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_PathWithEscapedSlashesAction"
+                        }
+                    ]
+                },
+                "preserve_external_request_id": {
+                    "description": "Whether the connection manager will keep the :ref:` + "`" + `x-request-id\n\u003cconfig_http_conn_man_headers_x-request-id\u003e` + "`" + ` header if passed for a request that is edge\n(Edge request is the request from external clients to front Envoy) and not reset it, which\nis the current Envoy behaviour. This defaults to false.",
+                    "type": "boolean"
+                },
+                "proxy_100_continue": {
+                    "description": "If proxy_100_continue is true, Envoy will proxy incoming \"Expect:\n100-continue\" headers upstream, and forward \"100 Continue\" responses\ndownstream. If this is false or not set, Envoy will instead strip the\n\"Expect: 100-continue\" header, and send a \"100 Continue\" response itself.",
+                    "type": "boolean"
+                },
+                "proxy_status_config": {
+                    "description": "Proxy-Status HTTP response header configuration.\nIf this config is set, the Proxy-Status HTTP response header field is\npopulated. By default, it is not.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_ProxyStatusConfig"
+                        }
+                    ]
+                },
+                "represent_ipv4_remote_address_as_ipv4_mapped_ipv6": {
+                    "description": "If\n:ref:` + "`" + `use_remote_address\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.use_remote_address\u003e` + "`" + `\nis true and represent_ipv4_remote_address_as_ipv4_mapped_ipv6 is true and the remote address is\nan IPv4 address, the address will be mapped to IPv6 before it is appended to “x-forwarded-for“.\nThis is useful for testing compatibility of upstream services that parse the header value. For\nexample, 50.0.0.1 is represented as ::FFFF:50.0.0.1. See ` + "`" + `IPv4-Mapped IPv6 Addresses\n\u003chttps://tools.ietf.org/html/rfc4291#section-2.5.5.2\u003e` + "`" + `_ for details. This will also affect the\n:ref:` + "`" + `config_http_conn_man_headers_x-envoy-external-address` + "`" + ` header. See\n:ref:` + "`" + `http_connection_manager.represent_ipv4_remote_address_as_ipv4_mapped_ipv6\n\u003cconfig_http_conn_man_runtime_represent_ipv4_remote_address_as_ipv4_mapped_ipv6\u003e` + "`" + ` for runtime\ncontrol.\n[#not-implemented-hide:]",
+                    "type": "boolean"
+                },
+                "request_headers_timeout": {
+                    "description": "The amount of time that Envoy will wait for the request headers to be received. The timer is\nactivated when the first byte of the headers is received, and is disarmed when the last byte of\nthe headers has been received. If not specified or set to 0, this timeout is disabled.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "request_id_extension": {
+                    "description": "The configuration of the request ID extension. This includes operations such as\ngeneration, validation, and associated tracing operations. If empty, the\n:ref:` + "`" + `UuidRequestIdConfig \u003cenvoy_v3_api_msg_extensions.request_id.uuid.v3.UuidRequestIdConfig\u003e` + "`" + `\ndefault extension is used with default parameters. See the documentation for that extension\nfor details on what it does. Customizing the configuration for the default extension can be\nachieved by configuring it explicitly here. For example, to disable trace reason packing,\nthe following configuration can be used:\n\n.. validated-code-block:: yaml\n\n\t:type-name: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension\n\n\ttyped_config:\n\t  \"@type\": type.googleapis.com/envoy.extensions.request_id.uuid.v3.UuidRequestIdConfig\n\t  pack_trace_reason: false\n\n[#extension-category: envoy.request_id]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.RequestIDExtension"
+                        }
+                    ]
+                },
+                "request_timeout": {
+                    "description": "The amount of time that Envoy will wait for the entire request to be received.\nThe timer is activated when the request is initiated, and is disarmed when the last byte of the\nrequest is sent upstream (i.e. all decoding filters have processed the request), OR when the\nresponse is initiated. If not specified or set to 0, this timeout is disabled.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "routeSpecifier": {
+                    "description": "Types that are assignable to RouteSpecifier:\n\n\t*HttpConnectionManager_Rds\n\t*HttpConnectionManager_RouteConfig\n\t*HttpConnectionManager_ScopedRoutes"
+                },
+                "scheme_header_transformation": {
+                    "description": "Allows for explicit transformation of the :scheme header on the request path.\nIf not set, Envoy's default :ref:` + "`" + `scheme  \u003cconfig_http_conn_man_headers_scheme\u003e` + "`" + `\nhandling applies.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SchemeHeaderTransformation"
+                        }
+                    ]
+                },
+                "server_header_transformation": {
+                    "description": "Defines the action to be applied to the Server header on the response path.\nBy default, Envoy will overwrite the header with the value specified in\nserver_name.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_ServerHeaderTransformation"
+                        }
+                    ]
+                },
+                "server_name": {
+                    "description": "An optional override that the connection manager will write to the server\nheader in responses. If not set, the default is “envoy“.",
+                    "type": "string"
+                },
+                "set_current_client_cert_details": {
+                    "description": "This field is valid only when :ref:` + "`" + `forward_client_cert_details\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_details\u003e` + "`" + `\nis APPEND_FORWARD or SANITIZE_SET and the client connection is mTLS. It specifies the fields in\nthe client certificate to be forwarded. Note that in the\n:ref:` + "`" + `config_http_conn_man_headers_x-forwarded-client-cert` + "`" + ` header, “Hash“ is always set, and\n“By“ is always set when the client certificate presents the URI type Subject Alternative Name\nvalue.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_SetCurrentClientCertDetails"
+                        }
+                    ]
+                },
+                "skip_xff_append": {
+                    "description": "If set, Envoy will not append the remote address to the\n:ref:` + "`" + `config_http_conn_man_headers_x-forwarded-for` + "`" + ` HTTP header. This may be used in\nconjunction with HTTP filters that explicitly manipulate XFF after the HTTP connection manager\nhas mutated the request headers. While :ref:` + "`" + `use_remote_address\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.use_remote_address\u003e` + "`" + `\nwill also suppress XFF addition, it has consequences for logging and other\nEnvoy uses of the remote address, so “skip_xff_append“ should be used\nwhen only an elision of XFF addition is intended.",
+                    "type": "boolean"
+                },
+                "stat_prefix": {
+                    "description": "The human readable prefix to use when emitting statistics for the\nconnection manager. See the :ref:` + "`" + `statistics documentation \u003cconfig_http_conn_man_stats\u003e` + "`" + ` for\nmore information.",
+                    "type": "string"
+                },
+                "stream_error_on_invalid_http_message": {
+                    "description": "Governs Envoy's behavior when receiving invalid HTTP from downstream.\nIf this option is false (default), Envoy will err on the conservative side handling HTTP\nerrors, terminating both HTTP/1.1 and HTTP/2 connections when receiving an invalid request.\nIf this option is set to true, Envoy will be more permissive, only resetting the invalid\nstream in the case of HTTP/2 and leaving the connection open where possible (if the entire\nrequest is read for HTTP/1.1)\nIn general this should be true for deployments receiving trusted traffic (L2 Envoys,\ncompany-internal mesh) and false when receiving untrusted traffic (edge deployments).\n\nIf different behaviors for invalid_http_message for HTTP/1 and HTTP/2 are\ndesired, one should use the new HTTP/1 option :ref:` + "`" + `override_stream_error_on_invalid_http_message\n\u003cenvoy_v3_api_field_config.core.v3.Http1ProtocolOptions.override_stream_error_on_invalid_http_message\u003e` + "`" + ` or the new HTTP/2 option\n:ref:` + "`" + `override_stream_error_on_invalid_http_message\n\u003cenvoy_v3_api_field_config.core.v3.Http2ProtocolOptions.override_stream_error_on_invalid_http_message\u003e` + "`" + `\n“not“ the deprecated but similarly named :ref:` + "`" + `stream_error_on_invalid_http_messaging\n\u003cenvoy_v3_api_field_config.core.v3.Http2ProtocolOptions.stream_error_on_invalid_http_messaging\u003e` + "`" + `",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "stream_idle_timeout": {
+                    "description": "The stream idle timeout for connections managed by the connection manager.\nIf not specified, this defaults to 5 minutes. The default value was selected\nso as not to interfere with any smaller configured timeouts that may have\nexisted in configurations prior to the introduction of this feature, while\nintroducing robustness to TCP connections that terminate without a FIN.\n\nThis idle timeout applies to new streams and is overridable by the\n:ref:` + "`" + `route-level idle_timeout\n\u003cenvoy_v3_api_field_config.route.v3.RouteAction.idle_timeout\u003e` + "`" + `. Even on a stream in\nwhich the override applies, prior to receipt of the initial request\nheaders, the :ref:` + "`" + `stream_idle_timeout\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_idle_timeout\u003e` + "`" + `\napplies. Each time an encode/decode event for headers or data is processed\nfor the stream, the timer will be reset. If the timeout fires, the stream\nis terminated with a 408 Request Timeout error code if no upstream response\nheader has been received, otherwise a stream reset occurs.\n\nThis timeout also specifies the amount of time that Envoy will wait for the peer to open enough\nwindow to write any remaining stream data once the entirety of stream data (local end stream is\ntrue) has been buffered pending available window. In other words, this timeout defends against\na peer that does not release enough window to completely write the stream, even though all\ndata has been proxied within available flow control windows. If the timeout is hit in this\ncase, the :ref:` + "`" + `tx_flush_timeout \u003cconfig_http_conn_man_stats_per_codec\u003e` + "`" + ` counter will be\nincremented. Note that :ref:` + "`" + `max_stream_duration\n\u003cenvoy_v3_api_field_config.core.v3.HttpProtocolOptions.max_stream_duration\u003e` + "`" + ` does not apply to\nthis corner case.\n\nIf the :ref:` + "`" + `overload action \u003cconfig_overload_manager_overload_actions\u003e` + "`" + ` \"envoy.overload_actions.reduce_timeouts\"\nis configured, this timeout is scaled according to the value for\n:ref:` + "`" + `HTTP_DOWNSTREAM_STREAM_IDLE \u003cenvoy_v3_api_enum_value_config.overload.v3.ScaleTimersOverloadActionConfig.TimerType.HTTP_DOWNSTREAM_STREAM_IDLE\u003e` + "`" + `.\n\nNote that it is possible to idle timeout even if the wire traffic for a stream is non-idle, due\nto the granularity of events presented to the connection manager. For example, while receiving\nvery large request headers, it may be the case that there is traffic regularly arriving on the\nwire while the connection manage is only able to observe the end-of-headers event, hence the\nstream may still idle timeout.\n\nA value of 0 will completely disable the connection manager stream idle\ntimeout, although per-route idle timeout overrides will continue to apply.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "stripPortMode": {
+                    "description": "Types that are assignable to StripPortMode:\n\n\t*HttpConnectionManager_StripAnyHostPort"
+                },
+                "strip_matching_host_port": {
+                    "description": "Determines if the port part should be removed from host/authority header before any processing\nof request by HTTP filters or routing. The port would be removed only if it is equal to the :ref:` + "`" + `listener's\u003cenvoy_v3_api_field_config.listener.v3.Listener.address\u003e` + "`" + `\nlocal port. This affects the upstream host header unless the method is\nCONNECT in which case if no filter adds a port the original port will be restored before headers are\nsent upstream.\nWithout setting this option, incoming requests with host “example:443“ will not match against\nroute with :ref:` + "`" + `domains\u003cenvoy_v3_api_field_config.route.v3.VirtualHost.domains\u003e` + "`" + ` match set to “example“. Defaults to “false“. Note that port removal is not part\nof ` + "`" + `HTTP spec \u003chttps://tools.ietf.org/html/rfc3986\u003e` + "`" + `_ and is provided for convenience.\nOnly one of “strip_matching_host_port“ or “strip_any_host_port“ can be set.",
+                    "type": "boolean"
+                },
+                "strip_trailing_host_dot": {
+                    "description": "Determines if trailing dot of the host should be removed from host/authority header before any\nprocessing of request by HTTP filters or routing.\nThis affects the upstream host header.\nWithout setting this option, incoming requests with host “example.com.“ will not match against\nroute with :ref:` + "`" + `domains\u003cenvoy_v3_api_field_config.route.v3.VirtualHost.domains\u003e` + "`" + ` match set to “example.com“. Defaults to “false“.\nWhen the incoming request contains a host/authority header that includes a port number,\nsetting this option will strip a trailing dot, if present, from the host section,\nleaving the port as is (e.g. host value “example.com.:443“ will be updated to “example.com:443“).",
+                    "type": "boolean"
+                },
+                "tracing": {
+                    "description": "Presence of the object defines whether the connection manager\nemits :ref:` + "`" + `tracing \u003carch_overview_tracing\u003e` + "`" + ` data to the :ref:` + "`" + `configured tracing provider\n\u003cenvoy_v3_api_msg_config.trace.v3.Tracing\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_Tracing"
+                        }
+                    ]
+                },
+                "typed_header_validation_config": {
+                    "description": "Configuration options for Header Validation (UHV).\nUHV is an extensible mechanism for checking validity of HTTP requests as well as providing\nnormalization for request attributes, such as URI path.\nIf the typed_header_validation_config is present it overrides the following options:\n“normalize_path“, “merge_slashes“, “path_with_escaped_slashes_action“\n“http_protocol_options.allow_chunked_length“, “common_http_protocol_options.headers_with_underscores_action“.\n\nThe default UHV checks the following:\n\n#. HTTP/1 header map validity according to ` + "`" + `RFC 7230 section 3.2\u003chttps://datatracker.ietf.org/doc/html/rfc7230#section-3.2\u003e` + "`" + `_\n#. Syntax of HTTP/1 request target URI and response status\n#. HTTP/2 header map validity according to ` + "`" + `RFC 7540 section 8.1.2\u003chttps://datatracker.ietf.org/doc/html/rfc7540#section-8.1.2` + "`" + `_\n#. Syntax of HTTP/2 pseudo headers\n#. HTTP/3 header map validity according to ` + "`" + `RFC 9114 section 4.3 \u003chttps://www.rfc-editor.org/rfc/rfc9114.html\u003e` + "`" + `_\n#. Syntax of HTTP/3 pseudo headers\n#. Syntax of “Content-Length“ and “Transfer-Encoding“\n#. Validation of HTTP/1 requests with both “Content-Length“ and “Transfer-Encoding“ headers\n#. Normalization of the URI path according to ` + "`" + `Normalization and Comparison \u003chttps://datatracker.ietf.org/doc/html/rfc3986#section-6\u003e` + "`" + `_\n\n\twithout ` + "`" + `case normalization \u003chttps://datatracker.ietf.org/doc/html/rfc3986#section-6.2.2.1\u003e` + "`" + `_\n\n[#not-implemented-hide:]\n[#extension-category: envoy.http.header_validators]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "upgrade_configs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http_connection_managerv3.HttpConnectionManager_UpgradeConfig"
+                    }
+                },
+                "use_remote_address": {
+                    "description": "If set to true, the connection manager will use the real remote address\nof the client connection when determining internal versus external origin and manipulating\nvarious headers. If set to false or absent, the connection manager will use the\n:ref:` + "`" + `config_http_conn_man_headers_x-forwarded-for` + "`" + ` HTTP header. See the documentation for\n:ref:` + "`" + `config_http_conn_man_headers_x-forwarded-for` + "`" + `,\n:ref:` + "`" + `config_http_conn_man_headers_x-envoy-internal` + "`" + `, and\n:ref:` + "`" + `config_http_conn_man_headers_x-envoy-external-address` + "`" + ` for more information.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "via": {
+                    "description": "Via header value to append to request and response headers. If this is\nempty, no via header will be appended.",
+                    "type": "string"
+                },
+                "xff_num_trusted_hops": {
+                    "description": "The number of additional ingress proxy hops from the right side of the\n:ref:` + "`" + `config_http_conn_man_headers_x-forwarded-for` + "`" + ` HTTP header to trust when\ndetermining the origin client's IP address. The default is zero if this option\nis not specified. See the documentation for\n:ref:` + "`" + `config_http_conn_man_headers_x-forwarded-for` + "`" + ` for more information.",
+                    "type": "integer"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager_CodecType": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "HttpConnectionManager_AUTO",
+                "HttpConnectionManager_HTTP1",
+                "HttpConnectionManager_HTTP2",
+                "HttpConnectionManager_HTTP3"
+            ]
+        },
+        "http_connection_managerv3.HttpConnectionManager_ForwardClientCertDetails": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "x-enum-varnames": [
+                "HttpConnectionManager_SANITIZE",
+                "HttpConnectionManager_FORWARD_ONLY",
+                "HttpConnectionManager_APPEND_FORWARD",
+                "HttpConnectionManager_SANITIZE_SET",
+                "HttpConnectionManager_ALWAYS_FORWARD_ONLY"
+            ]
+        },
+        "http_connection_managerv3.HttpConnectionManager_HcmAccessLogOptions": {
+            "type": "object",
+            "properties": {
+                "access_log_flush_interval": {
+                    "description": "The interval to flush the above access logs. By default, the HCM will flush exactly one access log\non stream close, when the HTTP request is complete. If this field is set, the HCM will flush access\nlogs periodically at the specified interval. This is especially useful in the case of long-lived\nrequests, such as CONNECT and Websockets. Final access logs can be detected via the\n“requestComplete()“ method of “StreamInfo“ in access log filters, or through the “%DURATION%“ substitution\nstring.\nThe interval must be at least 1 millisecond.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "flush_access_log_on_new_request": {
+                    "description": "If set to true, HCM will flush an access log when a new HTTP request is received, after request\nheaders have been evaluated, before iterating through the HTTP filter chain.\nThis log record, if enabled, does not depend on periodic log records or request completion log.\nDetails related to upstream cluster, such as upstream host, will not be available for this log.",
+                    "type": "boolean"
+                },
+                "flush_log_on_tunnel_successfully_established": {
+                    "description": "If true, the HCM will flush an access log when a tunnel is successfully established. For example,\nthis could be when an upstream has successfully returned 101 Switching Protocols, or when the proxy\nhas returned 200 to a CONNECT request.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager_InternalAddressConfig": {
+            "type": "object",
+            "properties": {
+                "cidr_ranges": {
+                    "description": "List of CIDR ranges that are treated as internal. If unset, then RFC1918 / RFC4193\nIP addresses will be considered internal.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v3.CidrRange"
+                    }
+                },
+                "unix_sockets": {
+                    "description": "Whether unix socket addresses should be considered internal.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager_PathNormalizationOptions": {
+            "type": "object",
+            "properties": {
+                "forwarding_transformation": {
+                    "description": "[#not-implemented-hide:] Normalization applies internally before any processing of requests by\nHTTP filters, routing, and matching *and* will affect the forwarded “:path“ header. Defaults\nto :ref:` + "`" + `NormalizePathRFC3986\n\u003cenvoy_v3_api_msg_type.http.v3.PathTransformation.Operation.NormalizePathRFC3986\u003e` + "`" + `. When not\nspecified, this value may be overridden by the runtime variable\n:ref:` + "`" + `http_connection_manager.normalize_path\u003cconfig_http_conn_man_runtime_normalize_path\u003e` + "`" + `.\nEnvoy will respond with 400 to paths that are malformed (e.g. for paths that fail RFC 3986\nnormalization due to disallowed characters.)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/httpv3.PathTransformation"
+                        }
+                    ]
+                },
+                "http_filter_transformation": {
+                    "description": "[#not-implemented-hide:] Normalization only applies internally before any processing of\nrequests by HTTP filters, routing, and matching. These will be applied after full\ntransformation is applied. The “:path“ header before this transformation will be restored in\nthe router filter and sent upstream unless it was mutated by a filter. Defaults to no\ntransformations.\nMultiple actions can be applied in the same Transformation, forming a sequential\npipeline. The transformations will be performed in the order that they appear. Envoy will\nrespond with 400 to paths that are malformed (e.g. for paths that fail RFC 3986\nnormalization due to disallowed characters.)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/httpv3.PathTransformation"
+                        }
+                    ]
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager_PathWithEscapedSlashesAction": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "x-enum-varnames": [
+                "HttpConnectionManager_IMPLEMENTATION_SPECIFIC_DEFAULT",
+                "HttpConnectionManager_KEEP_UNCHANGED",
+                "HttpConnectionManager_REJECT_REQUEST",
+                "HttpConnectionManager_UNESCAPE_AND_REDIRECT",
+                "HttpConnectionManager_UNESCAPE_AND_FORWARD"
+            ]
+        },
+        "http_connection_managerv3.HttpConnectionManager_ProxyStatusConfig": {
+            "type": "object",
+            "properties": {
+                "proxyName": {
+                    "description": "The name of the proxy as it appears at the start of the Proxy-Status\nheader.\n\nIf neither of these values are set, this value defaults to “server_name“,\nwhich itself defaults to \"envoy\".\n\nTypes that are assignable to ProxyName:\n\n\t*HttpConnectionManager_ProxyStatusConfig_UseNodeId\n\t*HttpConnectionManager_ProxyStatusConfig_LiteralProxyName"
+                },
+                "remove_connection_termination_details": {
+                    "description": "If true, the details field of the Proxy-Status header will not contain\nconnection termination details. This value defaults to “false“, i.e. the\n“details“ field will contain connection termination details by default.",
+                    "type": "boolean"
+                },
+                "remove_details": {
+                    "description": "If true, the details field of the Proxy-Status header is not populated with stream_info.response_code_details.\nThis value defaults to “false“, i.e. the “details“ field is populated by default.",
+                    "type": "boolean"
+                },
+                "remove_response_flags": {
+                    "description": "If true, the details field of the Proxy-Status header will not contain an\nenumeration of the Envoy ResponseFlags. This value defaults to “false“,\ni.e. the “details“ field will contain a list of ResponseFlags by default.",
+                    "type": "boolean"
+                },
+                "set_recommended_response_code": {
+                    "description": "If true, overwrites the existing Status header with the response code\nrecommended by the Proxy-Status spec.\nThis value defaults to “false“, i.e. the HTTP response code is not\noverwritten.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager_ServerHeaderTransformation": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "HttpConnectionManager_OVERWRITE",
+                "HttpConnectionManager_APPEND_IF_ABSENT",
+                "HttpConnectionManager_PASS_THROUGH"
+            ]
+        },
+        "http_connection_managerv3.HttpConnectionManager_SetCurrentClientCertDetails": {
+            "type": "object",
+            "properties": {
+                "cert": {
+                    "description": "Whether to forward the entire client cert in URL encoded PEM format. This will appear in the\nXFCC header comma separated from other values with the value Cert=\"PEM\".\nDefaults to false.",
+                    "type": "boolean"
+                },
+                "chain": {
+                    "description": "Whether to forward the entire client cert chain (including the leaf cert) in URL encoded PEM\nformat. This will appear in the XFCC header comma separated from other values with the value\nChain=\"PEM\".\nDefaults to false.",
+                    "type": "boolean"
+                },
+                "dns": {
+                    "description": "Whether to forward the DNS type Subject Alternative Names of the client cert.\nDefaults to false.",
+                    "type": "boolean"
+                },
+                "subject": {
+                    "description": "Whether to forward the subject of the client cert. Defaults to false.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "uri": {
+                    "description": "Whether to forward the URI type Subject Alternative Name of the client cert. Defaults to\nfalse.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager_Tracing": {
+            "type": "object",
+            "properties": {
+                "client_sampling": {
+                    "description": "Target percentage of requests managed by this HTTP connection manager that will be force\ntraced if the :ref:` + "`" + `x-client-trace-id \u003cconfig_http_conn_man_headers_x-client-trace-id\u003e` + "`" + `\nheader is set. This field is a direct analog for the runtime variable\n'tracing.client_enabled' in the :ref:` + "`" + `HTTP Connection Manager\n\u003cconfig_http_conn_man_runtime\u003e` + "`" + `.\nDefault: 100%",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.Percent"
+                        }
+                    ]
+                },
+                "custom_tags": {
+                    "description": "A list of custom tags with unique tag name to create tags for the active span.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tracingv3.CustomTag"
+                    }
+                },
+                "max_path_tag_length": {
+                    "description": "Maximum length of the request path to extract and include in the HttpUrl tag. Used to\ntruncate lengthy request paths to meet the needs of a tracing backend.\nDefault: 256",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "overall_sampling": {
+                    "description": "Target percentage of requests managed by this HTTP connection manager that will be traced\nafter all other sampling checks have been applied (client-directed, force tracing, random\nsampling). This field functions as an upper limit on the total configured sampling rate. For\ninstance, setting client_sampling to 100% but overall_sampling to 1% will result in only 1%\nof client requests with the appropriate headers to be force traced. This field is a direct\nanalog for the runtime variable 'tracing.global_enabled' in the\n:ref:` + "`" + `HTTP Connection Manager \u003cconfig_http_conn_man_runtime\u003e` + "`" + `.\nDefault: 100%",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.Percent"
+                        }
+                    ]
+                },
+                "provider": {
+                    "description": "Configuration for an external tracing provider.\nIf not specified, no tracing will be performed.\n\n.. attention::\n\n\tPlease be aware that ` + "`" + `` + "`" + `envoy.tracers.opencensus` + "`" + `` + "`" + ` provider can only be configured once\n\tin Envoy lifetime.\n\tAny attempts to reconfigure it or to use different configurations for different HCM filters\n\twill be rejected.\n\tSuch a constraint is inherent to OpenCensus itself. It cannot be overcome without changes\n\ton OpenCensus side.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/tracev3.Tracing_Http"
+                        }
+                    ]
+                },
+                "random_sampling": {
+                    "description": "Target percentage of requests managed by this HTTP connection manager that will be randomly\nselected for trace generation, if not requested by the client or not forced. This field is\na direct analog for the runtime variable 'tracing.random_sampling' in the\n:ref:` + "`" + `HTTP Connection Manager \u003cconfig_http_conn_man_runtime\u003e` + "`" + `.\nDefault: 100%",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.Percent"
+                        }
+                    ]
+                },
+                "spawn_upstream_span": {
+                    "description": "Create separate tracing span for each upstream request if true. And if this flag is set to true,\nthe tracing provider will assume that Envoy will be independent hop in the trace chain and may\nset span type to client or server based on this flag.\nThis will deprecate the\n:ref:` + "`" + `start_child_span \u003cenvoy_v3_api_field_extensions.filters.http.router.v3.Router.start_child_span\u003e` + "`" + `\nin the router.\n\nUsers should set appropriate value based on their tracing provider and actual scenario:\n\n  - If Envoy is used as sidecar and users want to make the sidecar and its application as only one\n    hop in the trace chain, this flag should be set to false. And please also make sure the\n    :ref:` + "`" + `start_child_span \u003cenvoy_v3_api_field_extensions.filters.http.router.v3.Router.start_child_span\u003e` + "`" + `\n    in the router is not set to true.\n  - If Envoy is used as gateway or independent proxy, or users want to make the sidecar and its\n    application as different hops in the trace chain, this flag should be set to true.\n  - If tracing provider that has explicit requirements on span creation (like SkyWalking),\n    this flag should be set to true.\n\nThe default value is false for now for backward compatibility.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "verbose": {
+                    "description": "Whether to annotate spans with additional data. If true, spans will include logs for stream\nevents.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpConnectionManager_UpgradeConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "Determines if upgrades are enabled or disabled by default. Defaults to true.\nThis can be overridden on a per-route basis with :ref:` + "`" + `cluster\n\u003cenvoy_v3_api_field_config.route.v3.RouteAction.upgrade_configs\u003e` + "`" + ` as documented in the\n:ref:` + "`" + `upgrade documentation \u003carch_overview_upgrades\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "filters": {
+                    "description": "If present, this represents the filter chain which will be created for\nthis type of upgrade. If no filters are present, the filter chain for\nHTTP connections will be used for this upgrade type.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http_connection_managerv3.HttpFilter"
+                    }
+                },
+                "upgrade_type": {
+                    "description": "The case-insensitive name of this upgrade, e.g. \"websocket\".\nFor each upgrade type present in upgrade_configs, requests with\nUpgrade: [upgrade_type]\nwill be proxied upstream.",
+                    "type": "string"
+                }
+            }
+        },
+        "http_connection_managerv3.HttpFilter": {
+            "type": "object",
+            "properties": {
+                "configType": {
+                    "description": "Types that are assignable to ConfigType:\n\n\t*HttpFilter_TypedConfig\n\t*HttpFilter_ConfigDiscovery"
+                },
+                "disabled": {
+                    "description": "If true, the filter is disabled by default and must be explicitly enabled by setting\nper filter configuration in the route configuration.\n\nA disabled filter will be treated as enabled in the following cases:\n\n 1. Valid per filter configuration is configured in the “typed_per_filter_config“ of route config.\n 2. :ref:` + "`" + `FilterConfig \u003cenvoy_v3_api_msg_config.route.v3.FilterConfig\u003e` + "`" + ` is configured in the\n    “typed_per_filter_config“ of route config and the\n    :ref:` + "`" + `disabled of FilterConfig \u003cenvoy_v3_api_field_config.route.v3.FilterConfig.disabled\u003e` + "`" + `\n    is set to false.\n\nTerminal filters (e.g. “envoy.filters.http.router“) cannot be marked as disabled.",
+                    "type": "boolean"
+                },
+                "is_optional": {
+                    "description": "If true, clients that do not support this filter may ignore the\nfilter but otherwise accept the config.\nOtherwise, clients that do not support this filter must reject the config.",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "The name of the filter configuration. It also serves as a resource name in ExtensionConfigDS.",
+                    "type": "string"
+                }
+            }
+        },
+        "http_connection_managerv3.LocalReplyConfig": {
+            "type": "object",
+            "properties": {
+                "body_format": {
+                    "description": "The configuration to form response body from the :ref:` + "`" + `command operators \u003cconfig_access_log_command_operators\u003e` + "`" + `\nand to specify response content type as one of: plain/text or application/json.\n\nExample one: \"plain/text\" “body_format“.\n\n.. validated-code-block:: yaml\n\n\t:type-name: envoy.config.core.v3.SubstitutionFormatString\n\n\ttext_format: \"%LOCAL_REPLY_BODY%:%RESPONSE_CODE%:path=%REQ(:path)%\\n\"\n\nThe following response body in \"plain/text\" format will be generated for a request with\nlocal reply body of \"upstream connection error\", response_code=503 and path=/foo.\n\n.. code-block:: text\n\n\tupstream connect error:503:path=/foo\n\nExample two: \"application/json\" “body_format“.\n\n.. validated-code-block:: yaml\n\n\t:type-name: envoy.config.core.v3.SubstitutionFormatString\n\n\tjson_format:\n\t  status: \"%RESPONSE_CODE%\"\n\t  message: \"%LOCAL_REPLY_BODY%\"\n\t  path: \"%REQ(:path)%\"\n\nThe following response body in \"application/json\" format would be generated for a request with\nlocal reply body of \"upstream connection error\", response_code=503 and path=/foo.\n\n.. code-block:: json\n\n\t{\n\t  \"status\": 503,\n\t  \"message\": \"upstream connection error\",\n\t  \"path\": \"/foo\"\n\t}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SubstitutionFormatString"
+                        }
+                    ]
+                },
+                "mappers": {
+                    "description": "Configuration of list of mappers which allows to filter and change local response.\nThe mappers will be checked by the specified order until one is matched.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/http_connection_managerv3.ResponseMapper"
+                    }
+                }
+            }
+        },
+        "http_connection_managerv3.RequestIDExtension": {
+            "type": "object",
+            "properties": {
+                "typed_config": {
+                    "description": "Request ID extension specific configuration.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/any.Any"
+                        }
+                    ]
+                }
+            }
+        },
+        "http_connection_managerv3.ResponseMapper": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "description": "The new local reply body text if specified. It will be used in the “%LOCAL_REPLY_BODY%“\ncommand operator in the “body_format“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.DataSource"
+                        }
+                    ]
+                },
+                "body_format_override": {
+                    "description": "A per mapper “body_format“ to override the :ref:` + "`" + `body_format \u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.LocalReplyConfig.body_format\u003e` + "`" + `.\nIt will be used when this mapper is matched.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SubstitutionFormatString"
+                        }
+                    ]
+                },
+                "filter": {
+                    "description": "Filter to determine if this mapper should apply.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/accesslogv3.AccessLogFilter"
+                        }
+                    ]
+                },
+                "headers_to_add": {
+                    "description": "HTTP headers to add to a local reply. This allows the response mapper to append, to add\nor to override headers of any local reply before it is sent to a downstream client.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "status_code": {
+                    "description": "The new response status code if specified.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "httpv3.PathTransformation": {
+            "type": "object",
+            "properties": {
+                "operations": {
+                    "description": "A list of operations to apply. Transformations will be performed in the order that they appear.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/httpv3.PathTransformation_Operation"
+                    }
+                }
+            }
+        },
+        "httpv3.PathTransformation_Operation": {
+            "type": "object",
+            "properties": {
+                "operationSpecifier": {
+                    "description": "Types that are assignable to OperationSpecifier:\n\n\t*PathTransformation_Operation_NormalizePathRfc_3986\n\t*PathTransformation_Operation_MergeSlashes_"
+                }
+            }
+        },
+        "listenerv3.AdditionalAddress": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "$ref": "#/definitions/corev3.Address"
+                },
+                "socket_options": {
+                    "description": "Additional socket options that may not be present in Envoy source code or\nprecompiled binaries. If specified, this will override the\n:ref:` + "`" + `socket_options \u003cenvoy_v3_api_field_config.listener.v3.Listener.socket_options\u003e` + "`" + `\nin the listener. If specified with no\n:ref:` + "`" + `socket_options \u003cenvoy_v3_api_field_config.core.v3.SocketOptionsOverride.socket_options\u003e` + "`" + `\nor an empty list of :ref:` + "`" + `socket_options \u003cenvoy_v3_api_field_config.core.v3.SocketOptionsOverride.socket_options\u003e` + "`" + `,\nit means no socket option will apply.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.SocketOptionsOverride"
+                        }
+                    ]
+                }
+            }
+        },
+        "listenerv3.ApiListener": {
+            "type": "object",
+            "properties": {
+                "api_listener": {
+                    "description": "The type in this field determines the type of API listener. At present, the following\ntypes are supported:\nenvoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager (HTTP)\nenvoy.extensions.filters.network.http_connection_manager.v3.EnvoyMobileHttpConnectionManager (HTTP)\n[#next-major-version: In the v3 API, replace this Any field with a oneof containing the\nspecific config message for each type of API listener. We could not do this in v2 because\nit would have caused circular dependencies for go protos: lds.proto depends on this file,\nand http_connection_manager.proto depends on rds.proto, which is in the same directory as\nlds.proto, so lds.proto cannot depend on this file.]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/any.Any"
+                        }
+                    ]
+                }
+            }
+        },
+        "listenerv3.Filter": {
+            "type": "object",
+            "properties": {
+                "configType": {
+                    "description": "Types that are assignable to ConfigType:\n\n\t*Filter_TypedConfig\n\t*Filter_ConfigDiscovery"
+                },
+                "name": {
+                    "description": "The name of the filter configuration.",
+                    "type": "string"
+                }
+            }
+        },
+        "listenerv3.FilterChain": {
+            "type": "object",
+            "properties": {
+                "filter_chain_match": {
+                    "description": "The criteria to use when matching a connection to this filter chain.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.FilterChainMatch"
+                        }
+                    ]
+                },
+                "filters": {
+                    "description": "A list of individual network filters that make up the filter chain for\nconnections established with the listener. Order matters as the filters are\nprocessed sequentially as connection events happen. Note: If the filter\nlist is empty, the connection will close by default.\n\nFor QUIC listeners, network filters other than HTTP Connection Manager (HCM)\ncan be created, but due to differences in the connection implementation compared\nto TCP, the onData() method will never be called. Therefore, network filters\nfor QUIC listeners should only expect to do work at the start of a new connection\n(i.e. in onNewConnection()). HCM must be the last (or only) filter in the chain.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/listenerv3.Filter"
+                    }
+                },
+                "metadata": {
+                    "description": "[#not-implemented-hide:] filter chain metadata.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The unique name (or empty) by which this filter chain is known.\nNote: :ref:` + "`" + `filter_chain_matcher\n\u003cenvoy_v3_api_field_config.listener.v3.Listener.filter_chain_matcher\u003e` + "`" + `\nrequires that filter chains are uniquely named within a listener.",
+                    "type": "string"
+                },
+                "on_demand_configuration": {
+                    "description": "[#not-implemented-hide:] The configuration to specify whether the filter chain will be built on-demand.\nIf this field is not empty, the filter chain will be built on-demand.\nOtherwise, the filter chain will be built normally and block listener warming.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.FilterChain_OnDemandConfiguration"
+                        }
+                    ]
+                },
+                "transport_socket": {
+                    "description": "Optional custom transport socket implementation to use for downstream connections.\nTo setup TLS, set a transport socket with name “envoy.transport_sockets.tls“ and\n:ref:` + "`" + `DownstreamTlsContext \u003cenvoy_v3_api_msg_extensions.transport_sockets.tls.v3.DownstreamTlsContext\u003e` + "`" + ` in the “typed_config“.\nIf no transport socket configuration is specified, new connections\nwill be set up with plaintext.\n[#extension-category: envoy.transport_sockets.downstream]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TransportSocket"
+                        }
+                    ]
+                },
+                "transport_socket_connect_timeout": {
+                    "description": "If present and nonzero, the amount of time to allow incoming connections to complete any\ntransport socket negotiations. If this expires before the transport reports connection\nestablishment, the connection is summarily closed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "use_proxy_proto": {
+                    "description": "Whether the listener should expect a PROXY protocol V1 header on new\nconnections. If this option is enabled, the listener will assume that that\nremote address of the connection is the one specified in the header. Some\nload balancers including the AWS ELB support this option. If the option is\nabsent or set to false, Envoy will use the physical peer address of the\nconnection as the remote address.\n\nThis field is deprecated. Add a\n:ref:` + "`" + `PROXY protocol listener filter \u003cconfig_listener_filters_proxy_protocol\u003e` + "`" + `\nexplicitly instead.\n\nDeprecated: Marked as deprecated in envoy/config/listener/v3/listener_components.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "listenerv3.FilterChainMatch": {
+            "type": "object",
+            "properties": {
+                "address_suffix": {
+                    "description": "If non-empty, an IP address and suffix length to match addresses when the\nlistener is bound to 0.0.0.0/:: or when use_original_dst is specified.\n[#not-implemented-hide:]",
+                    "type": "string"
+                },
+                "application_protocols": {
+                    "description": "If non-empty, a list of application protocols (e.g. ALPN for TLS protocol) to consider when\ndetermining a filter chain match. Those values will be compared against the application\nprotocols of a new connection, when detected by one of the listener filters.\n\nSuggested values include:\n\n  - “http/1.1“ - set by :ref:` + "`" + `envoy.filters.listener.tls_inspector\n    \u003cconfig_listener_filters_tls_inspector\u003e` + "`" + `,\n  - “h2“ - set by :ref:` + "`" + `envoy.filters.listener.tls_inspector \u003cconfig_listener_filters_tls_inspector\u003e` + "`" + `\n\n.. attention::\n\n\tCurrently, only :ref:` + "`" + `TLS Inspector \u003cconfig_listener_filters_tls_inspector\u003e` + "`" + ` provides\n\tapplication protocol detection based on the requested\n\t` + "`" + `ALPN \u003chttps://en.wikipedia.org/wiki/Application-Layer_Protocol_Negotiation\u003e` + "`" + `_ values.\n\n\tHowever, the use of ALPN is pretty much limited to the HTTP/2 traffic on the Internet,\n\tand matching on values other than ` + "`" + `` + "`" + `h2` + "`" + `` + "`" + ` is going to lead to a lot of false negatives,\n\tunless all connecting clients are known to use ALPN.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "destination_port": {
+                    "description": "Optional destination port to consider when use_original_dst is set on the\nlistener in determining a filter chain match.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "direct_source_prefix_ranges": {
+                    "description": "The criteria is satisfied if the directly connected source IP address of the downstream\nconnection is contained in at least one of the specified subnets. If the parameter is not\nspecified or the list is empty, the directly connected source IP address is ignored.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v3.CidrRange"
+                    }
+                },
+                "prefix_ranges": {
+                    "description": "If non-empty, an IP address and prefix length to match addresses when the\nlistener is bound to 0.0.0.0/:: or when use_original_dst is specified.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v3.CidrRange"
+                    }
+                },
+                "server_names": {
+                    "description": "If non-empty, a list of server names (e.g. SNI for TLS protocol) to consider when determining\na filter chain match. Those values will be compared against the server names of a new\nconnection, when detected by one of the listener filters.\n\nThe server name will be matched against all wildcard domains, i.e. “www.example.com“\nwill be first matched against “www.example.com“, then “*.example.com“, then “*.com“.\n\nNote that partial wildcards are not supported, and values like “*w.example.com“ are invalid.\nThe value “*“ is also not supported, and “server_names“ should be omitted instead.\n\n.. attention::\n\n\tSee the :ref:` + "`" + `FAQ entry \u003cfaq_how_to_setup_sni\u003e` + "`" + ` on how to configure SNI for more\n\tinformation.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "source_ports": {
+                    "description": "The criteria is satisfied if the source port of the downstream connection\nis contained in at least one of the specified ports. If the parameter is\nnot specified, the source port is ignored.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "source_prefix_ranges": {
+                    "description": "The criteria is satisfied if the source IP address of the downstream\nconnection is contained in at least one of the specified subnets. If the\nparameter is not specified or the list is empty, the source IP address is\nignored.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v3.CidrRange"
+                    }
+                },
+                "source_type": {
+                    "description": "Specifies the connection source IP match type. Can be any, local or external network.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.FilterChainMatch_ConnectionSourceType"
+                        }
+                    ]
+                },
+                "suffix_len": {
+                    "description": "[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "transport_protocol": {
+                    "description": "If non-empty, a transport protocol to consider when determining a filter chain match.\nThis value will be compared against the transport protocol of a new connection, when\nit's detected by one of the listener filters.\n\nSuggested values include:\n\n  - “raw_buffer“ - default, used when no transport protocol is detected,\n  - “tls“ - set by :ref:` + "`" + `envoy.filters.listener.tls_inspector \u003cconfig_listener_filters_tls_inspector\u003e` + "`" + `\n    when TLS protocol is detected.",
+                    "type": "string"
+                }
+            }
+        },
+        "listenerv3.FilterChainMatch_ConnectionSourceType": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "FilterChainMatch_ANY",
+                "FilterChainMatch_SAME_IP_OR_LOOPBACK",
+                "FilterChainMatch_EXTERNAL"
+            ]
+        },
+        "listenerv3.FilterChain_OnDemandConfiguration": {
+            "type": "object",
+            "properties": {
+                "rebuild_timeout": {
+                    "description": "The timeout to wait for filter chain placeholders to complete rebuilding.\n1. If this field is set to 0, timeout is disabled.\n2. If not specified, a default timeout of 15s is used.\nRebuilding will wait until dependencies are ready, have failed, or this timeout is reached.\nUpon failure or timeout, all connections related to this filter chain will be closed.\nRebuilding will start again on the next new connection.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "listenerv3.Listener": {
+            "type": "object",
+            "properties": {
+                "access_log": {
+                    "description": "Configuration for :ref:` + "`" + `access logs \u003carch_overview_access_logs\u003e` + "`" + `\nemitted by this listener.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/accesslogv3.AccessLog"
+                    }
+                },
+                "additional_addresses": {
+                    "description": "The additional addresses the listener should listen on. The addresses must be unique across all\nlisteners. Multiple addresses with port 0 can be supplied. When using multiple addresses in a single listener,\nall addresses use the same protocol, and multiple internal addresses are not supported.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/listenerv3.AdditionalAddress"
+                    }
+                },
+                "address": {
+                    "description": "The address that the listener should listen on. In general, the address must be unique, though\nthat is governed by the bind rules of the OS. E.g., multiple listeners can listen on port 0 on\nLinux as the actual port will be allocated by the OS.\nRequired unless “api_listener“ or “listener_specifier“ is populated.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Address"
+                        }
+                    ]
+                },
+                "api_listener": {
+                    "description": "Used to represent an API listener, which is used in non-proxy clients. The type of API\nexposed to the non-proxy application depends on the type of API listener.\nWhen this field is set, no other field except for :ref:` + "`" + `name\u003cenvoy_v3_api_field_config.listener.v3.Listener.name\u003e` + "`" + `\nshould be set.\n\n.. note::\n\n\tCurrently only one ApiListener can be installed; and it can only be done via bootstrap config,\n\tnot LDS.\n\n[#next-major-version: In the v3 API, instead of this messy approach where the socket\nlistener fields are directly in the top-level Listener message and the API listener types\nare in the ApiListener message, the socket listener messages should be in their own message,\nand the top-level Listener should essentially be a oneof that selects between the\nsocket listener and the various types of API listener. That way, a given Listener message\ncan structurally only contain the fields of the relevant type.]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.ApiListener"
+                        }
+                    ]
+                },
+                "bind_to_port": {
+                    "description": "Whether the listener should bind to the port. A listener that doesn't\nbind can only receive connections redirected from other listeners that set\n:ref:` + "`" + `use_original_dst \u003cenvoy_v3_api_field_config.listener.v3.Listener.use_original_dst\u003e` + "`" + `\nto true. Default is true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "connection_balance_config": {
+                    "description": "The listener's connection balancer configuration, currently only applicable to TCP listeners.\nIf no configuration is specified, Envoy will not attempt to balance active connections between\nworker threads.\n\nIn the scenario that the listener X redirects all the connections to the listeners Y1 and Y2\nby setting :ref:` + "`" + `use_original_dst \u003cenvoy_v3_api_field_config.listener.v3.Listener.use_original_dst\u003e` + "`" + ` in X\nand :ref:` + "`" + `bind_to_port \u003cenvoy_v3_api_field_config.listener.v3.Listener.bind_to_port\u003e` + "`" + ` to false in Y1 and Y2,\nit is recommended to disable the balance config in listener X to avoid the cost of balancing, and\nenable the balance config in Y1 and Y2 to balance the connections among the workers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.Listener_ConnectionBalanceConfig"
+                        }
+                    ]
+                },
+                "continue_on_listener_filters_timeout": {
+                    "description": "Whether a connection should be created when listener filters timeout. Default is false.\n\n.. attention::\n\n\tSome listener filters, such as :ref:` + "`" + `Proxy Protocol filter\n\t\u003cconfig_listener_filters_proxy_protocol\u003e` + "`" + `, should not be used with this option. It will cause\n\tunexpected behavior when a connection is created.",
+                    "type": "boolean"
+                },
+                "default_filter_chain": {
+                    "description": "The default filter chain if none of the filter chain matches. If no default filter chain is supplied,\nthe connection will be closed. The filter chain match is ignored in this field.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.FilterChain"
+                        }
+                    ]
+                },
+                "deprecated_v1": {
+                    "description": "[#not-implemented-hide:]\n\nDeprecated: Marked as deprecated in envoy/config/listener/v3/listener.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.Listener_DeprecatedV1"
+                        }
+                    ]
+                },
+                "drain_type": {
+                    "description": "The type of draining to perform at a listener-wide level.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.Listener_DrainType"
+                        }
+                    ]
+                },
+                "enable_mptcp": {
+                    "description": "Enable MPTCP (multi-path TCP) on this listener. Clients will be allowed to establish\nMPTCP connections. Non-MPTCP clients will fall back to regular TCP.",
+                    "type": "boolean"
+                },
+                "enable_reuse_port": {
+                    "description": "When this flag is set to true, listeners set the “SO_REUSEPORT“ socket option and\ncreate one socket for each worker thread. This makes inbound connections\ndistribute among worker threads roughly evenly in cases where there are a high number\nof connections. When this flag is set to false, all worker threads share one socket. This field\ndefaults to true. The change of field will be rejected during an listener update when the\nruntime flag “envoy.reloadable_features.enable_update_listener_socket_options“ is enabled.\nOtherwise, the update of this field will be ignored quietly.\n\n.. attention::\n\n\tAlthough this field defaults to true, it has different behavior on different platforms. See\n\tthe following text for more information.\n\n  - On Linux, reuse_port is respected for both TCP and UDP listeners. It also works correctly\n    with hot restart.\n  - On macOS, reuse_port for TCP does not do what it does on Linux. Instead of load balancing,\n    the last socket wins and receives all connections/packets. For TCP, reuse_port is force\n    disabled and the user is warned. For UDP, it is enabled, but only one worker will receive\n    packets. For QUIC/H3, SW routing will send packets to other workers. For \"raw\" UDP, only\n    a single worker will currently receive packets.\n  - On Windows, reuse_port for TCP has undefined behavior. It is force disabled and the user\n    is warned similar to macOS. It is left enabled for UDP with undefined behavior currently.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "filter_chain_matcher": {
+                    "description": ":ref:` + "`" + `Matcher API \u003carch_overview_matching_listener\u003e` + "`" + ` resolving the filter chain name from the\nnetwork properties. This matcher is used as a replacement for the filter chain match condition\n:ref:` + "`" + `filter_chain_match\n\u003cenvoy_v3_api_field_config.listener.v3.FilterChain.filter_chain_match\u003e` + "`" + `. If specified, all\n:ref:` + "`" + `filter_chains \u003cenvoy_v3_api_field_config.listener.v3.Listener.filter_chains\u003e` + "`" + ` must have a\nnon-empty and unique :ref:` + "`" + `name \u003cenvoy_v3_api_field_config.listener.v3.FilterChain.name\u003e` + "`" + ` field\nand not specify :ref:` + "`" + `filter_chain_match\n\u003cenvoy_v3_api_field_config.listener.v3.FilterChain.filter_chain_match\u003e` + "`" + ` field.\n\n.. note::\n\n\tOnce matched, each connection is permanently bound to its filter chain.\n\tIf the matcher changes but the filter chain remains the same, the\n\tconnections bound to the filter chain are not drained. If, however, the\n\tfilter chain is removed or structurally modified, then the drain for its\n\tconnections is initiated.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.Matcher"
+                        }
+                    ]
+                },
+                "filter_chains": {
+                    "description": "A list of filter chains to consider for this listener. The\n:ref:` + "`" + `FilterChain \u003cenvoy_v3_api_msg_config.listener.v3.FilterChain\u003e` + "`" + ` with the most specific\n:ref:` + "`" + `FilterChainMatch \u003cenvoy_v3_api_msg_config.listener.v3.FilterChainMatch\u003e` + "`" + ` criteria is used on a\nconnection.\n\nExample using SNI for filter chain selection can be found in the\n:ref:` + "`" + `FAQ entry \u003cfaq_how_to_setup_sni\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/listenerv3.FilterChain"
+                    }
+                },
+                "freebind": {
+                    "description": "Whether the listener should set the “IP_FREEBIND“ socket option. When this\nflag is set to true, listeners can be bound to an IP address that is not\nconfigured on the system running Envoy. When this flag is set to false, the\noption “IP_FREEBIND“ is disabled on the socket. When this flag is not set\n(default), the socket is not modified, i.e. the option is neither enabled\nnor disabled.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "ignore_global_conn_limit": {
+                    "description": "Whether the listener should limit connections based upon the value of\n:ref:` + "`" + `global_downstream_max_connections \u003cconfig_overload_manager_limiting_connections\u003e` + "`" + `.",
+                    "type": "boolean"
+                },
+                "listenerSpecifier": {
+                    "description": "The exclusive listener type and the corresponding config.\n\nTypes that are assignable to ListenerSpecifier:\n\n\t*Listener_InternalListener"
+                },
+                "listener_filters": {
+                    "description": "Listener filters have the opportunity to manipulate and augment the connection metadata that\nis used in connection filter chain matching, for example. These filters are run before any in\n:ref:` + "`" + `filter_chains \u003cenvoy_v3_api_field_config.listener.v3.Listener.filter_chains\u003e` + "`" + `. Order matters as the\nfilters are processed sequentially right after a socket has been accepted by the listener, and\nbefore a connection is created.\nUDP Listener filters can be specified when the protocol in the listener socket address in\n:ref:` + "`" + `protocol \u003cenvoy_v3_api_field_config.core.v3.SocketAddress.protocol\u003e` + "`" + ` is :ref:` + "`" + `UDP\n\u003cenvoy_v3_api_enum_value_config.core.v3.SocketAddress.Protocol.UDP\u003e` + "`" + ` and no\n:ref:` + "`" + `quic_options \u003cenvoy_v3_api_field_config.listener.v3.UdpListenerConfig.quic_options\u003e` + "`" + ` is specified in :ref:` + "`" + `udp_listener_config \u003cenvoy_v3_api_field_config.listener.v3.Listener.udp_listener_config\u003e` + "`" + `.\nQUIC listener filters can be specified when :ref:` + "`" + `quic_options\n\u003cenvoy_v3_api_field_config.listener.v3.UdpListenerConfig.quic_options\u003e` + "`" + ` is\nspecified in :ref:` + "`" + `udp_listener_config \u003cenvoy_v3_api_field_config.listener.v3.Listener.udp_listener_config\u003e` + "`" + `.\nThey are processed sequentially right before connection creation. And like TCP Listener filters, they can be used to manipulate the connection metadata and socket. But the difference is that they can't be used to pause connection creation.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/listenerv3.ListenerFilter"
+                    }
+                },
+                "listener_filters_timeout": {
+                    "description": "The timeout to wait for all listener filters to complete operation. If the timeout is reached,\nthe accepted socket is closed without a connection being created unless\n“continue_on_listener_filters_timeout“ is set to true. Specify 0 to disable the\ntimeout. If not specified, a default timeout of 15s is used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_connections_to_accept_per_socket_event": {
+                    "description": "The maximum number of connections to accept from the kernel per socket\nevent. Envoy may decide to close these connections after accepting them\nfrom the kernel e.g. due to load shedding, or other policies.\nIf there are more than max_connections_to_accept_per_socket_event\nconnections pending accept, connections over this threshold will be\naccepted in later event loop iterations.\nIf no value is provided Envoy will accept all connections pending accept\nfrom the kernel.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "description": "Listener metadata.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The unique name by which this listener is known. If no name is provided,\nEnvoy will allocate an internal UUID for the listener. If the listener is to be dynamically\nupdated or removed via :ref:` + "`" + `LDS \u003cconfig_listeners_lds\u003e` + "`" + ` a unique name must be provided.",
+                    "type": "string"
+                },
+                "per_connection_buffer_limit_bytes": {
+                    "description": "Soft limit on size of the listener’s new connection read and write buffers.\nIf unspecified, an implementation defined default is applied (1MiB).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "reuse_port": {
+                    "description": "Deprecated. Use “enable_reuse_port“ instead.\n\nDeprecated: Marked as deprecated in envoy/config/listener/v3/listener.proto.",
+                    "type": "boolean"
+                },
+                "socket_options": {
+                    "description": "Additional socket options that may not be present in Envoy source code or\nprecompiled binaries. The socket options can be updated for a listener when\n:ref:` + "`" + `enable_reuse_port \u003cenvoy_v3_api_field_config.listener.v3.Listener.enable_reuse_port\u003e` + "`" + `\nis “true“. Otherwise, if socket options change during a listener update the update will be rejected\nto make it clear that the options were not updated.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.SocketOption"
+                    }
+                },
+                "stat_prefix": {
+                    "description": "Optional prefix to use on listener stats. If empty, the stats will be rooted at\n“listener.\u003caddress as string\u003e.“. If non-empty, stats will be rooted at\n“listener.\u003cstat_prefix\u003e.“.",
+                    "type": "string"
+                },
+                "tcp_backlog_size": {
+                    "description": "The maximum length a tcp listener's pending connections queue can grow to. If no value is\nprovided net.core.somaxconn will be used on Linux and 128 otherwise.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "tcp_fast_open_queue_length": {
+                    "description": "Whether the listener should accept TCP Fast Open (TFO) connections.\nWhen this flag is set to a value greater than 0, the option TCP_FASTOPEN is enabled on\nthe socket, with a queue length of the specified size\n(see ` + "`" + `details in RFC7413 \u003chttps://tools.ietf.org/html/rfc7413#section-5.1\u003e` + "`" + `_).\nWhen this flag is set to 0, the option TCP_FASTOPEN is disabled on the socket.\nWhen this flag is not set (default), the socket is not modified,\ni.e. the option is neither enabled nor disabled.\n\nOn Linux, the net.ipv4.tcp_fastopen kernel parameter must include flag 0x2 to enable\nTCP_FASTOPEN.\nSee ` + "`" + `ip-sysctl.txt \u003chttps://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt\u003e` + "`" + `_.\n\nOn macOS, only values of 0, 1, and unset are valid; other values may result in an error.\nTo set the queue length on macOS, set the net.inet.tcp.fastopen_backlog kernel parameter.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "traffic_direction": {
+                    "description": "Specifies the intended direction of the traffic relative to the local Envoy.\nThis property is required on Windows for listeners using the original destination filter,\nsee :ref:` + "`" + `Original Destination \u003cconfig_listener_filters_original_dst\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TrafficDirection"
+                        }
+                    ]
+                },
+                "transparent": {
+                    "description": "Whether the listener should be set as a transparent socket.\nWhen this flag is set to true, connections can be redirected to the listener using an\n“iptables“ “TPROXY“ target, in which case the original source and destination addresses and\nports are preserved on accepted connections. This flag should be used in combination with\n:ref:` + "`" + `an original_dst \u003cconfig_listener_filters_original_dst\u003e` + "`" + ` :ref:` + "`" + `listener filter\n\u003cenvoy_v3_api_field_config.listener.v3.Listener.listener_filters\u003e` + "`" + ` to mark the connections' local addresses as\n\"restored.\" This can be used to hand off each redirected connection to another listener\nassociated with the connection's destination address. Direct connections to the socket without\nusing “TPROXY“ cannot be distinguished from connections redirected using “TPROXY“ and are\ntherefore treated as if they were redirected.\nWhen this flag is set to false, the listener's socket is explicitly reset as non-transparent.\nSetting this flag requires Envoy to run with the “CAP_NET_ADMIN“ capability.\nWhen this flag is not set (default), the socket is not modified, i.e. the transparent option\nis neither set nor reset.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "udp_listener_config": {
+                    "description": "If the protocol in the listener socket address in :ref:` + "`" + `protocol\n\u003cenvoy_v3_api_field_config.core.v3.SocketAddress.protocol\u003e` + "`" + ` is :ref:` + "`" + `UDP\n\u003cenvoy_v3_api_enum_value_config.core.v3.SocketAddress.Protocol.UDP\u003e` + "`" + `, this field specifies UDP\nlistener specific configuration.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.UdpListenerConfig"
+                        }
+                    ]
+                },
+                "use_original_dst": {
+                    "description": "If a connection is redirected using “iptables“, the port on which the proxy\nreceives it might be different from the original destination address. When this flag is set to\ntrue, the listener hands off redirected connections to the listener associated with the\noriginal destination address. If there is no listener associated with the original destination\naddress, the connection is handled by the listener that receives it. Defaults to false.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "listenerv3.ListenerFilter": {
+            "type": "object",
+            "properties": {
+                "configType": {
+                    "description": "Types that are assignable to ConfigType:\n\n\t*ListenerFilter_TypedConfig\n\t*ListenerFilter_ConfigDiscovery"
+                },
+                "filter_disabled": {
+                    "description": "Optional match predicate used to disable the filter. The filter is enabled when this field is empty.\nSee :ref:` + "`" + `ListenerFilterChainMatchPredicate \u003cenvoy_v3_api_msg_config.listener.v3.ListenerFilterChainMatchPredicate\u003e` + "`" + `\nfor further examples.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.ListenerFilterChainMatchPredicate"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The name of the filter configuration.",
+                    "type": "string"
+                }
+            }
+        },
+        "listenerv3.ListenerFilterChainMatchPredicate": {
+            "type": "object",
+            "properties": {
+                "rule": {
+                    "description": "Types that are assignable to Rule:\n\n\t*ListenerFilterChainMatchPredicate_OrMatch\n\t*ListenerFilterChainMatchPredicate_AndMatch\n\t*ListenerFilterChainMatchPredicate_NotMatch\n\t*ListenerFilterChainMatchPredicate_AnyMatch\n\t*ListenerFilterChainMatchPredicate_DestinationPortRange"
+                }
+            }
+        },
+        "listenerv3.Listener_ConnectionBalanceConfig": {
+            "type": "object",
+            "properties": {
+                "balanceType": {
+                    "description": "Types that are assignable to BalanceType:\n\n\t*Listener_ConnectionBalanceConfig_ExactBalance_\n\t*Listener_ConnectionBalanceConfig_ExtendBalance"
+                }
+            }
+        },
+        "listenerv3.Listener_DeprecatedV1": {
+            "type": "object",
+            "properties": {
+                "bind_to_port": {
+                    "description": "Whether the listener should bind to the port. A listener that doesn't\nbind can only receive connections redirected from other listeners that\nset use_original_dst parameter to true. Default is true.\n\nThis is deprecated. Use :ref:` + "`" + `Listener.bind_to_port\n\u003cenvoy_v3_api_field_config.listener.v3.Listener.bind_to_port\u003e` + "`" + `",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "listenerv3.Listener_DrainType": {
+            "type": "integer",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "Listener_DEFAULT",
+                "Listener_MODIFY_ONLY"
+            ]
+        },
+        "listenerv3.QuicProtocolOptions": {
+            "type": "object",
+            "properties": {
+                "connection_id_generator_config": {
+                    "description": "Config which implementation of “quic::ConnectionIdGeneratorInterface“ to be used for this listener.\nIf not specified the :ref:` + "`" + `default one configured by \u003cenvoy_v3_api_msg_extensions.quic.connection_id_generator.v3.DeterministicConnectionIdGeneratorConfig\u003e` + "`" + ` will be used.\n[#extension-category: envoy.quic.connection_id_generator]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "crypto_handshake_timeout": {
+                    "description": "Connection timeout in milliseconds before the crypto handshake is finished.\n\nIf it is less than 5000ms, Envoy will use 5000ms. 20000ms if not specified.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "crypto_stream_config": {
+                    "description": "Configure which implementation of “quic::QuicCryptoClientStreamBase“ to be used for this listener.\nIf not specified the :ref:` + "`" + `QUICHE default one configured by \u003cenvoy_v3_api_msg_extensions.quic.crypto_stream.v3.CryptoServerStreamConfig\u003e` + "`" + ` will be used.\n[#extension-category: envoy.quic.server.crypto_stream]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "enabled": {
+                    "description": "Runtime flag that controls whether the listener is enabled or not. If not specified, defaults\nto enabled.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.RuntimeFeatureFlag"
+                        }
+                    ]
+                },
+                "idle_timeout": {
+                    "description": "Maximum number of milliseconds that connection will be alive when there is\nno network activity.\n\nIf it is less than 1ms, Envoy will use 1ms. 300000ms if not specified.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "packets_to_read_to_connection_count_ratio": {
+                    "description": "A multiplier to number of connections which is used to determine how many packets to read per\nevent loop. A reasonable number should allow the listener to process enough payload but not\nstarve TCP and other UDP sockets and also prevent long event loop duration.\nThe default value is 32. This means if there are N QUIC connections, the total number of\npackets to read in each read event will be 32 * N.\nThe actual number of packets to read in total by the UDP listener is also\nbound by 6000, regardless of this field or how many connections there are.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "proof_source_config": {
+                    "description": "Configure which implementation of “quic::ProofSource“ to be used for this listener.\nIf not specified the :ref:` + "`" + `default one configured by \u003cenvoy_v3_api_msg_extensions.quic.proof_source.v3.ProofSourceConfig\u003e` + "`" + ` will be used.\n[#extension-category: envoy.quic.proof_source]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "quic_protocol_options": {
+                    "$ref": "#/definitions/corev3.QuicProtocolOptions"
+                },
+                "server_preferred_address_config": {
+                    "description": "Configure the server's preferred address to advertise so that client can migrate to it. See :ref:` + "`" + `example \u003cenvoy_v3_api_msg_extensions.quic.server_preferred_address.v3.FixedServerPreferredAddressConfig\u003e` + "`" + ` which configures a pair of v4 and v6 preferred addresses.\nThe current QUICHE implementation will advertise only one of the preferred IPv4 and IPv6 addresses based on the address family the client initially connects with, and only if the client is also QUICHE-based.\nIf not specified, Envoy will not advertise any server's preferred address.\n[#extension-category: envoy.quic.server_preferred_address]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.TypedExtensionConfig"
+                        }
+                    ]
+                }
+            }
+        },
+        "listenerv3.UdpListenerConfig": {
+            "type": "object",
+            "properties": {
+                "downstream_socket_config": {
+                    "description": "UDP socket configuration for the listener. The default for\n:ref:` + "`" + `prefer_gro \u003cenvoy_v3_api_field_config.core.v3.UdpSocketConfig.prefer_gro\u003e` + "`" + ` is false for\nlistener sockets. If receiving a large amount of datagrams from a small number of sources, it\nmay be worthwhile to enable this option after performance testing.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.UdpSocketConfig"
+                        }
+                    ]
+                },
+                "quic_options": {
+                    "description": "Configuration for QUIC protocol. If empty, QUIC will not be enabled on this listener. Set\nto the default object to enable QUIC without modifying any additional options.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/listenerv3.QuicProtocolOptions"
+                        }
+                    ]
+                },
+                "udp_packet_packet_writer_config": {
+                    "description": "Configuration for the UDP packet writer. If empty, HTTP/3 will use GSO if available\n(:ref:` + "`" + `UdpDefaultWriterFactory \u003cenvoy_v3_api_msg_extensions.udp_packet_writer.v3.UdpGsoBatchWriterFactory\u003e` + "`" + `)\nor the default kernel sendmsg if not,\n(:ref:` + "`" + `UdpDefaultWriterFactory \u003cenvoy_v3_api_msg_extensions.udp_packet_writer.v3.UdpDefaultWriterFactory\u003e` + "`" + `)\nand raw UDP will use kernel sendmsg.\n[#extension-category: envoy.udp_packet_writer]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.TypedExtensionConfig"
+                        }
+                    ]
+                }
+            }
+        },
+        "matcherv3.MetadataMatcher": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "description": "The filter name to retrieve the Struct from the Metadata.",
+                    "type": "string"
+                },
+                "invert": {
+                    "description": "If true, the match result will be inverted.",
+                    "type": "boolean"
+                },
+                "path": {
+                    "description": "The path to retrieve the Value from the Struct.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/matcherv3.MetadataMatcher_PathSegment"
+                    }
+                },
+                "value": {
+                    "description": "The MetadataMatcher is matched if the value retrieved by path is matched to this value.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/matcherv3.ValueMatcher"
+                        }
+                    ]
+                }
+            }
+        },
+        "matcherv3.MetadataMatcher_PathSegment": {
+            "type": "object",
+            "properties": {
+                "segment": {
+                    "description": "Types that are assignable to Segment:\n\n\t*MetadataMatcher_PathSegment_Key"
+                }
+            }
+        },
+        "matcherv3.StringMatcher": {
+            "type": "object",
+            "properties": {
+                "ignore_case": {
+                    "description": "If true, indicates the exact/prefix/suffix/contains matching should be case insensitive. This\nhas no effect for the safe_regex match.\nFor example, the matcher “data“ will match both input string “Data“ and “data“ if set to true.",
+                    "type": "boolean"
+                },
+                "matchPattern": {
+                    "description": "Types that are assignable to MatchPattern:\n\n\t*StringMatcher_Exact\n\t*StringMatcher_Prefix\n\t*StringMatcher_Suffix\n\t*StringMatcher_SafeRegex\n\t*StringMatcher_Contains"
+                }
+            }
+        },
+        "matcherv3.ValueMatcher": {
+            "type": "object",
+            "properties": {
+                "matchPattern": {
+                    "description": "Specifies how to match a value.\n\nTypes that are assignable to MatchPattern:\n\n\t*ValueMatcher_NullMatch_\n\t*ValueMatcher_DoubleMatch\n\t*ValueMatcher_StringMatch\n\t*ValueMatcher_BoolMatch\n\t*ValueMatcher_PresentMatch\n\t*ValueMatcher_ListMatch\n\t*ValueMatcher_OrMatch"
+                }
+            }
+        },
+        "rbacv3.Permission": {
+            "type": "object",
+            "properties": {
+                "rule": {
+                    "description": "Types that are assignable to Rule:\n\n\t*Permission_AndRules\n\t*Permission_OrRules\n\t*Permission_Any\n\t*Permission_Header\n\t*Permission_UrlPath\n\t*Permission_DestinationIp\n\t*Permission_DestinationPort\n\t*Permission_DestinationPortRange\n\t*Permission_Metadata\n\t*Permission_NotRule\n\t*Permission_RequestedServerName\n\t*Permission_Matcher"
+                }
+            }
+        },
+        "rbacv3.Policy": {
+            "type": "object",
+            "properties": {
+                "checked_condition": {
+                    "description": "[#not-implemented-hide:]\nAn optional symbolic expression that has been successfully type checked.\nOnly be used when condition is not used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/expr.CheckedExpr"
+                        }
+                    ]
+                },
+                "condition": {
+                    "description": "An optional symbolic expression specifying an access control\n:ref:` + "`" + `condition \u003carch_overview_condition\u003e` + "`" + `. The condition is combined\nwith the permissions and the principals as a clause with AND semantics.\nOnly be used when checked_condition is not used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/expr.Expr"
+                        }
+                    ]
+                },
+                "permissions": {
+                    "description": "Required. The set of permissions that define a role. Each permission is\nmatched with OR semantics. To match all actions for this policy, a single\nPermission with the “any“ field set to true should be used.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rbacv3.Permission"
+                    }
+                },
+                "principals": {
+                    "description": "Required. The set of principals that are assigned/denied the role based on\n“action”. Each principal is matched with OR semantics. To match all\ndownstreams for this policy, a single Principal with the “any“ field set to\ntrue should be used.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rbacv3.Principal"
+                    }
+                }
+            }
+        },
+        "rbacv3.Principal": {
+            "type": "object",
+            "properties": {
+                "identifier": {
+                    "description": "Types that are assignable to Identifier:\n\n\t*Principal_AndIds\n\t*Principal_OrIds\n\t*Principal_Any\n\t*Principal_Authenticated_\n\t*Principal_SourceIp\n\t*Principal_DirectRemoteIp\n\t*Principal_RemoteIp\n\t*Principal_Header\n\t*Principal_UrlPath\n\t*Principal_Metadata\n\t*Principal_FilterState\n\t*Principal_NotId"
+                }
+            }
+        },
+        "rbacv3.RBAC_Action": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "RBAC_ALLOW",
+                "RBAC_DENY",
+                "RBAC_LOG"
+            ]
+        },
+        "rbacv3.RBAC_AuditLoggingOptions": {
+            "type": "object",
+            "properties": {
+                "audit_condition": {
+                    "description": "Condition for the audit logging to happen.\nIf this condition is met, all the audit loggers configured here will be invoked.\n\n[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/rbacv3.RBAC_AuditLoggingOptions_AuditCondition"
+                        }
+                    ]
+                },
+                "logger_configs": {
+                    "description": "Configurations for RBAC-based authorization audit loggers.\n\n[#not-implemented-hide:]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rbacv3.RBAC_AuditLoggingOptions_AuditLoggerConfig"
+                    }
+                }
+            }
+        },
+        "rbacv3.RBAC_AuditLoggingOptions_AuditCondition": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "RBAC_AuditLoggingOptions_NONE",
+                "RBAC_AuditLoggingOptions_ON_DENY",
+                "RBAC_AuditLoggingOptions_ON_ALLOW",
+                "RBAC_AuditLoggingOptions_ON_DENY_AND_ALLOW"
+            ]
+        },
+        "rbacv3.RBAC_AuditLoggingOptions_AuditLoggerConfig": {
+            "type": "object",
+            "properties": {
+                "audit_logger": {
+                    "description": "Typed logger configuration.\n\n[#extension-category: envoy.rbac.audit_loggers]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "is_optional": {
+                    "description": "If true, when the logger is not supported, the data plane will not NACK but simply ignore it.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "routerv3.Router_UpstreamAccessLogOptions": {
+            "type": "object",
+            "properties": {
+                "flush_upstream_log_on_upstream_stream": {
+                    "description": "If set to true, an upstream access log will be recorded when an upstream stream is\nassociated to an http request. Note: Each HTTP request received for an already established\nconnection will result in an upstream access log record. This includes, for example,\nconsecutive HTTP requests over the same connection or a request that is retried.\nIn case a retry is applied, an upstream access log will be recorded for each retry.",
+                    "type": "boolean"
+                },
+                "upstream_log_flush_interval": {
+                    "description": "The interval to flush the upstream access logs. By default, the router will flush an upstream\naccess log on stream close, when the HTTP request is complete. If this field is set, the router\nwill flush access logs periodically at the specified interval. This is especially useful in the\ncase of long-lived requests, such as CONNECT and Websockets.\nThe interval must be at least 1 millisecond.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.ClusterSpecifierPlugin": {
+            "type": "object",
+            "properties": {
+                "extension": {
+                    "description": "The name of the plugin and its opaque configuration.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                        }
+                    ]
+                },
+                "is_optional": {
+                    "description": "If is_optional is not set or is set to false and the plugin defined by this message is not a\nsupported type, the containing resource is NACKed. If is_optional is set to true, the resource\nwould not be NACKed for this reason. In this case, routes referencing this plugin's name would\nnot be treated as an illegal configuration, but would result in a failure if the route is\nselected.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "routev3.CorsPolicy": {
+            "type": "object",
+            "properties": {
+                "allow_credentials": {
+                    "description": "Specifies whether the resource allows credentials.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "allow_headers": {
+                    "description": "Specifies the content for the “access-control-allow-headers“ header.",
+                    "type": "string"
+                },
+                "allow_methods": {
+                    "description": "Specifies the content for the “access-control-allow-methods“ header.",
+                    "type": "string"
+                },
+                "allow_origin_string_match": {
+                    "description": "Specifies string patterns that match allowed origins. An origin is allowed if any of the\nstring matchers match.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/matcherv3.StringMatcher"
+                    }
+                },
+                "allow_private_network_access": {
+                    "description": "Specify whether allow requests whose target server's IP address is more private than that from\nwhich the request initiator was fetched.\n\nMore details refer to https://developer.chrome.com/blog/private-network-access-preflight.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "enabledSpecifier": {
+                    "description": "Types that are assignable to EnabledSpecifier:\n\n\t*CorsPolicy_FilterEnabled"
+                },
+                "expose_headers": {
+                    "description": "Specifies the content for the “access-control-expose-headers“ header.",
+                    "type": "string"
+                },
+                "max_age": {
+                    "description": "Specifies the content for the “access-control-max-age“ header.",
+                    "type": "string"
+                },
+                "shadow_enabled": {
+                    "description": "Specifies the % of requests for which the CORS policies will be evaluated and tracked, but not\nenforced.\n\nThis field is intended to be used when “filter_enabled“ and “enabled“ are off. One of those\nfields have to explicitly disable the filter in order for this setting to take effect.\n\nIf :ref:` + "`" + `runtime_key \u003cenvoy_v3_api_field_config.core.v3.RuntimeFractionalPercent.runtime_key\u003e` + "`" + ` is specified,\nEnvoy will lookup the runtime key to get the percentage of requests for which it will evaluate\nand track the request's “Origin“ to determine if it's valid but will not enforce any policies.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.RuntimeFractionalPercent"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.Decorator": {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "description": "The operation name associated with the request matched to this route. If tracing is\nenabled, this information will be used as the span name reported for this request.\n\n.. note::\n\n\tFor ingress (inbound) requests, or egress (outbound) responses, this value may be overridden\n\tby the :ref:` + "`" + `x-envoy-decorator-operation\n\t\u003cconfig_http_filters_router_x-envoy-decorator-operation\u003e` + "`" + ` header.",
+                    "type": "string"
+                },
+                "propagate": {
+                    "description": "Whether the decorated details should be propagated to the other party. The default is true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.HeaderMatcher": {
+            "type": "object",
+            "properties": {
+                "headerMatchSpecifier": {
+                    "description": "Specifies how the header match will be performed to route the request.\n\nTypes that are assignable to HeaderMatchSpecifier:\n\n\t*HeaderMatcher_ExactMatch\n\t*HeaderMatcher_SafeRegexMatch\n\t*HeaderMatcher_RangeMatch\n\t*HeaderMatcher_PresentMatch\n\t*HeaderMatcher_PrefixMatch\n\t*HeaderMatcher_SuffixMatch\n\t*HeaderMatcher_ContainsMatch\n\t*HeaderMatcher_StringMatch"
+                },
+                "invert_match": {
+                    "description": "If specified, the match result will be inverted before checking. Defaults to false.\n\nExamples:\n\n* The regex “\\d{3}“ does not match the value “1234“, so it will match when inverted.\n* The range [-10,0) will match the value -1, so it will not match when inverted.",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "Specifies the name of the header in the request.",
+                    "type": "string"
+                },
+                "treat_missing_header_as_empty": {
+                    "description": "If specified, for any header match rule, if the header match rule specified header\ndoes not exist, this header value will be treated as empty. Defaults to false.\n\nExamples:\n\n  - The header match rule specified header \"header1\" to range match of [0, 10],\n    :ref:` + "`" + `invert_match \u003cenvoy_v3_api_field_config.route.v3.HeaderMatcher.invert_match\u003e` + "`" + `\n    is set to true and :ref:` + "`" + `treat_missing_header_as_empty \u003cenvoy_v3_api_field_config.route.v3.HeaderMatcher.treat_missing_header_as_empty\u003e` + "`" + `\n    is set to true; The \"header1\" header is not present. The match rule will\n    treat the \"header1\" as an empty header. The empty header does not match the range,\n    so it will match when inverted.\n  - The header match rule specified header \"header2\" to range match of [0, 10],\n    :ref:` + "`" + `invert_match \u003cenvoy_v3_api_field_config.route.v3.HeaderMatcher.invert_match\u003e` + "`" + `\n    is set to true and :ref:` + "`" + `treat_missing_header_as_empty \u003cenvoy_v3_api_field_config.route.v3.HeaderMatcher.treat_missing_header_as_empty\u003e` + "`" + `\n    is set to false; The \"header2\" header is not present and the header\n    matcher rule for \"header2\" will be ignored so it will not match.\n  - The header match rule specified header \"header3\" to a string regex match\n    “^$“ which means an empty string, and\n    :ref:` + "`" + `treat_missing_header_as_empty \u003cenvoy_v3_api_field_config.route.v3.HeaderMatcher.treat_missing_header_as_empty\u003e` + "`" + `\n    is set to true; The \"header3\" header is not present.\n    The match rule will treat the \"header3\" header as an empty header so it will match.\n  - The header match rule specified header \"header4\" to a string regex match\n    “^$“ which means an empty string, and\n    :ref:` + "`" + `treat_missing_header_as_empty \u003cenvoy_v3_api_field_config.route.v3.HeaderMatcher.treat_missing_header_as_empty\u003e` + "`" + `\n    is set to false; The \"header4\" header is not present.\n    The match rule for \"header4\" will be ignored so it will not match.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "routev3.HedgePolicy": {
+            "type": "object",
+            "properties": {
+                "additional_request_chance": {
+                    "description": "Specifies a probability that an additional upstream request should be sent\non top of what is specified by initial_requests.\nDefaults to 0.\n[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.FractionalPercent"
+                        }
+                    ]
+                },
+                "hedge_on_per_try_timeout": {
+                    "description": "Indicates that a hedged request should be sent when the per-try timeout is hit.\nThis means that a retry will be issued without resetting the original request, leaving multiple upstream requests in flight.\nThe first request to complete successfully will be the one returned to the caller.\n\n  - At any time, a successful response (i.e. not triggering any of the retry-on conditions) would be returned to the client.\n  - Before per-try timeout, an error response (per retry-on conditions) would be retried immediately or returned ot the client\n    if there are no more retries left.\n  - After per-try timeout, an error response would be discarded, as a retry in the form of a hedged request is already in progress.\n\nNote: For this to have effect, you must have a :ref:` + "`" + `RetryPolicy \u003cenvoy_v3_api_msg_config.route.v3.RetryPolicy\u003e` + "`" + ` that retries at least\none error code and specifies a maximum number of retries.\n\nDefaults to false.",
+                    "type": "boolean"
+                },
+                "initial_requests": {
+                    "description": "Specifies the number of initial requests that should be sent upstream.\nMust be at least 1.\nDefaults to 1.\n[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.QueryParameterMatcher": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Specifies the name of a key that must be present in the requested\n“path“'s query string.",
+                    "type": "string"
+                },
+                "queryParameterMatchSpecifier": {
+                    "description": "Types that are assignable to QueryParameterMatchSpecifier:\n\n\t*QueryParameterMatcher_StringMatch\n\t*QueryParameterMatcher_PresentMatch"
+                }
+            }
+        },
+        "routev3.RateLimit": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "description": "A list of actions that are to be applied for this rate limit configuration.\nOrder matters as the actions are processed sequentially and the descriptor\nis composed by appending descriptor entries in that sequence. If an action\ncannot append a descriptor entry, no descriptor is generated for the\nconfiguration. See :ref:` + "`" + `composing actions\n\u003cconfig_http_filters_rate_limit_composing_actions\u003e` + "`" + ` for additional documentation.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.RateLimit_Action"
+                    }
+                },
+                "disable_key": {
+                    "description": "The key to be set in runtime to disable this rate limit configuration.",
+                    "type": "string"
+                },
+                "limit": {
+                    "description": "An optional limit override to be appended to the descriptor produced by this\nrate limit configuration. If the override value is invalid or cannot be resolved\nfrom metadata, no override is provided. See :ref:` + "`" + `rate limit override\n\u003cconfig_http_filters_rate_limit_rate_limit_override\u003e` + "`" + ` for more information.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RateLimit_Override"
+                        }
+                    ]
+                },
+                "stage": {
+                    "description": "Refers to the stage set in the filter. The rate limit configuration only\napplies to filters with the same stage number. The default stage number is\n0.\n\n.. note::\n\n\tThe filter supports a range of 0 - 10 inclusively for stage numbers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.RateLimit_Action": {
+            "type": "object",
+            "properties": {
+                "actionSpecifier": {
+                    "description": "Types that are assignable to ActionSpecifier:\n\n\t*RateLimit_Action_SourceCluster_\n\t*RateLimit_Action_DestinationCluster_\n\t*RateLimit_Action_RequestHeaders_\n\t*RateLimit_Action_RemoteAddress_\n\t*RateLimit_Action_GenericKey_\n\t*RateLimit_Action_HeaderValueMatch_\n\t*RateLimit_Action_DynamicMetadata\n\t*RateLimit_Action_Metadata\n\t*RateLimit_Action_Extension\n\t*RateLimit_Action_MaskedRemoteAddress_\n\t*RateLimit_Action_QueryParameterValueMatch_"
+                }
+            }
+        },
+        "routev3.RateLimit_Override": {
+            "type": "object",
+            "properties": {
+                "overrideSpecifier": {
+                    "description": "Types that are assignable to OverrideSpecifier:\n\n\t*RateLimit_Override_DynamicMetadata_"
+                }
+            }
+        },
+        "routev3.RetryPolicy": {
+            "type": "object",
+            "properties": {
+                "host_selection_retry_max_attempts": {
+                    "description": "The maximum number of times host selection will be reattempted before giving up, at which\npoint the host that was last selected will be routed to. If unspecified, this will default to\nretrying once.",
+                    "type": "integer"
+                },
+                "num_retries": {
+                    "description": "Specifies the allowed number of retries. This parameter is optional and\ndefaults to 1. These are the same conditions documented for\n:ref:` + "`" + `config_http_filters_router_x-envoy-max-retries` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "per_try_idle_timeout": {
+                    "description": "Specifies an upstream idle timeout per retry attempt (including the initial attempt). This\nparameter is optional and if absent there is no per try idle timeout. The semantics of the per\ntry idle timeout are similar to the\n:ref:` + "`" + `route idle timeout \u003cenvoy_v3_api_field_config.route.v3.RouteAction.timeout\u003e` + "`" + ` and\n:ref:` + "`" + `stream idle timeout\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_idle_timeout\u003e` + "`" + `\nboth enforced by the HTTP connection manager. The difference is that this idle timeout\nis enforced by the router for each individual attempt and thus after all previous filters have\nrun, as opposed to *before* all previous filters run for the other idle timeouts. This timeout\nis useful in cases in which total request timeout is bounded by a number of retries and a\n:ref:` + "`" + `per_try_timeout \u003cenvoy_v3_api_field_config.route.v3.RetryPolicy.per_try_timeout\u003e` + "`" + `, but\nthere is a desire to ensure each try is making incremental progress. Note also that similar\nto :ref:` + "`" + `per_try_timeout \u003cenvoy_v3_api_field_config.route.v3.RetryPolicy.per_try_timeout\u003e` + "`" + `,\nthis idle timeout does not start until after both the entire request has been received by the\nrouter *and* a connection pool connection has been obtained. Unlike\n:ref:` + "`" + `per_try_timeout \u003cenvoy_v3_api_field_config.route.v3.RetryPolicy.per_try_timeout\u003e` + "`" + `,\nthe idle timer continues once the response starts streaming back to the downstream client.\nThis ensures that response data continues to make progress without using one of the HTTP\nconnection manager idle timeouts.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "per_try_timeout": {
+                    "description": "Specifies a non-zero upstream timeout per retry attempt (including the initial attempt). This\nparameter is optional. The same conditions documented for\n:ref:` + "`" + `config_http_filters_router_x-envoy-upstream-rq-per-try-timeout-ms` + "`" + ` apply.\n\n.. note::\n\n\tIf left unspecified, Envoy will use the global\n\t:ref:` + "`" + `route timeout \u003cenvoy_v3_api_field_config.route.v3.RouteAction.timeout\u003e` + "`" + ` for the request.\n\tConsequently, when using a :ref:` + "`" + `5xx \u003cconfig_http_filters_router_x-envoy-retry-on\u003e` + "`" + ` based\n\tretry policy, a request that times out will not be retried as the total timeout budget\n\twould have been exhausted.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "rate_limited_retry_back_off": {
+                    "description": "Specifies parameters that control a retry back-off strategy that is used\nwhen the request is rate limited by the upstream server. The server may\nreturn a response header like “Retry-After“ or “X-RateLimit-Reset“ to\nprovide feedback to the client on how long to wait before retrying. If\nconfigured, this back-off strategy will be used instead of the\ndefault exponential back off strategy (configured using “retry_back_off“)\nwhenever a response includes the matching headers.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RetryPolicy_RateLimitedRetryBackOff"
+                        }
+                    ]
+                },
+                "retriable_headers": {
+                    "description": "HTTP response headers that trigger a retry if present in the response. A retry will be\ntriggered if any of the header matches match the upstream response headers.\nThe field is only consulted if 'retriable-headers' retry policy is active.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.HeaderMatcher"
+                    }
+                },
+                "retriable_request_headers": {
+                    "description": "HTTP headers which must be present in the request for retries to be attempted.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.HeaderMatcher"
+                    }
+                },
+                "retriable_status_codes": {
+                    "description": "HTTP status codes that should trigger a retry in addition to those specified by retry_on.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "retry_back_off": {
+                    "description": "Specifies parameters that control exponential retry back off. This parameter is optional, in which case the\ndefault base interval is 25 milliseconds or, if set, the current value of the\n“upstream.base_retry_backoff_ms“ runtime parameter. The default maximum interval is 10 times\nthe base interval. The documentation for :ref:` + "`" + `config_http_filters_router_x-envoy-max-retries` + "`" + `\ndescribes Envoy's back-off algorithm.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RetryPolicy_RetryBackOff"
+                        }
+                    ]
+                },
+                "retry_host_predicate": {
+                    "description": "Specifies a collection of RetryHostPredicates that will be consulted when selecting a host\nfor retries. If any of the predicates reject the host, host selection will be reattempted.\nRefer to :ref:` + "`" + `retry plugin configuration \u003carch_overview_http_retry_plugins\u003e` + "`" + ` for more\ndetails.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.RetryPolicy_RetryHostPredicate"
+                    }
+                },
+                "retry_on": {
+                    "description": "Specifies the conditions under which retry takes place. These are the same\nconditions documented for :ref:` + "`" + `config_http_filters_router_x-envoy-retry-on` + "`" + ` and\n:ref:` + "`" + `config_http_filters_router_x-envoy-retry-grpc-on` + "`" + `.",
+                    "type": "string"
+                },
+                "retry_options_predicates": {
+                    "description": "Retry options predicates that will be applied prior to retrying a request. These predicates\nallow customizing request behavior between retries.\n[#comment: add [#extension-category: envoy.retry_options_predicates] when there are built-in extensions]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.TypedExtensionConfig"
+                    }
+                },
+                "retry_priority": {
+                    "description": "Specifies an implementation of a RetryPriority which is used to determine the\ndistribution of load across priorities used for retries. Refer to\n:ref:` + "`" + `retry plugin configuration \u003carch_overview_http_retry_plugins\u003e` + "`" + ` for more details.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RetryPolicy_RetryPriority"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.RetryPolicy_RateLimitedRetryBackOff": {
+            "type": "object",
+            "properties": {
+                "max_interval": {
+                    "description": "Specifies the maximum back off interval that Envoy will allow. If a reset\nheader contains an interval longer than this then it will be discarded and\nthe next header will be tried. Defaults to 300 seconds.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "reset_headers": {
+                    "description": "Specifies the reset headers (like “Retry-After“ or “X-RateLimit-Reset“)\nto match against the response. Headers are tried in order, and matched case\ninsensitive. The first header to be parsed successfully is used. If no headers\nmatch the default exponential back-off is used instead.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.RetryPolicy_ResetHeader"
+                    }
+                }
+            }
+        },
+        "routev3.RetryPolicy_ResetHeader": {
+            "type": "object",
+            "properties": {
+                "format": {
+                    "description": "The format of the reset header.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RetryPolicy_ResetHeaderFormat"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The name of the reset header.\n\n.. note::\n\n\tIf the header appears multiple times only the first value is used.",
+                    "type": "string"
+                }
+            }
+        },
+        "routev3.RetryPolicy_ResetHeaderFormat": {
+            "type": "integer",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "RetryPolicy_SECONDS",
+                "RetryPolicy_UNIX_TIMESTAMP"
+            ]
+        },
+        "routev3.RetryPolicy_RetryBackOff": {
+            "type": "object",
+            "properties": {
+                "base_interval": {
+                    "description": "Specifies the base interval between retries. This parameter is required and must be greater\nthan zero. Values less than 1 ms are rounded up to 1 ms.\nSee :ref:` + "`" + `config_http_filters_router_x-envoy-max-retries` + "`" + ` for a discussion of Envoy's\nback-off algorithm.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_interval": {
+                    "description": "Specifies the maximum interval between retries. This parameter is optional, but must be\ngreater than or equal to the “base_interval“ if set. The default is 10 times the\n“base_interval“. See :ref:` + "`" + `config_http_filters_router_x-envoy-max-retries` + "`" + ` for a discussion\nof Envoy's back-off algorithm.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.RetryPolicy_RetryHostPredicate": {
+            "type": "object",
+            "properties": {
+                "configType": {
+                    "description": "[#extension-category: envoy.retry_host_predicates]\n\nTypes that are assignable to ConfigType:\n\n\t*RetryPolicy_RetryHostPredicate_TypedConfig"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "routev3.RetryPolicy_RetryPriority": {
+            "type": "object",
+            "properties": {
+                "configType": {
+                    "description": "[#extension-category: envoy.retry_priorities]\n\nTypes that are assignable to ConfigType:\n\n\t*RetryPolicy_RetryPriority_TypedConfig"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "routev3.Route": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "Types that are assignable to Action:\n\n\t*Route_Route\n\t*Route_Redirect\n\t*Route_DirectResponse\n\t*Route_FilterAction\n\t*Route_NonForwardingAction"
+                },
+                "decorator": {
+                    "description": "Decorator for the matched route.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.Decorator"
+                        }
+                    ]
+                },
+                "match": {
+                    "description": "Route matching parameters.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RouteMatch"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "description": "The Metadata field can be used to provide additional information\nabout the route. It can be used for configuration, stats, and logging.\nThe metadata should go under the filter namespace that will need it.\nFor instance, if the metadata is intended for the Router filter,\nthe filter name should be specified as “envoy.filters.http.router“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "Name for the route.",
+                    "type": "string"
+                },
+                "per_request_buffer_limit_bytes": {
+                    "description": "The maximum bytes which will be buffered for retries and shadowing.\nIf set, the bytes actually buffered will be the minimum value of this and the\nlistener per_connection_buffer_limit_bytes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "request_headers_to_add": {
+                    "description": "Specifies a set of headers that will be added to requests matching this\nroute. Headers specified at this level are applied before headers from the\nenclosing :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.VirtualHost` + "`" + ` and\n:ref:` + "`" + `envoy_v3_api_msg_config.route.v3.RouteConfiguration` + "`" + `. For more information, including details on\nheader value syntax, see the documentation on :ref:` + "`" + `custom request headers\n\u003cconfig_http_conn_man_headers_custom_request_headers\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "request_headers_to_remove": {
+                    "description": "Specifies a list of HTTP headers that should be removed from each request\nmatching this route.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "response_headers_to_add": {
+                    "description": "Specifies a set of headers that will be added to responses to requests\nmatching this route. Headers specified at this level are applied before\nheaders from the enclosing :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.VirtualHost` + "`" + ` and\n:ref:` + "`" + `envoy_v3_api_msg_config.route.v3.RouteConfiguration` + "`" + `. For more information, including\ndetails on header value syntax, see the documentation on\n:ref:` + "`" + `custom request headers \u003cconfig_http_conn_man_headers_custom_request_headers\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "response_headers_to_remove": {
+                    "description": "Specifies a list of HTTP headers that should be removed from each response\nto requests matching this route.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "stat_prefix": {
+                    "description": "The human readable prefix to use when emitting statistics for this endpoint.\nThe statistics are rooted at vhost.\u003cvirtual host name\u003e.route.\u003cstat_prefix\u003e.\nThis should be set for highly critical\nendpoints that one wishes to get “per-route” statistics on.\nIf not set, endpoint statistics are not generated.\n\nThe emitted statistics are the same as those documented for :ref:` + "`" + `virtual clusters \u003cconfig_http_filters_router_vcluster_stats\u003e` + "`" + `.\n\n.. warning::\n\n\tWe do not recommend setting up a stat prefix for\n\tevery application endpoint. This is both not easily maintainable and\n\tstatistics use a non-trivial amount of memory(approximately 1KiB per route).",
+                    "type": "string"
+                },
+                "tracing": {
+                    "description": "Presence of the object defines whether the connection manager's tracing configuration\nis overridden by this route specific instance.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.Tracing"
+                        }
+                    ]
+                },
+                "typed_per_filter_config": {
+                    "description": "This field can be used to provide route specific per filter config. The key should match the\n:ref:` + "`" + `filter config name\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpFilter.name\u003e` + "`" + `.\nSee :ref:` + "`" + `Http filter route specific config \u003carch_overview_http_filters_per_filter_config\u003e` + "`" + `\nfor details.\n[#comment: An entry's value may be wrapped in a\n:ref:` + "`" + `FilterConfig\u003cenvoy_v3_api_msg_config.route.v3.FilterConfig\u003e` + "`" + `\nmessage to specify additional options.]",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/any.Any"
+                    }
+                }
+            }
+        },
+        "routev3.RouteAction_RequestMirrorPolicy": {
+            "type": "object",
+            "properties": {
+                "cluster": {
+                    "description": "Only one of “cluster“ and “cluster_header“ can be specified.\n[#next-major-version: Need to add back the validation rule: (validate.rules).string = {min_len: 1}]\nSpecifies the cluster that requests will be mirrored to. The cluster must\nexist in the cluster manager configuration.",
+                    "type": "string"
+                },
+                "cluster_header": {
+                    "description": "Only one of “cluster“ and “cluster_header“ can be specified.\nEnvoy will determine the cluster to route to by reading the value of the\nHTTP header named by cluster_header from the request headers. Only the first value in header is used,\nand no shadow request will happen if the value is not found in headers. Envoy will not wait for\nthe shadow cluster to respond before returning the response from the primary cluster.\n\n.. attention::\n\n\tInternally, Envoy always uses the HTTP/2 ` + "`" + `` + "`" + `:authority` + "`" + `` + "`" + ` header to represent the HTTP/1\n\t` + "`" + `` + "`" + `Host` + "`" + `` + "`" + ` header. Thus, if attempting to match on ` + "`" + `` + "`" + `Host` + "`" + `` + "`" + `, match on ` + "`" + `` + "`" + `:authority` + "`" + `` + "`" + ` instead.\n\n.. note::\n\n\tIf the header appears multiple times only the first value is used.",
+                    "type": "string"
+                },
+                "runtime_fraction": {
+                    "description": "If not specified, all requests to the target cluster will be mirrored.\n\nIf specified, this field takes precedence over the “runtime_key“ field and requests must also\nfall under the percentage of matches indicated by this field.\n\nFor some fraction N/D, a random number in the range [0,D) is selected. If the\nnumber is \u003c= the value of the numerator N, or if the key is not present, the default\nvalue, the request will be mirrored.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.RuntimeFractionalPercent"
+                        }
+                    ]
+                },
+                "trace_sampled": {
+                    "description": "Determines if the trace span should be sampled. Defaults to true.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.RouteConfiguration": {
+            "type": "object",
+            "properties": {
+                "cluster_specifier_plugins": {
+                    "description": "A list of plugins and their configurations which may be used by a\n:ref:` + "`" + `cluster specifier plugin name \u003cenvoy_v3_api_field_config.route.v3.RouteAction.cluster_specifier_plugin\u003e` + "`" + `\nwithin the route. All “extension.name“ fields in this list must be unique.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.ClusterSpecifierPlugin"
+                    }
+                },
+                "ignore_path_parameters_in_path_matching": {
+                    "description": "Ignore path-parameters in path-matching.\nBefore RFC3986, URI were like(RFC1808): \u003cscheme\u003e://\u003cnet_loc\u003e/\u003cpath\u003e;\u003cparams\u003e?\u003cquery\u003e#\u003cfragment\u003e\nEnvoy by default takes \":path\" as \"\u003cpath\u003e;\u003cparams\u003e\".\nFor users who want to only match path on the \"\u003cpath\u003e\" portion, this option should be true.",
+                    "type": "boolean"
+                },
+                "ignore_port_in_host_matching": {
+                    "description": "By default, port in :authority header (if any) is used in host matching.\nWith this option enabled, Envoy will ignore the port number in the :authority header (if any) when picking VirtualHost.\nNOTE: this option will not strip the port number (if any) contained in route config\n:ref:` + "`" + `envoy_v3_api_msg_config.route.v3.VirtualHost` + "`" + `.domains field.",
+                    "type": "boolean"
+                },
+                "internal_only_headers": {
+                    "description": "Optionally specifies a list of HTTP headers that the connection manager\nwill consider to be internal only. If they are found on external requests they will be cleaned\nprior to filter invocation. See :ref:` + "`" + `config_http_conn_man_headers_x-envoy-internal` + "`" + ` for more\ninformation.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "max_direct_response_body_size_bytes": {
+                    "description": "The maximum bytes of the response :ref:` + "`" + `direct response body\n\u003cenvoy_v3_api_field_config.route.v3.DirectResponseAction.body\u003e` + "`" + ` size. If not specified the default\nis 4096.\n\n.. warning::\n\n\tEnvoy currently holds the content of :ref:` + "`" + `direct response body\n\t\u003cenvoy_v3_api_field_config.route.v3.DirectResponseAction.body\u003e` + "`" + ` in memory. Be careful setting\n\tthis to be larger than the default 4KB, since the allocated memory for direct response body\n\tis not subject to data plane buffering controls.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "description": "The metadata field can be used to provide additional information\nabout the route configuration. It can be used for configuration, stats, and logging.\nThe metadata should go under the filter namespace that will need it.\nFor instance, if the metadata is intended for the Router filter,\nthe filter name should be specified as “envoy.filters.http.router“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                },
+                "most_specific_header_mutations_wins": {
+                    "description": "By default, headers that should be added/removed are evaluated from most to least specific:\n\n* route level\n* virtual host level\n* connection manager level\n\nTo allow setting overrides at the route or virtual host level, this order can be reversed\nby setting this option to true. Defaults to false.",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "The name of the route configuration. For example, it might match\n:ref:` + "`" + `route_config_name\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.Rds.route_config_name\u003e` + "`" + ` in\n:ref:` + "`" + `envoy_v3_api_msg_extensions.filters.network.http_connection_manager.v3.Rds` + "`" + `.",
+                    "type": "string"
+                },
+                "request_headers_to_add": {
+                    "description": "Specifies a list of HTTP headers that should be added to each request\nrouted by the HTTP connection manager. Headers specified at this level are\napplied after headers from any enclosed :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.VirtualHost` + "`" + ` or\n:ref:` + "`" + `envoy_v3_api_msg_config.route.v3.RouteAction` + "`" + `. For more information, including details on\nheader value syntax, see the documentation on :ref:` + "`" + `custom request headers\n\u003cconfig_http_conn_man_headers_custom_request_headers\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "request_headers_to_remove": {
+                    "description": "Specifies a list of HTTP headers that should be removed from each request\nrouted by the HTTP connection manager.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "request_mirror_policies": {
+                    "description": "Specify a set of default request mirroring policies which apply to all routes under its virtual hosts.\nNote that policies are not merged, the most specific non-empty one becomes the mirror policies.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.RouteAction_RequestMirrorPolicy"
+                    }
+                },
+                "response_headers_to_add": {
+                    "description": "Specifies a list of HTTP headers that should be added to each response that\nthe connection manager encodes. Headers specified at this level are applied\nafter headers from any enclosed :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.VirtualHost` + "`" + ` or\n:ref:` + "`" + `envoy_v3_api_msg_config.route.v3.RouteAction` + "`" + `. For more information, including details on\nheader value syntax, see the documentation on :ref:` + "`" + `custom request headers\n\u003cconfig_http_conn_man_headers_custom_request_headers\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "response_headers_to_remove": {
+                    "description": "Specifies a list of HTTP headers that should be removed from each response\nthat the connection manager encodes.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "typed_per_filter_config": {
+                    "description": "This field can be used to provide RouteConfiguration level per filter config. The key should match the\n:ref:` + "`" + `filter config name\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpFilter.name\u003e` + "`" + `.\nSee :ref:` + "`" + `Http filter route specific config \u003carch_overview_http_filters_per_filter_config\u003e` + "`" + `\nfor details.\n[#comment: An entry's value may be wrapped in a\n:ref:` + "`" + `FilterConfig\u003cenvoy_v3_api_msg_config.route.v3.FilterConfig\u003e` + "`" + `\nmessage to specify additional options.]",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/any.Any"
+                    }
+                },
+                "validate_clusters": {
+                    "description": "An optional boolean that specifies whether the clusters that the route\ntable refers to will be validated by the cluster manager. If set to true\nand a route refers to a non-existent cluster, the route table will not\nload. If set to false and a route refers to a non-existent cluster, the\nroute table will load and the router filter will return a 404 if the route\nis selected at runtime. This setting defaults to true if the route table\nis statically defined via the :ref:` + "`" + `route_config\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.route_config\u003e` + "`" + `\noption. This setting default to false if the route table is loaded dynamically via the\n:ref:` + "`" + `rds\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.rds\u003e` + "`" + `\noption. Users may wish to override the default behavior in certain cases (for example when\nusing CDS with a static route table).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "vhds": {
+                    "description": "An array of virtual hosts will be dynamically loaded via the VHDS API.\nBoth “virtual_hosts“ and “vhds“ fields will be used when present. “virtual_hosts“ can be used\nfor a base routing table or for infrequently changing virtual hosts. “vhds“ is used for\non-demand discovery of virtual hosts. The contents of these two fields will be merged to\ngenerate a routing table for a given RouteConfiguration, with “vhds“ derived configuration\ntaking precedence.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.Vhds"
+                        }
+                    ]
+                },
+                "virtual_hosts": {
+                    "description": "An array of virtual hosts that make up the route table.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.VirtualHost"
+                    }
+                }
+            }
+        },
+        "routev3.RouteMatch": {
+            "type": "object",
+            "properties": {
+                "case_sensitive": {
+                    "description": "Indicates that prefix/path matching should be case sensitive. The default\nis true. Ignored for safe_regex matching.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "dynamic_metadata": {
+                    "description": "Specifies a set of dynamic metadata matchers on which the route should match.\nThe router will check the dynamic metadata against all the specified dynamic metadata matchers.\nIf the number of specified dynamic metadata matchers is nonzero, they all must match the\ndynamic metadata for a match to occur.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/matcherv3.MetadataMatcher"
+                    }
+                },
+                "grpc": {
+                    "description": "If specified, only gRPC requests will be matched. The router will check\nthat the content-type header has a application/grpc or one of the various\napplication/grpc+ values.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RouteMatch_GrpcRouteMatchOptions"
+                        }
+                    ]
+                },
+                "headers": {
+                    "description": "Specifies a set of headers that the route should match on. The router will\ncheck the request’s headers against all the specified headers in the route\nconfig. A match will happen if all the headers in the route are present in\nthe request with the same values (or based on presence if the value field\nis not in the config).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.HeaderMatcher"
+                    }
+                },
+                "pathSpecifier": {
+                    "description": "Types that are assignable to PathSpecifier:\n\n\t*RouteMatch_Prefix\n\t*RouteMatch_Path\n\t*RouteMatch_SafeRegex\n\t*RouteMatch_ConnectMatcher_\n\t*RouteMatch_PathSeparatedPrefix\n\t*RouteMatch_PathMatchPolicy"
+                },
+                "query_parameters": {
+                    "description": "Specifies a set of URL query parameters on which the route should\nmatch. The router will check the query string from the “path“ header\nagainst all the specified query parameters. If the number of specified\nquery parameters is nonzero, they all must match the “path“ header's\nquery string for a match to occur. In the event query parameters are\nrepeated, only the first value for each key will be considered.\n\n.. note::\n\n\tIf query parameters are used to pass request message fields when\n\t` + "`" + `grpc_json_transcoder \u003chttps://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/grpc_json_transcoder_filter\u003e` + "`" + `_\n\tis used, the transcoded message fields maybe different. The query parameters are\n\turl encoded, but the message fields are not. For example, if a query\n\tparameter is \"foo%20bar\", the message field will be \"foo bar\".",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.QueryParameterMatcher"
+                    }
+                },
+                "runtime_fraction": {
+                    "description": "Indicates that the route should additionally match on a runtime key. Every time the route\nis considered for a match, it must also fall under the percentage of matches indicated by\nthis field. For some fraction N/D, a random number in the range [0,D) is selected. If the\nnumber is \u003c= the value of the numerator N, or if the key is not present, the default\nvalue, the router continues to evaluate the remaining match criteria. A runtime_fraction\nroute configuration can be used to roll out route changes in a gradual manner without full\ncode/config deploys. Refer to the :ref:` + "`" + `traffic shifting\n\u003cconfig_http_conn_man_route_table_traffic_splitting_shift\u003e` + "`" + ` docs for additional documentation.\n\n.. note::\n\n\tParsing this field is implemented such that the runtime key's data may be represented\n\tas a FractionalPercent proto represented as JSON/YAML and may also be represented as an\n\tinteger with the assumption that the value is an integral percentage out of 100. For\n\tinstance, a runtime key lookup returning the value \"42\" would parse as a FractionalPercent\n\twhose numerator is 42 and denominator is HUNDRED. This preserves legacy semantics.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.RuntimeFractionalPercent"
+                        }
+                    ]
+                },
+                "tls_context": {
+                    "description": "If specified, the client tls context will be matched against the defined\nmatch options.\n\n[#next-major-version: unify with RBAC]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RouteMatch_TlsContextMatchOptions"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.RouteMatch_GrpcRouteMatchOptions": {
+            "type": "object"
+        },
+        "routev3.RouteMatch_TlsContextMatchOptions": {
+            "type": "object",
+            "properties": {
+                "presented": {
+                    "description": "If specified, the route will match against whether or not a certificate is presented.\nIf not specified, certificate presentation status (true or false) will not be considered when route matching.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                },
+                "validated": {
+                    "description": "If specified, the route will match against whether or not a certificate is validated.\nIf not specified, certificate validation status (true or false) will not be considered when route matching.\n\n.. warning::\n\n\tClient certificate validation is not currently performed upon TLS session resumption. For\n\ta resumed TLS session the route will match only when ` + "`" + `` + "`" + `validated` + "`" + `` + "`" + ` is false, regardless of\n\twhether the client TLS certificate is valid.\n\n\tThe only known workaround for this issue is to disable TLS session resumption entirely, by\n\tsetting both :ref:` + "`" + `disable_stateless_session_resumption \u003cenvoy_v3_api_field_extensions.transport_sockets.tls.v3.DownstreamTlsContext.disable_stateless_session_resumption\u003e` + "`" + `\n\tand :ref:` + "`" + `disable_stateful_session_resumption \u003cenvoy_v3_api_field_extensions.transport_sockets.tls.v3.DownstreamTlsContext.disable_stateful_session_resumption\u003e` + "`" + ` on the DownstreamTlsContext.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.BoolValue"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.Tracing": {
+            "type": "object",
+            "properties": {
+                "client_sampling": {
+                    "description": "Target percentage of requests managed by this HTTP connection manager that will be force\ntraced if the :ref:` + "`" + `x-client-trace-id \u003cconfig_http_conn_man_headers_x-client-trace-id\u003e` + "`" + `\nheader is set. This field is a direct analog for the runtime variable\n'tracing.client_enabled' in the :ref:` + "`" + `HTTP Connection Manager\n\u003cconfig_http_conn_man_runtime\u003e` + "`" + `.\nDefault: 100%",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.FractionalPercent"
+                        }
+                    ]
+                },
+                "custom_tags": {
+                    "description": "A list of custom tags with unique tag name to create tags for the active span.\nIt will take effect after merging with the :ref:` + "`" + `corresponding configuration\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.custom_tags\u003e` + "`" + `\nconfigured in the HTTP connection manager. If two tags with the same name are configured\neach in the HTTP connection manager and the route level, the one configured here takes\npriority.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tracingv3.CustomTag"
+                    }
+                },
+                "overall_sampling": {
+                    "description": "Target percentage of requests managed by this HTTP connection manager that will be traced\nafter all other sampling checks have been applied (client-directed, force tracing, random\nsampling). This field functions as an upper limit on the total configured sampling rate. For\ninstance, setting client_sampling to 100% but overall_sampling to 1% will result in only 1%\nof client requests with the appropriate headers to be force traced. This field is a direct\nanalog for the runtime variable 'tracing.global_enabled' in the\n:ref:` + "`" + `HTTP Connection Manager \u003cconfig_http_conn_man_runtime\u003e` + "`" + `.\nDefault: 100%",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.FractionalPercent"
+                        }
+                    ]
+                },
+                "random_sampling": {
+                    "description": "Target percentage of requests managed by this HTTP connection manager that will be randomly\nselected for trace generation, if not requested by the client or not forced. This field is\na direct analog for the runtime variable 'tracing.random_sampling' in the\n:ref:` + "`" + `HTTP Connection Manager \u003cconfig_http_conn_man_runtime\u003e` + "`" + `.\nDefault: 100%",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.FractionalPercent"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.Vhds": {
+            "type": "object",
+            "properties": {
+                "config_source": {
+                    "description": "Configuration source specifier for VHDS.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.ConfigSource"
+                        }
+                    ]
+                }
+            }
+        },
+        "routev3.VirtualCluster": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Specifies a list of header matchers to use for matching requests. Each specified header must\nmatch. The pseudo-headers “:path“ and “:method“ can be used to match the request path and\nmethod, respectively.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.HeaderMatcher"
+                    }
+                },
+                "name": {
+                    "description": "Specifies the name of the virtual cluster. The virtual cluster name as well\nas the virtual host name are used when emitting statistics. The statistics are emitted by the\nrouter filter and are documented :ref:` + "`" + `here \u003cconfig_http_filters_router_stats\u003e` + "`" + `.",
+                    "type": "string"
+                }
+            }
+        },
+        "routev3.VirtualHost": {
+            "type": "object",
+            "properties": {
+                "cors": {
+                    "description": "Indicates that the virtual host has a CORS policy. This field is ignored if related cors policy is\nfound in the\n:ref:` + "`" + `VirtualHost.typed_per_filter_config\u003cenvoy_v3_api_field_config.route.v3.VirtualHost.typed_per_filter_config\u003e` + "`" + `.\n\n.. attention::\n\n\tThis option has been deprecated. Please use\n\t:ref:` + "`" + `VirtualHost.typed_per_filter_config\u003cenvoy_v3_api_field_config.route.v3.VirtualHost.typed_per_filter_config\u003e` + "`" + `\n\tto configure the CORS HTTP filter.\n\nDeprecated: Marked as deprecated in envoy/config/route/v3/route_components.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.CorsPolicy"
+                        }
+                    ]
+                },
+                "domains": {
+                    "description": "A list of domains (host/authority header) that will be matched to this\nvirtual host. Wildcard hosts are supported in the suffix or prefix form.\n\nDomain search order:\n 1. Exact domain names: “www.foo.com“.\n 2. Suffix domain wildcards: “*.foo.com“ or “*-bar.foo.com“.\n 3. Prefix domain wildcards: “foo.*“ or “foo-*“.\n 4. Special wildcard “*“ matching any domain.\n\n.. note::\n\n\tThe wildcard will not match the empty string.\n\te.g. ` + "`" + `` + "`" + `*-bar.foo.com` + "`" + `` + "`" + ` will match ` + "`" + `` + "`" + `baz-bar.foo.com` + "`" + `` + "`" + ` but not ` + "`" + `` + "`" + `-bar.foo.com` + "`" + `` + "`" + `.\n\tThe longest wildcards match first.\n\tOnly a single virtual host in the entire route configuration can match on ` + "`" + `` + "`" + `*` + "`" + `` + "`" + `. A domain\n\tmust be unique across all virtual hosts or the config will fail to load.\n\nDomains cannot contain control characters. This is validated by the well_known_regex HTTP_HEADER_VALUE.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "hedge_policy": {
+                    "description": "Indicates the hedge policy for all routes in this virtual host. Note that setting a\nroute level entry will take precedence over this config and it'll be treated\nindependently (e.g.: values are not inherited).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.HedgePolicy"
+                        }
+                    ]
+                },
+                "include_attempt_count_in_response": {
+                    "description": "Decides whether the :ref:` + "`" + `x-envoy-attempt-count\n\u003cconfig_http_filters_router_x-envoy-attempt-count\u003e` + "`" + ` header should be included\nin the downstream response. Setting this option will cause the router to override any existing header\nvalue, so in the case of two Envoys on the request path with this option enabled, the downstream\nwill see the attempt count as perceived by the Envoy closest upstream from itself. Defaults to false.\nThis header is unaffected by the\n:ref:` + "`" + `suppress_envoy_headers\n\u003cenvoy_v3_api_field_extensions.filters.http.router.v3.Router.suppress_envoy_headers\u003e` + "`" + ` flag.",
+                    "type": "boolean"
+                },
+                "include_is_timeout_retry_header": {
+                    "description": "Decides whether to include the :ref:` + "`" + `x-envoy-is-timeout-retry \u003cconfig_http_filters_router_x-envoy-is-timeout-retry\u003e` + "`" + `\nrequest header in retries initiated by per try timeouts.",
+                    "type": "boolean"
+                },
+                "include_request_attempt_count": {
+                    "description": "Decides whether the :ref:` + "`" + `x-envoy-attempt-count\n\u003cconfig_http_filters_router_x-envoy-attempt-count\u003e` + "`" + ` header should be included\nin the upstream request. Setting this option will cause it to override any existing header\nvalue, so in the case of two Envoys on the request path with this option enabled, the upstream\nwill see the attempt count as perceived by the second Envoy. Defaults to false.\nThis header is unaffected by the\n:ref:` + "`" + `suppress_envoy_headers\n\u003cenvoy_v3_api_field_extensions.filters.http.router.v3.Router.suppress_envoy_headers\u003e` + "`" + ` flag.\n\n[#next-major-version: rename to include_attempt_count_in_request.]",
+                    "type": "boolean"
+                },
+                "matcher": {
+                    "description": "[#next-major-version: This should be included in a oneof with routes wrapped in a message.]\nThe match tree to use when resolving route actions for incoming requests. Only one of this and “routes“\ncan be specified.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/v3.Matcher"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "description": "The metadata field can be used to provide additional information\nabout the virtual host. It can be used for configuration, stats, and logging.\nThe metadata should go under the filter namespace that will need it.\nFor instance, if the metadata is intended for the Router filter,\nthe filter name should be specified as “envoy.filters.http.router“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "The logical name of the virtual host. This is used when emitting certain\nstatistics but is not relevant for routing.",
+                    "type": "string"
+                },
+                "per_request_buffer_limit_bytes": {
+                    "description": "The maximum bytes which will be buffered for retries and shadowing.\nIf set and a route-specific limit is not set, the bytes actually buffered will be the minimum\nvalue of this and the listener per_connection_buffer_limit_bytes.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "rate_limits": {
+                    "description": "Specifies a set of rate limit configurations that will be applied to the\nvirtual host.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.RateLimit"
+                    }
+                },
+                "request_headers_to_add": {
+                    "description": "Specifies a list of HTTP headers that should be added to each request\nhandled by this virtual host. Headers specified at this level are applied\nafter headers from enclosed :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.Route` + "`" + ` and before headers from the\nenclosing :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.RouteConfiguration` + "`" + `. For more information, including\ndetails on header value syntax, see the documentation on :ref:` + "`" + `custom request headers\n\u003cconfig_http_conn_man_headers_custom_request_headers\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "request_headers_to_remove": {
+                    "description": "Specifies a list of HTTP headers that should be removed from each request\nhandled by this virtual host.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "request_mirror_policies": {
+                    "description": "Specify a set of default request mirroring policies for every route under this virtual host.\nIt takes precedence over the route config mirror policy entirely.\nThat is, policies are not merged, the most specific non-empty one becomes the mirror policies.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.RouteAction_RequestMirrorPolicy"
+                    }
+                },
+                "require_tls": {
+                    "description": "Specifies the type of TLS enforcement the virtual host expects. If this option is not\nspecified, there is no TLS requirement for the virtual host.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.VirtualHost_TlsRequirementType"
+                        }
+                    ]
+                },
+                "response_headers_to_add": {
+                    "description": "Specifies a list of HTTP headers that should be added to each response\nhandled by this virtual host. Headers specified at this level are applied\nafter headers from enclosed :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.Route` + "`" + ` and before headers from the\nenclosing :ref:` + "`" + `envoy_v3_api_msg_config.route.v3.RouteConfiguration` + "`" + `. For more information, including\ndetails on header value syntax, see the documentation on :ref:` + "`" + `custom request headers\n\u003cconfig_http_conn_man_headers_custom_request_headers\u003e` + "`" + `.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "response_headers_to_remove": {
+                    "description": "Specifies a list of HTTP headers that should be removed from each response\nhandled by this virtual host.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "retry_policy": {
+                    "description": "Indicates the retry policy for all routes in this virtual host. Note that setting a\nroute level entry will take precedence over this config and it'll be treated\nindependently (e.g.: values are not inherited).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/routev3.RetryPolicy"
+                        }
+                    ]
+                },
+                "retry_policy_typed_config": {
+                    "description": "[#not-implemented-hide:]\nSpecifies the configuration for retry policy extension. Note that setting a route level entry\nwill take precedence over this config and it'll be treated independently (e.g.: values are not\ninherited). :ref:` + "`" + `Retry policy \u003cenvoy_v3_api_field_config.route.v3.VirtualHost.retry_policy\u003e` + "`" + ` should not be\nset if this field is used.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/any.Any"
+                        }
+                    ]
+                },
+                "routes": {
+                    "description": "The list of routes that will be matched, in order, for incoming requests.\nThe first route that matches will be used.\nOnly one of this and “matcher“ can be specified.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.Route"
+                    }
+                },
+                "typed_per_filter_config": {
+                    "description": "This field can be used to provide virtual host level per filter config. The key should match the\n:ref:` + "`" + `filter config name\n\u003cenvoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpFilter.name\u003e` + "`" + `.\nSee :ref:` + "`" + `Http filter route specific config \u003carch_overview_http_filters_per_filter_config\u003e` + "`" + `\nfor details.\n[#comment: An entry's value may be wrapped in a\n:ref:` + "`" + `FilterConfig\u003cenvoy_v3_api_msg_config.route.v3.FilterConfig\u003e` + "`" + `\nmessage to specify additional options.]",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/any.Any"
+                    }
+                },
+                "virtual_clusters": {
+                    "description": "A list of virtual clusters defined for this virtual host. Virtual clusters\nare used for additional statistics gathering.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/routev3.VirtualCluster"
+                    }
+                }
+            }
+        },
+        "routev3.VirtualHost_TlsRequirementType": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "VirtualHost_NONE",
+                "VirtualHost_EXTERNAL_ONLY",
+                "VirtualHost_ALL"
+            ]
+        },
+        "tcp_proxyv3.TcpProxy": {
+            "type": "object",
+            "properties": {
+                "access_log": {
+                    "description": "Configuration for :ref:` + "`" + `access logs \u003carch_overview_access_logs\u003e` + "`" + `\nemitted by the this tcp_proxy.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/accesslogv3.AccessLog"
+                    }
+                },
+                "access_log_flush_interval": {
+                    "description": ".. attention::\nThis field is deprecated in favor of\n:ref:` + "`" + `access_log_flush_interval\n\u003cenvoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions.access_log_flush_interval\u003e` + "`" + `.\nNote that if both this field and :ref:` + "`" + `access_log_flush_interval\n\u003cenvoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions.access_log_flush_interval\u003e` + "`" + `\nare specified, the former (deprecated field) is ignored.\n\nDeprecated: Marked as deprecated in envoy/extensions/filters/network/tcp_proxy/v3/tcp_proxy.proto.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "access_log_options": {
+                    "description": "Additional access log options for TCP Proxy.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/tcp_proxyv3.TcpProxy_TcpAccessLogOptions"
+                        }
+                    ]
+                },
+                "clusterSpecifier": {
+                    "description": "Types that are assignable to ClusterSpecifier:\n\n\t*TcpProxy_Cluster\n\t*TcpProxy_WeightedClusters"
+                },
+                "downstream_idle_timeout": {
+                    "description": "[#not-implemented-hide:] The idle timeout for connections managed by the TCP proxy\nfilter. The idle timeout is defined as the period in which there is no\nactive traffic. If not set, there is no idle timeout. When the idle timeout\nis reached the connection will be closed. The distinction between\ndownstream_idle_timeout/upstream_idle_timeout provides a means to set\ntimeout based on the last byte sent on the downstream/upstream connection.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "flush_access_log_on_connected": {
+                    "description": ".. attention::\nThis field is deprecated in favor of\n:ref:` + "`" + `flush_access_log_on_connected\n\u003cenvoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions.flush_access_log_on_connected\u003e` + "`" + `.\nNote that if both this field and :ref:` + "`" + `flush_access_log_on_connected\n\u003cenvoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions.flush_access_log_on_connected\u003e` + "`" + `\nare specified, the former (deprecated field) is ignored.\n\nDeprecated: Marked as deprecated in envoy/extensions/filters/network/tcp_proxy/v3/tcp_proxy.proto.",
+                    "type": "boolean"
+                },
+                "hash_policy": {
+                    "description": "Optional configuration for TCP proxy hash policy. If hash_policy is not set, the hash-based\nload balancing algorithms will select a host randomly. Currently the number of hash policies is\nlimited to 1.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/typev3.HashPolicy"
+                    }
+                },
+                "idle_timeout": {
+                    "description": "The idle timeout for connections managed by the TCP proxy filter. The idle timeout\nis defined as the period in which there are no bytes sent or received on either\nthe upstream or downstream connection. If not set, the default idle timeout is 1 hour. If set\nto 0s, the timeout will be disabled.\n\n.. warning::\n\n\tDisabling this timeout has a highly likelihood of yielding connection leaks due to lost TCP\n\tFIN packets, etc.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "max_connect_attempts": {
+                    "description": "The maximum number of unsuccessful connection attempts that will be made before\ngiving up. If the parameter is not specified, 1 connection attempt will be made.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/wrappers.UInt32Value"
+                        }
+                    ]
+                },
+                "max_downstream_connection_duration": {
+                    "description": "The maximum duration of a connection. The duration is defined as the period since a connection\nwas established. If not set, there is no max duration. When max_downstream_connection_duration\nis reached the connection will be closed. Duration must be at least 1ms.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "metadata_match": {
+                    "description": "Optional endpoint metadata match criteria. Only endpoints in the upstream\ncluster with metadata matching that set in metadata_match will be\nconsidered. The filter name should be specified as “envoy.lb“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.Metadata"
+                        }
+                    ]
+                },
+                "on_demand": {
+                    "description": "The on demand policy for the upstream cluster.\nIt applies to both\n:ref:` + "`" + `TcpProxy.cluster \u003cenvoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.cluster\u003e` + "`" + `\nand\n:ref:` + "`" + `TcpProxy.weighted_clusters \u003cenvoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.weighted_clusters\u003e` + "`" + `.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/tcp_proxyv3.TcpProxy_OnDemand"
+                        }
+                    ]
+                },
+                "stat_prefix": {
+                    "description": "The prefix to use when emitting :ref:` + "`" + `statistics\n\u003cconfig_network_filters_tcp_proxy_stats\u003e` + "`" + `.",
+                    "type": "string"
+                },
+                "tunneling_config": {
+                    "description": "If set, this configures tunneling, e.g. configuration options to tunnel TCP payload over\nHTTP CONNECT. If this message is absent, the payload will be proxied upstream as per usual.\nIt is possible to dynamically override this configuration and disable tunneling per connection,\nby setting a per-connection filter state object for the key “envoy.tcp_proxy.disable_tunneling“.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/tcp_proxyv3.TcpProxy_TunnelingConfig"
+                        }
+                    ]
+                },
+                "upstream_idle_timeout": {
+                    "description": "[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "tcp_proxyv3.TcpProxy_OnDemand": {
+            "type": "object",
+            "properties": {
+                "odcds_config": {
+                    "description": "An optional configuration for on-demand cluster discovery\nservice. If not specified, the on-demand cluster discovery will\nbe disabled. When it's specified, the filter will pause a request\nto an unknown cluster and will begin a cluster discovery\nprocess. When the discovery is finished (successfully or not),\nthe request will be resumed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/corev3.ConfigSource"
+                        }
+                    ]
+                },
+                "resources_locator": {
+                    "description": "xdstp:// resource locator for on-demand cluster collection.\n[#not-implemented-hide:]",
+                    "type": "string"
+                },
+                "timeout": {
+                    "description": "The timeout for on demand cluster lookup. If the CDS cannot return the required cluster,\nthe downstream request will be closed with the error code detail NO_CLUSTER_FOUND.\n[#not-implemented-hide:]",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                }
+            }
+        },
+        "tcp_proxyv3.TcpProxy_TcpAccessLogOptions": {
+            "type": "object",
+            "properties": {
+                "access_log_flush_interval": {
+                    "description": "The interval to flush access log. The TCP proxy will flush only one access log when the connection\nis closed by default. If this field is set, the TCP proxy will flush access log periodically with\nthe specified interval.\nThe interval must be at least 1ms.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/duration.Duration"
+                        }
+                    ]
+                },
+                "flush_access_log_on_connected": {
+                    "description": "If set to true, access log will be flushed when the TCP proxy has successfully established a\nconnection with the upstream. If the connection failed, the access log will not be flushed.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "tcp_proxyv3.TcpProxy_TunnelingConfig": {
+            "type": "object",
+            "properties": {
+                "headers_to_add": {
+                    "description": "Additional request headers to upstream proxy. This is mainly used to\ntrigger upstream to convert POST requests back to CONNECT requests.\n\nNeither “:-prefixed“ pseudo-headers nor the Host: header can be overridden.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/corev3.HeaderValueOption"
+                    }
+                },
+                "hostname": {
+                    "description": "The hostname to send in the synthesized CONNECT headers to the upstream proxy.\nThis field evaluates command operators if set, otherwise returns hostname as is.\n\nExample: dynamically set hostname using downstream SNI\n\n.. code-block:: yaml\n\n\ttunneling_config:\n\t  hostname: \"%REQUESTED_SERVER_NAME%:443\"\n\nExample: dynamically set hostname using dynamic metadata\n\n.. code-block:: yaml\n\n\ttunneling_config:\n\t  hostname: \"%DYNAMIC_METADATA(tunnel:address)%\"",
+                    "type": "string"
+                },
+                "post_path": {
+                    "description": "The path used with POST method. Default path is “/“. If post path is specified and\n:ref:` + "`" + `use_post field \u003cenvoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig.use_post\u003e` + "`" + `\nisn't true, it will be rejected.",
+                    "type": "string"
+                },
+                "propagate_response_headers": {
+                    "description": "Save the response headers to the downstream info filter state for consumption\nby the network filters. The filter state key is “envoy.tcp_proxy.propagate_response_headers“.",
+                    "type": "boolean"
+                },
+                "propagate_response_trailers": {
+                    "description": "Save the response trailers to the downstream info filter state for consumption\nby the network filters. The filter state key is “envoy.tcp_proxy.propagate_response_trailers“.",
+                    "type": "boolean"
+                },
+                "use_post": {
+                    "description": "Use POST method instead of CONNECT method to tunnel the TCP stream.\nThe 'protocol: bytestream' header is also NOT set for HTTP/2 to comply with the spec.\n\nThe upstream proxy is expected to convert POST payload as raw TCP.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "tracev3.Tracing_Http": {
+            "type": "object",
+            "properties": {
+                "configType": {
+                    "description": "Trace driver specific configuration which must be set according to the driver being instantiated.\n[#extension-category: envoy.tracers]\n\nTypes that are assignable to ConfigType:\n\n\t*Tracing_Http_TypedConfig"
+                },
+                "name": {
+                    "description": "The name of the HTTP trace driver to instantiate. The name must match a\nsupported HTTP trace driver.\nSee the :ref:` + "`" + `extensions listed in typed_config below \u003cextension_category_envoy.tracers\u003e` + "`" + ` for the default list of the HTTP trace driver.",
+                    "type": "string"
+                }
+            }
+        },
+        "tracingv3.CustomTag": {
+            "type": "object",
+            "properties": {
+                "tag": {
+                    "description": "Used to populate the tag name.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Used to specify what kind of custom tag.\n\nTypes that are assignable to Type:\n\n\t*CustomTag_Literal_\n\t*CustomTag_Environment_\n\t*CustomTag_RequestHeader\n\t*CustomTag_Metadata_"
+                }
+            }
+        },
+        "typev3.FractionalPercent": {
+            "type": "object",
+            "properties": {
+                "denominator": {
+                    "description": "Specifies the denominator. If the denominator specified is less than the numerator, the final\nfractional percentage is capped at 1 (100%).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/typev3.FractionalPercent_DenominatorType"
+                        }
+                    ]
+                },
+                "numerator": {
+                    "description": "Specifies the numerator. Defaults to 0.",
+                    "type": "integer"
+                }
+            }
+        },
+        "typev3.FractionalPercent_DenominatorType": {
+            "type": "integer",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "FractionalPercent_HUNDRED",
+                "FractionalPercent_TEN_THOUSAND",
+                "FractionalPercent_MILLION"
+            ]
+        },
+        "typev3.HashPolicy": {
+            "type": "object",
+            "properties": {
+                "policySpecifier": {
+                    "description": "Types that are assignable to PolicySpecifier:\n\n\t*HashPolicy_SourceIp_\n\t*HashPolicy_FilterState_"
+                }
+            }
+        },
+        "typev3.Percent": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "type": "number"
+                }
+            }
+        },
+        "v3.Authority": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "v3.CidrRange": {
+            "type": "object",
+            "properties": {
+                "address_prefix": {
+                    "type": "string"
+                },
+                "prefix_len": {
+                    "$ref": "#/definitions/wrappers.UInt32Value"
+                }
+            }
+        },
+        "v3.Matcher": {
+            "type": "object",
+            "properties": {
+                "matcherType": {
+                    "description": "Types that are assignable to MatcherType:\n\t*Matcher_MatcherList_\n\t*Matcher_MatcherTree_"
+                },
+                "on_no_match": {
+                    "$ref": "#/definitions/v3.Matcher_OnMatch"
+                }
+            }
+        },
+        "v3.Matcher_OnMatch": {
+            "type": "object",
+            "properties": {
+                "onMatch": {
+                    "description": "Types that are assignable to OnMatch:\n\t*Matcher_OnMatch_Matcher\n\t*Matcher_OnMatch_Action"
+                }
+            }
+        },
+        "v3.TypedExtensionConfig": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "typed_config": {
+                    "$ref": "#/definitions/any.Any"
+                }
+            }
+        },
+        "wrappers.BoolValue": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "The bool value.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "wrappers.DoubleValue": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "The double value.",
+                    "type": "number"
+                }
+            }
+        },
+        "wrappers.UInt32Value": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "The uint32 value.",
+                    "type": "integer"
+                }
+            }
+        },
+        "wrappers.UInt64Value": {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "description": "The uint64 value.",
                     "type": "integer"
                 }
             }

@@ -43,8 +43,8 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/webhook/handler"
+	xdsclient "github.com/kaasops/envoy-xds-controller/pkg/xds/api"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
-	xdsclient "github.com/kaasops/envoy-xds-controller/pkg/xds/client"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/server"
 
 	testv3 "github.com/envoyproxy/go-control-plane/pkg/test/v3"
