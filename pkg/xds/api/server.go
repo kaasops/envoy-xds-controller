@@ -1,4 +1,4 @@
-package client
+package api
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 
-	"github.com/kaasops/envoy-xds-controller/pkg/xds/client/handlers"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/api/v1/handlers"
 
 	docs "github.com/kaasops/envoy-xds-controller/docs/cacheRestAPI"
 	swaggerFiles "github.com/swaggo/files"
