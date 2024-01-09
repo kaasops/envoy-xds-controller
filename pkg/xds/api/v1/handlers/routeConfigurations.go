@@ -23,7 +23,7 @@ type GetRouteConfigurationsResponse struct {
 // @Param route_configuration_name query string false "RouteConfiguration name" default("") format(string) example("route-config-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetRouteConfigurationsResponse
 // @Failure 400 {object} map[string]string
-// @Router /api/v1/routes [get]
+// @Router /api/v1/routeConfigurations [get]
 func (h *handler) getRouteConfigurations(ctx *gin.Context) {
 	params, err := h.getParamsForRouteConfigurationRequests(ctx.Request.URL.Query())
 	if err != nil {

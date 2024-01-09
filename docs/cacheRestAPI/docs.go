@@ -589,7 +589,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/v1/routes": {
+        "/api/v1/routeConfigurations": {
             "get": {
                 "consumes": [
                     "application/json"
