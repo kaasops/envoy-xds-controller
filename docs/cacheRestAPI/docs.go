@@ -31,7 +31,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -41,7 +40,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"cluster-1\"",
                         "description": "Cluster name",
                         "name": "clusters_name",
@@ -53,6 +51,115 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handlers.GetClustersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/domainLocations": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domain"
+                ],
+                "summary": "Get domain locations. Find filter chain, filter and route configuration. If Filter Chain don't have Filter Chain Match - ignored.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "example": "\"example-domain\"",
+                        "description": "Domain name",
+                        "name": "domain_name",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.getDomainLocationResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/domains": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domain"
+                ],
+                "summary": "Get domains for node_id and listener_name (Find in Filter Chain Match)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "example": "\"listener-1\"",
+                        "description": "Listener name",
+                        "name": "listener_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.getDomainsResponse"
                         }
                     },
                     "400": {
@@ -83,7 +190,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -93,7 +199,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"listener-1\"",
                         "description": "Listener name",
                         "name": "listener_name",
@@ -103,7 +208,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-chain-1\"",
                         "description": "Filter chain name",
                         "name": "filter_chain_name",
@@ -112,7 +216,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-1\"",
                         "description": "Filter name",
                         "name": "filter_name",
@@ -154,7 +257,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -164,7 +266,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"listener-1\"",
                         "description": "Listener name",
                         "name": "listener_name",
@@ -174,7 +275,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-chain-1\"",
                         "description": "Filter chain name. If not set works only if the listener has only one Filter Chain",
                         "name": "filter_chain_name",
@@ -183,7 +283,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-1\"",
                         "description": "Filter name",
                         "name": "filter_name",
@@ -225,7 +324,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -235,7 +333,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"listener-1\"",
                         "description": "Listener name",
                         "name": "listener_name",
@@ -245,7 +342,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-chain-1\"",
                         "description": "Filter chain name",
                         "name": "filter_chain_name",
@@ -254,7 +350,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-1\"",
                         "description": "Filter name",
                         "name": "filter_name",
@@ -296,7 +391,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -306,7 +400,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"listener-1\"",
                         "description": "Listener name",
                         "name": "listener_name",
@@ -316,7 +409,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-chain-1\"",
                         "description": "Filter chain name",
                         "name": "filter_chain_name",
@@ -325,7 +417,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-1\"",
                         "description": "Filter name",
                         "name": "filter_name",
@@ -334,7 +425,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"http-filter-1\"",
                         "description": "HTTP filter name",
                         "name": "http_filter_name",
@@ -376,7 +466,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -386,7 +475,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"listener-1\"",
                         "description": "Listener name",
                         "name": "listener_name",
@@ -396,7 +484,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-chain-1\"",
                         "description": "Filter chain name",
                         "name": "filter_chain_name",
@@ -405,7 +492,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-1\"",
                         "description": "Filter name",
                         "name": "filter_name",
@@ -414,7 +500,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"http-filter-1\"",
                         "description": "HTTP filter name",
                         "name": "http_filter_name",
@@ -456,7 +541,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -466,7 +550,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"listener-1\"",
                         "description": "Listener name",
                         "name": "listener_name",
@@ -476,7 +559,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-chain-1\"",
                         "description": "Filter chain name",
                         "name": "filter_chain_name",
@@ -485,7 +567,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"filter-1\"",
                         "description": "Filter name",
                         "name": "filter_name",
@@ -527,7 +608,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -537,7 +617,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"listener-1\"",
                         "description": "Listener name",
                         "name": "listener_name",
@@ -572,8 +651,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "nodeids",
-                    "cache"
+                    "nodeid"
                 ],
                 "summary": "Get exists node ID in xDS cache",
                 "responses": {
@@ -605,7 +683,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"node-id-1\"",
                         "description": "Node ID",
                         "name": "node_id",
@@ -615,7 +692,6 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "format": "string",
-                        "default": "\"\"",
                         "example": "\"route-config-1\"",
                         "description": "RouteConfiguration name",
                         "name": "route_configuration_name",
@@ -627,6 +703,56 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handlers.GetRouteConfigurationsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/secrets": {
+            "get": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "secret"
+                ],
+                "summary": "Get secrets for a specific node ID.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "example": "\"node-id-1\"",
+                        "description": "Node ID",
+                        "name": "node_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "format": "string",
+                        "example": "\"secret-1\"",
+                        "description": "Secret name",
+                        "name": "secret_name",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetSecretsResponse"
                         }
                     },
                     "400": {
@@ -3489,6 +3615,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.GetSecretsResponse": {
+            "type": "object",
+            "properties": {
+                "secrets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/tlsv3.Secret"
+                    }
+                }
+            }
+        },
         "handlers.GetTCPProxyFilterResponse": {
             "type": "object",
             "properties": {
@@ -3496,6 +3633,42 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/tcp_proxyv3.TcpProxy"
+                    }
+                }
+            }
+        },
+        "handlers.Location": {
+            "type": "object",
+            "properties": {
+                "filter": {
+                    "type": "string"
+                },
+                "filter_chain": {
+                    "type": "string"
+                },
+                "route_configuration": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.getDomainLocationResponse": {
+            "type": "object",
+            "properties": {
+                "locations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.Location"
+                    }
+                }
+            }
+        },
+        "handlers.getDomainsResponse": {
+            "type": "object",
+            "properties": {
+                "domains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
                     }
                 }
             }
@@ -6138,6 +6311,18 @@ const docTemplate = `{
                 "use_post": {
                     "description": "Use POST method instead of CONNECT method to tunnel the TCP stream.\nThe 'protocol: bytestream' header is also NOT set for HTTP/2 to comply with the spec.\n\nThe upstream proxy is expected to convert POST payload as raw TCP.",
                     "type": "boolean"
+                }
+            }
+        },
+        "tlsv3.Secret": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "Name (FQDN, UUID, SPKI, SHA256, etc.) by which the secret can be uniquely referred to.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Types that are assignable to Type:\n\n\t*Secret_TlsCertificate\n\t*Secret_SessionTicketKeys\n\t*Secret_ValidationContext\n\t*Secret_GenericSecret"
                 }
             }
         },

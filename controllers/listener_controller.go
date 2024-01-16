@@ -128,7 +128,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err, "cannot generate TLS certificates index from Kubernetes secrets")
 	}
 
-	// TODO: Why we sort it?
+	// Sort for find which VirtualService was created first
 	sort.Slice(virtualServices.Items, func(i, j int) bool {
 		return virtualServices.Items[i].CreationTimestamp.Before(&virtualServices.Items[j].CreationTimestamp)
 	})

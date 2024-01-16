@@ -18,8 +18,8 @@ type GetClustersResponse struct {
 // @Tags cluster
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param clusters_name query string false "Cluster name" default("") format(string) example("cluster-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param clusters_name query string false "Cluster name" format(string) example("cluster-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetClustersResponse
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/clusters [get]

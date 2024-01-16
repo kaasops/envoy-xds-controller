@@ -6,8 +6,7 @@ import (
 
 // getNodeIDs retrieves the exists node ID in xDS cache.
 // @Summary Get exists node ID in xDS cache
-// @Tags nodeids
-// @Tags cache
+// @Tags nodeid
 // @Accept json
 // @Produce json
 // @Success 200 {array} string

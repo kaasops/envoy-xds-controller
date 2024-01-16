@@ -3174,11 +3174,41 @@ definitions:
           $ref: '#/definitions/routev3.RouteConfiguration'
         type: array
     type: object
+  handlers.GetSecretsResponse:
+    properties:
+      secrets:
+        items:
+          $ref: '#/definitions/tlsv3.Secret'
+        type: array
+    type: object
   handlers.GetTCPProxyFilterResponse:
     properties:
       filters:
         items:
           $ref: '#/definitions/tcp_proxyv3.TcpProxy'
+        type: array
+    type: object
+  handlers.Location:
+    properties:
+      filter:
+        type: string
+      filter_chain:
+        type: string
+      route_configuration:
+        type: string
+    type: object
+  handlers.getDomainLocationResponse:
+    properties:
+      locations:
+        items:
+          $ref: '#/definitions/handlers.Location'
+        type: array
+    type: object
+  handlers.getDomainsResponse:
+    properties:
+      domains:
+        items:
+          type: string
         type: array
     type: object
   handlers.getFilterTypeResponse:
@@ -6215,6 +6245,15 @@ definitions:
           The upstream proxy is expected to convert POST payload as raw TCP.
         type: boolean
     type: object
+  tlsv3.Secret:
+    properties:
+      name:
+        description: Name (FQDN, UUID, SPKI, SHA256, etc.) by which the secret can
+          be uniquely referred to.
+        type: string
+      type:
+        description: "Types that are assignable to Type:\n\n\t*Secret_TlsCertificate\n\t*Secret_SessionTicketKeys\n\t*Secret_ValidationContext\n\t*Secret_GenericSecret"
+    type: object
   tracev3.Tracing_Http:
     properties:
       configType:
@@ -6335,16 +6374,14 @@ paths:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Cluster name
+      - description: Cluster name
         example: '"cluster-1"'
         format: string
         in: query
@@ -6366,36 +6403,108 @@ paths:
       summary: Get clusters for a specific node ID.
       tags:
       - cluster
-  /api/v1/filterType:
+  /api/v1/domainLocations:
     get:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Listener name
+      - description: Listener name
+        example: '"listener-1"'
+        format: string
+        in: query
+        name: listener_name
+        type: string
+      - description: Domain name
+        example: '"example-domain"'
+        format: string
+        in: query
+        name: domain_name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.getDomainLocationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get domain locations. Find filter chain, filter and route configuration.
+        If Filter Chain don't have Filter Chain Match - ignored.
+      tags:
+      - domain
+  /api/v1/domains:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Node ID
+        example: '"node-id-1"'
+        format: string
+        in: query
+        name: node_id
+        required: true
+        type: string
+      - description: Listener name
+        example: '"listener-1"'
+        format: string
+        in: query
+        name: listener_name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.getDomainsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get domains for node_id and listener_name (Find in Filter Chain Match)
+      tags:
+      - domain
+  /api/v1/filterType:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Node ID
+        example: '"node-id-1"'
+        format: string
+        in: query
+        name: node_id
+        required: true
+        type: string
+      - description: Listener name
         example: '"listener-1"'
         format: string
         in: query
         name: listener_name
         required: true
         type: string
-      - default: '""'
-        description: Filter chain name
+      - description: Filter chain name
         example: '"filter-chain-1"'
         format: string
         in: query
         name: filter_chain_name
         type: string
-      - default: '""'
-        description: Filter name
+      - description: Filter name
         example: '"filter-1"'
         format: string
         in: query
@@ -6422,32 +6531,28 @@ paths:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Listener name
+      - description: Listener name
         example: '"listener-1"'
         format: string
         in: query
         name: listener_name
         required: true
         type: string
-      - default: '""'
-        description: Filter chain name. If not set works only if the listener has
+      - description: Filter chain name. If not set works only if the listener has
           only one Filter Chain
         example: '"filter-chain-1"'
         format: string
         in: query
         name: filter_chain_name
         type: string
-      - default: '""'
-        description: Filter name
+      - description: Filter name
         example: '"filter-1"'
         format: string
         in: query
@@ -6475,31 +6580,27 @@ paths:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Listener name
+      - description: Listener name
         example: '"listener-1"'
         format: string
         in: query
         name: listener_name
         required: true
         type: string
-      - default: '""'
-        description: Filter chain name
+      - description: Filter chain name
         example: '"filter-chain-1"'
         format: string
         in: query
         name: filter_chain_name
         type: string
-      - default: '""'
-        description: Filter name
+      - description: Filter name
         example: '"filter-1"'
         format: string
         in: query
@@ -6526,38 +6627,33 @@ paths:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Listener name
+      - description: Listener name
         example: '"listener-1"'
         format: string
         in: query
         name: listener_name
         required: true
         type: string
-      - default: '""'
-        description: Filter chain name
+      - description: Filter chain name
         example: '"filter-chain-1"'
         format: string
         in: query
         name: filter_chain_name
         type: string
-      - default: '""'
-        description: Filter name
+      - description: Filter name
         example: '"filter-1"'
         format: string
         in: query
         name: filter_name
         type: string
-      - default: '""'
-        description: HTTP filter name
+      - description: HTTP filter name
         example: '"http-filter-1"'
         format: string
         in: query
@@ -6584,38 +6680,33 @@ paths:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Listener name
+      - description: Listener name
         example: '"listener-1"'
         format: string
         in: query
         name: listener_name
         required: true
         type: string
-      - default: '""'
-        description: Filter chain name
+      - description: Filter chain name
         example: '"filter-chain-1"'
         format: string
         in: query
         name: filter_chain_name
         type: string
-      - default: '""'
-        description: Filter name
+      - description: Filter name
         example: '"filter-1"'
         format: string
         in: query
         name: filter_name
         type: string
-      - default: '""'
-        description: HTTP filter name
+      - description: HTTP filter name
         example: '"http-filter-1"'
         format: string
         in: query
@@ -6642,31 +6733,27 @@ paths:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Listener name
+      - description: Listener name
         example: '"listener-1"'
         format: string
         in: query
         name: listener_name
         required: true
         type: string
-      - default: '""'
-        description: Filter chain name
+      - description: Filter chain name
         example: '"filter-chain-1"'
         format: string
         in: query
         name: filter_chain_name
         type: string
-      - default: '""'
-        description: Filter name
+      - description: Filter name
         example: '"filter-1"'
         format: string
         in: query
@@ -6693,16 +6780,14 @@ paths:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: Listener name
+      - description: Listener name
         example: '"listener-1"'
         format: string
         in: query
@@ -6739,23 +6824,20 @@ paths:
             type: array
       summary: Get exists node ID in xDS cache
       tags:
-      - nodeids
-      - cache
+      - nodeid
   /api/v1/routeConfigurations:
     get:
       consumes:
       - application/json
       parameters:
-      - default: '""'
-        description: Node ID
+      - description: Node ID
         example: '"node-id-1"'
         format: string
         in: query
         name: node_id
         required: true
         type: string
-      - default: '""'
-        description: RouteConfiguration name
+      - description: RouteConfiguration name
         example: '"route-config-1"'
         format: string
         in: query
@@ -6778,6 +6860,40 @@ paths:
         return only one route configuration.
       tags:
       - routeConfiguration
+  /api/v1/secrets:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Node ID
+        example: '"node-id-1"'
+        format: string
+        in: query
+        name: node_id
+        required: true
+        type: string
+      - description: Secret name
+        example: '"secret-1"'
+        format: string
+        in: query
+        name: secret_name
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetSecretsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get secrets for a specific node ID.
+      tags:
+      - secret
 schemes:
 - http
 swagger: "2.0"

@@ -20,8 +20,8 @@ type GetListenersResponse struct {
 // @Tags listener
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param listener_name query string false "Listener name" default("") format(string) example("listener-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param listener_name query string false "Listener name" format(string) example("listener-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetListenersResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/listeners [get]
