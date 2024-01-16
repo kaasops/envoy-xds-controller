@@ -27,10 +27,10 @@ type getFilterTypeResponse struct {
 // @Tags filter
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param listener_name query string true "Listener name" default("") format(string) example("listener-1") required(true) allowEmptyValue(false)
-// @Param filter_chain_name query string false "Filter chain name" default("") format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
-// @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param listener_name query string true "Listener name" format(string) example("listener-1") required(true) allowEmptyValue(false)
+// @Param filter_chain_name query string false "Filter chain name" format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
+// @Param filter_name query string false "Filter name" format(string) example("filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} getFilterTypeResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/filterType [get]
@@ -61,10 +61,10 @@ type GetHCMFilterResponse struct {
 // @Tags filter
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param listener_name query string true "Listener name" default("") format(string) example("listener-1") required(true) allowEmptyValue(false)
-// @Param filter_chain_name query string false "Filter chain name. If not set works only if the listener has only one Filter Chain" default("") format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
-// @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param listener_name query string true "Listener name" format(string) example("listener-1") required(true) allowEmptyValue(false)
+// @Param filter_chain_name query string false "Filter chain name. If not set works only if the listener has only one Filter Chain" format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
+// @Param filter_name query string false "Filter name" format(string) example("filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetHCMFilterResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/filters [get]
@@ -99,10 +99,10 @@ type GetTCPProxyFilterResponse struct {
 // @Tags filter
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param listener_name query string true "Listener name" default("") format(string) example("listener-1") required(true) allowEmptyValue(false)
-// @Param filter_chain_name query string false "Filter chain name" default("") format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
-// @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param listener_name query string true "Listener name" format(string) example("listener-1") required(true) allowEmptyValue(false)
+// @Param filter_chain_name query string false "Filter chain name" format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
+// @Param filter_name query string false "Filter name" format(string) example("filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetTCPProxyFilterResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/filtersTCPProxy [get]
@@ -139,10 +139,10 @@ type GetHttpsFilterResponse struct {
 // @Tags filter
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param listener_name query string true "Listener name" default("") format(string) example("listener-1") required(true) allowEmptyValue(false)
-// @Param filter_chain_name query string false "Filter chain name" default("") format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
-// @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param listener_name query string true "Listener name" format(string) example("listener-1") required(true) allowEmptyValue(false)
+// @Param filter_chain_name query string false "Filter chain name" format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
+// @Param filter_name query string false "Filter name" format(string) example("filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetHttpsFilterResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/httpsFilters [get]
@@ -172,11 +172,11 @@ type GetHttpFilterRouterResponse struct {
 // @Tags filter
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param listener_name query string true "Listener name" default("") format(string) example("listener-1") required(true) allowEmptyValue(false)
-// @Param filter_chain_name query string false "Filter chain name" default("") format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
-// @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
-// @Param http_filter_name query string false "HTTP filter name" default("") format(string) example("http-filter-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param listener_name query string true "Listener name" format(string) example("listener-1") required(true) allowEmptyValue(false)
+// @Param filter_chain_name query string false "Filter chain name" format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
+// @Param filter_name query string false "Filter name" format(string) example("filter-1") required(false) allowEmptyValue(true)
+// @Param http_filter_name query string false "HTTP filter name" format(string) example("http-filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetHttpFilterRouterResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/httpFilterRouter [get]
@@ -229,11 +229,11 @@ type GetHttpFilterRBACResponse struct {
 // @Tags filter
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param listener_name query string true "Listener name" default("") format(string) example("listener-1") required(true) allowEmptyValue(false)
-// @Param filter_chain_name query string false "Filter chain name" default("") format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
-// @Param filter_name query string false "Filter name" default("") format(string) example("filter-1") required(false) allowEmptyValue(true)
-// @Param http_filter_name query string false "HTTP filter name" default("") format(string) example("http-filter-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param listener_name query string true "Listener name" format(string) example("listener-1") required(true) allowEmptyValue(false)
+// @Param filter_chain_name query string false "Filter chain name" format(string) example("filter-chain-1") required(false) allowEmptyValue(true)
+// @Param filter_name query string false "Filter name" format(string) example("filter-1") required(false) allowEmptyValue(true)
+// @Param http_filter_name query string false "HTTP filter name" format(string) example("http-filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetHttpFilterRBACResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/httpFilterRBAC [get]

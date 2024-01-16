@@ -53,4 +53,8 @@ func RegisterRoutes(r *gin.Engine, cache *xdscache.Cache) {
 
 	// ********** Get Secrets **********
 	routes.GET("/secrets", h.getSecrets)
+
+	// ********** Get Domain info **********
+	routes.GET("/domainLocations", h.getDomainLocations)
+	routes.GET("/domains", h.getDomains)
 }

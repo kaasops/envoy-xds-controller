@@ -19,8 +19,8 @@ type GetRouteConfigurationsResponse struct {
 // @Tags routeConfiguration
 // @Accept json
 // @Produce json
-// @Param node_id query string true "Node ID" default("") format(string) example("node-id-1") required(true) allowEmptyValue(false)
-// @Param route_configuration_name query string false "RouteConfiguration name" default("") format(string) example("route-config-1") required(false) allowEmptyValue(true)
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param route_configuration_name query string false "RouteConfiguration name" format(string) example("route-config-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetRouteConfigurationsResponse
 // @Failure 400 {object} map[string]string
 // @Router /api/v1/routeConfigurations [get]

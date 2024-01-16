@@ -12,6 +12,16 @@ type GetSecretsResponse struct {
 	Secrets []*tlsv3.Secret `json:"secrets"`
 }
 
+// getSecrets retrieves the secrets for a specific node ID.
+// @Summary Get secrets for a specific node ID.
+// @Tags secret
+// @Accept json
+// @Produce json
+// @Param node_id query string true "Node ID" format(string) example("node-id-1") required(true) allowEmptyValue(false)
+// @Param secret_name query string false "Secret name" format(string) example("secret-1") required(false) allowEmptyValue(true)
+// @Success 200 {object} GetSecretsResponse
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/secrets [get]
 func (h *handler) getSecrets(ctx *gin.Context) {
 	params, err := h.getParamsFoSecretRequests(ctx.Request.URL.Query())
 	if err != nil {

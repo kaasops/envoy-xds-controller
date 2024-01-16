@@ -7,6 +7,7 @@ import (
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 )
@@ -26,6 +27,7 @@ var (
 	routeConfigurationParamName = "route_configuration_name"
 	clustersParamName           = "cluster_name"
 	secretParamName             = "secret_name"
+	domainParamName             = "domain_name"
 )
 
 // ****
@@ -110,6 +112,26 @@ func (h *handler) getListenerByName(nodeID string, listenerName string) (*listen
 	}
 
 	return nil, fmt.Errorf("listener %v not found", listenerName)
+}
+
+func (h *handler) getListenersAll(nodeID string) ([]*listenerv3.Listener, error) {
+	resources, _, err := h.cache.GetResources(nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	listeners := []*listenerv3.Listener{}
+
+	for _, listener := range resources[resourcev3.ListenerType] {
+		v3listener, ok := listener.(*listenerv3.Listener)
+		if !ok {
+			return nil, fmt.Errorf("listener is not v3")
+		}
+
+		listeners = append(listeners, v3listener)
+	}
+
+	return listeners, nil
 }
 
 // getRouteConfigurationByName returns route configuration by name
@@ -277,4 +299,19 @@ func (h *handler) getFilterByName(filterChain *listenerv3.FilterChain, filterNam
 	}
 
 	return nil, fmt.Errorf("filter %v not found", filterName)
+}
+
+func (h *handler) getRDSNameForFilter(filter *listenerv3.Filter) string {
+	hcmConfig := resourcev3.GetHTTPConnectionManager(filter)
+	// Skip if filter not HttpConnectionManager
+	if hcmConfig == nil {
+		return ""
+	}
+
+	_, ok := hcmConfig.RouteSpecifier.(*hcmv3.HttpConnectionManager_Rds)
+	if !ok {
+		return ""
+	}
+
+	return hcmConfig.GetRds().GetRouteConfigName()
 }
