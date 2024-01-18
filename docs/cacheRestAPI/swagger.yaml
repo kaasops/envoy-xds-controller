@@ -3194,6 +3194,8 @@ definitions:
         type: string
       filter_chain:
         type: string
+      listener:
+        type: string
       route_configuration:
         type: string
     type: object

@@ -19,6 +19,7 @@ type getDomainLocationResponse struct {
 }
 
 type Location struct {
+	Listener           string `json:"listener"`
 	FilterChain        string `json:"filter_chain"`
 	Filter             string `json:"filter"`
 	RouteConfiguration string `json:"route_configuration"`
@@ -74,7 +75,9 @@ func (h *handler) getDomainLocations(ctx *gin.Context) {
 	}
 
 	for _, listener := range listeners {
-		location := Location{}
+		location := Location{
+			Listener: listener.Name,
+		}
 
 		// find FilterChain for domain
 		filterChain := h.getFilterChainForDomainByServerName(listener, domainName)
