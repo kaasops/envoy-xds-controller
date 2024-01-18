@@ -103,6 +103,11 @@ spec:
                         type: string
                     type: object
                 type: object
+              useRemoteAddress:
+                description: Controller HCM Extentions (https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto)
+                  UseRemoteAddress - use remote address for x-forwarded-for header
+                  (https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#extensions-filters-network-http-connection-manager-v3-httpconnectionmanager)
+                type: boolean
               virtualHost:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true

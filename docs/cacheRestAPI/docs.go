@@ -3646,6 +3646,9 @@ const docTemplate = `{
                 "filter_chain": {
                     "type": "string"
                 },
+                "listener": {
+                    "type": "string"
+                },
                 "route_configuration": {
                     "type": "string"
                 }

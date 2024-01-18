@@ -22,13 +22,14 @@ import (
 )
 
 type VirtualService struct {
-	Name        string
-	NodeIDs     []string
-	VirtualHost *routev3.VirtualHost
-	AccessLog   *accesslogv3.AccessLog
-	HttpFilters []*hcmv3.HttpFilter
-	RouteConfig *routev3.RouteConfiguration
-	Tls         *tls.Tls
+	Name             string
+	NodeIDs          []string
+	VirtualHost      *routev3.VirtualHost
+	AccessLog        *accesslogv3.AccessLog
+	HttpFilters      []*hcmv3.HttpFilter
+	RouteConfig      *routev3.RouteConfiguration
+	Tls              *tls.Tls
+	UseRemoteAddress *bool
 }
 
 type VirtualServiceFactory struct {
@@ -39,7 +40,13 @@ type VirtualServiceFactory struct {
 	tlsFactory  *tls.TlsFactory
 }
 
-func NewVirtualServiceFactory(client client.Client, unmarshaler protojson.UnmarshalOptions, vs *v1alpha1.VirtualService, listener *v1alpha1.Listener, tlsFactory tls.TlsFactory) *VirtualServiceFactory {
+func NewVirtualServiceFactory(
+	client client.Client,
+	unmarshaler protojson.UnmarshalOptions,
+	vs *v1alpha1.VirtualService,
+	listener *v1alpha1.Listener,
+	tlsFactory tls.TlsFactory,
+) *VirtualServiceFactory {
 	return &VirtualServiceFactory{
 		VirtualService: vs,
 		client:         client,
@@ -65,6 +72,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 					vs.HttpFilters,
 					vs.Name,
 					statPrefix,
+					vs.UseRemoteAddress,
 				).
 				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
 			if err != nil {
@@ -80,6 +88,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 		vs.HttpFilters,
 		vs.Name,
 		statPrefix,
+		vs.UseRemoteAddress,
 	).
 		WithFilterChainMatch(vs.VirtualHost.Domains).
 		Build(vs.Name)
@@ -120,12 +129,13 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 	}
 
 	virtualService := VirtualService{
-		Name:        k8s.ResourceName(f.VirtualService.Namespace, f.VirtualService.Name),
-		NodeIDs:     nodeIDs,
-		VirtualHost: virtualHost,
-		AccessLog:   accesslog,
-		HttpFilters: httpFilters,
-		RouteConfig: routeConfig,
+		Name:             k8s.ResourceName(f.VirtualService.Namespace, f.VirtualService.Name),
+		NodeIDs:          nodeIDs,
+		VirtualHost:      virtualHost,
+		AccessLog:        accesslog,
+		HttpFilters:      httpFilters,
+		RouteConfig:      routeConfig,
+		UseRemoteAddress: f.Spec.UseRemoteAddress,
 	}
 
 	if f.tlsFactory.TlsConfig != nil {
