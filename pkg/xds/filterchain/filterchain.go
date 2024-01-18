@@ -20,6 +20,7 @@ type Builder interface {
 		httpFilters []*hcm.HttpFilter,
 		routeConfigName string,
 		statPrefix string,
+		useRemoteAddress *bool,
 	) Builder
 	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
@@ -56,13 +57,19 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 	return b
 }
 
-func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
+func (b *builder) WithHttpConnectionManager(
+	accessLog *accesslogv3.AccessLog,
 	httpFilters []*hcm.HttpFilter,
 	routeConfigName string, statPrefix string,
+	useRemoteAddress *bool,
 ) Builder {
-	// TODO: it's hardcode!
-	useRemoteAddress := wrappers.BoolValue{
-		Value: true,
+	ura := wrappers.BoolValue{
+		Value: false,
+	}
+	if useRemoteAddress != nil {
+		ura = wrappers.BoolValue{
+			Value: *useRemoteAddress,
+		}
 	}
 
 	hfs := []*hcm.HttpFilter{}
@@ -82,7 +89,7 @@ func (b *builder) WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
 				RouteConfigName: routeConfigName,
 			},
 		},
-		UseRemoteAddress: &useRemoteAddress,
+		UseRemoteAddress: &ura,
 		HttpFilters:      hfs,
 	}
 

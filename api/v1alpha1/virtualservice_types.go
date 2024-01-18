@@ -37,6 +37,10 @@ type VirtualServiceSpec struct {
 
 	// HTTPFilters for use custom HTTP filters
 	HTTPFilters []*runtime.RawExtension `json:"httpFilters,omitempty"`
+
+	// Controller HCM Extentions (https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto)
+	// UseRemoteAddress - use remote address for x-forwarded-for header (https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#extensions-filters-network-http-connection-manager-v3-httpconnectionmanager)
+	UseRemoteAddress *bool `json:"use_remote_address,omitempty"`
 }
 
 type TlsConfig struct {
