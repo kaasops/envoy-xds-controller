@@ -35,7 +35,7 @@ var (
 
 func (vs *VirtualService) Validate(
 	ctx context.Context,
-	unmarshaler protojson.UnmarshalOptions,
+	unmarshaler *protojson.UnmarshalOptions,
 ) error {
 	// Validate Virtual Host spec
 	if vs.Spec.VirtualHost == nil {
@@ -66,7 +66,7 @@ func (vs *VirtualService) Validate(
 
 	// Check listener exist
 	if vs.Spec.Listener == nil {
-		return errors.New(errors.ListenerCantBeEmptyMessage)
+		return errors.New(errors.ListenerCannotBeEmptyMessage)
 	}
 
 	// Check TLSConfig

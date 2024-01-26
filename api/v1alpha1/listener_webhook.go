@@ -25,22 +25,17 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 )
 
-// var (
-// 	// Listener errors
-// 	ErrListenerCantBeEmpty = errors.New("virtualHost could not be empty")
-// )
-
 func (l *Listener) Validate(
 	ctx context.Context,
-	unmarshaler protojson.UnmarshalOptions,
+	unmarshaler *protojson.UnmarshalOptions,
 ) error {
 	// Validate Listener spec
 	if l.Spec == nil {
-		return errors.New(errors.ListenerCantBeEmptyMessage)
+		return errors.New(errors.ListenerCannotBeEmptyMessage)
 	}
 
-	listener := &listenerv3.Listener{}
-	if err := unmarshaler.Unmarshal(l.Spec.Raw, listener); err != nil {
+	listenerv3 := &listenerv3.Listener{}
+	if err := unmarshaler.Unmarshal(l.Spec.Raw, listenerv3); err != nil {
 		return errors.Wrap(err, errors.UnmarshalMessage)
 	}
 

@@ -6,6 +6,7 @@ require (
 	github.com/avast/retry-go/v4 v4.5.0
 	github.com/cert-manager/cert-manager v1.12.2
 	github.com/envoyproxy/go-control-plane v0.11.2-0.20231105225939-f2468473b7cd
+	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-logr/logr v1.2.4
 	github.com/golang/protobuf v1.5.3

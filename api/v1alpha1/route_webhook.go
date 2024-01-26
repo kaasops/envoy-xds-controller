@@ -21,22 +21,25 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 )
 
-func (c *Cluster) Validate(
+func (r *Route) Validate(
 	ctx context.Context,
 	unmarshaler *protojson.UnmarshalOptions,
 ) error {
-	// Validate Listener spec
-	if c.Spec == nil {
-		return errors.New(errors.ClusterCannotBeEmptyMessage)
+	// Validate Route spec
+	if r.Spec == nil {
+		return errors.New(errors.HTTPFilterCannotBeEmptyMessage)
 	}
 
-	clusterv3 := &clusterv3.Cluster{}
-	if err := unmarshaler.Unmarshal(c.Spec.Raw, clusterv3); err != nil {
-		return errors.Wrap(err, errors.UnmarshalMessage)
+	for _, route := range r.Spec {
+		routev3 := &routev3.Route{}
+		if err := unmarshaler.Unmarshal(route.Raw, routev3); err != nil {
+			return errors.Wrap(err, errors.UnmarshalMessage)
+		}
 	}
 
 	return nil

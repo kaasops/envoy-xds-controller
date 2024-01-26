@@ -21,22 +21,24 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 )
 
-func (c *Cluster) Validate(
+func (h *HttpFilter) Validate(
 	ctx context.Context,
 	unmarshaler *protojson.UnmarshalOptions,
 ) error {
-	// Validate Listener spec
-	if c.Spec == nil {
-		return errors.New(errors.ClusterCannotBeEmptyMessage)
+	// Validate HttpFilter spec
+	if h.Spec == nil {
+		return errors.New(errors.HTTPFilterCannotBeEmptyMessage)
 	}
 
-	clusterv3 := &clusterv3.Cluster{}
-	if err := unmarshaler.Unmarshal(c.Spec.Raw, clusterv3); err != nil {
-		return errors.Wrap(err, errors.UnmarshalMessage)
+	for _, httpFilter := range h.Spec {
+		httpFilterv3 := &hcmv3.HttpFilter{}
+		if err := unmarshaler.Unmarshal(httpFilter.Raw, httpFilterv3); err != nil {
+			return errors.Wrap(err, errors.UnmarshalMessage)
+		}
 	}
 
 	return nil
