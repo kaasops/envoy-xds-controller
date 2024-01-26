@@ -2,7 +2,9 @@ package api
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 
@@ -25,6 +27,15 @@ func New(cache *xdscache.Cache) *Client {
 
 func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	server := gin.Default()
+
+	// TODO: Fix CORS policy (don't enable for all origins)
+	server.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET"},
+		AllowHeaders:     []string{"*"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	handlers.RegisterRoutes(server, c.Cache)
 
