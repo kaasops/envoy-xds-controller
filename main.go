@@ -142,7 +142,7 @@ func main() {
 			"/validate",
 			&webhook.Admission{
 				Handler: &handler.Handler{
-					Unmarshaler: unmarshaler,
+					Unmarshaler: &unmarshaler,
 				},
 			},
 		)

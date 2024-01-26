@@ -13,7 +13,7 @@ import (
 )
 
 type Handler struct {
-	Unmarshaler protojson.UnmarshalOptions
+	Unmarshaler *protojson.UnmarshalOptions
 }
 
 var (
@@ -45,6 +45,42 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 		}
 
 		if err := l.Validate(ctx, h.Unmarshaler); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+	case "Cluster":
+		c := &v1alpha1.Cluster{}
+		if err := json.Unmarshal(req.Object.Raw, c); err != nil {
+			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+		}
+
+		if err := c.Validate(ctx, h.Unmarshaler); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+	case "HttpFilter":
+		hf := &v1alpha1.HttpFilter{}
+		if err := json.Unmarshal(req.Object.Raw, hf); err != nil {
+			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+		}
+
+		if err := hf.Validate(ctx, h.Unmarshaler); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+	case "Route":
+		r := &v1alpha1.Route{}
+		if err := json.Unmarshal(req.Object.Raw, r); err != nil {
+			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+		}
+
+		if err := r.Validate(ctx, h.Unmarshaler); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
+	case "AccessLogConfig":
+		al := &v1alpha1.AccessLogConfig{}
+		if err := json.Unmarshal(req.Object.Raw, al); err != nil {
+			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+		}
+
+		if err := al.Validate(ctx, h.Unmarshaler); err != nil {
 			return admission.Errored(http.StatusInternalServerError, err)
 		}
 	}
