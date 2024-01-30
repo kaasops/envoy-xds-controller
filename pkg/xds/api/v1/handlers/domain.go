@@ -87,7 +87,7 @@ func (h *handler) getDomainLocations(ctx *gin.Context) {
 
 		location.FilterChain = filterChain.Name
 
-		filter, err := h.findFilterByDomain(filterChain, domainName)
+		filter, err := h.findFilterByDomain(params[nodeIDParamName][0], filterChain, domainName)
 		if err != nil {
 			ctx.JSON(500, gin.H{"error": err.Error()})
 			return
@@ -253,7 +253,7 @@ L1:
 
 // findFilterByDomain returns filter for domain
 // If filter not HTTP Connection Manager - ignored
-func (h *handler) findFilterByDomain(filterChain *listenerv3.FilterChain, domain string) (*listenerv3.Filter, error) {
+func (h *handler) findFilterByDomain(nodeid string, filterChain *listenerv3.FilterChain, domain string) (*listenerv3.Filter, error) {
 	for _, filter := range filterChain.Filters {
 		hcmConfig := resourcev3.GetHTTPConnectionManager(filter)
 		// Skip if filter not HttpConnectionManager
@@ -264,7 +264,7 @@ func (h *handler) findFilterByDomain(filterChain *listenerv3.FilterChain, domain
 		switch hcmConfig.RouteSpecifier.(type) {
 		case *hcmv3.HttpConnectionManager_Rds:
 			RDSName := hcmConfig.GetRds().GetRouteConfigName()
-			routeConfigurations, err := h.getRouteConfigurationByName(h.cache.GetNodeIDs()[0], RDSName)
+			routeConfigurations, err := h.getRouteConfigurationByName(nodeid, RDSName)
 			if err != nil {
 				return nil, err
 			}

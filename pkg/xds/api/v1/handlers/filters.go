@@ -145,7 +145,7 @@ type GetHttpsFilterResponse struct {
 // @Param filter_name query string false "Filter name" format(string) example("filter-1") required(false) allowEmptyValue(true)
 // @Success 200 {object} GetHttpsFilterResponse
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
-// @Router /api/v1/httpsFilters [get]
+// @Router /api/v1/httpFilters [get]
 func (h *handler) getHTTPFilters(ctx *gin.Context) {
 	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
 	if err != nil {
