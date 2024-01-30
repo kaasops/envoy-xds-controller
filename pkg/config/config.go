@@ -19,6 +19,7 @@ type Config struct {
 		TLSSecretName            string `default:"envoy-xds-controller-tls"                    envconfig:"TLS_SECRET_NAME"`
 		ValidatingWebhookCfgName string `default:"envoy-xds-controller-validating-webhook-cfg" envconfig:"VALIDATING_WEBHOOK_CFG_NAME"`
 		Port                     int    `default:"9443"                                        envconfig:"WEBHOOK_PORT"`
+		CertDir                  string `default:""                                            envconfig:"WEBHOOK_CERT_DIR"`
 	}
 }
 

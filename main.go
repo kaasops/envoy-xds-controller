@@ -120,9 +120,16 @@ func main() {
 	}
 
 	if !cfg.Webhook.Disable {
-		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
-			Port: cfg.GerWebhookPort(),
-		})
+		if cfg.Webhook.CertDir == "" {
+			mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+				Port: cfg.GerWebhookPort(),
+			})
+		} else {
+			mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+				Port:    cfg.GerWebhookPort(),
+				CertDir: cfg.Webhook.CertDir,
+			})
+		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
@@ -225,10 +232,10 @@ func main() {
 	}
 	if !cfg.Webhook.Disable {
 		if err = (&controllers.WebhookReconciler{
-			Client:    mgr.GetClient(),
-			Scheme:    mgr.GetScheme(),
-			Namespace: cfg.GetInstalationNamespace(),
-			Config:    cfg,
+			Client: mgr.GetClient(),
+			Scheme: mgr.GetScheme(),
+			// Namespace: cfg.GetInstalationNamespace(),
+			Config: cfg,
 		}).SetupWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "Webhook")
 			os.Exit(1)

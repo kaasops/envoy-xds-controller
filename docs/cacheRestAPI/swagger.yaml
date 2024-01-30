@@ -1027,7 +1027,7 @@ definitions:
           Filter specific configuration which depends on the filter being
           instantiated. See the supported filters for further documentation.
           Note that Envoy's :ref:`downstream network
-          filters <config_network_filters>` are not valid upstream filters.
+          filters <config_network_filters>` are not valid upstream network filters.
           Only one of typed_config or config_discovery can be used.
     type: object
   clusterv3.LoadBalancingPolicy:
@@ -2594,7 +2594,9 @@ definitions:
           \"lb\", \"drop_percentage\": 50 }\n\t]}\n\nThe actual drop percentages applied
           to the traffic at the clients will be\n\n\t\"throttle\"_drop = 60%\n\t\"lb\"_drop
           = 20%  // 50% of the remaining 'actual' load, which is 40%.\n\tactual_outgoing_load
-          = 20% // remaining after applying all categories.\n\n[#not-implemented-hide:]"
+          = 20% // remaining after applying all categories.\n\nEnvoy supports only
+          one element and will NACK if more than one element is present.\nOther xDS-capable
+          data planes will not necessarily have this limitation."
         items:
           $ref: '#/definitions/endpointv3.ClusterLoadAssignment_Policy_DropOverload'
         type: array
@@ -3089,14 +3091,14 @@ definitions:
         type: boolean
       upstream_http_filters:
         description: ".. note::\n\n\tUpstream HTTP filters are currently in alpha.\n\nOptional
-          HTTP filters for the upstream filter chain.\n\nThese filters will be applied
-          for all requests that pass through the router.\nThey will also be applied
-          to shadowed requests.\nUpstream filters cannot change route or cluster.\nUpstream
-          filters specified on the cluster will override these filters.\n\nIf using
-          upstream filters, please be aware that local errors sent by\nupstream filters
-          will not trigger retries, and local errors sent by\nupstream filters will
-          count as a final response if hedging is configured.\n[#extension-category:
-          envoy.filters.http.upstream]"
+          HTTP filters for the upstream HTTP filter chain.\n\nThese filters will be
+          applied for all requests that pass through the router.\nThey will also be
+          applied to shadowed requests.\nUpstream HTTP filters cannot change route
+          or cluster.\nUpstream HTTP filters specified on the cluster will override
+          these filters.\n\nIf using upstream HTTP filters, please be aware that local
+          errors sent by\nupstream HTTP filters will not trigger retries, and local
+          errors sent by\nupstream HTTP filters will count as a final response if
+          hedging is configured.\n[#extension-category: envoy.filters.http.upstream]"
         items:
           $ref: '#/definitions/http_connection_managerv3.HttpFilter'
         type: array
@@ -4036,14 +4038,8 @@ definitions:
         description: |-
           If true, the filter is disabled by default and must be explicitly enabled by setting
           per filter configuration in the route configuration.
-
-          A disabled filter will be treated as enabled in the following cases:
-
-           1. Valid per filter configuration is configured in the “typed_per_filter_config“ of route config.
-           2. :ref:`FilterConfig <envoy_v3_api_msg_config.route.v3.FilterConfig>` is configured in the
-              “typed_per_filter_config“ of route config and the
-              :ref:`disabled of FilterConfig <envoy_v3_api_field_config.route.v3.FilterConfig.disabled>`
-              is set to false.
+          See :ref:`route based filter chain <arch_overview_http_filters_route_based_filter_chain>`
+          for more details.
 
           Terminal filters (e.g. “envoy.filters.http.router“) cannot be marked as disabled.
         type: boolean
@@ -6730,7 +6726,7 @@ paths:
       summary: Get HTTP filter router for a specific Filter.
       tags:
       - filter
-  /api/v1/httpsFilters:
+  /api/v1/httpFilters:
     get:
       consumes:
       - application/json

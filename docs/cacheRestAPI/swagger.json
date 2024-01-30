@@ -521,7 +521,7 @@
                 }
             }
         },
-        "/api/v1/httpsFilters": {
+        "/api/v1/httpFilters": {
             "get": {
                 "consumes": [
                     "application/json"
@@ -1578,7 +1578,7 @@
                     "type": "string"
                 },
                 "typed_config": {
-                    "description": "Filter specific configuration which depends on the filter being\ninstantiated. See the supported filters for further documentation.\nNote that Envoy's :ref:`downstream network\nfilters \u003cconfig_network_filters\u003e` are not valid upstream filters.\nOnly one of typed_config or config_discovery can be used.",
+                    "description": "Filter specific configuration which depends on the filter being\ninstantiated. See the supported filters for further documentation.\nNote that Envoy's :ref:`downstream network\nfilters \u003cconfig_network_filters\u003e` are not valid upstream network filters.\nOnly one of typed_config or config_discovery can be used.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/any.Any"
@@ -3075,7 +3075,7 @@
             "type": "object",
             "properties": {
                 "drop_overloads": {
-                    "description": "Action to trim the overall incoming traffic to protect the upstream\nhosts. This action allows protection in case the hosts are unable to\nrecover from an outage, or unable to autoscale or unable to handle\nincoming traffic volume for any reason.\n\nAt the client each category is applied one after the other to generate\nthe 'actual' drop percentage on all outgoing traffic. For example:\n\n.. code-block:: json\n\n\t{ \"drop_overloads\": [\n\t    { \"category\": \"throttle\", \"drop_percentage\": 60 }\n\t    { \"category\": \"lb\", \"drop_percentage\": 50 }\n\t]}\n\nThe actual drop percentages applied to the traffic at the clients will be\n\n\t\"throttle\"_drop = 60%\n\t\"lb\"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.\n\tactual_outgoing_load = 20% // remaining after applying all categories.\n\n[#not-implemented-hide:]",
+                    "description": "Action to trim the overall incoming traffic to protect the upstream\nhosts. This action allows protection in case the hosts are unable to\nrecover from an outage, or unable to autoscale or unable to handle\nincoming traffic volume for any reason.\n\nAt the client each category is applied one after the other to generate\nthe 'actual' drop percentage on all outgoing traffic. For example:\n\n.. code-block:: json\n\n\t{ \"drop_overloads\": [\n\t    { \"category\": \"throttle\", \"drop_percentage\": 60 }\n\t    { \"category\": \"lb\", \"drop_percentage\": 50 }\n\t]}\n\nThe actual drop percentages applied to the traffic at the clients will be\n\n\t\"throttle\"_drop = 60%\n\t\"lb\"_drop = 20%  // 50% of the remaining 'actual' load, which is 40%.\n\tactual_outgoing_load = 20% // remaining after applying all categories.\n\nEnvoy supports only one element and will NACK if more than one element is present.\nOther xDS-capable data planes will not necessarily have this limitation.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/endpointv3.ClusterLoadAssignment_Policy_DropOverload"
@@ -3494,7 +3494,7 @@
                     "type": "boolean"
                 },
                 "upstream_http_filters": {
-                    "description": ".. note::\n\n\tUpstream HTTP filters are currently in alpha.\n\nOptional HTTP filters for the upstream filter chain.\n\nThese filters will be applied for all requests that pass through the router.\nThey will also be applied to shadowed requests.\nUpstream filters cannot change route or cluster.\nUpstream filters specified on the cluster will override these filters.\n\nIf using upstream filters, please be aware that local errors sent by\nupstream filters will not trigger retries, and local errors sent by\nupstream filters will count as a final response if hedging is configured.\n[#extension-category: envoy.filters.http.upstream]",
+                    "description": ".. note::\n\n\tUpstream HTTP filters are currently in alpha.\n\nOptional HTTP filters for the upstream HTTP filter chain.\n\nThese filters will be applied for all requests that pass through the router.\nThey will also be applied to shadowed requests.\nUpstream HTTP filters cannot change route or cluster.\nUpstream HTTP filters specified on the cluster will override these filters.\n\nIf using upstream HTTP filters, please be aware that local errors sent by\nupstream HTTP filters will not trigger retries, and local errors sent by\nupstream HTTP filters will count as a final response if hedging is configured.\n[#extension-category: envoy.filters.http.upstream]",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/http_connection_managerv3.HttpFilter"
@@ -4297,7 +4297,7 @@
                     "description": "Types that are assignable to ConfigType:\n\n\t*HttpFilter_TypedConfig\n\t*HttpFilter_ConfigDiscovery"
                 },
                 "disabled": {
-                    "description": "If true, the filter is disabled by default and must be explicitly enabled by setting\nper filter configuration in the route configuration.\n\nA disabled filter will be treated as enabled in the following cases:\n\n 1. Valid per filter configuration is configured in the “typed_per_filter_config“ of route config.\n 2. :ref:`FilterConfig \u003cenvoy_v3_api_msg_config.route.v3.FilterConfig\u003e` is configured in the\n    “typed_per_filter_config“ of route config and the\n    :ref:`disabled of FilterConfig \u003cenvoy_v3_api_field_config.route.v3.FilterConfig.disabled\u003e`\n    is set to false.\n\nTerminal filters (e.g. “envoy.filters.http.router“) cannot be marked as disabled.",
+                    "description": "If true, the filter is disabled by default and must be explicitly enabled by setting\nper filter configuration in the route configuration.\nSee :ref:`route based filter chain \u003carch_overview_http_filters_route_based_filter_chain\u003e`\nfor more details.\n\nTerminal filters (e.g. “envoy.filters.http.router“) cannot be marked as disabled.",
                     "type": "boolean"
                 },
                 "is_optional": {
