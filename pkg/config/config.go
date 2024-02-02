@@ -15,11 +15,12 @@ type Config struct {
 		Port int `default:"8888" envconfig:"XDS_PORT"`
 	}
 	Webhook struct {
-		Disable                  bool   `default:"false"                                       envconfig:"WEBHOOK_DISABLE"`
-		TLSSecretName            string `default:"envoy-xds-controller-tls"                    envconfig:"TLS_SECRET_NAME"`
-		ValidatingWebhookCfgName string `default:"envoy-xds-controller-validating-webhook-cfg" envconfig:"VALIDATING_WEBHOOK_CFG_NAME"`
-		Port                     int    `default:"9443"                                        envconfig:"WEBHOOK_PORT"`
-		CertDir                  string `default:""                                            envconfig:"WEBHOOK_CERT_DIR"`
+		Disable        bool   `default:"false"                                       envconfig:"WEBHOOK_DISABLE"`
+		TLSSecretName  string `default:"envoy-xds-controller-tls"                    envconfig:"WEBHOOK_TLS_SECRET_NAME"`
+		WebhookCfgName string `default:"envoy-xds-controller-validating-webhook-cfg" envconfig:"WEBHOOK_CFG_NAME"`
+		ServiceName    string `default:"envoy-xds-controller-webhook-service"        envconfig:"SERVICE_NAME"`
+		Path           string `default:"/validate"                                   envconfig:"WEBHOOK_PATH"`
+		Port           int    `default:"9443"                                        envconfig:"WEBHOOK_PORT"`
 	}
 }
 
@@ -51,9 +52,17 @@ func (c *Config) GetTLSSecretName() string {
 }
 
 func (c *Config) GetValidatingWebhookCfgName() string {
-	return c.Webhook.ValidatingWebhookCfgName
+	return c.Webhook.WebhookCfgName
 }
 
-func (c *Config) GerWebhookPort() int {
+func (c *Config) GetValidationWebhookServiceName() string {
+	return c.Webhook.ServiceName
+}
+
+func (c *Config) GetWebhookPath() string {
+	return c.Webhook.Path
+}
+
+func (c *Config) GetWebhookPort() int {
 	return c.Webhook.Port
 }

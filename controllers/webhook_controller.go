@@ -16,7 +16,6 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -68,18 +67,11 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	certSecret := &corev1.Secret{}
 	if err := r.Client.Get(ctx, req.NamespacedName, certSecret); err != nil {
-		if api_errors.IsNotFound(err) {
-			r.Log.V(1).Info("Secret with TLS was not found. Creating")
-			certSecret.Name = req.Name
-			certSecret.Namespace = req.Namespace
-			certSecret.Labels = map[string]string{
-				options.SecretLabelKey: options.WebhookSecretLabelValue,
-			}
-			if err = r.Client.Create(ctx, certSecret); err != nil {
-				return reconcile.Result{}, errors.Wrap(err, errors.CreateInKubernetesMessage)
-			}
-		}
 		return reconcile.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
+	}
+
+	certSecret.Labels = map[string]string{
+		options.SecretLabelKey: options.WebhookSecretLabelValue,
 	}
 
 	if err := r.ReconcileCertificates(ctx, certSecret); err != nil {
@@ -102,6 +94,11 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecret *corev1.Secret) error {
+
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: certSecret.Namespace, Name: certSecret.Name}, certSecret); err != nil {
+		return errors.Wrap(err, errors.GetFromKubernetesMessage)
+	}
+
 	// If need create of update certificate for webhook - do it
 	if r.shouldUpdateCertificate(certSecret) {
 		r.Log.Info("Generating new TLS Certificate")
