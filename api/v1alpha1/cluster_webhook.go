@@ -19,23 +19,19 @@ package v1alpha1
 import (
 	"context"
 
-	"google.golang.org/protobuf/encoding/protojson"
-
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
 )
 
-func (c *Cluster) Validate(
-	ctx context.Context,
-	unmarshaler *protojson.UnmarshalOptions,
-) error {
+func (c *Cluster) Validate(ctx context.Context) error {
 	// Validate Listener spec
 	if c.Spec == nil {
 		return errors.New(errors.ClusterCannotBeEmptyMessage)
 	}
 
 	clusterv3 := &clusterv3.Cluster{}
-	if err := unmarshaler.Unmarshal(c.Spec.Raw, clusterv3); err != nil {
+	if err := options.Unmarshaler.Unmarshal(c.Spec.Raw, clusterv3); err != nil {
 		return errors.Wrap(err, errors.UnmarshalMessage)
 	}
 

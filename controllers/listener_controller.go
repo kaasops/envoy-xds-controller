@@ -18,13 +18,11 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"sort"
 
 	"github.com/go-logr/logr"
 
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -43,7 +41,6 @@ import (
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -56,11 +53,9 @@ import (
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	Cache           *xdscache.Cache
-	Unmarshaler     protojson.UnmarshalOptions
-	DiscoveryClient *discovery.DiscoveryClient
-	Config          *config.Config
+	Scheme *runtime.Scheme
+	Cache  *xdscache.Cache
+	Config *config.Config
 
 	log logr.Logger
 }
@@ -106,7 +101,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Get Envoy Listener from listener instance spec
 	listener := &listenerv3.Listener{}
-	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
+	if err := options.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
@@ -141,9 +136,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// errs for collect all errors with processing VirtualServices
 		var errs []error
 
-		// activeDomains for collect all domains with active VirtualServices. It's needed for check dublicates
-		activeDomains := make(map[string]struct{})
-
 		// routeConfigs for collect Routes for listener
 		routeConfigs := make([]*routev3.RouteConfiguration, 0)
 
@@ -158,7 +150,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 					ctx,
 					vs.Spec.TlsConfig,
 					r.Client,
-					r.DiscoveryClient,
 					r.Config.GetDefaultIssuer(),
 					instance.Namespace,
 					index,
@@ -167,7 +158,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				// Create Factory for VirtualService
 				vsFactory := virtualservice.NewVirtualServiceFactory(
 					r.Client,
-					r.Unmarshaler,
 					&vs,
 					instance,
 					*tlsFactory,
@@ -184,28 +174,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 					}
 					errs = append(errs, err)
 					continue
-				}
-
-				// Check domain dublicates
-				for _, domain := range virtSvc.VirtualHost.Domains {
-					_, ok := activeDomains[domain]
-					if ok {
-						r.log.Error(nil, "domain already in use", "name:", domain)
-						if err := vs.SetError(ctx, r.Client, fmt.Sprintf("duplicate domain: %s", domain)); err != nil {
-							errs = append(errs, err)
-						}
-						continue
-					}
-					activeDomains[domain] = struct{}{}
-				}
-
-				// Set status about domains woth errors
-				if virtSvc.Tls != nil {
-					if len(virtSvc.Tls.ErrorDomains) > 0 {
-						if err := vs.SetDomainsStatus(ctx, r.Client, virtSvc.Tls.ErrorDomains); err != nil {
-							errs = append(errs, err)
-						}
-					}
 				}
 
 				// Collect routes
@@ -227,10 +195,6 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				chains = append(chains, filterChains...)
 
 				if err := vs.SetValid(ctx, r.Client); err != nil {
-					errs = append(errs, err)
-				}
-
-				if err := vs.SetLastAppliedHash(ctx, r.Client); err != nil {
 					errs = append(errs, err)
 				}
 			}

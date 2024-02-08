@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"google.golang.org/protobuf/encoding/protojson"
-
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -15,6 +13,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/factory/virtualservice/tls"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
 
@@ -22,27 +21,25 @@ import (
 )
 
 type VirtualService struct {
-	Name             string
-	NodeIDs          []string
-	VirtualHost      *routev3.VirtualHost
-	AccessLog        *accesslogv3.AccessLog
-	HttpFilters      []*hcmv3.HttpFilter
-	RouteConfig      *routev3.RouteConfiguration
-	Tls              *tls.Tls
-	UseRemoteAddress *bool
+	Name                    string
+	NodeIDs                 []string
+	VirtualHost             *routev3.VirtualHost
+	AccessLog               *accesslogv3.AccessLog
+	HttpFilters             []*hcmv3.HttpFilter
+	RouteConfig             *routev3.RouteConfiguration
+	CertificatesWithDomains map[string][]string
+	UseRemoteAddress        *bool
 }
 
 type VirtualServiceFactory struct {
 	*v1alpha1.VirtualService
-	client      client.Client
-	unmarshaler protojson.UnmarshalOptions
-	listener    *v1alpha1.Listener
-	tlsFactory  *tls.TlsFactory
+	client     client.Client
+	listener   *v1alpha1.Listener
+	tlsFactory *tls.TlsFactory
 }
 
 func NewVirtualServiceFactory(
 	client client.Client,
-	unmarshaler protojson.UnmarshalOptions,
 	vs *v1alpha1.VirtualService,
 	listener *v1alpha1.Listener,
 	tlsFactory tls.TlsFactory,
@@ -50,7 +47,6 @@ func NewVirtualServiceFactory(
 	return &VirtualServiceFactory{
 		VirtualService: vs,
 		client:         client,
-		unmarshaler:    unmarshaler,
 		listener:       listener,
 		tlsFactory:     &tlsFactory,
 	}
@@ -63,8 +59,8 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 
 	statPrefix := strings.ReplaceAll(vs.Name, ".", "-")
 
-	if vs.Tls != nil {
-		for certName, domains := range vs.Tls.CertificatesWithDomains {
+	if vs.CertificatesWithDomains != nil {
+		for certName, domains := range vs.CertificatesWithDomains {
 			vs.VirtualHost.Domains = domains
 			f, err := b.WithDownstreamTlsContext(certName).
 				WithFilterChainMatch(domains).
@@ -139,17 +135,17 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 	}
 
 	if f.tlsFactory.TlsConfig != nil {
-		tls, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
+		certificatesWithDomains, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
 
 		if err != nil {
 			return VirtualService{}, errors.Wrap(err, "TLS provider error")
 		}
 
-		if len(tls.CertificatesWithDomains) == 0 {
+		if len(certificatesWithDomains) == 0 {
 			return VirtualService{}, errors.NewUKS("No certificates found")
 		}
 
-		virtualService.Tls = tls
+		virtualService.CertificatesWithDomains = certificatesWithDomains
 	}
 
 	return virtualService, nil
@@ -179,7 +175,7 @@ func (f *VirtualServiceFactory) AccessLog(ctx context.Context) (*accesslogv3.Acc
 		data = accessLogConfig.Spec.Raw
 	}
 
-	if err := f.unmarshaler.Unmarshal(data, &accessLog); err != nil {
+	if err := options.Unmarshaler.Unmarshal(data, &accessLog); err != nil {
 		return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 	}
 
@@ -192,7 +188,7 @@ func (f *VirtualServiceFactory) AccessLog(ctx context.Context) (*accesslogv3.Acc
 
 func (f *VirtualServiceFactory) VirtualHost(ctx context.Context) (*routev3.VirtualHost, error) {
 	virtualHost := &routev3.VirtualHost{}
-	if err := f.unmarshaler.Unmarshal(f.Spec.VirtualHost.Raw, virtualHost); err != nil {
+	if err := options.Unmarshaler.Unmarshal(f.Spec.VirtualHost.Raw, virtualHost); err != nil {
 		return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 	}
 
@@ -206,7 +202,7 @@ func (f *VirtualServiceFactory) VirtualHost(ctx context.Context) (*routev3.Virtu
 			}
 			for _, rt := range routesSpec.Spec {
 				routes := &routev3.Route{}
-				if err := f.unmarshaler.Unmarshal(rt.Raw, routes); err != nil {
+				if err := options.Unmarshaler.Unmarshal(rt.Raw, routes); err != nil {
 					return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 				}
 				virtualHost.Routes = append(virtualHost.Routes, routes)
@@ -225,7 +221,7 @@ func (f *VirtualServiceFactory) HttpFilters(ctx context.Context, name string) ([
 	httpFilters := []*hcmv3.HttpFilter{}
 	for _, httpFilter := range f.Spec.HTTPFilters {
 		hf := &hcmv3.HttpFilter{}
-		if err := f.unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
+		if err := options.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
 			return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 		}
 
@@ -246,7 +242,7 @@ func (f *VirtualServiceFactory) HttpFilters(ctx context.Context, name string) ([
 			}
 			for _, httpFilter := range hfSpec.Spec {
 				hf := &hcmv3.HttpFilter{}
-				if err := f.unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
+				if err := options.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
 					return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
 				}
 				httpFilters = append(httpFilters, hf)

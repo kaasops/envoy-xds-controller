@@ -8,12 +8,19 @@ import (
 	"net/http"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"google.golang.org/protobuf/encoding/protojson"
+	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 type Handler struct {
-	Unmarshaler *protojson.UnmarshalOptions
+	Config          *config.Config
+	Client          client.Client
+	DiscoveryClient *discovery.DiscoveryClient
 }
 
 var (
@@ -30,60 +37,103 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 
 	switch res := req.AdmissionRequest.Kind.Kind; res {
 	case "VirtualService":
-		vs := &v1alpha1.VirtualService{}
-		if err := json.Unmarshal(req.Object.Raw, vs); err != nil {
-			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
-		}
-
-		if err := vs.Validate(ctx, h.Unmarshaler); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
+		if req.Operation != admissionv1.Delete {
+			vs := &v1alpha1.VirtualService{}
+			if err := json.Unmarshal(req.Object.Raw, vs); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+			if err := vs.Validate(ctx, h.Config, h.Client, h.DiscoveryClient); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
 		}
 	case "Listener":
 		l := &v1alpha1.Listener{}
-		if err := json.Unmarshal(req.Object.Raw, l); err != nil {
-			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
-		}
 
-		if err := l.Validate(ctx, h.Unmarshaler); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
+		if req.Operation == admissionv1.Delete {
+			if err := json.Unmarshal(req.OldObject.Raw, l); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+			if err := l.ValidateDelete(ctx, h.Client); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+		} else {
+			if err := json.Unmarshal(req.Object.Raw, l); err != nil {
+				if !api_errors.IsNotFound(err) {
+					return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				}
+			}
+			if err := l.Validate(ctx); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
 		}
 	case "Cluster":
 		c := &v1alpha1.Cluster{}
-		if err := json.Unmarshal(req.Object.Raw, c); err != nil {
-			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
-		}
 
-		if err := c.Validate(ctx, h.Unmarshaler); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
+		if req.Operation != admissionv1.Delete {
+			if err := json.Unmarshal(req.Object.Raw, c); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+
+			if err := c.Validate(ctx); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
 		}
 	case "HttpFilter":
 		hf := &v1alpha1.HttpFilter{}
-		if err := json.Unmarshal(req.Object.Raw, hf); err != nil {
-			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
-		}
 
-		if err := hf.Validate(ctx, h.Unmarshaler); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
+		if req.Operation == admissionv1.Delete {
+			if err := json.Unmarshal(req.OldObject.Raw, hf); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+			if err := hf.ValidateDelete(ctx, h.Client); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+		} else {
+			if err := json.Unmarshal(req.Object.Raw, hf); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+			if err := hf.Validate(ctx); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
 		}
 	case "Route":
 		r := &v1alpha1.Route{}
-		if err := json.Unmarshal(req.Object.Raw, r); err != nil {
-			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
-		}
 
-		if err := r.Validate(ctx, h.Unmarshaler); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
+		if req.Operation == admissionv1.Delete {
+			if err := json.Unmarshal(req.OldObject.Raw, r); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+			if err := r.ValidateDelete(ctx, h.Client); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+		} else {
+			if err := json.Unmarshal(req.Object.Raw, r); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+			if err := r.Validate(ctx); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
 		}
 	case "AccessLogConfig":
 		al := &v1alpha1.AccessLogConfig{}
-		if err := json.Unmarshal(req.Object.Raw, al); err != nil {
-			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
-		}
 
-		if err := al.Validate(ctx, h.Unmarshaler); err != nil {
-			return admission.Errored(http.StatusInternalServerError, err)
+		if req.Operation == admissionv1.Delete {
+			if err := json.Unmarshal(req.OldObject.Raw, al); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+			if err := al.ValidateDelete(ctx, h.Client); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+		} else {
+			if err := json.Unmarshal(req.Object.Raw, al); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+			}
+
+			if err := al.Validate(ctx); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
 		}
 	}
 
-	return admission.Allowed("All ok")
+	return admission.Allowed("")
 }

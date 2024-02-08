@@ -44,20 +44,10 @@ type VirtualServiceSpec struct {
 }
 
 type TlsConfig struct {
-	CertManager *CertManager `json:"certManager,omitempty"`
-	SecretRef   *ResourceRef `json:"secretRef,omitempty"`
+	SecretRef *ResourceRef `json:"secretRef,omitempty"`
 
 	// Find secret with domain in annotation "envoy.kaasops.io/domains"
 	AutoDiscovery *bool `json:"autoDiscovery,omitempty"`
-}
-
-type CertManager struct {
-	// Enabled used if Issuer and ClusterIssuer not set (If you want use default issuer fron ENV)
-	// If install Enabled and Issuer or ClusterIssuer - specified issuer will be used
-	Enabled *bool `json:"enabled,omitempty"`
-
-	Issuer        *string `json:"issuer,omitempty"`
-	ClusterIssuer *string `json:"clusterIssuer,omitempty"`
 }
 
 type ResourceRef struct {
@@ -67,9 +57,8 @@ type ResourceRef struct {
 
 // VirtualServiceStatus defines the observed state of VirtualService
 type VirtualServiceStatus struct {
-	Error   *string            `json:"error,omitempty"`
-	Valid   *bool              `json:"valid,omitempty"`
-	Domains *map[string]string `json:"domains,omitempty"`
+	Error *string `json:"error,omitempty"`
+	Valid *bool   `json:"valid,omitempty"`
 
 	LastAppliedHash *uint32 `json:"lastAppliedHash,omitempty"`
 }
