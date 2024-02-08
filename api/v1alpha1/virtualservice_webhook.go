@@ -174,6 +174,8 @@ func (vs *VirtualService) Validate(
 		return errors.Wrap(err, errors.CannotValidateCacheResourceMessage)
 	}
 
+	// TODO: Check cluster exist in Kubernetes for VS and used in routes
+
 	return nil
 }
 
