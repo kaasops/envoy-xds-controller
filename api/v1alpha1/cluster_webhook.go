@@ -37,3 +37,5 @@ func (c *Cluster) Validate(ctx context.Context) error {
 
 	return nil
 }
+
+// TODO: Add check cluster not used, when deleted

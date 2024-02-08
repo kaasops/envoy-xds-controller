@@ -9,6 +9,7 @@ import (
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
@@ -28,7 +29,7 @@ type VirtualService struct {
 	HttpFilters             []*hcmv3.HttpFilter
 	RouteConfig             *routev3.RouteConfiguration
 	CertificatesWithDomains map[string][]string
-	UseRemoteAddress        *bool
+	UseRemoteAddress        *wrapperspb.BoolValue
 	UpgradeConfigs          []*hcmv3.HttpConnectionManager_UpgradeConfig
 }
 
@@ -139,7 +140,7 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		AccessLog:        accesslog,
 		HttpFilters:      httpFilters,
 		RouteConfig:      routeConfig,
-		UseRemoteAddress: f.Spec.UseRemoteAddress,
+		UseRemoteAddress: f.UseRemoteAddress(),
 		UpgradeConfigs:   upgradeConfigs,
 	}
 
@@ -279,6 +280,20 @@ func (f *VirtualServiceFactory) RouteConfiguration(name string, vh *routev3.Virt
 	}
 
 	return routeConfig, nil
+}
+
+func (f *VirtualServiceFactory) UseRemoteAddress() *wrapperspb.BoolValue {
+	ura := wrapperspb.BoolValue{
+		Value: false,
+	}
+
+	if f.Spec.UseRemoteAddress != nil {
+		ura = wrapperspb.BoolValue{
+			Value: *f.Spec.UseRemoteAddress,
+		}
+	}
+
+	return &ura
 }
 
 func (f *VirtualServiceFactory) UpgradeConfigs() ([]*hcmv3.HttpConnectionManager_UpgradeConfig, error) {
