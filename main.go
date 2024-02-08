@@ -23,7 +23,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	"google.golang.org/protobuf/encoding/protojson"
+
 	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -134,9 +134,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	unmarshaler := protojson.UnmarshalOptions{
-		AllowPartial: false,
-		// DiscardUnknown: true,
+	config := ctrl.GetConfigOrDie()
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
+	if err != nil {
+		setupLog.Error(err, "unable to create discovery client")
+		os.Exit(1)
 	}
 
 	// Register Webhook
@@ -186,17 +188,12 @@ func main() {
 			cfg.GetWebhookPath(),
 			&webhook.Admission{
 				Handler: &handler.Handler{
-					Unmarshaler: &unmarshaler,
+					Config:          cfg,
+					Client:          mgr.GetClient(),
+					DiscoveryClient: discoveryClient,
 				},
 			},
 		)
-	}
-
-	config := ctrl.GetConfigOrDie()
-	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create discovery client")
-		os.Exit(1)
 	}
 
 	xDSCache := xdscache.New()
@@ -213,48 +210,43 @@ func main() {
 	}
 
 	if err = (&controllers.ClusterReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cache:       xDSCache,
-		Unmarshaler: unmarshaler,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
 	}
 	if err = (&controllers.ListenerReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		Cache:           xDSCache,
-		Unmarshaler:     unmarshaler,
-		DiscoveryClient: discoveryClient,
-		Config:          cfg,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cache:  xDSCache,
+		// DiscoveryClient: discoveryClient,
+		Config: cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
 		os.Exit(1)
 	}
 	if err = (&controllers.EndpointReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cache:       xDSCache,
-		Unmarshaler: unmarshaler,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Endpoint")
 		os.Exit(1)
 	}
 	if err = (&controllers.VirtualHostReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cache:       xDSCache,
-		Unmarshaler: unmarshaler,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualHost")
 		os.Exit(1)
 	}
 	if err = (&controllers.SecretReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		Cache:       xDSCache,
-		Unmarshaler: unmarshaler,
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)

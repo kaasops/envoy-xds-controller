@@ -20,13 +20,13 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 	v1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,9 +41,8 @@ import (
 // ClusterReconciler reconciles a Cluster object
 type ClusterReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Cache       *xdscache.Cache
-	Unmarshaler protojson.UnmarshalOptions
+	Scheme *runtime.Scheme
+	Cache  *xdscache.Cache
 
 	log logr.Logger
 }
@@ -82,7 +81,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// get envoy cluster from cluster instance spec
 	cluster := &clusterv3.Cluster{}
-	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, cluster); err != nil {
+	if err := options.Unmarshaler.Unmarshal(instance.Spec.Raw, cluster); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, errors.UnmarshalMessage)
 	}
 

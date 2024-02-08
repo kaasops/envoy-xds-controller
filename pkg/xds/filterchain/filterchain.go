@@ -16,11 +16,13 @@ import (
 
 type Builder interface {
 	WithDownstreamTlsContext(secret string) Builder
-	WithHttpConnectionManager(accessLog *accesslogv3.AccessLog,
+	WithHttpConnectionManager(
+		accessLog *accesslogv3.AccessLog,
 		httpFilters []*hcm.HttpFilter,
 		routeConfigName string,
 		statPrefix string,
 		useRemoteAddress *bool,
+		upgradeConfigs []*hcm.HttpConnectionManager_UpgradeConfig,
 	) Builder
 	WithFilterChainMatch(domains []string) Builder
 	Build(name string) (*listenerv3.FilterChain, error)
@@ -62,7 +64,9 @@ func (b *builder) WithHttpConnectionManager(
 	httpFilters []*hcm.HttpFilter,
 	routeConfigName string, statPrefix string,
 	useRemoteAddress *bool,
+	upgradeConfigs []*hcm.HttpConnectionManager_UpgradeConfig,
 ) Builder {
+	// Process UseRemoteAddress
 	ura := wrappers.BoolValue{
 		Value: false,
 	}
@@ -90,6 +94,7 @@ func (b *builder) WithHttpConnectionManager(
 			},
 		},
 		UseRemoteAddress: &ura,
+		UpgradeConfigs:   upgradeConfigs,
 		HttpFilters:      hfs,
 	}
 

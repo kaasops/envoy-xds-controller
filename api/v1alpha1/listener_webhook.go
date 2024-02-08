@@ -18,25 +18,45 @@ package v1alpha1
 
 import (
 	"context"
-
-	"google.golang.org/protobuf/encoding/protojson"
+	"fmt"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (l *Listener) Validate(
-	ctx context.Context,
-	unmarshaler *protojson.UnmarshalOptions,
-) error {
+func (l *Listener) Validate(ctx context.Context) error {
 	// Validate Listener spec
 	if l.Spec == nil {
 		return errors.New(errors.ListenerCannotBeEmptyMessage)
 	}
 
 	listenerv3 := &listenerv3.Listener{}
-	if err := unmarshaler.Unmarshal(l.Spec.Raw, listenerv3); err != nil {
+	if err := options.Unmarshaler.Unmarshal(l.Spec.Raw, listenerv3); err != nil {
 		return errors.Wrap(err, errors.UnmarshalMessage)
+	}
+
+	return nil
+}
+
+// ValidateDelete - check if the listener used by any virtual service
+func (l *Listener) ValidateDelete(ctx context.Context, cl client.Client) error {
+	virtualServices := &VirtualServiceList{}
+	listOpts := []client.ListOption{
+		client.InNamespace(l.Namespace),
+		client.MatchingFields{options.VirtualServiceListenerFeild: l.Name},
+	}
+	if err := cl.List(ctx, virtualServices, listOpts...); err != nil {
+		return err
+	}
+
+	if len(virtualServices.Items) > 0 {
+		vsNames := make([]string, 0, len(virtualServices.Items))
+		for _, vs := range virtualServices.Items {
+			vsNames = append(vsNames, vs.Name)
+		}
+		return errors.New(fmt.Sprintf("listener is used in Virtual Services: %+v", vsNames))
 	}
 
 	return nil

@@ -20,13 +20,13 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 
@@ -41,9 +41,8 @@ import (
 // SecretReconciler reconciles a Secret object
 type SecretReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	Cache       *xdscache.Cache
-	Unmarshaler protojson.UnmarshalOptions
+	Scheme *runtime.Scheme
+	Cache  *xdscache.Cache
 
 	log logr.Logger
 }
@@ -82,7 +81,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// get envoy secret from secret instance spec
 	secret := &tlsv3.Secret{}
-	if err := r.Unmarshaler.Unmarshal(instance.Spec.Raw, secret); err != nil {
+	if err := options.Unmarshaler.Unmarshal(instance.Spec.Raw, secret); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, errors.UnmarshalMessage)
 	}
 

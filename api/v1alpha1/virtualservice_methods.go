@@ -19,8 +19,8 @@ package v1alpha1
 import (
 	"context"
 	"encoding/json"
-	"reflect"
 
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/hash"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,17 +33,6 @@ func (vs *VirtualService) SetError(ctx context.Context, cl client.Client, msg st
 
 	valid := false
 	vs.Status.Valid = &valid
-
-	return cl.Status().Update(ctx, vs.DeepCopy())
-}
-
-func (vs *VirtualService) SetDomainsStatus(ctx context.Context, cl client.Client, domainsWithErrors map[string]string) error {
-	if vs.Status.Domains != nil {
-		if reflect.DeepEqual(*vs.Status.Domains, domainsWithErrors) {
-			return nil
-		}
-	}
-	vs.Status.Domains = &domainsWithErrors
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
@@ -66,6 +55,8 @@ func (vs *VirtualService) SetInvalid(ctx context.Context, cl client.Client) erro
 	valid := false
 	vs.Status.Valid = &valid
 
+	vs.SetLastAppliedHash(ctx, cl)
+
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
 
@@ -79,7 +70,7 @@ func (vs *VirtualService) SetLastAppliedHash(ctx context.Context, cl client.Clie
 	}
 	vs.Status.LastAppliedHash = hash
 
-	return cl.Status().Update(ctx, vs.DeepCopy())
+	return nil
 }
 
 func (vs *VirtualService) CheckHash() (bool, error) {
@@ -106,4 +97,23 @@ func (vs *VirtualService) getHash() (*uint32, error) {
 	}
 	hash := hash.Get(specHash) + hash.Get(annotationHash)
 	return &hash, nil
+}
+
+/**
+	TlsConfig Methods
+**/
+
+func (tc *TlsConfig) GetTLSType() (string, error) {
+	if tc.SecretRef != nil {
+		if tc.AutoDiscovery != nil {
+			return "", errors.New(errors.ManyParamMessage)
+		}
+		return SecretRefType, nil
+	}
+
+	if tc.AutoDiscovery != nil {
+		return AutoDiscoveryType, nil
+	}
+
+	return "", errors.New(errors.ZeroParamMessage)
 }

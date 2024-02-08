@@ -1,5 +1,7 @@
 package options
 
+import "google.golang.org/protobuf/encoding/protojson"
+
 const (
 	DefaultListenerName         = "https"
 	VirtualServiceListenerFeild = "spec.listener.name"
@@ -10,4 +12,11 @@ const (
 
 	AutoDiscoveryLabel = "envoy.kaasops.io/autoDiscovery"
 	DomainAnnotation   = "envoy.kaasops.io/domains"
+)
+
+var (
+	Unmarshaler = protojson.UnmarshalOptions{
+		AllowPartial: false,
+		// DiscardUnknown: true,
+	}
 )

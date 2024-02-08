@@ -19,17 +19,14 @@ package v1alpha1
 import (
 	"context"
 
-	"google.golang.org/protobuf/encoding/protojson"
-
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
 )
 
-func (r *Route) Validate(
-	ctx context.Context,
-	unmarshaler *protojson.UnmarshalOptions,
-) error {
+func (r *Route) Validate(ctx context.Context) error {
 	// Validate Route spec
 	if r.Spec == nil {
 		return errors.New(errors.HTTPFilterCannotBeEmptyMessage)
@@ -37,8 +34,34 @@ func (r *Route) Validate(
 
 	for _, route := range r.Spec {
 		routev3 := &routev3.Route{}
-		if err := unmarshaler.Unmarshal(route.Raw, routev3); err != nil {
+		if err := options.Unmarshaler.Unmarshal(route.Raw, routev3); err != nil {
 			return errors.Wrap(err, errors.UnmarshalMessage)
+		}
+	}
+
+	return nil
+}
+
+func (r *Route) ValidateDelete(ctx context.Context, cl client.Client) error {
+	virtualServices := &VirtualServiceList{}
+	listOpts := []client.ListOption{client.InNamespace(r.Namespace)}
+	if err := cl.List(ctx, virtualServices, listOpts...); err != nil {
+		return err
+	}
+
+	if len(virtualServices.Items) > 0 {
+		vsNames := []string{}
+	C1:
+		for _, vs := range virtualServices.Items {
+			for _, route := range vs.Spec.AdditionalRoutes {
+				if route.Name == r.Name {
+					vsNames = append(vsNames, vs.Name)
+					continue C1
+				}
+			}
+		}
+		if len(vsNames) > 0 {
+			return errors.New("route is used in Virtual Services: " + vsNames[0])
 		}
 	}
 

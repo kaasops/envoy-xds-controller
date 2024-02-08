@@ -22,7 +22,7 @@ func NodeIDs(obj client.Object) []string {
 	if annotation == "" {
 		return nil
 	}
-	return strings.Split(NodeIDsAnnotation(obj), ",")
+	return strings.Split(annotation, ",")
 }
 
 func NodeIDsAnnotation(obj client.Object) string {
