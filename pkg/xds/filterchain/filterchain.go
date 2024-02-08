@@ -21,7 +21,7 @@ type Builder interface {
 		httpFilters []*hcm.HttpFilter,
 		routeConfigName string,
 		statPrefix string,
-		useRemoteAddress *bool,
+		useRemoteAddress *wrappers.BoolValue,
 		upgradeConfigs []*hcm.HttpConnectionManager_UpgradeConfig,
 	) Builder
 	WithFilterChainMatch(domains []string) Builder
@@ -63,19 +63,9 @@ func (b *builder) WithHttpConnectionManager(
 	accessLog *accesslogv3.AccessLog,
 	httpFilters []*hcm.HttpFilter,
 	routeConfigName string, statPrefix string,
-	useRemoteAddress *bool,
+	useRemoteAddress *wrappers.BoolValue,
 	upgradeConfigs []*hcm.HttpConnectionManager_UpgradeConfig,
 ) Builder {
-	// Process UseRemoteAddress
-	ura := wrappers.BoolValue{
-		Value: false,
-	}
-	if useRemoteAddress != nil {
-		ura = wrappers.BoolValue{
-			Value: *useRemoteAddress,
-		}
-	}
-
 	hfs := []*hcm.HttpFilter{}
 	if len(httpFilters) > 0 {
 		hfs = append(hfs, httpFilters...)
@@ -93,7 +83,7 @@ func (b *builder) WithHttpConnectionManager(
 				RouteConfigName: routeConfigName,
 			},
 		},
-		UseRemoteAddress: &ura,
+		UseRemoteAddress: useRemoteAddress,
 		UpgradeConfigs:   upgradeConfigs,
 		HttpFilters:      hfs,
 	}
