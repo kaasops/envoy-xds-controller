@@ -198,6 +198,11 @@ func (vs *VirtualService) checkIfDomainAlredyExist(
 	}
 
 	for _, virtualService := range virtualServices.Items {
+		// skip if VirtualService is the same
+		if virtualService.Name == vs.Name && virtualService.Namespace == vs.Namespace {
+			continue
+		}
+
 		vh := &routev3.VirtualHost{}
 		if err := options.Unmarshaler.Unmarshal(virtualService.Spec.VirtualHost.Raw, vh); err != nil {
 			return errors.Wrap(err, errors.UnmarshalMessage)
