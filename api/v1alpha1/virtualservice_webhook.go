@@ -79,6 +79,19 @@ func (vs *VirtualService) Validate(
 		}
 	}
 
+	// Check UpgradeConfigs spec
+	if vs.Spec.UpgradeConfigs != nil {
+		for _, upgradeConfig := range vs.Spec.UpgradeConfigs {
+			uc := &hcmv3.HttpConnectionManager_UpgradeConfig{}
+			if err := options.Unmarshaler.Unmarshal(upgradeConfig.Raw, uc); err != nil {
+				return errors.Wrap(err, errors.UnmarshalMessage)
+			}
+			if err := uc.Validate(); err != nil {
+				return errors.Wrap(err, errors.CannotValidateCacheResourceMessage)
+			}
+		}
+	}
+
 	// Check listener set
 	if vs.Spec.Listener == nil {
 		return errors.New(errors.ListenerCannotBeEmptyMessage)

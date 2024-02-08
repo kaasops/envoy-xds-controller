@@ -41,6 +41,9 @@ type VirtualServiceSpec struct {
 	// Controller HCM Extentions (https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto)
 	// UseRemoteAddress - use remote address for x-forwarded-for header (https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#extensions-filters-network-http-connection-manager-v3-httpconnectionmanager)
 	UseRemoteAddress *bool `json:"useRemoteAddress,omitempty"`
+
+	// UpgradeConfigs - https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-msg-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-upgradeconfig
+	UpgradeConfigs []*runtime.RawExtension `json:"upgradeConfigs,omitempty"`
 }
 
 type TlsConfig struct {

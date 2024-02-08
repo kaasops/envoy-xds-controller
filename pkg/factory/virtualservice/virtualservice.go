@@ -29,6 +29,7 @@ type VirtualService struct {
 	RouteConfig             *routev3.RouteConfiguration
 	CertificatesWithDomains map[string][]string
 	UseRemoteAddress        *bool
+	UpgradeConfigs          []*hcmv3.HttpConnectionManager_UpgradeConfig
 }
 
 type VirtualServiceFactory struct {
@@ -69,6 +70,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 					vs.Name,
 					statPrefix,
 					vs.UseRemoteAddress,
+					vs.UpgradeConfigs,
 				).
 				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
 			if err != nil {
@@ -85,6 +87,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 		vs.Name,
 		statPrefix,
 		vs.UseRemoteAddress,
+		vs.UpgradeConfigs,
 	).
 		WithFilterChainMatch(vs.VirtualHost.Domains).
 		Build(vs.Name)
@@ -124,6 +127,11 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		return VirtualService{}, errors.Wrap(err, "cannot create Route Configs for Virtual Service")
 	}
 
+	upgradeConfigs, err := f.UpgradeConfigs()
+	if err != nil {
+		return VirtualService{}, errors.Wrap(err, "cannot create Upgrade Configs for Virtual Service")
+	}
+
 	virtualService := VirtualService{
 		Name:             k8s.ResourceName(f.VirtualService.Namespace, f.VirtualService.Name),
 		NodeIDs:          nodeIDs,
@@ -132,6 +140,7 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		HttpFilters:      httpFilters,
 		RouteConfig:      routeConfig,
 		UseRemoteAddress: f.Spec.UseRemoteAddress,
+		UpgradeConfigs:   upgradeConfigs,
 	}
 
 	if f.tlsFactory.TlsConfig != nil {
@@ -270,4 +279,23 @@ func (f *VirtualServiceFactory) RouteConfiguration(name string, vh *routev3.Virt
 	}
 
 	return routeConfig, nil
+}
+
+func (f *VirtualServiceFactory) UpgradeConfigs() ([]*hcmv3.HttpConnectionManager_UpgradeConfig, error) {
+	upgradeConfigs := []*hcmv3.HttpConnectionManager_UpgradeConfig{}
+	if f.Spec.UpgradeConfigs != nil {
+		for _, upgradeConfig := range f.Spec.UpgradeConfigs {
+			uc := &hcmv3.HttpConnectionManager_UpgradeConfig{}
+			if err := options.Unmarshaler.Unmarshal(upgradeConfig.Raw, uc); err != nil {
+				return upgradeConfigs, errors.WrapUKS(err, errors.UnmarshalMessage)
+			}
+			if err := uc.ValidateAll(); err != nil {
+				return upgradeConfigs, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
+			}
+
+			upgradeConfigs = append(upgradeConfigs, uc)
+		}
+	}
+
+	return upgradeConfigs, nil
 }
