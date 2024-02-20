@@ -11,7 +11,6 @@ import (
 )
 
 type GetListenersResponse struct {
-	Version   int                    `json:"version"`
 	Listeners []*listenerv3.Listener `json:"listeners"`
 }
 
@@ -52,11 +51,13 @@ func (h *handler) getListeners(ctx *gin.Context) {
 		return
 	}
 
-	resources, version, err := h.cache.GetResources(params[nodeIDParamName][0])
+	resources, _, err := h.cache.GetResources(params[nodeIDParamName][0])
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
+
+	response := GetListenersResponse{}
 
 	if params[listenerParamName][0] != "" {
 		for _, listener := range resources[resourcev3.ListenerType] {
@@ -70,10 +71,7 @@ func (h *handler) getListeners(ctx *gin.Context) {
 				continue
 			}
 
-			response := GetListenersResponse{
-				Version:   version,
-				Listeners: []*listenerv3.Listener{v3listener},
-			}
+			response.Listeners = []*listenerv3.Listener{v3listener}
 			ctx.JSON(200, response)
 			return
 		}
@@ -82,5 +80,18 @@ func (h *handler) getListeners(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(200, resources[resourcev3.ListenerType])
+	// Convert resources to listeners
+	ls := make([]*listenerv3.Listener, 0, len(resources[resourcev3.ListenerType]))
+	for _, listener := range resources[resourcev3.ListenerType] {
+		v3listener, ok := listener.(*listenerv3.Listener)
+		if !ok {
+			ctx.JSON(500, gin.H{"error": "listener is not v3"})
+			return
+		}
+		ls = append(ls, v3listener)
+	}
+
+	response.Listeners = ls
+
+	ctx.JSON(200, response)
 }

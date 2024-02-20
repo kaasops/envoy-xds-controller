@@ -3166,8 +3166,6 @@ definitions:
         items:
           $ref: '#/definitions/listenerv3.Listener'
         type: array
-      version:
-        type: integer
     type: object
   handlers.GetRouteConfigurationsResponse:
     properties:

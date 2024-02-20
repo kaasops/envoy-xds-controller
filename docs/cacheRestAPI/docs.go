@@ -3598,9 +3598,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/listenerv3.Listener"
                     }
-                },
-                "version": {
-                    "type": "integer"
                 }
             }
         },
