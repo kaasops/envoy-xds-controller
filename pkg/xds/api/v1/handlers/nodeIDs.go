@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"sort"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -13,5 +15,7 @@ import (
 // @Router /api/v1/nodeIDs [get]
 func (h *handler) getNodeIDs(ctx *gin.Context) {
 	nodeIDs := h.cache.GetNodeIDs()
+	sort.Strings(nodeIDs)
+
 	ctx.JSON(200, nodeIDs)
 }

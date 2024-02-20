@@ -3166,8 +3166,6 @@ definitions:
         items:
           $ref: '#/definitions/listenerv3.Listener'
         type: array
-      version:
-        type: integer
     type: object
   handlers.GetRouteConfigurationsResponse:
     properties:
@@ -6383,7 +6381,7 @@ paths:
         example: '"cluster-1"'
         format: string
         in: query
-        name: clusters_name
+        name: cluster_name
         type: string
       produces:
       - application/json
