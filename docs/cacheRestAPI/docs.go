@@ -42,7 +42,7 @@ const docTemplate = `{
                         "format": "string",
                         "example": "\"cluster-1\"",
                         "description": "Cluster name",
-                        "name": "clusters_name",
+                        "name": "cluster_name",
                         "in": "query"
                     }
                 ],

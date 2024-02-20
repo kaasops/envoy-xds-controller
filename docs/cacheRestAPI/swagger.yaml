@@ -6383,7 +6383,7 @@ paths:
         example: '"cluster-1"'
         format: string
         in: query
-        name: clusters_name
+        name: cluster_name
         type: string
       produces:
       - application/json
