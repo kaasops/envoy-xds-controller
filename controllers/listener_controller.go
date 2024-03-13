@@ -213,13 +213,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		listener.FilterChains = append(listenerFilterChains, chains...)
 		applyListener := proto.Clone(listener).(*listenerv3.Listener)
 
-		// Clear Listener, if don'r have FilterChains
+		// Clear Listener, if don't have FilterChains
 		if len(listener.FilterChains) == 0 {
 			r.log.WithValues("NodeID", nodeID).Info("Listener FilterChain is empty, deleting")
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 			}
-			return ctrl.Result{}, nil
+			continue
 		}
 
 		// Validate Listener
