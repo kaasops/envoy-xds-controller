@@ -3,8 +3,8 @@ module github.com/kaasops/envoy-xds-controller
 go 1.21
 
 require (
-	github.com/avast/retry-go/v4 v4.5.0
 	github.com/cert-manager/cert-manager v1.12.2
+	github.com/envoyproxy/go-control-plane v0.12.1-0.20240103201927-b87d66415648
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-logr/logr v1.2.4
@@ -38,7 +38,6 @@ require (
 	github.com/cncf/xds/go v0.0.0-20230607035331-e9ce68804cb4 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240103201927-b87d66415648 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.0.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
