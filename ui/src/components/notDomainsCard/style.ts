@@ -1,0 +1,15 @@
+export const styleNotDomainsBox = {
+    width: '100%',
+    height: '100%',
+    bgcolor: 'background.paper',
+    paddingX: 3,
+    paddingY: 3,
+    borderRadius: 2,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 1,
+    boxShadow: `0px 0px 8px 0px rgba(0,0,0,0.2),
+             0px 0px 0px 0px rgba(0,0,0,0.14),
+              0px 1px 3px 0px rgba(0,0,0,0.12)`,
+}
