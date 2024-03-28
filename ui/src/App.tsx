@@ -1,20 +1,20 @@
-import { ThemeProvider } from '@emotion/react';
-import { CssBaseline } from '@mui/material';
-import { Suspense, lazy } from 'react';
-import { Route, Routes } from 'react-router-dom';
-import ErrorBoundary from './components/errorBoundary/ErrorBoundary';
-import Spinner from './components/spinner/Spinner';
-import Layout from './layout/layout';
-import { ColorModeContext } from './theme/theme';
-import useThemeMode from './utils/hooks/useThemeMode';
+import { ThemeProvider } from '@emotion/react'
+import { CssBaseline } from '@mui/material'
+import { Suspense, lazy } from 'react'
+import { Route, Routes } from 'react-router-dom'
+import ErrorBoundary from './components/errorBoundary/ErrorBoundary'
+import Spinner from './components/spinner/Spinner'
+import Layout from './layout/layout'
+import { ColorModeContext } from './theme/theme'
+import useThemeMode from './utils/hooks/useThemeMode'
 
-const HomePage = lazy(() => import('./pages/home/Home'));
-const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'));
-const KuberPage = lazy(() => import('./pages/kuber/KuberPage'));
-const Page404 = lazy(() => import('./pages/page404/page404'));
+const HomePage = lazy(() => import('./pages/home/Home'))
+const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'))
+const KuberPage = lazy(() => import('./pages/kuber/KuberPage'))
+const Page404 = lazy(() => import('./pages/page404/page404'))
 
-function App(): JSX.Element {
-	const [theme, colorMode] = useThemeMode();
+function App() {
+	const [theme, colorMode] = useThemeMode()
 
 	return (
 		<ColorModeContext.Provider value={colorMode}>
@@ -34,7 +34,6 @@ function App(): JSX.Element {
 							<Route path='*' element={<Page404 />} />
 						</Routes>
 					</ErrorBoundary>
-
 				</Suspense>
 			</ThemeProvider>
 		</ColorModeContext.Provider>
