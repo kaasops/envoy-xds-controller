@@ -1,8 +1,9 @@
-import axios from "axios"
+import axios from 'axios'
+import { env } from '../env.ts'
 
 const axiosClient = axios.create({
-    baseURL: import.meta.env.VITE_ROOT_API_URL,
-    headers: { 'Content-Type': 'application/json' }
-});
+	baseURL: env.VITE_ROOT_API_URL,
+	headers: { 'Content-Type': 'application/json' }
+})
 
-export default axiosClient;
+export default axiosClient
