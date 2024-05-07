@@ -1,23 +1,24 @@
-{{- if .Values.cacheAPI.enabled -}}
+{{- if .Values.ui.enabled -}}
+{{- if .Values.ui.ingress.enabled -}}
 {{- $fullName := include "chart.fullname" . -}}
-{{- $svcPort := .Values.cacheAPI.port -}}
+{{- $svcPort := .Values.ui.port -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ $fullName }}-cache-api
+  name: {{ $fullName }}-ui
   labels:
-    {{- include "chart.labels" . | nindent 4 }}
-  {{- with .Values.cacheAPI.ingress.annotations }}
+    {{- include "chart.labels-ui" . | nindent 4 }}
+  {{- with .Values.ui.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  {{- if .Values.cacheAPI.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ui.ingress.className }}
+  ingressClassName: {{ .Values.ui.ingress.className }}
   {{- end }}
-  {{- if .Values.cacheAPI.ingress.tls }}
+  {{- if .Values.ui.ingress.tls }}
   tls:
-    {{- range .Values.cacheAPI.ingress.tls }}
+    {{- range .Values.ui.ingress.tls }}
     - hosts:
         {{- range .hosts }}
         - {{ . | quote }}
@@ -26,7 +27,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- range .Values.cacheAPI.ingress.hosts }}
+    {{- range .Values.ui.ingress.hosts }}
     - host: {{ .host | quote }}
       http:
         paths:
@@ -35,9 +36,10 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ $fullName }}-cache-api
+                name: {{ $fullName }}-ui
                 port:
                   number: {{ $svcPort }}
           {{- end }}
     {{- end }}
+{{- end }}
 {{- end }}

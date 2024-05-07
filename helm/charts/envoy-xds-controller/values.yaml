@@ -3,13 +3,57 @@ nameOverride: ""
 namespaceOverride: ""
 
 xds:
-  port: 8080
+  port: 9000
 
 cacheAPI:
   enabled: false
   port: 9999
   address: "localhost:9999"
   scheme: "http"
+  ingress:
+    enabled: false
+    annotations: {}
+    className: ""
+    hosts: []
+    # - host: envoy-xds-controller-api.<DOMAIN-ZONE>
+    #    paths:
+    #      - path: /
+    #        pathType: Prefix
+    tls: []
+    # - hosts:
+    #   - envoy-xds-controller-api.<DOMAIN-ZONE>
+
+
+ui:
+  enabled: false
+  image:
+    repository: kaasops/envoy-xds-controller-ui
+    tag: "" # rewrites Chart.AppVersion
+    pullPolicy: IfNotPresent
+  args: []
+  envs: {}
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 50Mi
+  port: 80
+  ingress:
+    enabled: false
+    annotations:
+      nginx.ingress.kubernetes.io/app-root: /nodeIDs
+    className: ""
+    hosts: []
+    # - host: envoy-xds-controller-ui.<DOMAIN-ZONE>
+    #    paths:
+    #      - path: /
+    #        pathType: Prefix
+    tls: []
+    # - hosts:
+    #   - envoy-xds-controller-ui.<DOMAIN-ZONE>
+  
 
 
 replicaCount: 1
@@ -62,6 +106,16 @@ service:
 
 ingress:
   enabled: false
+  annotations: {}
+  className: ""
+  hosts: []
+  # - host: envoy-xds-controller.<DOMAIN-ZONE>
+  #    paths:
+  #      - path: /
+  #        pathType: Prefix
+  tls: []
+  # - hosts:
+  #   - envoy-xds-controller.<DOMAIN-ZONE>
 
 serviceAccount:
   # Specifies whether a service account should be created
