@@ -44,7 +44,7 @@ spec:
         {{- end }}
         env:
           - name: VITE_ROOT_API_URL
-            value: "{{ .Values.ui.cacheAPI.host }}:{{ .Values.ui.cacheAPI.port }}"
+            value: "{{ .Values.ui.cacheAPI }}"
         {{- with .Values.ui.envs }}
           {{- tpl . $ | nindent 10 }}
         {{- end }}
