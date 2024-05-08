@@ -39,7 +39,7 @@ ui:
     requests:
       cpu: 100m
       memory: 50Mi
-  port: 80
+  port: 8080
   ingress:
     enabled: false
     annotations:
