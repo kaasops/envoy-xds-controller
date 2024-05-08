@@ -64,4 +64,10 @@ spec:
         name: envoy-xds-controller-ui
         resources:
 {{ toYaml .Values.ui.resources | indent 12 }}
+        volumeMounts:
+        - mountPath: /usr/share/nginx
+          name: nginx-share
+      volumes:
+      - emptyDir: {}
+        name: nginx-share
 {{- end }}
