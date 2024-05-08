@@ -1,0 +1,21 @@
+{{- if .Values.ui.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "chart.fullname" . }}-ui
+  labels:
+    {{- include "chart.labels-ui" . | nindent 4 }}
+  {{- with .Values.extraLabels }}
+    {{ toYaml . | indent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.ui.port }}
+      targetPort: {{ .Values.ui.port }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "chart.selectorLabels-ui" . | nindent 4 }}
+{{- end }}

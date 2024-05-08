@@ -1,0 +1,45 @@
+{{- if .Values.cacheAPI.enabled -}}
+{{- if .Values.cacheAPI.ingress.enabled -}}
+{{- $fullName := include "chart.fullname" . -}}
+{{- $svcPort := .Values.cacheAPI.port -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-cache-api
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  {{- with .Values.cacheAPI.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.cacheAPI.ingress.className }}
+  ingressClassName: {{ .Values.cacheAPI.ingress.className }}
+  {{- end }}
+  {{- if .Values.cacheAPI.ingress.tls }}
+  tls:
+    {{- range .Values.cacheAPI.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.cacheAPI.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}-cache-api
+                port:
+                  number: {{ $svcPort }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+{{- end }}
