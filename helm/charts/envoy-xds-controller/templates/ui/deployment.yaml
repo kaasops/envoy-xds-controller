@@ -67,7 +67,11 @@ spec:
         volumeMounts:
         - mountPath: /usr/share/nginx
           name: nginx-share
+        - mountPath: /nonexistent
+          name: nginx-nonexistent
       volumes:
       - emptyDir: {}
         name: nginx-share
+      - emptyDir: {}
+        name: nginx-nonexistent
 {{- end }}
