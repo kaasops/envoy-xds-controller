@@ -36,10 +36,6 @@ spec:
         {{- toYaml . | nindent 8 }}
     {{- end }}
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
-      # {{- with .Values.podSecurityContext }}
-      # securityContext:
-      #   {{- toYaml . | nindent 8 }}
-      # {{- end }}
       containers:
       - image: {{ .Values.ui.image.repository }}:{{ default .Chart.AppVersion .Values.ui.image.tag }}
         {{- if .Values.ui.args }}
@@ -56,22 +52,8 @@ spec:
           - name: http
             containerPort: {{ .Values.ui.port }}
             protocol: TCP
-        # {{- with .Values.securityContext }}
-        # securityContext:
-        #   {{- toYaml . | nindent 10 }}
-        # {{- end }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: envoy-xds-controller-ui
         resources:
 {{ toYaml .Values.ui.resources | indent 12 }}
-      #   volumeMounts:
-      #   - mountPath: /usr/share/nginx/html
-      #     name: nginx-share
-      #   - mountPath: /nonexistent
-      #     name: nginx-nonexistent
-      # volumes:
-      # - emptyDir: {}
-      #   name: nginx-share
-      # - emptyDir: {}
-      #   name: nginx-nonexistent
 {{- end }}
