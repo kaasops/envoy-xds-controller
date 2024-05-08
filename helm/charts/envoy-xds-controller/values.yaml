@@ -32,6 +32,9 @@ ui:
     pullPolicy: IfNotPresent
   args: []
   envs: {}
+  cacheAPI:
+    host: ""
+    port: 9999
   resources:
     limits:
       cpu: "1"
