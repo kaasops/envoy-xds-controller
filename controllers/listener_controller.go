@@ -206,7 +206,9 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			for _, e := range errs {
 				r.log.Error(e, "")
 			}
-			return ctrl.Result{}, errors.New("failed to generate FilterChains or RouteConfigs")
+
+			// Stop working with this NodeID
+			continue
 		}
 
 		// Add builded FilterChains to Listener
