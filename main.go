@@ -19,6 +19,9 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/kaasops/envoy-xds-controller/pkg/kube/api"
+	vsclient "github.com/kaasops/envoy-xds-controller/pkg/kube/client"
+
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -80,6 +83,10 @@ func main() {
 	var cacheAPIPort int
 	var cacheAPIScheme string
 	var cacheAPIAddr string
+	var enableKubeAPI bool
+	var kubeAPIScheme string
+	var kubeAPIPort int
+	var kubeAPIAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -89,6 +96,10 @@ func main() {
 	flag.IntVar(&cacheAPIPort, "cache-api-port", 9999, "Cache API port")
 	flag.StringVar(&cacheAPIScheme, "cache-api-scheme", "http", "Cache API scheme")
 	flag.StringVar(&cacheAPIAddr, "cache-api-addr", "localhost:9999", "Cache API address")
+	flag.BoolVar(&enableKubeAPI, "enable-kube-api", true, "Enable Kube API, for debug")
+	flag.IntVar(&kubeAPIPort, "kube-api-port", 9998, "Kube API port")
+	flag.StringVar(&kubeAPIScheme, "kube-api-scheme", "http", "Kube API scheme")
+	flag.StringVar(&kubeAPIAddr, "kube-api-addr", "localhost:9998", "Kube API address")
 
 	cfg, err := config.New()
 	if err != nil {
@@ -204,6 +215,16 @@ func main() {
 		go func() {
 			if err := xdsclient.New(xDSCache).Run(cacheAPIPort, cacheAPIScheme, cacheAPIAddr); err != nil {
 				setupLog.Error(err, "cannot run http xDS server")
+				os.Exit(1)
+			}
+		}()
+	}
+
+	if enableKubeAPI {
+		go func() {
+			vsClient := vsclient.NewVirtualServiceClient(mgr.GetClient())
+			if err := api.NewServer(vsClient, cfg).Run(kubeAPIPort, kubeAPIScheme, kubeAPIAddr); err != nil {
+				setupLog.Error(err, "cannot run http kube server")
 				os.Exit(1)
 			}
 		}()

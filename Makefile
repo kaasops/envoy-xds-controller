@@ -258,3 +258,7 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+
+.PHONY: swagger-kube
+swagger-kube: ## Generate Swagger documentation.
+	swag init -o ./docs/kubeRestAPI --instanceName kube --exclude ./pkg/xds/api --parseDependency
