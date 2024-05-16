@@ -1,0 +1,59 @@
+{{- if .Values.ui.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "chart.fullname" . }}-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels-ui" . | nindent 4 }}
+{{- with .Values.extraLabels }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: 1
+  {{- with .Values.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "chart.selectorLabels-ui" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "chart.selectorLabels-ui" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      serviceAccountName: {{ include "chart.serviceAccountName" . }}
+      containers:
+      - image: {{ .Values.ui.image.repository }}:{{ default .Chart.AppVersion .Values.ui.image.tag }}
+        {{- if .Values.ui.args }}
+        args:
+          {{- toYaml .Values.ui.args | nindent 10 }}
+        {{- end }}
+        env:
+          - name: VITE_ROOT_API_URL
+            value: "{{ .Values.ui.cacheAPI }}"
+        {{- with .Values.ui.envs }}
+          {{- tpl . $ | nindent 10 }}
+        {{- end }}
+        ports:
+          - name: http
+            containerPort: {{ .Values.ui.port }}
+            protocol: TCP
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: envoy-xds-controller-ui
+        resources:
+{{ toYaml .Values.ui.resources | indent 12 }}
+{{- end }}
