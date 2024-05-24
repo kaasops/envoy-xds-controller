@@ -71,7 +71,7 @@ function CodeBlock({ jsonData, yamlData, heightCodeBox }: any) {
 						onMount={handleEditorDidMount}
 						height='100vh'
 						defaultLanguage='json'
-						defaultValue={JSON.stringify(jsonData, null, 2)}
+						value={JSON.stringify(jsonData, null, 2)}
 						theme={theme.palette.mode === 'light' ? 'light' : 'vs-dark'}
 						options={{ readOnly: true, minimap: { enabled: false } }}
 					/>

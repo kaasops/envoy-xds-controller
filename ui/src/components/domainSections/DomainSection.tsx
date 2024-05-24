@@ -32,12 +32,12 @@ function DomainSection() {
 		<Box className='DomainSection' sx={{ ...styleDomainSection, backgroundColor: colors.primary[800] }}>
 			{domains?.length !== 0 ? (
 				<Grid container height='100%'>
-					<Grid item xs={12} md={3.5} lg={3} className='DomainSelectSection'>
+					<Grid item xs={3.5} md={3.5} lg={3} className='DomainSelectSection'>
 						<Box padding={3} height='100%'>
 							<DomainsList domains={domains as string[]} />
 						</Box>
 					</Grid>
-					<Grid className='DomainLocationSection' item xs={12} md={8.5} lg={9} height={'100%'}>
+					<Grid className='DomainLocationSection' item xs={8.5} md={8.5} lg={9} height={'100%'}>
 						<Box padding={3} paddingLeft={0} height='100%'>
 							<DomainLocations
 								locations={domainLocations as IDomainLocationsResponse[]}
