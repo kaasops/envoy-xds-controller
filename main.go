@@ -68,7 +68,6 @@ func init() {
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(cmapi.AddToScheme(scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
