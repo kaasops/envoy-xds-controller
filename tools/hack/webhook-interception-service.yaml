@@ -16,6 +16,6 @@ metadata:
   namespace: envoy-xds-controller
 subsets:
   - addresses:
-      - ip: 172.28.128.20
+      - ip: <MACHINE-IP>
     ports:
       - port: 9443

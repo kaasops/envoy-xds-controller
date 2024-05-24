@@ -1,0 +1,25 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: https
+spec:
+  name: https
+  connect_timeout: 1s
+  lb_policy: LEAST_REQUEST
+  type: STRICT_DNS
+  transport_socket:
+    name: envoy.transport_sockets.tls
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+      common_tls_context:
+        validation_context:
+          trust_chain_verification: ACCEPT_UNTRUSTED
+  load_assignment:
+    cluster_name: https
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: google.com
+              port_value: 443

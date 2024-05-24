@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"fmt"
 
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,7 @@ import (
 func (r *Route) Validate(ctx context.Context) error {
 	// Validate Route spec
 	if r.Spec == nil {
-		return errors.New(errors.HTTPFilterCannotBeEmptyMessage)
+		return errors.New(errors.RouteCannotBeEmptyMessage)
 	}
 
 	for _, route := range r.Spec {
@@ -61,7 +62,7 @@ func (r *Route) ValidateDelete(ctx context.Context, cl client.Client) error {
 			}
 		}
 		if len(vsNames) > 0 {
-			return errors.New("route is used in Virtual Services: " + vsNames[0])
+			return errors.New(fmt.Sprintf("%v%+v", errors.RouteDeleteUsed, vsNames))
 		}
 	}
 

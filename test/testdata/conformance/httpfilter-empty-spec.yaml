@@ -1,0 +1,4 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: HttpFilter
+metadata:
+  name: empty-spec
