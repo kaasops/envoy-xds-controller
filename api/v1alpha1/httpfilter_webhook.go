@@ -62,7 +62,7 @@ func (h *HttpFilter) ValidateDelete(ctx context.Context, cl client.Client) error
 			}
 		}
 		if len(vsNames) > 0 {
-			return errors.New(fmt.Sprintf("HTTP Filter is used in Virtual Services: %+v", vsNames))
+			return errors.New(fmt.Sprintf("%v%+v", errors.HTTPFilterDeleteUsed, vsNames))
 		}
 	}
 

@@ -29,7 +29,7 @@ import (
 func (alc *AccessLogConfig) Validate(ctx context.Context) error {
 	// Validate AccessLogConfig spec
 	if alc.Spec == nil {
-		return errors.New(errors.HTTPFilterCannotBeEmptyMessage)
+		return errors.New(errors.AccessLogConfigCannotBeEmptyMessage)
 	}
 
 	accessLogConfigv3 := &accesslogv3.AccessLog{}
@@ -56,7 +56,7 @@ func (alc *AccessLogConfig) ValidateDelete(ctx context.Context, cl client.Client
 			}
 		}
 		if len(vsNames) > 0 {
-			return errors.New(fmt.Sprintf("accesslogconfig is used in Virtual Services: %+v", vsNames))
+			return errors.New(fmt.Sprintf("%v%+v", errors.AccessLogConfigDeleteUsedMessage, vsNames))
 		}
 	}
 

@@ -1,0 +1,138 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: otelcol
+spec:
+  name: otelcol
+  connect_timeout: 1s
+  lb_policy: LEAST_REQUEST
+  typed_extension_protocol_options:
+    envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+      '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+      explicit_http_config:
+        http2_protocol_options: {}
+  type: STATIC
+  load_assignment:
+    cluster_name: otelcol
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: 127.0.0.1
+              port_value: 55690
+---
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: AccessLogConfig
+metadata:
+  name: otecol
+  namespace: envoy-xds-controller
+spec:
+  name: envoy.access_loggers
+  typed_config:
+    '@type': type.googleapis.com/envoy.extensions.access_loggers.open_telemetry.v3.OpenTelemetryAccessLogConfig
+    common_config:
+      log_name: envoy-access-log
+      transport_api_version: V3
+      grpc_service:
+        envoy_grpc:
+          cluster_name: otelcol
+    body:
+      kvlistValue:
+        values:
+          - key: "timestamp"
+            value:
+              stringValue: "%START_TIME%"
+          - key: "verison"
+            value:
+              stringValue: "%PROTOCOL%"
+          - key: "request_time"
+            value:
+              stringValue: "%DURATION%"
+          - key: "status"
+            value:
+              stringValue: "%RESPONSE_CODE%"
+          - key: "response_flags"
+            value:
+              stringValue: "%RESPONSE_FLAGS%"
+          - key: "upstream"
+            value:
+              stringValue: "%UPSTREAM_REMOTE_ADDRESS_WITHOUT_PORT%"
+          - key: "upstream_cluster"
+            value:
+              stringValue: "%UPSTREAM_CLUSTER%"
+          - key: "real-host"
+            value:
+              stringValue: "%REQ(ORIGINAL-HOST)%"
+          - key: "host"
+            value:
+              stringValue: "%REQ(:AUTHORITY)%"
+          - key: "response_code_details"
+            value:
+              stringValue: "%RESPONSE_CODE_DETAILS%"
+          - key: "real-ip"
+            value:
+              stringValue: "%REQ(REAL-IP)%"
+          - key: "request"
+            value:
+              stringValue: "%REQ(:PATH)%"
+          - key: "serverip"
+            value:
+              stringValue: "%DOWNSTREAM_LOCAL_ADDRESS_WITHOUT_PORT%"
+          - key: "server_port"
+            value:
+              stringValue: "%DOWNSTREAM_LOCAL_PORT%"
+          - key: "server_protocol"
+            value:
+              stringValue: "%PROTOCOL%"
+          - key: "sni"
+            value:
+              stringValue: "%REQUESTED_SERVER_NAME%"
+          - key: "ssl_cipher"
+            value:
+              stringValue: "%DOWNSTREAM_TLS_CIPHER%"
+          - key: "ssl_protocol"
+            value:
+              stringValue: "%DOWNSTREAM_TLS_VERSION%"
+          - key: "hostname"
+            value:
+              stringValue: "%HOSTNAME%"
+          - key: "method"
+            value:
+              stringValue: "%REQ(:METHOD)%"
+          - key: "user_agent"
+            value:
+              stringValue: "%REQ(USER-AGENT)%"
+          - key: "request_id"
+            value:
+              stringValue: "%REQ(X-REQUEST-ID)%"
+          - key: "scheme"
+            value:
+              stringValue: "%REQ(:SCHEME)%"
+          - key: "http_referer"
+            value:
+              stringValue: "%REQ(REFERER)%"
+          - key: "x_forwarded_for"
+            value:
+              stringValue: "%REQ(X-FORWARDED-FOR)%"
+          - key: "x_requested_with"
+            value:
+              stringValue: "%REQ(X-REQUESTED-WITH)%"
+          - key: "envoy_response_flags"
+            value:
+              stringValue: "%RESPONSE_FLAGS%"
+          - key: "location_id"
+            value:
+              stringValue: "%REQ(LOCATION-ID)%"
+          - key: "upstream_response_time"
+            value:
+              stringValue: "%RESPONSE_DURATION%"
+          - key: "downstream_connect_time"
+            value:
+              stringValue: "%DOWNSTREAM_HANDSHAKE_DURATION%"
+          - key: "upstream_failure"
+            value:
+              stringValue: "%UPSTREAM_TRANSPORT_FAILURE_REASON%"
+          - key: "balancer"
+            value:
+              stringValue: "envoy"

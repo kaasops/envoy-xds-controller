@@ -1,0 +1,18 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: HttpFilter
+metadata:
+  name: white-list
+spec:
+  - name: envoy.filters.http.rbac
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+      rules: 
+        action: ALLOW
+        policies:
+          localhost-alow-rules:
+            permissions:
+            - any: true
+            principals:
+            - source_ip: 
+                address_prefix: 192.168.0.0
+                prefix_len: 16
