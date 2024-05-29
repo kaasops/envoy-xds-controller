@@ -1,0 +1,18 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: logical-dns
+spec:
+  name: logical-dns
+  connect_timeout: 10s
+  lb_policy: LEAST_REQUEST
+  type: LOGICAL_DNS
+  load_assignment:
+    cluster_name: logical-dns
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: google.com
+                  port_value: 80

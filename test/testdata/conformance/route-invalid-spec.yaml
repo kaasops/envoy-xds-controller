@@ -1,0 +1,6 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Route
+metadata:
+  name: invalid-spec
+spec:
+  - foo: bar

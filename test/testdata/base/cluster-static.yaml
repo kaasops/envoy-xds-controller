@@ -1,0 +1,18 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: static
+spec:
+  name: static
+  connect_timeout: 1s
+  lb_policy: LEAST_REQUEST
+  type: STATIC
+  load_assignment:
+    cluster_name: static
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: 127.0.0.1
+              port_value: 8765

@@ -1,0 +1,18 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: strict-dns
+spec:
+  name: strict-dns
+  connect_timeout: 1s
+  lb_policy: LEAST_REQUEST
+  type: STRICT_DNS
+  load_assignment:
+    cluster_name: strict-dns
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: google.com
+              port_value: 80

@@ -1,0 +1,23 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: static-http2
+spec:
+  name: static-http2
+  connect_timeout: 1s
+  lb_policy: LEAST_REQUEST
+  typed_extension_protocol_options:
+    envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+      '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+      explicit_http_config:
+        http2_protocol_options: {}
+  type: STATIC
+  load_assignment:
+    cluster_name: static-http2
+    endpoints:
+    - lb_endpoints:
+      - endpoint:
+          address:
+            socket_address:
+              address: 127.0.0.1
+              port_value: 8765

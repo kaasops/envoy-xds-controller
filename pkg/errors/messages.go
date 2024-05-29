@@ -19,11 +19,16 @@ var (
 	UpdateInKubernetesMessage = "cannot update resource in Kubernetes"
 
 	// Validate error
-	ValidateStructMessage          = "cannot validate Specification"
-	VirtualHostCantBeEmptyMessage  = "virtualHost could not be empty"
-	ListenerCannotBeEmptyMessage   = "listener could not be empty"
-	HTTPFilterCannotBeEmptyMessage = "httpFilter could not be empty"
-	ClusterCannotBeEmptyMessage    = "cluster could not be empty"
+	ValidateStructMessage               = "cannot validate Specification"
+	VirtualHostCantBeEmptyMessage       = "virtualHost could not be empty"
+	ListenerCannotBeEmptyMessage        = "listener could not be empty"
+	AccessLogConfigCannotBeEmptyMessage = "accessLogConfig could not be empty"
+	AccessLogConfigDeleteUsedMessage    = "cannot delete accesslogconfig, bc is used in Virtual Services: "
+	HTTPFilterCannotBeEmptyMessage      = "httpFilter could not be empty"
+	HTTPFilterDeleteUsed                = "cannot delete httpFilter, bc is used in Virtual Services: "
+	RouteCannotBeEmptyMessage           = "route could not be empty"
+	RouteDeleteUsed                     = "cannot delete route, bc is used in Virtual Services: "
+	ClusterCannotBeEmptyMessage         = "cluster could not be empty"
 
 	// TLS Errors
 	ManyParamMessage = `not supported using more then 1 param for configure TLS.
