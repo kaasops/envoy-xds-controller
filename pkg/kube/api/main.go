@@ -7,21 +7,21 @@ import (
 	_ "github.com/kaasops/envoy-xds-controller/docs/kubeRestAPI"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	v1 "github.com/kaasops/envoy-xds-controller/pkg/kube/api/v1"
-	"github.com/kaasops/envoy-xds-controller/pkg/kube/client"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"log"
 	"time"
 )
 
 type Server struct {
-	VirtualServiceClient *client.VirtualServiceClient
-	Config               *config.Config
+	Client *client.Client
+	Config *config.Config
 }
 
-func NewServer(virtualServiceClient *client.VirtualServiceClient, config *config.Config) *Server {
-	return &Server{VirtualServiceClient: virtualServiceClient, Config: config}
+func NewServer(Client *client.Client, config *config.Config) *Server {
+	return &Server{Client: Client, Config: config}
 }
 
 func (s *Server) Run(port int, scheme, addr string) error {
@@ -36,7 +36,7 @@ func (s *Server) Run(port int, scheme, addr string) error {
 	}))
 
 	apiV1 := server.Group("/api/v1")
-	v1.RegisterRoutes(apiV1, s.VirtualServiceClient, s.Config)
+	v1.RegisterRoutes(apiV1, s.Client, s.Config)
 	server.Static("/docs", "./docs")
 
 	kubeAPIUrl := ginSwagger.URL(fmt.Sprintf("%v://%v/docs/kubeRestAPI/kube_swagger.json", scheme, addr))

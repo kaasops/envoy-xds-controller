@@ -19,6 +19,9 @@ package v1alpha1
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
+	"slices"
 
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/hash"
@@ -97,6 +100,101 @@ func (vs *VirtualService) getHash() (*uint32, error) {
 	}
 	hash := hash.Get(specHash) + hash.Get(annotationHash)
 	return &hash, nil
+}
+
+func (vs *VirtualService) GetAll(ctx context.Context, namespace string, cl client.Client) ([]string, error) {
+	vsList := &VirtualServiceList{}
+	options := []client.ListOption{}
+
+	if namespace != "" {
+		options = append(options, client.InNamespace(namespace))
+	}
+
+	if err := cl.List(ctx, vsList, options...); err != nil {
+		return nil, fmt.Errorf("failed to list VirtualServices: %w", err)
+	}
+
+	names := []string{}
+	for _, item := range vsList.Items {
+		names = append(names, item.Name)
+	}
+
+	return names, nil
+}
+
+func (vs *VirtualService) GetAllWithWrongState(ctx context.Context, namespace string, cl client.Client) ([]string, error) {
+	vsList := &VirtualServiceList{}
+	options := []client.ListOption{}
+
+	if namespace != "" {
+		options = append(options, client.InNamespace(namespace))
+	}
+
+	if err := cl.List(ctx, vsList, options...); err != nil {
+		return nil, fmt.Errorf("failed to list VirtualServices: %w", err)
+	}
+
+	wrongVsNames := []string{}
+
+	for _, item := range vsList.Items {
+		if (item.Status.Valid != nil && !*item.Status.Valid) || item.Status.Error != nil {
+			wrongVsNames = append(wrongVsNames, item.Name)
+		}
+	}
+	return wrongVsNames, nil
+}
+
+func (vs *VirtualService) Get(ctx context.Context, name, namespace string, cl client.Client) (*VirtualService, error) {
+	item := &VirtualService{}
+	if err := cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, item); err != nil {
+		return nil, fmt.Errorf("failed to get VirtualService: %w", err)
+	}
+	return item, nil
+}
+
+func (vs *VirtualService) GetByNameAndNodeId(ctx context.Context, name, nodeId, namespace string, cl client.Client) (*VirtualService, error) {
+	vsList := &VirtualServiceList{}
+
+	if err := cl.List(ctx, vsList, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list VirtualServices: %w", err)
+	}
+
+	for _, item := range vsList.Items {
+		if item.Name == name {
+			nodeIDs := k8s.NodeIDs(&item)
+			if slices.Contains(nodeIDs, nodeId) {
+				return &item, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("VirtualService not found")
+}
+
+func (vs *VirtualService) CreateVirtualService(ctx context.Context, item *VirtualService, cl client.Client) error {
+	if err := cl.Create(ctx, item); err != nil {
+		return fmt.Errorf("failed to create VirtualService: %w", err)
+	}
+	return nil
+}
+
+func (vs *VirtualService) UpdateVirtualService(ctx context.Context, item *VirtualService, cl client.Client) error {
+	if err := cl.Update(ctx, item); err != nil {
+		return fmt.Errorf("failed to update VirtualService: %w", err)
+	}
+	return nil
+}
+
+func (vs *VirtualService) DeleteVirtualService(ctx context.Context, name, namespace string, cl client.Client) error {
+	item := &VirtualService{}
+	if err := cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, item); err != nil {
+		return fmt.Errorf("failed to get VirtualService: %w", err)
+	}
+
+	if err := cl.Delete(ctx, item); err != nil {
+		return fmt.Errorf("failed to delete VirtualService: %w", err)
+	}
+	return nil
 }
 
 /**

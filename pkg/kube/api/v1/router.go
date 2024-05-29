@@ -4,11 +4,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/kube/api/v1/handlers"
-	"github.com/kaasops/envoy-xds-controller/pkg/kube/client"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RegisterRoutes(router *gin.RouterGroup, client *client.VirtualServiceClient, cfg *config.Config) {
-	handler := handlers.NewVirtualServiceHandler(client, cfg)
+func RegisterRoutes(router *gin.RouterGroup, client *client.Client, cfg *config.Config) {
+	handler := handlers.NewVirtualServiceHandler(*client, cfg)
 
 	router.GET("/virtualservices", handler.GetAllVirtualServices)
 	router.GET("/virtualservices/wrong-state", handler.GetAllVirtualServicesWithWrongState)

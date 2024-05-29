@@ -20,8 +20,6 @@ import (
 	"context"
 	"flag"
 	"github.com/kaasops/envoy-xds-controller/pkg/kube/api"
-	vsclient "github.com/kaasops/envoy-xds-controller/pkg/kube/client"
-
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -221,8 +219,8 @@ func main() {
 
 	if enableKubeAPI {
 		go func() {
-			vsClient := vsclient.NewVirtualServiceClient(mgr.GetClient())
-			if err := api.NewServer(vsClient, cfg).Run(kubeAPIPort, kubeAPIScheme, kubeAPIAddr); err != nil {
+			c := mgr.GetClient()
+			if err := api.NewServer(&c, cfg).Run(kubeAPIPort, kubeAPIScheme, kubeAPIAddr); err != nil {
 				setupLog.Error(err, "cannot run http kube server")
 				os.Exit(1)
 			}

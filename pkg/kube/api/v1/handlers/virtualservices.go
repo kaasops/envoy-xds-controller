@@ -1,24 +1,23 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/kube/api/v1/types"
-	"github.com/kaasops/envoy-xds-controller/pkg/kube/client"
 	_ "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/gin-gonic/gin"
 )
 
 type VirtualServiceHandler struct {
-	Client *client.VirtualServiceClient
+	Client client.Client
 	Config *config.Config
 }
 
-func NewVirtualServiceHandler(client *client.VirtualServiceClient, config *config.Config) *VirtualServiceHandler {
+func NewVirtualServiceHandler(client client.Client, config *config.Config) *VirtualServiceHandler {
 	return &VirtualServiceHandler{Client: client, Config: config}
 }
 
@@ -39,7 +38,8 @@ func (h *VirtualServiceHandler) GetAllVirtualServices(c *gin.Context) {
 		return
 	}
 
-	names, err := h.Client.GetAllVirtualServices(context.Background(), namespace)
+	vs := v1alpha1.VirtualService{}
+	names, err := vs.GetAll(c, namespace, h.Client)
 	if err != nil {
 		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
@@ -64,7 +64,8 @@ func (h *VirtualServiceHandler) GetAllVirtualServicesWithWrongState(c *gin.Conte
 		return
 	}
 
-	names, err := h.Client.GetAllVirtualServicesWithWrongState(context.Background(), namespace)
+	vs := v1alpha1.VirtualService{}
+	names, err := vs.GetAllWithWrongState(c, namespace, h.Client)
 	if err != nil {
 		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
@@ -97,12 +98,13 @@ func (h *VirtualServiceHandler) GetVirtualService(c *gin.Context) {
 		return
 	}
 
-	vs, err := h.Client.GetVirtualService(context.Background(), name, namespace)
+	vs := v1alpha1.VirtualService{}
+	item, err := vs.Get(c, name, namespace, h.Client)
 	if err != nil {
 		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, vs)
+	c.JSON(http.StatusOK, item)
 }
 
 // GetVirtualServiceByNameAndNodeId searches for a Virtual Service by name and nodeID.
@@ -132,13 +134,13 @@ func (h *VirtualServiceHandler) GetVirtualServiceByNameAndNodeId(c *gin.Context)
 		respondWithError(c, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	vs, err := h.Client.GetVirtualServiceByNameAndNodeId(context.Background(), name, nodeId, namespace)
+	vs := v1alpha1.VirtualService{}
+	item, err := vs.GetByNameAndNodeId(c, name, nodeId, namespace, h.Client)
 	if err != nil {
 		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	c.JSON(http.StatusOK, vs)
+	c.JSON(http.StatusOK, item)
 }
 
 // CreateVirtualService creates a new Virtual Service.
@@ -174,7 +176,8 @@ func (h *VirtualServiceHandler) CreateVirtualService(c *gin.Context) {
 		}
 	}
 
-	if err := h.Client.CreateVirtualService(context.Background(), &vs); err != nil {
+	s := v1alpha1.VirtualService{}
+	if err := s.CreateVirtualService(c, &vs, h.Client); err != nil {
 		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -214,7 +217,8 @@ func (h *VirtualServiceHandler) UpdateVirtualService(c *gin.Context) {
 		}
 	}
 
-	if err := h.Client.UpdateVirtualService(context.Background(), &vs); err != nil {
+	s := v1alpha1.VirtualService{}
+	if err := s.UpdateVirtualService(c, &vs, h.Client); err != nil {
 		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -245,7 +249,8 @@ func (h *VirtualServiceHandler) DeleteVirtualService(c *gin.Context) {
 		return
 	}
 
-	if err := h.Client.DeleteVirtualService(context.Background(), name, namespace); err != nil {
+	s := v1alpha1.VirtualService{}
+	if err := s.DeleteVirtualService(c, name, namespace, h.Client); err != nil {
 		respondWithError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
