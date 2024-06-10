@@ -113,11 +113,13 @@ func main() {
 		HealthProbeBindAddress:        probeAddr,
 		LeaderElection:                enableLeaderElection,
 		LeaderElectionID:              "80f8c36d.kaasops.io",
-		Namespace:                     cfg.GetWatchNamespace(),
 		LeaderElectionReleaseOnCancel: true,
-		Cache: cache.Options{ByObject: map[client.Object]cache.ByObject{
-			&corev1.Secret{}: {Label: labels.NewSelector().Add(*secretReq)},
-		}},
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Secret{}: {Label: labels.NewSelector().Add(*secretReq)},
+			},
+			Namespaces: cfg.GetWatchNamespaces(),
+		},
 	}
 
 	if !cfg.Webhook.Disable {

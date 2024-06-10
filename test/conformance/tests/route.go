@@ -14,7 +14,12 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, Route_CannotBeEmptyTest, Route_HasInvalidSpec, Route_DeleteUsed)
+	ConformanceTests = append(
+		ConformanceTests,
+		Route_CannotBeEmptyTest,
+		Route_HasInvalidSpec,
+		Route_DeleteUsed,
+	)
 }
 
 var Route_CannotBeEmptyTest = utils.TestCase{

@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/hash"
@@ -46,6 +47,45 @@ func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client) error 
 	vs.Status.Error = nil
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
+}
+
+func (vs *VirtualService) SetValidWithUsedSecrets(ctx context.Context, cl client.Client, secrets []string) error {
+	if vs.Status.Valid != nil && *vs.Status.Valid {
+		return nil
+	}
+	valid := true
+	vs.Status.Valid = &valid
+	vs.Status.Error = nil
+
+	err := vs.setUsedSecrets(secrets)
+	if err != nil {
+		return err
+	}
+
+	return cl.Status().Update(ctx, vs.DeepCopy())
+}
+
+func (vs *VirtualService) setUsedSecrets(secrets []string) error {
+	usedSecrets := []ResourceRef{}
+
+	for _, s := range secrets {
+		splitS := strings.Split(s, "/")
+
+		if len(splitS) != 2 {
+			return errors.New("something go wrong, when trying to get secret namespace and name")
+		}
+
+		usedSecret := ResourceRef{
+			Name:      splitS[1],
+			Namespace: &splitS[0],
+		}
+
+		usedSecrets = append(usedSecrets, usedSecret)
+	}
+
+	vs.Status.UsedSecrets = usedSecrets
+
+	return nil
 }
 
 func (vs *VirtualService) SetInvalid(ctx context.Context, cl client.Client) error {

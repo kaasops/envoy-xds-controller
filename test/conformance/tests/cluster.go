@@ -9,7 +9,11 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, Cluster_CannotBeEmptyTest, Cluster_HasInvalidSpec)
+	ConformanceTests = append(
+		ConformanceTests,
+		Cluster_CannotBeEmptyTest,
+		Cluster_HasInvalidSpec,
+	)
 }
 
 var Cluster_CannotBeEmptyTest = utils.TestCase{

@@ -1,6 +1,8 @@
 package errors
 
 var (
+	WatchNamespacesNotSet = "watch namespace not set"
+
 	EmptySpecMessage               = "spec could not be empty"
 	InvalidSpecMessage             = "invalid config component spec"
 	MultipleAccessLogConfigMessage = "only one access log config is allowed"
@@ -17,6 +19,7 @@ var (
 	GetFromKubernetesMessage  = "cannot get resource from Kubernetes"
 	CreateInKubernetesMessage = "cannot create resource in Kubernetes"
 	UpdateInKubernetesMessage = "cannot update resource in Kubernetes"
+	DeleteInKubernetesMessage = "cannot delete resource in Kubernetes"
 
 	// Validate error
 	ValidateStructMessage               = "cannot validate Specification"

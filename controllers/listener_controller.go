@@ -109,7 +109,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
-		client.MatchingFields{options.VirtualServiceListenerFeild: req.Name},
+		client.MatchingFields{options.VirtualServiceListenerNameFeild: req.Name},
 	}
 	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
@@ -118,7 +118,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	listener.Name = getResourceName(req.Namespace, req.Name)
 
 	// Create HashMap for fast searching of certificates
-	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, instance.Namespace)
+	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, r.Config.GetWatchNamespaces())
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "cannot generate TLS certificates index from Kubernetes secrets")
 	}
@@ -194,6 +194,20 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 				chains = append(chains, filterChains...)
 
+				// If for this vs used some secrets (with certificates), add this information to status
+				if virtSvc.CertificatesWithDomains != nil {
+					i := 0
+					keys := make([]string, len(virtSvc.CertificatesWithDomains))
+					for k := range virtSvc.CertificatesWithDomains {
+						keys[i] = k
+						i++
+					}
+					if err := vs.SetValidWithUsedSecrets(ctx, r.Client, keys); err != nil {
+						errs = append(errs, err)
+					}
+					continue
+				}
+
 				if err := vs.SetValid(ctx, r.Client); err != nil {
 					errs = append(errs, err)
 				}
@@ -202,9 +216,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		// Check errors
 		if len(errs) != 0 {
-			r.log.Error(nil, "FilterChain build errors")
 			for _, e := range errs {
-				r.log.Error(e, "")
+				r.log.Error(e, "FilterChain build errors")
 			}
 
 			// Stop working with this NodeID
@@ -258,7 +271,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add listener name to index
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceListenerFeild, func(rawObject client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceListenerNameFeild, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)
 		// if listener feild is empty use default listener name as index
 		if virtualService.Spec.Listener == nil {
