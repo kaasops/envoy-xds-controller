@@ -7,7 +7,7 @@ kube-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and
 
 .PHONY: kube-generate
 kube-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="tools/hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: kube-deploy
 kube-deploy: kube-manifests ## Install Envoy xDS Controller into the Kubernetes cluster specified in ~/.kube/config.

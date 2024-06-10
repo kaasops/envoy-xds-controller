@@ -2,6 +2,8 @@ apiVersion: envoy.kaasops.io/v1alpha1
 kind: Listener
 metadata:
   name: http
+  annotations:
+    envoy.kaasops.io/node-id: test
 spec:
   name: http
   address:

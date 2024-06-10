@@ -14,7 +14,12 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, HttpFilter_CannotBeEmptyTest, HttpFilter_HasInvalidSpec, HttpFilter_DeleteUsed)
+	ConformanceTests = append(
+		ConformanceTests,
+		HttpFilter_CannotBeEmptyTest,
+		HttpFilter_HasInvalidSpec,
+		HttpFilter_DeleteUsed,
+	)
 }
 
 var HttpFilter_CannotBeEmptyTest = utils.TestCase{

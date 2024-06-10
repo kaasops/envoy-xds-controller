@@ -79,6 +79,10 @@ spec:
           - name: WEBHOOK_DISABLE
             value: "true"
         {{- end }}
+        {{- if .Values.watchNamespaces }}
+          - name: WATCH_NAMESPACES
+            value: {{- join "," .Values.watchNamespaces }}
+        {{- end }}
         ports:
           - name: grpc
             containerPort: {{ .Values.xds.port }}

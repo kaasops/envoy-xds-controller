@@ -81,9 +81,9 @@ func ResourceExists(dc discovery.DiscoveryInterface, apiGroupVersion, kind strin
 }
 
 // indexCertificateSecrets indexed all certificates for cache
-func IndexCertificateSecrets(ctx context.Context, cl client.Client, namespace string) (map[string]corev1.Secret, error) {
+func IndexCertificateSecrets(ctx context.Context, cl client.Client, namespaces []string) (map[string]corev1.Secret, error) {
 	indexedSecrets := make(map[string]corev1.Secret)
-	secrets, err := GetCertificateSecrets(ctx, cl, namespace)
+	secrets, err := GetCertificateSecrets(ctx, cl, namespaces)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +91,7 @@ func IndexCertificateSecrets(ctx context.Context, cl client.Client, namespace st
 		for _, domain := range strings.Split(secret.Annotations[options.DomainAnnotation], ",") {
 			_, ok := indexedSecrets[domain]
 			if ok {
+				// TODO domain already exist in another secret! Need create error case
 				continue
 			}
 			indexedSecrets[domain] = secret
@@ -100,7 +101,11 @@ func IndexCertificateSecrets(ctx context.Context, cl client.Client, namespace st
 }
 
 // getCertificateSecrets gets all certificates from Kubernetes secrets
-func GetCertificateSecrets(ctx context.Context, cl client.Client, namespace string) ([]corev1.Secret, error) {
+// if namespace not set - find secrets in all namespaces
+// TODO: Change "namespace not set" to funcOpts
+func GetCertificateSecrets(ctx context.Context, cl client.Client, namespaces []string) ([]corev1.Secret, error) {
+	var secrets []corev1.Secret
+
 	requirement, err := labels.NewRequirement(options.AutoDiscoveryLabel, "==", []string{"true"})
 	if err != nil {
 		return nil, err
@@ -108,9 +113,23 @@ func GetCertificateSecrets(ctx context.Context, cl client.Client, namespace stri
 	labelSelector := labels.NewSelector().Add(*requirement)
 	listOpt := client.ListOptions{
 		LabelSelector: labelSelector,
-		Namespace:     namespace,
 	}
-	return ListSecrets(ctx, cl, listOpt)
+
+	if namespaces == nil {
+		return ListSecrets(ctx, cl, listOpt)
+	}
+
+	for _, namespace := range namespaces {
+		listOpt.Namespace = namespace
+
+		namespaceSecrets, err := ListSecrets(ctx, cl, listOpt)
+		if err != nil {
+			return nil, err
+		}
+
+		secrets = append(secrets, namespaceSecrets...)
+	}
+	return secrets, nil
 }
 
 func ResourceName(namespace, name string) string {

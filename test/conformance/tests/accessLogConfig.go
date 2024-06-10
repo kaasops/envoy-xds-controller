@@ -14,7 +14,12 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, AccessLogConfig_CannotBeEmptyTest, AccessLogConfig_HasInvalidSpec, AccessLogConfig_DeleteUsed)
+	ConformanceTests = append(
+		ConformanceTests,
+		AccessLogConfig_CannotBeEmptyTest,
+		AccessLogConfig_HasInvalidSpec,
+		AccessLogConfig_DeleteUsed,
+	)
 }
 
 var AccessLogConfig_CannotBeEmptyTest = utils.TestCase{

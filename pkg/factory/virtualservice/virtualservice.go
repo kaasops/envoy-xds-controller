@@ -146,7 +146,6 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 
 	if f.tlsFactory.TlsConfig != nil {
 		certificatesWithDomains, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
-
 		if err != nil {
 			return VirtualService{}, errors.Wrap(err, "TLS provider error")
 		}

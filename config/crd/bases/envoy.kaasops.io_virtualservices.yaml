@@ -57,11 +57,15 @@ spec:
                 properties:
                   name:
                     type: string
+                  namespace:
+                    type: string
                 type: object
               additionalHttpFilters:
                 items:
                   properties:
                     name:
+                      type: string
+                    namespace:
                       type: string
                   type: object
                 type: array
@@ -69,6 +73,8 @@ spec:
                 items:
                   properties:
                     name:
+                      type: string
+                    namespace:
                       type: string
                   type: object
                 type: array
@@ -82,6 +88,8 @@ spec:
                 properties:
                   name:
                     type: string
+                  namespace:
+                    type: string
                 type: object
               tlsConfig:
                 properties:
@@ -91,6 +99,8 @@ spec:
                   secretRef:
                     properties:
                       name:
+                        type: string
+                      namespace:
                         type: string
                     type: object
                 type: object
@@ -117,6 +127,15 @@ spec:
               lastAppliedHash:
                 format: int32
                 type: integer
+              usedSecrets:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                type: array
               valid:
                 type: boolean
             type: object

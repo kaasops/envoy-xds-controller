@@ -54,7 +54,10 @@ ui:
     tls: []
     # - hosts:
     #   - envoy-xds-controller-ui.<DOMAIN-ZONE>
-  
+
+
+# if not set - watch all namespaces!
+watchNamespaces: []
 
 
 replicaCount: 1
@@ -139,8 +142,7 @@ extraLabels: {}
 annotations: {}
 
 # Args to path to operator
-args:
-#  - "-watch-namespace=???" # Namespace to filter the list of watched objects
+args: []
 
 secrets: {}
 # - name: elastic-creds

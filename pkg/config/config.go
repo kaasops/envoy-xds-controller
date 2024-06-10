@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kelseyhightower/envconfig"
 )
@@ -9,7 +11,7 @@ type Config struct {
 	CertManager struct {
 		ClusterIssuer string `default:"" envconfig:"DEFAULT_CLUSTER_ISSUER"`
 	}
-	WatchNamespace       string `default:""                     envconfig:"WATCH_NAMESPACE"`
+	WatchNamespaces      string `default:""                     envconfig:"WATCH_NAMESPACES"`
 	InstalationNamespace string `default:"envoy-xds-controller" envconfig:"INSTALATION_NAMESPACE"`
 	XDS                  struct {
 		Port int `default:"8888" envconfig:"XDS_PORT"`
@@ -31,8 +33,12 @@ func New() (*Config, error) {
 	return &cfg, errors.Wrap(err, "Cannot get configs from ENVs")
 }
 
-func (c *Config) GetWatchNamespace() string {
-	return c.WatchNamespace
+func (c *Config) GetWatchNamespaces() []string {
+	if c.WatchNamespaces != "" {
+		return strings.Split(c.WatchNamespaces, ",")
+	}
+
+	return nil
 }
 
 func (c *Config) GetInstalationNamespace() string {

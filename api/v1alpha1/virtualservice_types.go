@@ -54,14 +54,15 @@ type TlsConfig struct {
 }
 
 type ResourceRef struct {
-	Name string `json:"name,omitempty"`
-	// Namespace string `json:"namespace,omitempty"`
+	Name      string  `json:"name,omitempty"`
+	Namespace *string `json:"namespace,omitempty"`
 }
 
 // VirtualServiceStatus defines the observed state of VirtualService
 type VirtualServiceStatus struct {
-	Error *string `json:"error,omitempty"`
-	Valid *bool   `json:"valid,omitempty"`
+	Error       *string       `json:"error,omitempty"`
+	Valid       *bool         `json:"valid,omitempty"`
+	UsedSecrets []ResourceRef `json:"usedSecrets,omitempty"`
 
 	LastAppliedHash *uint32 `json:"lastAppliedHash,omitempty"`
 }
