@@ -143,7 +143,7 @@ func (r *KubeSecretReconciler) makeEnvoyTLSSecret(kubeSecret *corev1.Secret) ([]
 	secrets := make([]*tlsv3.Secret, 0)
 
 	envoySecret := &tlsv3.Secret{
-		Name: fmt.Sprintf("%s-%s", kubeSecret.Namespace, kubeSecret.Name),
+		Name: fmt.Sprintf("%s/%s", kubeSecret.Namespace, kubeSecret.Name),
 		Type: &tlsv3.Secret_TlsCertificate{
 			TlsCertificate: &tlsv3.TlsCertificate{
 				CertificateChain: &corev3.DataSource{
