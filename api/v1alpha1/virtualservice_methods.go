@@ -50,17 +50,18 @@ func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client) error 
 }
 
 func (vs *VirtualService) SetValidWithUsedSecrets(ctx context.Context, cl client.Client, secrets []string) error {
-	if vs.Status.Valid != nil && *vs.Status.Valid {
-		return nil
-	}
-	valid := true
-	vs.Status.Valid = &valid
-	vs.Status.Error = nil
-
 	err := vs.setUsedSecrets(secrets)
 	if err != nil {
 		return err
 	}
+
+	if vs.Status.Valid != nil && *vs.Status.Valid {
+		return cl.Status().Update(ctx, vs.DeepCopy())
+	}
+
+	valid := true
+	vs.Status.Valid = &valid
+	vs.Status.Error = nil
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }

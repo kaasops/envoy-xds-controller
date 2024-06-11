@@ -71,10 +71,19 @@ func (tf *TlsFactory) Provide(ctx context.Context, domains []string) (map[string
 
 func (tf *TlsFactory) provideSecretRef(ctx context.Context, domains []string) (map[string][]string, error) {
 	// Create domain row
-	secretName := fmt.Sprintf("%s/%s",
-		tf.Namespace,
-		tf.TlsConfig.SecretRef.Name,
-	)
+	var secretName string
+
+	if tf.TlsConfig.SecretRef.Namespace != nil {
+		secretName = fmt.Sprintf("%s/%s",
+			*tf.TlsConfig.SecretRef.Namespace,
+			tf.TlsConfig.SecretRef.Name,
+		)
+	} else {
+		secretName = fmt.Sprintf("%s/%s",
+			tf.Namespace,
+			tf.TlsConfig.SecretRef.Name,
+		)
+	}
 
 	return map[string][]string{
 		secretName: domains,
@@ -96,12 +105,12 @@ func (tf *TlsFactory) provideAutoDiscovery(ctx context.Context, domains []string
 			}
 		}
 
-		d, ok := CertificatesWithDomains[fmt.Sprintf("%s/%s", tf.Namespace, secret.Name)]
+		d, ok := CertificatesWithDomains[fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)]
 		if ok {
 			d = append(d, domain)
-			CertificatesWithDomains[fmt.Sprintf("%s/%s", tf.Namespace, secret.Name)] = d
+			CertificatesWithDomains[fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)] = d
 		} else {
-			CertificatesWithDomains[fmt.Sprintf("%s/%s", tf.Namespace, secret.Name)] = []string{domain}
+			CertificatesWithDomains[fmt.Sprintf("%s/%s", secret.Namespace, secret.Name)] = []string{domain}
 		}
 	}
 
