@@ -62,18 +62,17 @@ nodes:
     kind: InitConfiguration
     nodeRegistration:
       kubeletExtraArgs:
-        node-labels: "ingress-ready=true"
+        node-labels: "envoy=true"
   extraPortMappings:
-  - containerPort: 80
+  - containerPort: 10080
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
+  - containerPort: 10443
     hostPort: 443
     protocol: TCP
-- role: worker
-  image: kindest/node:${k8s_version}
-- role: worker
-  image: kindest/node:${k8s_version}
+  - containerPort: 19000
+    hostPort: 19000
+    protocol: TCP
 EOF
 
 # 4. Add the registry config to the nodes
