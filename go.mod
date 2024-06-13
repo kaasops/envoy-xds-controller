@@ -3,6 +3,7 @@ module github.com/kaasops/envoy-xds-controller
 go 1.21
 
 require (
+	github.com/avast/retry-go/v4 v4.6.0
 	github.com/cert-manager/cert-manager v1.12.2
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240103201927-b87d66415648
 	github.com/gin-contrib/cors v1.5.0
@@ -14,7 +15,9 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo/v2 v2.9.5
 	github.com/onsi/gomega v1.27.7
-	github.com/stretchr/testify v1.8.4
+	github.com/prometheus/client_model v0.5.0
+	github.com/prometheus/common v0.44.0
+	github.com/stretchr/testify v1.9.0
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.0
 	github.com/swaggo/swag v1.16.2
@@ -77,8 +80,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.65.2 // indirect
 	github.com/prometheus/client_golang v1.15.1 // indirect
-	github.com/prometheus/client_model v0.5.0 // indirect
-	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
