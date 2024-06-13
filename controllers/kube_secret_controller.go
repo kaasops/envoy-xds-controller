@@ -173,7 +173,7 @@ func (r *KubeSecretReconciler) makeEnvoyOpaqueSecret(kubeSecret *corev1.Secret) 
 
 	for k, v := range kubeSecret.Data {
 		envoySecret := &tlsv3.Secret{
-			Name: fmt.Sprintf("%s-%s-%s", kubeSecret.Namespace, kubeSecret.Name, k),
+			Name: fmt.Sprintf("%s/%s/%s", kubeSecret.Namespace, kubeSecret.Name, k),
 			Type: &tlsv3.Secret_GenericSecret{
 				GenericSecret: &tlsv3.GenericSecret{
 					Secret: &corev3.DataSource{

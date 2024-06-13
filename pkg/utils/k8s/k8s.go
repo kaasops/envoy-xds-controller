@@ -133,5 +133,5 @@ func GetCertificateSecrets(ctx context.Context, cl client.Client, namespaces []s
 }
 
 func ResourceName(namespace, name string) string {
-	return fmt.Sprintf("%s-%s", namespace, name)
+	return fmt.Sprintf("%s/%s", namespace, name)
 }
