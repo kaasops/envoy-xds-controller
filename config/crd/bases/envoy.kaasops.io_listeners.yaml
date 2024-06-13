@@ -14,7 +14,17 @@ spec:
     singular: listener
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.valid
+      name: Valid
+      type: boolean
+    - jsonPath: .status.message
+      name: Message
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Listener is the Schema for the listeners API
@@ -39,6 +49,14 @@ spec:
           spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
+          status:
+            description: ListenerStatus defines the observed state of VirtualService
+            properties:
+              message:
+                type: string
+              valid:
+                type: boolean
+            type: object
         type: object
     served: true
     storage: true

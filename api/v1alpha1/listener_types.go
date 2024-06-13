@@ -23,13 +23,23 @@ import (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Valid",type="boolean",JSONPath=".status.valid"
+//+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message"
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // Listener is the Schema for the listeners API
 type Listener struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec *runtime.RawExtension `json:"spec,omitempty"`
+	Spec   *runtime.RawExtension `json:"spec,omitempty"`
+	Status ListenerStatus        `json:"status,omitempty"`
+}
+
+// ListenerStatus defines the observed state of VirtualService
+type ListenerStatus struct {
+	Message *string `json:"message,omitempty"`
+	Valid   *bool   `json:"valid,omitempty"`
 }
 
 //+kubebuilder:object:root=true
