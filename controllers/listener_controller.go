@@ -89,8 +89,12 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
 	}
 
-	if instance.Spec == nil {
-		return ctrl.Result{}, errors.New(errors.EmptySpecMessage)
+	// Validate Listener
+	if err := instance.Validate(ctx); err != nil {
+		if err := instance.SetError(ctx, r.Client, err.Error()); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	// Get listener NodeIDs
@@ -101,11 +105,10 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Get Envoy Listener from listener instance spec
 	listener := &listenerv3.Listener{}
-	if err := options.Unmarshaler.Unmarshal(instance.Spec.Raw, listener); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, errors.UnmarshalMessage)
-	}
+	options.Unmarshaler.Unmarshal(instance.Spec.Raw, listener)
 
 	// Get VirtualService objects with matching listener
+	// TODO: add functcionality to merge listener and virtual service in different namespces
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
@@ -116,6 +119,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	listener.Name = getResourceName(req.Namespace, req.Name)
+
+	// TODO: if listener doesnt work with TLS - don't get certificate index
 
 	// Create HashMap for fast searching of certificates
 	index, err := k8s.IndexCertificateSecrets(ctx, r.Client, r.Config.GetWatchNamespaces())
@@ -231,6 +236,11 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// Clear Listener, if don't have FilterChains
 		if len(listener.FilterChains) == 0 {
 			r.log.WithValues("NodeID", nodeID).Info("Listener FilterChain is empty, deleting")
+
+			if err := instance.SetValidWithMessage(ctx, r.Client, "Listener FilterChain is empty"); err != nil {
+				return ctrl.Result{}, err
+			}
+
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
 			}
@@ -239,6 +249,9 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		// Validate Listener
 		if err := listener.ValidateAll(); err != nil {
+			if err := instance.SetError(ctx, r.Client, errors.CannotValidateCacheResourceMessage); err != nil {
+				return ctrl.Result{}, err
+			}
 			return reconcile.Result{}, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
 		}
 
@@ -261,6 +274,10 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			}
 		}
 
+	}
+
+	if err := instance.SetValid(ctx, r.Client); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	r.log.Info("Listener reconcilation finished")

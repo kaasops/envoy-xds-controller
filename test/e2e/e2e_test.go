@@ -23,6 +23,9 @@ var (
 )
 
 func TestE2E(t *testing.T) {
+	// Wait when envoy started
+	time.Sleep(60 * time.Second)
+
 	cfg, err := config.GetConfig()
 	require.NoError(t, err)
 

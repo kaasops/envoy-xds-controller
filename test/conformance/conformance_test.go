@@ -23,6 +23,9 @@ var (
 )
 
 func TestConformance(t *testing.T) {
+	// Wait when envoy started
+	time.Sleep(20 * time.Second)
+
 	cfg, err := config.GetConfig()
 	require.NoError(t, err)
 
@@ -63,6 +66,9 @@ func TestConformance(t *testing.T) {
 		require.NoError(t, err)
 	}()
 	require.NoError(t, err)
+
+	// TODO: fix this
+	time.Sleep(3 * time.Second)
 
 	// Init tests
 	for _, test := range tests.ConformanceTests {
