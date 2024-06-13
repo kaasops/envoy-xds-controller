@@ -73,7 +73,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 					vs.UseRemoteAddress,
 					vs.UpgradeConfigs,
 				).
-				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
+				Build(fmt.Sprintf("%s/%s", vs.Name, certName))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to generate Filter Chain")
 			}
