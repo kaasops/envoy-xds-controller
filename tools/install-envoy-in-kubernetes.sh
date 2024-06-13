@@ -128,7 +128,10 @@ spec:
         app.kubernetes.io/name: envoy
     spec:
       containers:
-      - image: envoyproxy/envoy:${envoy_version}
+      - args:
+        - -c /etc/envoy/envoy.yaml
+        - --log-level debug
+        image: envoyproxy/envoy:${envoy_version}
         imagePullPolicy: IfNotPresent
         name: envoy
         ports:
