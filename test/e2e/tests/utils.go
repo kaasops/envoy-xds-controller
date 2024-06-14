@@ -1,11 +1,15 @@
 package tests
 
 import (
+	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/avast/retry-go/v4"
 	"github.com/prometheus/common/expfmt"
@@ -84,20 +88,55 @@ func routeExistInxDS(t *testing.T, routeName string) bool {
 	return false
 }
 
-func curl(t *testing.T, method, path string) string {
-	url := envoyHTTP_url()
+func curl(
+	t *testing.T,
+	method string,
+	domain *string,
+	path string,
+) string {
+	url := envoyHTTP_url(domain)
 	if method == HTTPS_Method {
-		url = envoyHTTPS_url()
+		url = envoyHTTPS_url(domain)
 	}
-
 	if path != "/" && path != "" {
 		url = fmt.Sprintf("%s/%s", url, path)
 	}
 
-	req, err := http.Get(url)
-	require.NoError(t, err)
+	client := &http.Client{}
 
-	b, err := io.ReadAll(req.Body)
+	if method == HTTPS_Method {
+		client = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+	}
+
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Close = true
+
+	if domain != nil {
+		client.Transport.(*http.Transport).DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			dialer := &net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}
+
+			if addr == fmt.Sprintf("%s:443", *domain) {
+				addr = "127.0.0.1:443"
+			}
+			return dialer.DialContext(ctx, network, addr)
+		}
+	}
+
+	res, err := client.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	b, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
 	return string(b)

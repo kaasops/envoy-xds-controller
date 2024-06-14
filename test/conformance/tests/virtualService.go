@@ -11,9 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
-	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func init() {
@@ -47,7 +45,7 @@ var VirtualService_InvalidVirtualHost = utils.TestCase{
 var VirtualService_SaveSecretWithCertificate_SecretRef = utils.TestCase{
 	ShortName:          "VirtualService_SaveSecretWithSertificate_SecretRef",
 	Description:        "Test that the secret with sertificate cannot be deleted if used in VirtualService with tlsConfig.SecretRef",
-	Manifests:          []string{"../testdata/certificates/exc-kaasops-io.yaml"},
+	Manifests:          nil,
 	ApplyErrorContains: "",
 	Test: func(t *testing.T, suite *utils.TestSuite) {
 		deleteSecretWithCertificate_TEST(
@@ -62,7 +60,7 @@ var VirtualService_SaveSecretWithCertificate_SecretRef = utils.TestCase{
 var VirtualService_SaveSecretWithCertificate_AutoDiscovery = utils.TestCase{
 	ShortName:          "VirtualService_SaveSecretWithCertificate_AutoDiscovery",
 	Description:        "Test that the secret with sertificate cannot be deleted if used in VirtualService with tlsConfig.autoDiscovery",
-	Manifests:          []string{"../testdata/certificates/exc-kaasops-io.yaml"},
+	Manifests:          nil,
 	ApplyErrorContains: "",
 	Test: func(t *testing.T, suite *utils.TestSuite) {
 		deleteSecretWithCertificate_TEST(
@@ -78,7 +76,7 @@ var VirtualService_SaveSecretWithCertificate_AutoDiscovery = utils.TestCase{
 var VirtualService_SaveSecretWithCertificate_SecretRef_DiferentNamespaces = utils.TestCase{
 	ShortName:          "VirtualService_SaveSecretWithCertificate_SecretRef_DiferensNamespaces",
 	Description:        "Test that the secret with sertificate cannot be deleted if used in VirtualService with tlsConfig.SecretRef, if Virtual Service and Secret exists in different namespaces",
-	Manifests:          []string{"../testdata/certificates/exc-kaasops-io.yaml"},
+	Manifests:          nil,
 	ApplyErrorContains: "",
 	Test: func(t *testing.T, suite *utils.TestSuite) {
 		deleteSecretWithCertificate_TEST(
@@ -93,7 +91,7 @@ var VirtualService_SaveSecretWithCertificate_SecretRef_DiferentNamespaces = util
 var VirtualService_SaveSecretWithCertificate_AutoDiscovery_DiferentNamespaces = utils.TestCase{
 	ShortName:          "VirtualService_SaveSecretWithCertificate_AutoDiscovery_DiferensNamespaces",
 	Description:        "Test that the secret with sertificate cannot be deleted if used in VirtualService with tlsConfig.AutoDiscovery, if Virtual Service and Secret exists in different namespaces",
-	Manifests:          []string{"../testdata/certificates/exc-kaasops-io.yaml"},
+	Manifests:          nil,
 	ApplyErrorContains: "",
 	Test: func(t *testing.T, suite *utils.TestSuite) {
 		deleteSecretWithCertificate_TEST(
@@ -115,49 +113,24 @@ func deleteSecretWithCertificate_TEST(
 	secretName, secretNamespaceName, secretPath string,
 	vsName, vsPath string,
 ) {
-	// If Namespace for secret not set - use suite Namespace
-	if secretNamespaceName != suite.Namespace {
-		// Create Namespace for secret if set special
-		err := suite.Client.Create(context.TODO(), &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "v1",
-				"kind":       "Namespace",
-				"metadata": map[string]interface{}{
-					"name": secretNamespaceName,
-				},
-			},
-		})
-		if !api_errors.IsAlreadyExists(err) {
-			require.NoError(t, err)
-		}
-		defer func() {
-			err = suite.Client.Delete(context.TODO(), &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"apiVersion": "v1",
-					"kind":       "Namespace",
-					"metadata": map[string]interface{}{
-						"name": secretNamespaceName,
-					},
-				},
-			})
-		}()
-	}
-
-	// Create secret with Certificate in special Namespace
-	err := utils.ApplyManifest(
-		suite.Client,
-		secretPath,
-		secretNamespaceName,
+	err := utils.CreateSecretInNamespace(
+		suite,
+		secretPath, secretNamespaceName,
 	)
+	require.NoError(t, err)
 	defer func() {
-		err := utils.CleanupManifest(
-			suite.Client,
-			secretPath,
-			secretNamespaceName,
-		)
+		// Cleanup secret with certificate
+		err := utils.CleanupManifest(suite.Client, secretPath, secretNamespaceName)
 		require.NoError(t, err)
 	}()
-	require.NoError(t, err)
+
+	// If used special Namespace - delete it
+	if secretNamespaceName != suite.Namespace {
+		defer func() {
+			err := utils.CleanupNamespace(context.TODO(), suite.Client, secretNamespaceName)
+			require.NoError(t, err)
+		}()
+	}
 
 	// Apply Virtual Service
 	err = utils.ApplyManifest(

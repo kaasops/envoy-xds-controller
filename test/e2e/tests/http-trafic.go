@@ -27,7 +27,7 @@ var HTTP_StaticRoute = utils.TestCase{
 
 		require.True(t, routeExistInxDS(t, k8s.ResourceName(suite.Namespace, vsName)))
 
-		answer := curl(t, HTTP_Method, "/")
+		answer := curl(t, HTTP_Method, nil, "/")
 		require.Equal(t, answer, validAnswer)
 	},
 }

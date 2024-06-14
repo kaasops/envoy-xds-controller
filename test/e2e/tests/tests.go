@@ -21,10 +21,16 @@ func envoyAdminPannel() string {
 	return fmt.Sprintf("%s://%s:%s", envoyAdminScheme, envoyAddress, envoyAdminPort)
 }
 
-func envoyHTTP_url() string {
+func envoyHTTP_url(domain *string) string {
+	if domain != nil {
+		return fmt.Sprintf("%s://%s:%s", "http", *domain, envoyHTTPPort)
+	}
 	return fmt.Sprintf("%s://%s:%s", "http", envoyAddress, envoyHTTPPort)
 }
 
-func envoyHTTPS_url() string {
+func envoyHTTPS_url(domain *string) string {
+	if domain != nil {
+		return fmt.Sprintf("%s://%s:%s", "https", *domain, envoyHTTPSPort)
+	}
 	return fmt.Sprintf("%s://%s:%s", "https", envoyAddress, envoyHTTPSPort)
 }
