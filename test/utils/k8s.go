@@ -160,8 +160,10 @@ func CreateSecretInNamespace(
 				},
 			},
 		})
-		if !api_errors.IsAlreadyExists(err) {
-			return err
+		if err != nil {
+			if !api_errors.IsAlreadyExists(err) {
+				return err
+			}
 		}
 	}
 
