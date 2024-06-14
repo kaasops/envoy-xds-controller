@@ -83,7 +83,7 @@ var VirtualService_SaveSecretWithCertificate_SecretRef_DiferentNamespaces = util
 			t,
 			suite,
 			"exc-kaasops-io", "envoy-xds-controller-secretref-test", "../testdata/certificates/exc-kaasops-io.yaml", // Secret data
-			"exc-kaasops-io-secretref", "../testdata/conformance/virtualservice-secret-control-secretRef.yaml", // Virtual Service data
+			"exc-kaasops-io-secretref", "../testdata/conformance/virtualservice-secret-control-secretRef-different-namespace.yaml", // Virtual Service data
 		)
 	},
 }
@@ -155,7 +155,7 @@ func deleteSecretWithCertificate_TEST(
 	err = suite.Client.Delete(context.TODO(), &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
-			Namespace: suite.Namespace,
+			Namespace: secretNamespaceName,
 		},
 	})
 	require.ErrorContains(t, err, fmt.Sprintf("%v%v. It used in Virtual Service %v/%v", ValidationErrorMessage, errors.DeleteInKubernetesMessage, suite.Namespace, vsName))
