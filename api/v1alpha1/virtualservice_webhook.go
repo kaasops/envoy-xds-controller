@@ -243,6 +243,8 @@ func (tc *TlsConfig) Validate(
 		// If .Spec.TlsConfig.SecretRef.Namespace set - find secret only in this namespace
 		if vs.Spec.TlsConfig.SecretRef.Namespace != nil {
 			namespaces = []string{*vs.Spec.TlsConfig.SecretRef.Namespace}
+		} else {
+			namespaces = []string{vs.Namespace}
 		}
 
 		return validateSecretRef(ctx, client, namespaces, tc.SecretRef)
@@ -278,8 +280,10 @@ func validateSecretRef(
 		}
 	}
 
-	return errors.New(fmt.Sprintf("Secret %s/%s from .Spec.TlsConfig.SecretRef not found", *rr.Namespace, rr.Name))
-
+	if rr.Namespace != nil {
+		return errors.New(fmt.Sprintf("Secret %s/%s from .Spec.TlsConfig.SecretRef not found", *rr.Namespace, rr.Name))
+	}
+	return errors.New(fmt.Sprintf("Secret %s/%s from .Spec.TlsConfig.SecretRef not found", namespaces[0], rr.Name))
 	// TODO (may be). Add check Certificate in secret have VS domain in DNS
 }
 
