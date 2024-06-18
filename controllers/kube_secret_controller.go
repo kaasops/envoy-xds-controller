@@ -18,17 +18,15 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 
-	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,7 +35,9 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // SecretReconciler reconciles a Secret object
@@ -54,8 +54,8 @@ type KubeSecretReconciler struct {
 //+kubebuilder:rbac:resources=secrets/finalizers,verbs=update
 
 func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	r.log = log.FromContext(ctx).WithValues("Kubernetes TLS Secret", req.NamespacedName)
-	r.log.V(1).Info("Reconciling kubernetes tls secrets")
+	r.log = log.FromContext(ctx).WithValues("Kubernetes Secret", req.NamespacedName)
+	r.log.V(1).Info("Reconciling kubernetes secret")
 
 	// Get secret
 	kubeSecret := &corev1.Secret{}
@@ -83,14 +83,10 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	nodeIDs := k8s.NodeIDs(kubeSecret)
 	if len(nodeIDs) == 0 {
-		defaultNodeIDs, err := defaultNodeIDs(ctx, r.Client, req.Namespace)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err, errors.GetDefaultNodeIDMessage)
-		}
-		nodeIDs = append(nodeIDs, defaultNodeIDs...)
+		nodeIDs = r.Cache.GetNodeIDs()
 	}
 
-	envoySecrets, err := r.makeEnvoySecrets(kubeSecret)
+	envoySecrets, err := cache.MakeEnvoySecretFromKubernetesSecret(kubeSecret)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "cannot generate xDS secret from Kubernetes Secret")
 	}
@@ -110,6 +106,17 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 func (r *KubeSecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).
+		WithEventFilter(predicate.Funcs{
+			CreateFunc: func(ce event.CreateEvent) bool {
+				return ce.Object.(*corev1.Secret).Type == corev1.SecretTypeOpaque
+			},
+			UpdateFunc: func(ue event.UpdateEvent) bool {
+				return ue.ObjectNew.(*corev1.Secret).Type == corev1.SecretTypeOpaque
+			},
+			DeleteFunc: func(de event.DeleteEvent) bool {
+				return de.Object.(*corev1.Secret).Type == corev1.SecretTypeOpaque
+			},
+		}).
 		Complete(r)
 }
 
@@ -120,77 +127,9 @@ func (r *KubeSecretReconciler) valid(secret *corev1.Secret) bool {
 		r.log.V(1).Info("Not a xds controller secret")
 		return false
 	}
-	if secret.Type != corev1.SecretTypeTLS && secret.Type != corev1.SecretTypeOpaque {
-		r.log.V(1).Info("Kuberentes Secret is not a type TLS or Opaque. Skip")
+	if secret.Type != corev1.SecretTypeOpaque {
+		r.log.V(1).Info("Kuberentes Secret is not a Opaque type. Skip")
 		return false
 	}
 	return true
-}
-
-// Generate xDS secret from Kubernetes Secret
-func (r *KubeSecretReconciler) makeEnvoySecrets(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
-	switch kubeSecret.Type {
-	case corev1.SecretTypeTLS:
-		return r.makeEnvoyTLSSecret(kubeSecret)
-	case corev1.SecretTypeOpaque:
-		return r.makeEnvoyOpaqueSecret(kubeSecret)
-	default:
-		return nil, fmt.Errorf("unsupported secret type %s", kubeSecret.Type)
-	}
-}
-
-func (r *KubeSecretReconciler) makeEnvoyTLSSecret(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
-	secrets := make([]*tlsv3.Secret, 0)
-
-	envoySecret := &tlsv3.Secret{
-		Name: fmt.Sprintf("%s/%s", kubeSecret.Namespace, kubeSecret.Name),
-		Type: &tlsv3.Secret_TlsCertificate{
-			TlsCertificate: &tlsv3.TlsCertificate{
-				CertificateChain: &corev3.DataSource{
-					Specifier: &corev3.DataSource_InlineBytes{
-						InlineBytes: kubeSecret.Data[corev1.TLSCertKey],
-					},
-				},
-				PrivateKey: &corev3.DataSource{
-					Specifier: &corev3.DataSource_InlineBytes{
-						InlineBytes: kubeSecret.Data[corev1.TLSPrivateKeyKey],
-					},
-				},
-			},
-		},
-	}
-	if err := envoySecret.ValidateAll(); err != nil {
-		return nil, errors.Wrap(err, "cannot validate Envoy Secret")
-	}
-
-	secrets = append(secrets, envoySecret)
-
-	return secrets, nil
-}
-
-func (r *KubeSecretReconciler) makeEnvoyOpaqueSecret(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
-	secrets := make([]*tlsv3.Secret, 0)
-
-	for k, v := range kubeSecret.Data {
-		envoySecret := &tlsv3.Secret{
-			Name: fmt.Sprintf("%s/%s/%s", kubeSecret.Namespace, kubeSecret.Name, k),
-			Type: &tlsv3.Secret_GenericSecret{
-				GenericSecret: &tlsv3.GenericSecret{
-					Secret: &corev3.DataSource{
-						Specifier: &corev3.DataSource_InlineBytes{
-							InlineBytes: v,
-						},
-					},
-				},
-			},
-		}
-
-		if err := envoySecret.ValidateAll(); err != nil {
-			return nil, errors.Wrap(err, "cannot validate Envoy Secret")
-		}
-
-		secrets = append(secrets, envoySecret)
-	}
-
-	return secrets, nil
 }
