@@ -1,6 +1,6 @@
 module github.com/kaasops/envoy-xds-controller
 
-go 1.21
+go 1.22
 
 require (
 	github.com/avast/retry-go/v4 v4.6.0

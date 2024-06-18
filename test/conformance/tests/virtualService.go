@@ -17,10 +17,10 @@ import (
 func init() {
 	ConformanceTests = append(
 		ConformanceTests,
+		VirtualService_SaveSecretWithCertificate_AutoDiscovery,
 		VirtualService_VirtualHostCannotBeEmptyTest,
 		VirtualService_InvalidVirtualHost,
 		VirtualService_SaveSecretWithCertificate_SecretRef,
-		VirtualService_SaveSecretWithCertificate_AutoDiscovery,
 		VirtualService_SaveSecretWithCertificate_SecretRef_DiferentNamespaces,
 		VirtualService_SaveSecretWithCertificate_AutoDiscovery_DiferentNamespaces,
 	)
@@ -67,9 +67,8 @@ var VirtualService_SaveSecretWithCertificate_AutoDiscovery = utils.TestCase{
 			t,
 			suite,
 			"exc-kaasops-io", suite.Namespace, "../testdata/certificates/exc-kaasops-io.yaml", // Secret data
-			"exc-kaasops-io-autodiscovery", "../testdata/conformance/virtualservice-secret-control-autodiscovery.yaml", // Virtual Service data
+			"exc-kaasops-io-autodiscovery", "../testdata/conformance/virtualservice-secret-control-autoDiscovery.yaml", // Virtual Service data
 		)
-
 	},
 }
 
