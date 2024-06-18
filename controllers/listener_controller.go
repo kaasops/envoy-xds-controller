@@ -20,6 +20,7 @@ import (
 	"context"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/go-logr/logr"
 
@@ -38,6 +39,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	xdscache "github.com/kaasops/envoy-xds-controller/pkg/xds/cache"
 
+	corev1 "k8s.io/api/core/v1"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -98,6 +100,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	// Get listener NodeIDs
+	// TODO: If nodeid not set - use default nodeID
 	nodeIDs := k8s.NodeIDs(instance)
 	if len(nodeIDs) == 0 {
 		return ctrl.Result{}, errors.New(errors.NodeIDsEmpty)
@@ -108,7 +111,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	options.Unmarshaler.Unmarshal(instance.Spec.Raw, listener)
 
 	// Get VirtualService objects with matching listener
-	// TODO: add functcionality to merge listener and virtual service in different namespces
+	// TODO: add functcionality to merge listener and virtual service in different namespaces
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
@@ -199,8 +202,15 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 				chains = append(chains, filterChains...)
 
-				// If for this vs used some secrets (with certificates), add this information to status
+				// If for this vs used some secrets (with certificates), add secrets to cache
 				if virtSvc.CertificatesWithDomains != nil {
+					for nn := range virtSvc.CertificatesWithDomains {
+						if err := r.makeEnvoySecret(ctx, nn, nodeID); err != nil {
+							return ctrl.Result{}, err
+						}
+					}
+
+					// Add information aboute used secrets to VirtualService
 					i := 0
 					keys := make([]string, len(virtSvc.CertificatesWithDomains))
 					for k := range virtSvc.CertificatesWithDomains {
@@ -336,4 +346,38 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1alpha1.HttpFilter{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
 		Complete(r)
+}
+
+func (r *ListenerReconciler) makeEnvoySecret(ctx context.Context, nn string, nodeID string) error {
+	kubeSecret := &corev1.Secret{}
+	err := r.Get(ctx, getNamespaceNameFromSecretName(nn), kubeSecret)
+	if err != nil {
+		return errors.New("Secret with certificate not found")
+	}
+
+	if kubeSecret.Type != corev1.SecretTypeTLS && kubeSecret.Type != corev1.SecretTypeOpaque {
+		return errors.New("Kuberentes Secret is not a type TLS or Opaque")
+	}
+
+	envoySecrets, err := xdscache.MakeEnvoySecretFromKubernetesSecret(kubeSecret)
+	if err != nil {
+		return err
+	}
+
+	for _, envoySecret := range envoySecrets {
+		if err := r.Cache.Update(nodeID, envoySecret); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getNamespaceNameFromSecretName(nn string) types.NamespacedName {
+	nnSplit := strings.Split(nn, "/")
+
+	return types.NamespacedName{
+		Namespace: nnSplit[0],
+		Name:      nnSplit[1],
+	}
 }
