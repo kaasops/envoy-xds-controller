@@ -1,4 +1,5 @@
 # This is a wrapper to manage helm chart
+URL=https://kaasops.github.io/envoy-xds-controller/helm
 
 .PHONY: helm-lint
 helm-lint:
