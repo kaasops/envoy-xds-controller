@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"sort"
 	"strings"
@@ -70,6 +71,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	r.log = log.FromContext(ctx).WithValues("Envoy Listener", req.NamespacedName)
 	r.log.Info("Reconciling listener")
 
+	var instanceMessage v1alpha1.Message
+
 	// Get listener instance
 	instance := &v1alpha1.Listener{}
 	err := r.Get(ctx, req.NamespacedName, instance)
@@ -93,7 +96,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// Validate Listener
 	if err := instance.Validate(ctx); err != nil {
-		if err := instance.SetError(ctx, r.Client, err.Error()); err != nil {
+		instanceMessage.Add(err.Error())
+		if err := instance.SetError(ctx, r.Client, instanceMessage); err != nil {
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -247,9 +251,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if len(listener.FilterChains) == 0 {
 			r.log.WithValues("NodeID", nodeID).Info("Listener FilterChain is empty, deleting")
 
-			if err := instance.SetValidWithMessage(ctx, r.Client, "Listener FilterChain is empty"); err != nil {
-				return ctrl.Result{}, err
-			}
+			instanceMessage.Add(fmt.Sprintf("NodeID: %s, %s", nodeID, "Listener FilterChain is empty"))
 
 			if err := r.Cache.Delete(nodeID, resourcev3.ListenerType, getResourceName(req.Namespace, req.Name)); err != nil {
 				return ctrl.Result{}, errors.Wrap(err, errors.CannotDeleteFromCacheMessage)
@@ -259,7 +261,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		// Validate Listener
 		if err := listener.ValidateAll(); err != nil {
-			if err := instance.SetError(ctx, r.Client, errors.CannotValidateCacheResourceMessage); err != nil {
+			instanceMessage.Add(fmt.Sprintf("NodeID: %s, %s", nodeID, errors.CannotValidateCacheResourceMessage))
+			if err := instance.SetError(ctx, r.Client, instanceMessage); err != nil {
 				return ctrl.Result{}, err
 			}
 			return reconcile.Result{}, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
@@ -286,7 +289,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	}
 
-	if err := instance.SetValid(ctx, r.Client); err != nil {
+	if err := instance.SetValid(ctx, r.Client, instanceMessage); err != nil {
 		return ctrl.Result{}, err
 	}
 

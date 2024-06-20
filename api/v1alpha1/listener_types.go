@@ -38,8 +38,8 @@ type Listener struct {
 
 // ListenerStatus defines the observed state of VirtualService
 type ListenerStatus struct {
-	Message *string `json:"message,omitempty"`
-	Valid   *bool   `json:"valid,omitempty"`
+	Message Message `json:"message,omitempty"`
+	Valid   bool    `json:"valid,omitempty"`
 }
 
 //+kubebuilder:object:root=true

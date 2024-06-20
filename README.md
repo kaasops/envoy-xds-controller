@@ -9,3 +9,5 @@ TODO: Add all conformance test
 TODO: Add more e2e tests (httpFilters)
 
 TODO: Add github-actions for Pull Requests
+
+TODO: Add to listener status information about used Virtual Services (filtring by nodename with status)
