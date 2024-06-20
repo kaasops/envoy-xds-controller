@@ -20,14 +20,14 @@ check_command ip
 while getopts e: flag
 do
     case "${flag}" in
-        v) eth=${OPTARG};;
+        e) eth=${OPTARG};;
     esac
 done
 
 # Set default net interface
 if [ -z "$eth" ]
 then
-    eth="en7"
+    eth="en0"
 fi
 
 # 2. Scale running Envoy xDS Controller to 0 replicas
