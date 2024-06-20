@@ -19,55 +19,40 @@ package v1alpha1
 import (
 	"context"
 
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (l *Listener) SetError(ctx context.Context, cl client.Client, msg string) error {
-	if l.messageAlredySet(msg) {
+func (l *Listener) SetError(ctx context.Context, cl client.Client, msg Message) error {
+	if !l.validAlredySet() && l.messageAlredySet(msg) {
 		return nil
 	}
 
-	l.Status.Message = ptr.To(msg)
-	l.Status.Valid = ptr.To(false)
+	l.Status.Message = msg
+	l.Status.Valid = false
 
 	// TODO: Get all linked VirtualServices and update status to false
 
 	return cl.Status().Update(ctx, l.DeepCopy())
 }
 
-func (l *Listener) SetValidWithMessage(ctx context.Context, cl client.Client, msg string) error {
-	if l.messageAlredySet(msg) {
+func (l *Listener) SetValid(ctx context.Context, cl client.Client, msg Message) error {
+	// If alredy set, return
+	if l.validAlredySet() && l.messageAlredySet(msg) {
 		return nil
 	}
 
-	l.Status.Message = ptr.To(msg)
-	l.Status.Valid = ptr.To(true)
+	l.Status.Message = msg
+	l.Status.Valid = true
 
 	return cl.Status().Update(ctx, l.DeepCopy())
-}
-
-func (l *Listener) SetValid(ctx context.Context, cl client.Client) error {
-	if l.validAlredySet() {
-		return nil
-	}
-
-	l.Status.Valid = ptr.To(true)
-	l.Status.Message = nil
-
-	return cl.Status().Update(ctx, l.DeepCopy())
-}
-
-func (l *Listener) messageAlredySet(msg string) bool {
-	if l.Status.Message != nil && *l.Status.Message == msg {
-		return true
-	}
-
-	return false
 }
 
 func (l *Listener) validAlredySet() bool {
-	if l.Status.Valid != nil && *l.Status.Valid {
+	return l.Status.Valid
+}
+
+func (l *Listener) messageAlredySet(msg Message) bool {
+	if l.Status.Message == msg {
 		return true
 	}
 
