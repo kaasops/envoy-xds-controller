@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  coverage-test:
+  conformance-test:
     runs-on: ubuntu-latest
     permissions:
       contents: read   #  for actions/checkout
@@ -27,7 +27,7 @@ jobs:
       uses: docker/setup-qemu-action@v3
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    - name: Run Coverage Tests
+    - name: Run Conformance Tests
       run: make conformance
   e2e-test:
     runs-on: ubuntu-latest
