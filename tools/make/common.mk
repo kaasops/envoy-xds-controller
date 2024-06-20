@@ -63,6 +63,8 @@ include tools/make/kind.mk
 include tools/make/kube.mk
 include tools/make/tests.mk
 include tools/make/swagger.mk
+include tools/make/helm.mk
+include tools/make/tools.mk
 
 
 # Log the running target

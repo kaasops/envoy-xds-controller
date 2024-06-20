@@ -3,11 +3,11 @@ WAIT_TIMEOUT ?= 15m
 .PHONY: kube-manifests
 kube-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	@$(LOG_TARGET)
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=helm/charts/envoy-xds-controller/crds
 
 .PHONY: kube-generate
 kube-generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	$(CONTROLLER_GEN) object:headerFile="tools/hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: kube-deploy
 kube-deploy: kube-manifests ## Install Envoy xDS Controller into the Kubernetes cluster specified in ~/.kube/config.

@@ -73,7 +73,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 					vs.UseRemoteAddress,
 					vs.UpgradeConfigs,
 				).
-				Build(fmt.Sprintf("%s-%s", vs.Name, certName))
+				Build(fmt.Sprintf("%s/%s", vs.Name, certName))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to generate Filter Chain")
 			}
@@ -146,7 +146,6 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 
 	if f.tlsFactory.TlsConfig != nil {
 		certificatesWithDomains, err := f.tlsFactory.Provide(ctx, virtualHost.Domains)
-
 		if err != nil {
 			return VirtualService{}, errors.Wrap(err, "TLS provider error")
 		}

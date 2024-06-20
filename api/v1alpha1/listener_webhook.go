@@ -45,7 +45,7 @@ func (l *Listener) ValidateDelete(ctx context.Context, cl client.Client) error {
 	virtualServices := &VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(l.Namespace),
-		client.MatchingFields{options.VirtualServiceListenerFeild: l.Name},
+		client.MatchingFields{options.VirtualServiceListenerNameFeild: l.Name},
 	}
 	if err := cl.List(ctx, virtualServices, listOpts...); err != nil {
 		return err

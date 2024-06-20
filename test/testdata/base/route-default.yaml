@@ -2,7 +2,6 @@ apiVersion: envoy.kaasops.io/v1alpha1
 kind: Route
 metadata:
   name: default-pass
-  namespace: envoy-xds-controller
 spec:
   - name: default-pass
     match:

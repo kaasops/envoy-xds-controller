@@ -3,12 +3,13 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,16 +24,18 @@ type Handler struct {
 	DiscoveryClient *discovery.DiscoveryClient
 }
 
-var (
-	ErrWrongGroup = errors.New("validator works only for resources within the envoy.kaasops.io group")
-
-	ErrUnmarshal = errors.New("can't unmarshal resource")
-)
+// var (
+// 	ErrUnmarshal          = errors.New("can't unmarshal resource")
+// 	ErrGetVirtualServices = errors.New("cannot get Virtual Services")
+// )
 
 func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.Response {
-	// Check resource Group
-	if req.AdmissionRequest.Kind.Group != "envoy.kaasops.io" {
-		return admission.Errored(http.StatusInternalServerError, ErrWrongGroup)
+	// Check if resources work in not-control-namespaces
+	watchNamespaces := h.Config.GetWatchNamespaces()
+	if watchNamespaces != nil {
+		if !slices.Contains(watchNamespaces, req.Namespace) {
+			return admission.Allowed("")
+		}
 	}
 
 	switch res := req.AdmissionRequest.Kind.Kind; res {
@@ -40,7 +43,7 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 		if req.Operation != admissionv1.Delete {
 			vs := &v1alpha1.VirtualService{}
 			if err := json.Unmarshal(req.Object.Raw, vs); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 			if err := vs.Validate(ctx, h.Config, h.Client, h.DiscoveryClient); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
@@ -51,7 +54,7 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 
 		if req.Operation == admissionv1.Delete {
 			if err := json.Unmarshal(req.OldObject.Raw, l); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 			if err := l.ValidateDelete(ctx, h.Client); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
@@ -59,7 +62,7 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 		} else {
 			if err := json.Unmarshal(req.Object.Raw, l); err != nil {
 				if !api_errors.IsNotFound(err) {
-					return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+					return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 				}
 			}
 			if err := l.Validate(ctx); err != nil {
@@ -71,7 +74,7 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 
 		if req.Operation != admissionv1.Delete {
 			if err := json.Unmarshal(req.Object.Raw, c); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 
 			if err := c.Validate(ctx); err != nil {
@@ -83,14 +86,14 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 
 		if req.Operation == admissionv1.Delete {
 			if err := json.Unmarshal(req.OldObject.Raw, hf); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 			if err := hf.ValidateDelete(ctx, h.Client); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 		} else {
 			if err := json.Unmarshal(req.Object.Raw, hf); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 			if err := hf.Validate(ctx); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
@@ -101,14 +104,14 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 
 		if req.Operation == admissionv1.Delete {
 			if err := json.Unmarshal(req.OldObject.Raw, r); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 			if err := r.ValidateDelete(ctx, h.Client); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 		} else {
 			if err := json.Unmarshal(req.Object.Raw, r); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v*. %w", errors.UnmarshalMessage, err))
 			}
 			if err := r.Validate(ctx); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
@@ -119,20 +122,39 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 
 		if req.Operation == admissionv1.Delete {
 			if err := json.Unmarshal(req.OldObject.Raw, al); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 			if err := al.ValidateDelete(ctx, h.Client); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 		} else {
 			if err := json.Unmarshal(req.Object.Raw, al); err != nil {
-				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%w. %w", ErrUnmarshal, err))
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
 			}
 
 			if err := al.Validate(ctx); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 		}
+	case "Secret":
+		if req.Operation == admissionv1.Delete {
+			// If certificate in secret used in any VirtualService - cannot delete!
+			virtualServices := &v1alpha1.VirtualServiceList{}
+
+			if err := h.Client.List(ctx, virtualServices); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.GetFromKubernetesMessage, err))
+			}
+
+			for _, vs := range virtualServices.Items {
+				for _, us := range vs.Status.UsedSecrets {
+					if us.Name == req.Name && *us.Namespace == req.Namespace {
+						return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. It used in Virtual Service %v/%v", errors.DeleteInKubernetesMessage, vs.Namespace, vs.Name))
+					}
+				}
+			}
+
+		}
+		// TODO: Add check for double certificates
 	}
 
 	return admission.Allowed("")

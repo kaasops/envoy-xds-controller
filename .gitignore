@@ -28,3 +28,6 @@ Dockerfile.cross
 
 # VS Code
 .vscode/*
+
+# Generated bind
+.tools/bin

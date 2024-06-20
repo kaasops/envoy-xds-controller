@@ -47,20 +47,6 @@ func TestProvide(t *testing.T) {
 			t.Parallel()
 			req := require.New(t)
 
-			// Generage fake Controller Runtime Client
-			// cl := fake.NewClientBuilder().Build()
-
-			if namespace == "default2" {
-				fmt.Println("lol")
-				// issuer := &cmapi.Issuer{}
-				// namespacedName := types.NamespacedName{
-				// 	Name:      "test",
-				// 	Namespace: "default2",
-				// }
-				// err := cl.Get(context.Background(), namespacedName, issuer)
-				// fmt.Println(err)
-			}
-
 			ctrl := New(cl, dc, cfg, namespace, log)
 
 			index, err := ctrl.IndexCertificateSecrets(context.TODO())

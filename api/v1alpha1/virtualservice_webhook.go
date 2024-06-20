@@ -29,8 +29,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
-	corev1 "k8s.io/api/core/v1"
-	api_errors "k8s.io/apimachinery/pkg/api/errors"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -193,7 +192,7 @@ func (vs *VirtualService) checkIfDomainAlredyExist(
 	virtualServices := &VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(vs.Namespace),
-		client.MatchingFields{options.VirtualServiceListenerFeild: vs.Spec.Listener.Name},
+		client.MatchingFields{options.VirtualServiceListenerNameFeild: vs.Spec.Listener.Name},
 	}
 	if err := cl.List(ctx, virtualServices, listOpts...); err != nil {
 		return err
@@ -236,11 +235,21 @@ func (tc *TlsConfig) Validate(
 		return errors.Wrap(err, "cannot get TlsConfig Type")
 	}
 
+	// If Watch Namespaces set - try to found secret in all namespaces
+	namespaces := cfg.GetWatchNamespaces()
+
 	switch tlsType {
 	case SecretRefType:
-		return validateSecretRef(ctx, client, vs.Namespace, tc.SecretRef)
+		// If .Spec.TlsConfig.SecretRef.Namespace set - find secret only in this namespace
+		if vs.Spec.TlsConfig.SecretRef.Namespace != nil {
+			namespaces = []string{*vs.Spec.TlsConfig.SecretRef.Namespace}
+		} else {
+			namespaces = []string{vs.Namespace}
+		}
+
+		return validateSecretRef(ctx, client, namespaces, tc.SecretRef)
 	case AutoDiscoveryType:
-		return validateAutoDiscovery(ctx, vs, client)
+		return validateAutoDiscovery(ctx, vs, namespaces, client)
 	}
 
 	return errors.New("unexpected behavior when processing a TlsConfig Type")
@@ -249,31 +258,39 @@ func (tc *TlsConfig) Validate(
 func validateSecretRef(
 	ctx context.Context,
 	client client.Client,
-	namespace string,
+	namespaces []string,
 	rr *ResourceRef,
 ) error {
-	secret := &corev1.Secret{}
-
-	err := client.Get(ctx, types.NamespacedName{Name: rr.Name, Namespace: namespace}, secret)
+	secrets, err := k8s.GetCertificateSecrets(ctx, client, namespaces)
 	if err != nil {
-		if api_errors.IsNotFound(err) {
-			return errors.Wrap(err, fmt.Sprintf("Secret %s from .Spec.TlsConfig.SecretRef.Name not found", rr.Name))
-		}
 		return err
 	}
 
-	if secret.Type != corev1.SecretTypeTLS {
-		return errors.Newf("Secret %s is not a TLS secret", rr.Name)
+	for _, secret := range secrets {
+		if rr.Namespace == nil {
+			if secret.Name == rr.Name {
+				return nil
+			}
+		} else {
+			if secret.Namespace == *rr.Namespace {
+				if secret.Name == rr.Name {
+					return nil
+				}
+			}
+		}
 	}
 
+	if rr.Namespace != nil {
+		return errors.New(fmt.Sprintf("Secret %s/%s from .Spec.TlsConfig.SecretRef not found", *rr.Namespace, rr.Name))
+	}
+	return errors.New(fmt.Sprintf("Secret %s/%s from .Spec.TlsConfig.SecretRef not found", namespaces[0], rr.Name))
 	// TODO (may be). Add check Certificate in secret have VS domain in DNS
-
-	return nil
 }
 
 func validateAutoDiscovery(
 	ctx context.Context,
 	vs *VirtualService,
+	namespaces []string,
 	client client.Client,
 ) error {
 	// Get Virtual Host from Virtual Service
@@ -283,7 +300,7 @@ func validateAutoDiscovery(
 	}
 
 	// Create index for fast search certificate for domain
-	index, err := k8s.IndexCertificateSecrets(ctx, client, vs.Namespace)
+	index, err := k8s.IndexCertificateSecrets(ctx, client, namespaces)
 	if err != nil {
 		return errors.Wrap(err, "cannot generate TLS certificates index from Kubernetes secrets")
 	}

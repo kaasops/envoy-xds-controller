@@ -36,6 +36,15 @@ webhooks:
       resources:
         - '*'
       scope: '*'
+    - apiGroups:
+        - ""
+      apiVersions:
+        - v1
+      operations:
+        - DELETE
+      resources:
+        - secrets
+      scope: '*'
   sideEffects: None
   timeoutSeconds: 30
 {{- end -}}

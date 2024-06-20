@@ -26,7 +26,6 @@ apiVersion: envoy.kaasops.io/v1alpha1
 kind: AccessLogConfig
 metadata:
   name: otecol
-  namespace: envoy-xds-controller
 spec:
   name: envoy.access_loggers
   typed_config:

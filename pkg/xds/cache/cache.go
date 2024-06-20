@@ -2,7 +2,7 @@ package cache
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,7 +17,10 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cachev3 "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"k8s.io/utils/strings/slices"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (
@@ -286,6 +289,72 @@ func toSlice(resources map[string]types.Resource) []types.Resource {
 		res = append(res, r)
 	}
 	return res
+}
+
+func MakeEnvoySecretFromKubernetesSecret(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
+	switch kubeSecret.Type {
+	case corev1.SecretTypeTLS:
+		return makeEnvoyTLSSecret(kubeSecret)
+	case corev1.SecretTypeOpaque:
+		return makeEnvoyOpaqueSecret(kubeSecret)
+	default:
+		return nil, fmt.Errorf("unsupported secret type %s", kubeSecret.Type)
+	}
+}
+func makeEnvoyTLSSecret(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
+	secrets := make([]*tlsv3.Secret, 0)
+
+	envoySecret := &tlsv3.Secret{
+		Name: fmt.Sprintf("%s/%s", kubeSecret.Namespace, kubeSecret.Name),
+		Type: &tlsv3.Secret_TlsCertificate{
+			TlsCertificate: &tlsv3.TlsCertificate{
+				CertificateChain: &corev3.DataSource{
+					Specifier: &corev3.DataSource_InlineBytes{
+						InlineBytes: kubeSecret.Data[corev1.TLSCertKey],
+					},
+				},
+				PrivateKey: &corev3.DataSource{
+					Specifier: &corev3.DataSource_InlineBytes{
+						InlineBytes: kubeSecret.Data[corev1.TLSPrivateKeyKey],
+					},
+				},
+			},
+		},
+	}
+	if err := envoySecret.ValidateAll(); err != nil {
+		return nil, errors.Wrap(err, "cannot validate Envoy Secret")
+	}
+
+	secrets = append(secrets, envoySecret)
+
+	return secrets, nil
+}
+
+func makeEnvoyOpaqueSecret(kubeSecret *corev1.Secret) ([]*tlsv3.Secret, error) {
+	secrets := make([]*tlsv3.Secret, 0)
+
+	for k, v := range kubeSecret.Data {
+		envoySecret := &tlsv3.Secret{
+			Name: fmt.Sprintf("%s/%s/%s", kubeSecret.Namespace, kubeSecret.Name, k),
+			Type: &tlsv3.Secret_GenericSecret{
+				GenericSecret: &tlsv3.GenericSecret{
+					Secret: &corev3.DataSource{
+						Specifier: &corev3.DataSource_InlineBytes{
+							InlineBytes: v,
+						},
+					},
+				},
+			},
+		}
+
+		if err := envoySecret.ValidateAll(); err != nil {
+			return nil, errors.Wrap(err, "cannot validate Envoy Secret")
+		}
+
+		secrets = append(secrets, envoySecret)
+	}
+
+	return secrets, nil
 }
 
 // func (c *Cache) CheckSnapshotCache(nodeID string) error {

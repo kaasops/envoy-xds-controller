@@ -121,6 +121,7 @@ func CleanupManifests(c client.Client, manifests []string, ns string) error {
 
 	return nil
 }
+
 func CleanupManifestsFromPath(c client.Client, manifestsPath string, ns string) error {
 	files, err := os.ReadDir(manifestsPath)
 	if err != nil {
@@ -142,3 +143,67 @@ func CleanupManifestsFromPath(c client.Client, manifestsPath string, ns string) 
 
 	return nil
 }
+
+func CreateSecretInNamespace(
+	suite *TestSuite,
+	secretPath, secretNamespaceName string,
+) error {
+	// If Namespace for secret not set - use suite Namespace
+	if secretNamespaceName != suite.Namespace {
+		// Create Namespace for secret if set special
+		err := suite.Client.Create(context.TODO(), &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Namespace",
+				"metadata": map[string]interface{}{
+					"name": secretNamespaceName,
+				},
+			},
+		})
+		if err != nil {
+			if !api_errors.IsAlreadyExists(err) {
+				return err
+			}
+		}
+	}
+
+	// Create secret with Certificate in special Namespace
+	err := ApplyManifest(
+		suite.Client,
+		secretPath,
+		secretNamespaceName,
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func CleanupNamespace(
+	ctx context.Context,
+	cl client.Client,
+	namespaceName string,
+) error {
+	return cl.Delete(ctx, &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]interface{}{
+				"name": namespaceName,
+			},
+		},
+	})
+}
+
+// func CleanupSecret(
+// 	ctx context.Context,
+// 	secretPath, secretNamespaceName string,
+// 	cl client.Client,
+// ) error {
+// 	return CleanupManifest(
+// 		cl,
+// 		secretPath,
+// 		secretNamespaceName,
+// 	)
+// }

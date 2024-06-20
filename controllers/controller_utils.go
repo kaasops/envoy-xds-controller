@@ -11,7 +11,7 @@ import (
 )
 
 func getResourceName(namespace, name string) string {
-	return fmt.Sprintf("%s-%s", namespace, name)
+	return fmt.Sprintf("%s/%s", namespace, name)
 }
 
 func virtualServiceResourceRefMapper(obj client.Object, vs v1alpha1.VirtualService) []*v1alpha1.ResourceRef {
