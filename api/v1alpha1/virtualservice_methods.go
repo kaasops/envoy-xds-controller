@@ -26,42 +26,36 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (vs *VirtualService) SetError(ctx context.Context, cl client.Client, msg string) error {
-	if vs.Status.Error != nil && *vs.Status.Error == msg {
+func (vs *VirtualService) SetError(ctx context.Context, cl client.Client, msg Message) error {
+	if !vs.validAlredySet() && vs.messageAlredySet(msg) {
 		return nil
 	}
-	vs.Status.Error = &msg
 
-	valid := false
-	vs.Status.Valid = &valid
+	vs.Status.Message = msg
+	vs.Status.Valid = false
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
 
-func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client) error {
-	if vs.Status.Valid != nil && *vs.Status.Valid {
+func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client, msg Message) error {
+	if vs.validAlredySet() && vs.messageAlredySet(msg) {
 		return nil
 	}
-	valid := true
-	vs.Status.Valid = &valid
-	vs.Status.Error = nil
+
+	vs.Status.Message = msg
+	vs.Status.Valid = false
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
 
-func (vs *VirtualService) SetValidWithUsedSecrets(ctx context.Context, cl client.Client, secrets []string) error {
+func (vs *VirtualService) SetValidWithUsedSecrets(ctx context.Context, cl client.Client, secrets []string, msg Message) error {
 	err := vs.setUsedSecrets(secrets)
 	if err != nil {
 		return err
 	}
 
-	if vs.Status.Valid != nil && *vs.Status.Valid {
-		return cl.Status().Update(ctx, vs.DeepCopy())
-	}
-
-	valid := true
-	vs.Status.Valid = &valid
-	vs.Status.Error = nil
+	vs.Status.Message = msg
+	vs.Status.Valid = false
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
@@ -89,17 +83,17 @@ func (vs *VirtualService) setUsedSecrets(secrets []string) error {
 	return nil
 }
 
-func (vs *VirtualService) SetInvalid(ctx context.Context, cl client.Client) error {
-	if vs.Status.Valid != nil && !*vs.Status.Valid {
-		return nil
-	}
-	valid := false
-	vs.Status.Valid = &valid
+// func (vs *VirtualService) SetInvalid(ctx context.Context, cl client.Client) error {
+// 	if vs.Status.Valid != nil && !*vs.Status.Valid {
+// 		return nil
+// 	}
+// 	valid := false
+// 	vs.Status.Valid = &valid
 
-	vs.SetLastAppliedHash(ctx, cl)
+// 	vs.SetLastAppliedHash(ctx, cl)
 
-	return cl.Status().Update(ctx, vs.DeepCopy())
-}
+// 	return cl.Status().Update(ctx, vs.DeepCopy())
+// }
 
 func (vs *VirtualService) SetLastAppliedHash(ctx context.Context, cl client.Client) error {
 	hash, err := vs.getHash()
@@ -138,6 +132,18 @@ func (vs *VirtualService) getHash() (*uint32, error) {
 	}
 	hash := hash.Get(specHash) + hash.Get(annotationHash)
 	return &hash, nil
+}
+
+func (vs *VirtualService) validAlredySet() bool {
+	return vs.Status.Valid
+}
+
+func (vs *VirtualService) messageAlredySet(msg Message) bool {
+	if vs.Status.Message == msg {
+		return true
+	}
+
+	return false
 }
 
 /**

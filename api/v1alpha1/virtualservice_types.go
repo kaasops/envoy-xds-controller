@@ -60,8 +60,8 @@ type ResourceRef struct {
 
 // VirtualServiceStatus defines the observed state of VirtualService
 type VirtualServiceStatus struct {
-	Error       *string       `json:"error,omitempty"`
-	Valid       *bool         `json:"valid,omitempty"`
+	Message     Message       `json:"message,omitempty"`
+	Valid       bool          `json:"valid,omitempty"`
 	UsedSecrets []ResourceRef `json:"usedSecrets,omitempty"`
 
 	LastAppliedHash *uint32 `json:"lastAppliedHash,omitempty"`
