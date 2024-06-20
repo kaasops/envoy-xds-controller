@@ -155,6 +155,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		chains := make([]*listenerv3.FilterChain, 0)
 
 		for _, vs := range virtualServices.Items {
+			var vsMessage v1alpha1.Message
+
 			// If Virtual Service has nodeID or Virtual Service don't have any nondeID (or all NodeID)
 			if slices.Contains(k8s.NodeIDs(&vs), nodeID) || k8s.NodeIDs(&vs) == nil {
 				// Create Factory for TLS
@@ -179,7 +181,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				virtSvc, err := vsFactory.Create(ctx, getResourceName(vs.Namespace, vs.Name))
 				if err != nil {
 					if errors.NeedStatusUpdate(err) {
-						if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "cannot get Virtual Service struct").Error()); err != nil {
+						vsMessage.Add(errors.Wrap(err, "cannot get Virtual Service struct").Error())
+						if err := vs.SetError(ctx, r.Client, vsMessage); err != nil {
 							errs = append(errs, err)
 						}
 						continue
@@ -195,7 +198,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				filterChains, err := virtualservice.FilterChains(&virtSvc)
 				if err != nil {
 					if errors.NeedStatusUpdate(err) {
-						if err := vs.SetError(ctx, r.Client, errors.Wrap(err, "failed to get filterchain").Error()); err != nil {
+						vsMessage.Add(errors.Wrap(err, "cannot get Filter Chains").Error())
+						if err := vs.SetError(ctx, r.Client, vsMessage); err != nil {
 							errs = append(errs, err)
 						}
 						continue
@@ -221,13 +225,13 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 						keys[i] = k
 						i++
 					}
-					if err := vs.SetValidWithUsedSecrets(ctx, r.Client, keys); err != nil {
+					if err := vs.SetValidWithUsedSecrets(ctx, r.Client, keys, vsMessage); err != nil {
 						errs = append(errs, err)
 					}
 					continue
 				}
 
-				if err := vs.SetValid(ctx, r.Client); err != nil {
+				if err := vs.SetValid(ctx, r.Client, vsMessage); err != nil {
 					errs = append(errs, err)
 				}
 			}

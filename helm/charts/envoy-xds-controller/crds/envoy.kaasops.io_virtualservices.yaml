@@ -122,11 +122,11 @@ spec:
           status:
             description: VirtualServiceStatus defines the observed state of VirtualService
             properties:
-              error:
-                type: string
               lastAppliedHash:
                 format: int32
                 type: integer
+              message:
+                type: string
               usedSecrets:
                 items:
                   properties:
