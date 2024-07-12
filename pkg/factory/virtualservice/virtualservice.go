@@ -2,7 +2,6 @@ package virtualservice
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -73,7 +72,7 @@ func FilterChains(vs *VirtualService) ([]*listenerv3.FilterChain, error) {
 					vs.UseRemoteAddress,
 					vs.UpgradeConfigs,
 				).
-				Build(fmt.Sprintf("%s/%s", vs.Name, certName))
+				Build(vs.Name)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to generate Filter Chain")
 			}
