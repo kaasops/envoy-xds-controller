@@ -92,19 +92,6 @@ data:
         http2_protocol_options: {}
         name: xds_cluster
         type: LOGICAL_DNS
-    layered_runtime:
-      layers:
-        - name: runtime-0
-          rtds_layer:
-            rtds_config:
-              resource_api_version: V3
-              api_config_source:
-                transport_api_version: V3
-                api_type: GRPC
-                grpc_services:
-                  envoy_grpc:
-                    cluster_name: xds_cluster
-            name: runtime-0
 EOF
 
 # 2. Create Deployment
