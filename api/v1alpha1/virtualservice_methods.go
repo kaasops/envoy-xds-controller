@@ -43,7 +43,7 @@ func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client, msg Me
 	}
 
 	vs.Status.Message = msg
-	vs.Status.Valid = false
+	vs.Status.Valid = true
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
