@@ -60,6 +60,10 @@ func (vs *VirtualService) Validate(
 		return errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
+	if err := vh.ValidateAll(); err != nil {
+		return errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
+	}
+
 	// Check AccessLog spec
 	if vs.Spec.AccessLog != nil {
 		al := &accesslogv3.AccessLog{}

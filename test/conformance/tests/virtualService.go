@@ -23,6 +23,7 @@ func init() {
 		VirtualService_SaveSecretWithCertificate_SecretRef,
 		VirtualService_SaveSecretWithCertificate_SecretRef_DiferentNamespaces,
 		VirtualService_SaveSecretWithCertificate_AutoDiscovery_DiferentNamespaces,
+		VirtualService_EmptyDomains,
 	)
 }
 
@@ -39,6 +40,14 @@ var VirtualService_InvalidVirtualHost = utils.TestCase{
 	Description:        "Test that the VirtualService cannot be applied with invalid VirtualHost spec",
 	Manifests:          []string{"../testdata/conformance/virtualservice-invalid-virtualhost.yaml"},
 	ApplyErrorContains: fmt.Sprintf("%v%v", ValidationErrorMessage, errors.UnmarshalMessage),
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_EmptyDomains = utils.TestCase{
+	ShortName:          "VirtualService_EmptyDomains",
+	Description:        "Test that the VirtualService cannot be applied with empty domains in VirtualHost spec",
+	Manifests:          []string{"../testdata/conformance/virtualservice-empty-domains.yaml"},
+	ApplyErrorContains: fmt.Sprintf("%v%v", ValidationErrorMessage, errors.CannotValidateCacheResourceMessage),
 	Test:               func(t *testing.T, suite *utils.TestSuite) {},
 }
 

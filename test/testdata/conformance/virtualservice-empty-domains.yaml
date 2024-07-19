@@ -1,0 +1,16 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: virtual-service-empty-domains
+spec:
+  listener:
+    name: http
+  additionalRoutes:
+    - name: static
+  virtualHost:
+    name: test-domain
+    routes:
+      - match:
+          prefix: /
+        route:
+          cluster: static
