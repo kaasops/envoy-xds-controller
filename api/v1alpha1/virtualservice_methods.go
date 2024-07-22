@@ -55,7 +55,7 @@ func (vs *VirtualService) SetValidWithUsedSecrets(ctx context.Context, cl client
 	}
 
 	vs.Status.Message = msg
-	vs.Status.Valid = false
+	vs.Status.Valid = true
 
 	return cl.Status().Update(ctx, vs.DeepCopy())
 }
