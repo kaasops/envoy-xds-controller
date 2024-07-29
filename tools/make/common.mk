@@ -64,6 +64,7 @@ include tools/make/kube.mk
 include tools/make/tests.mk
 include tools/make/helm.mk
 include tools/make/tools.mk
+include tools/make/gen.mk
 
 
 # Log the running target
