@@ -19,7 +19,7 @@ limitations under the License.
 package cache
 
 //go:generate sh -c "echo '/*' > import_filters.gen.go"
-//go:generate sh -c "echo 'Copyright 2022.' >> import_filters.gen.go"
+//go:generate sh -c "echo 'Copyright 2024.' >> import_filters.gen.go"
 //go:generate sh -c "echo '' >> import_filters.gen.go"
 //go:generate sh -c "echo 'Licensed under the Apache License, Version 2.0 (the \"License\");' >> import_filters.gen.go"
 //go:generate sh -c "echo 'you may not use this file except in compliance with the License.' >> import_filters.gen.go"
