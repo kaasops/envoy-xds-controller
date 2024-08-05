@@ -29,6 +29,8 @@ var (
 	AccessLogConfigDeleteUsedMessage    = "cannot delete accesslogconfig, bc is used in Virtual Services: "
 	HTTPFilterCannotBeEmptyMessage      = "httpFilter could not be empty"
 	HTTPFilterDeleteUsed                = "cannot delete httpFilter, bc is used in Virtual Services: "
+	InvalidHTTPFilter                   = "invalid http_filter"
+	InvalidParamsCombination            = "invalid combination of parameters"
 	RouteCannotBeEmptyMessage           = "route could not be empty"
 	RouteDeleteUsed                     = "cannot delete route, bc is used in Virtual Services: "
 	ClusterCannotBeEmptyMessage         = "cluster could not be empty"
@@ -46,7 +48,7 @@ var (
 	CertManaferCRDNotExistMessage = "cert Manager CRDs not exist. Perhaps Cert Manager is not installed in the Kubernetes cluster"
 	TlsConfigManyParamMessage     = "сannot be installed Issuer and ClusterIssuer in 1 config"
 
-	DicoverNotFoundMessage   = "the secret with the certificate was not found for the domain"
+	DiscoverNotFoundMessage  = "the secret with the certificate was not found for the domain"
 	CreateCertificateMessage = "cannot create certificate for domain"
 	RegexDomainMessage       = "regex domains not supported"
 )

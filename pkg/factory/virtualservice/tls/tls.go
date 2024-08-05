@@ -101,7 +101,7 @@ func (tf *TlsFactory) provideAutoDiscovery(ctx context.Context, domains []string
 			wildcardDomain := utils.GetWildcardDomain(domain)
 			secret, ok = tf.CertificatesIndex[wildcardDomain]
 			if !ok {
-				return CertificatesWithDomains, errors.NewUKS(fmt.Sprintf("domain - %v: %v", domain, errors.DicoverNotFoundMessage))
+				return CertificatesWithDomains, errors.NewUKS(fmt.Sprintf("domain - %v: %v", domain, errors.DiscoverNotFoundMessage))
 			}
 		}
 

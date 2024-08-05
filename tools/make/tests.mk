@@ -43,7 +43,7 @@ e2e-1.29-1.30: envoy-1.30
 	$(RUN_E2E)
 	$(CLEANUP_ENVOY)
 
-# E2E test on Kubernetes 1.30 for Envoy 1.31
+# E2E test on Kubernetes 1.29 for Envoy 1.31
 .PHONY: e2e-1.29-1.31
 e2e-1.29-1.31: envoy-1.31
 	$(RUN_E2E)
@@ -53,7 +53,7 @@ e2e-1.29-1.31: envoy-1.31
 .PHONY: e2e-1.30
 e2e-1.30: prepare-kind kind-with-registry-1.30 build-deploy-exc e2e-1.30-1.30 e2e-1.30-1.31 cleanup-kind-with-registry
 
-# E2E test on Kubernetes 1.29 for Envoy 1.30
+# E2E test on Kubernetes 1.30 for Envoy 1.30
 .PHONY: e2e-1.30-1.30
 e2e-1.30-1.30: envoy-1.30
 	$(RUN_E2E)
@@ -72,3 +72,6 @@ endef
 
 .PHONY: build-deploy-exc
 build-deploy-exc: image.build-local image.push-local kube-deploy-local
+
+.PHONY: run-local
+run-local: prepare-kind kind-with-registry-1.30 build-deploy-exc
