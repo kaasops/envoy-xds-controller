@@ -1,0 +1,39 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: HttpFilter
+metadata:
+  name: invalid-combination
+spec:
+  - name: envoy.filters.http.oauth2
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2
+      config:
+        preserve_authorization_header: true
+        token_endpoint:
+          uri: "https://example.com/token"
+          cluster: oauth2
+          timeout: 10s
+        authorization_endpoint: "https://example.com/auth"
+        credentials:
+          client_id: "example-id"
+          token_secret:
+            name: token
+            sds_config:
+              path: "./oauth2-token.yaml"
+          hmac_secret:
+            name: hmac
+            sds_config:
+              path: "./oauth2-hmac.yaml"
+        redirect_uri: "https://%REQ(:authority)%/oauth/callback"
+        redirect_path_matcher:
+          path:
+            exact: "/oauth/callback"
+        signout_path:
+          path:
+            exact: "/oauth/signout"
+        forward_bearer_token: true
+        use_refresh_token: false
+        auth_scopes:
+          - "openid"
+          - "profile"
+          - "email"
+          - "offline_access"

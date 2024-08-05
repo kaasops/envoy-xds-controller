@@ -76,8 +76,8 @@ func (vs *VirtualService) Validate(
 	if vs.Spec.HTTPFilters != nil {
 		for _, httpFilter := range vs.Spec.HTTPFilters {
 			hf := &hcmv3.HttpFilter{}
-			if err := options.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
-				return errors.Wrap(err, errors.UnmarshalMessage)
+			if err := UnmarshalAndValidateHTTPFilter(httpFilter.Raw, hf); err != nil {
+				return err
 			}
 		}
 	}
@@ -316,7 +316,7 @@ func validateAutoDiscovery(
 			wildcardDomain := utils.GetWildcardDomain(domain)
 			_, ok := index[wildcardDomain]
 			if !ok {
-				return errors.Newf("%s. Domain: %s", errors.DicoverNotFoundMessage, domain)
+				return errors.Newf("%s. Domain: %s", errors.DiscoverNotFoundMessage, domain)
 			}
 		}
 	}

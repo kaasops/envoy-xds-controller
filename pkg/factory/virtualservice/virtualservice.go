@@ -229,14 +229,9 @@ func (f *VirtualServiceFactory) HttpFilters(ctx context.Context, name string) ([
 	httpFilters := []*hcmv3.HttpFilter{}
 	for _, httpFilter := range f.Spec.HTTPFilters {
 		hf := &hcmv3.HttpFilter{}
-		if err := options.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
-			return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
+		if err := v1alpha1.UnmarshalAndValidateHTTPFilter(httpFilter.Raw, hf); err != nil {
+			return nil, err
 		}
-
-		if err := hf.ValidateAll(); err != nil {
-			return nil, errors.WrapUKS(err, errors.CannotValidateCacheResourceMessage)
-		}
-
 		httpFilters = append(httpFilters, hf)
 	}
 
@@ -250,8 +245,8 @@ func (f *VirtualServiceFactory) HttpFilters(ctx context.Context, name string) ([
 			}
 			for _, httpFilter := range hfSpec.Spec {
 				hf := &hcmv3.HttpFilter{}
-				if err := options.Unmarshaler.Unmarshal(httpFilter.Raw, hf); err != nil {
-					return nil, errors.WrapUKS(err, errors.UnmarshalMessage)
+				if err := v1alpha1.UnmarshalAndValidateHTTPFilter(httpFilter.Raw, hf); err != nil {
+					return nil, err
 				}
 				httpFilters = append(httpFilters, hf)
 			}

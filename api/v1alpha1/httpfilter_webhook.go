@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-
+	oauth2v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/oauth2/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
@@ -33,9 +33,9 @@ func (h *HttpFilter) Validate(ctx context.Context) error {
 	}
 
 	for _, httpFilter := range h.Spec {
-		httpFilterv3 := &hcmv3.HttpFilter{}
-		if err := options.Unmarshaler.Unmarshal(httpFilter.Raw, httpFilterv3); err != nil {
-			return errors.Wrap(err, errors.UnmarshalMessage)
+		hf := &hcmv3.HttpFilter{}
+		if err := UnmarshalAndValidateHTTPFilter(httpFilter.Raw, hf); err != nil {
+			return err
 		}
 	}
 
@@ -66,5 +66,38 @@ func (h *HttpFilter) ValidateDelete(ctx context.Context, cl client.Client) error
 		}
 	}
 
+	return nil
+}
+
+func UnmarshalAndValidateHTTPFilter(raw []byte, httpFilter *hcmv3.HttpFilter) error {
+	if err := options.Unmarshaler.Unmarshal(raw, httpFilter); err != nil {
+		return errors.Wrap(err, errors.UnmarshalMessage)
+	}
+	if err := httpFilter.ValidateAll(); err != nil {
+		return errors.WrapUKS(err, errors.InvalidHTTPFilter)
+	}
+	switch v := httpFilter.ConfigType.(type) {
+	case *hcmv3.HttpFilter_TypedConfig:
+		switch v.TypedConfig.TypeUrl {
+		case "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2":
+			if err := validateOAuth2Filter(v); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateOAuth2Filter(v *hcmv3.HttpFilter_TypedConfig) error {
+	var oauthCfg oauth2v3.OAuth2
+	if err := v.TypedConfig.UnmarshalTo(&oauthCfg); err != nil {
+		return errors.Wrap(err, errors.UnmarshalMessage)
+	}
+	if err := oauthCfg.ValidateAll(); err != nil {
+		return errors.WrapUKS(err, errors.InvalidHTTPFilter)
+	}
+	if oauthCfg.Config.PreserveAuthorizationHeader && oauthCfg.Config.ForwardBearerToken {
+		return errors.Newf("%s: preserve_authorization_header=true and forward_bearer_token=true", errors.InvalidParamsCombination)
+	}
 	return nil
 }

@@ -19,6 +19,7 @@ func init() {
 		HttpFilter_CannotBeEmptyTest,
 		HttpFilter_HasInvalidSpec,
 		HttpFilter_DeleteUsed,
+		HttpFilter_OAuth2InvalidParamsCombination,
 	)
 }
 
@@ -54,4 +55,12 @@ var HttpFilter_DeleteUsed = utils.TestCase{
 
 		require.ErrorContains(t, err, fmt.Sprintf("%v%v%v", ValidationErrorMessage, errors.HTTPFilterDeleteUsed, []string{"virtual-service-used-hf"}))
 	},
+}
+
+var HttpFilter_OAuth2InvalidParamsCombination = utils.TestCase{
+	ShortName:          "HttpFilterOauth2InvalidParamsCombination",
+	Description:        "Test that the HttpFilter contains an invalid combination of parameters",
+	Manifests:          []string{"../testdata/conformance/httpfilter-oauth2-invalid-combination.yaml"},
+	ApplyErrorContains: fmt.Sprintf("%v%v", ValidationErrorMessage, errors.InvalidParamsCombination),
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
 }
