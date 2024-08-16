@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/avast/retry-go/v4 v4.6.0
 	github.com/cert-manager/cert-manager v1.12.2
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240725170803-c2af8e9f5744
+	github.com/envoyproxy/go-control-plane v0.13.0
 	github.com/gin-contrib/cors v1.5.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-logr/logr v1.2.4
