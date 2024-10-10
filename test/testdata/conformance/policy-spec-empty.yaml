@@ -1,0 +1,4 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Policy
+metadata:
+  name: empty-spec-policy

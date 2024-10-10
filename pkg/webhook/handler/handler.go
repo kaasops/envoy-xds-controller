@@ -157,11 +157,12 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 	// TODO: Add check for double certificates
 	case "Policy":
 		policy := &v1alpha1.Policy{}
-		if err := json.Unmarshal(req.Object.Raw, policy); err != nil {
-			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
-		}
 
 		if req.Operation == admissionv1.Delete {
+
+			if err := json.Unmarshal(req.OldObject.Raw, policy); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
+			}
 
 			virtualServices := &v1alpha1.VirtualServiceList{}
 
@@ -175,13 +176,19 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 				}
 
 				for _, p := range vs.Spec.RBAC.AdditionalPolicies {
-					if p.Name == req.Name && *p.Namespace == req.Namespace {
+					if p.Name == req.Name &&
+						((p.Namespace != nil && *p.Namespace == req.Namespace) || req.Namespace == vs.Namespace) {
 						return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. It used in Virtual Service %v/%v", errors.DeleteInKubernetesMessage, vs.Namespace, vs.Name))
 					}
 				}
 			}
 
 		} else {
+
+			if err := json.Unmarshal(req.Object.Raw, policy); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
+			}
+
 			if err := policy.Validate(ctx); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
 			}

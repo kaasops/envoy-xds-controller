@@ -376,9 +376,6 @@ func VirtualServiceRBACFilter(ctx context.Context, client client.Client, vs *Vir
 			if err != nil {
 				return nil, err
 			}
-			if !policy.Status.Valid {
-				return nil, errors.Newf("policy '%s' is invalid", policy.Name)
-			}
 			if _, ok := rules.Policies[policy.Name]; ok {
 				return nil, errors.Newf("policy '%s' already exist in RBAC", policy.Name)
 			}

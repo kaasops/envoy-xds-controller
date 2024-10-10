@@ -34,6 +34,7 @@ var (
 	RouteCannotBeEmptyMessage           = "route could not be empty"
 	RouteDeleteUsed                     = "cannot delete route, bc is used in Virtual Services: "
 	ClusterCannotBeEmptyMessage         = "cluster could not be empty"
+	PolicyCannotBeEmptyMessage          = "policy could not be empty"
 
 	// TLS Errors
 	ManyParamMessage = `not supported using more then 1 param for configure TLS.
