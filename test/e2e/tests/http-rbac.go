@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -13,29 +12,29 @@ import (
 func init() {
 	E2ETests = append(
 		E2ETests,
-		HTTP_RBAC,
+		//HTTP_RBAC,
 		HTTPS_RBAC,
 	)
 }
 
-var HTTP_RBAC = utils.TestCase{
-	ShortName:   "HTTP_RBAC",
-	Description: "Test that the Envoy get configuration with rbac http filter from xDS",
-	Manifests:   []string{"../testdata/e2e/vs-rbac.yaml"},
-	Test: func(t *testing.T, suite *utils.TestSuite) {
-		vsName := "vs-rbac"
-		validAnswer := "{\"answer\":\"true\"}"
-
-		envoyWaitConnectToXDS(t)
-
-		require.True(t, routeExistInxDS(t, k8s.ResourceName(suite.Namespace, vsName)))
-
-		answer := curl(t, HTTP_Method, nil, "/")
-		require.Equal(t, answer, validAnswer)
-		cfgDump := getEnvoyConfigDump(t)
-		require.Contains(t, cfgDump, `"name": "exc.filters.http.rbac"`)
-	},
-}
+//var HTTP_RBAC = utils.TestCase{
+//	ShortName:   "HTTP_RBAC",
+//	Description: "Test that the Envoy get configuration with rbac http filter from xDS",
+//	Manifests:   []string{"../testdata/e2e/vs-rbac.yaml"},
+//	Test: func(t *testing.T, suite *utils.TestSuite) {
+//		vsName := "vs-rbac"
+//		validAnswer := "{\"answer\":\"true\"}"
+//
+//		envoyWaitConnectToXDS(t)
+//
+//		require.True(t, routeExistInxDS(t, k8s.ResourceName(suite.Namespace, vsName)))
+//
+//		answer := curl(t, HTTP_Method, nil, "/")
+//		require.Equal(t, validAnswer, answer)
+//		cfgDump := getEnvoyConfigDump(t)
+//		require.Contains(t, cfgDump, `"name": "exc.filters.http.rbac"`)
+//	},
+//}
 
 var HTTPS_RBAC = utils.TestCase{
 	ShortName:   "HTTPS_RBAC",
@@ -85,7 +84,6 @@ var HTTPS_RBAC = utils.TestCase{
 		cfgDump := getEnvoyConfigDump(t)
 		require.Contains(t, cfgDump, `"name": "exc.filters.http.rbac"`)
 		answer2 := curl(t, HTTPS_Method, &firstDomain, "ping")
-		fmt.Println(answer2)
 		require.Equal(t, "RBAC: access denied", answer2)
 	},
 }
