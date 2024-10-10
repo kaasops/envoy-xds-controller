@@ -92,4 +92,12 @@ resources:
   kind: HttpFilter
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: kaasops.io
+  group: envoy
+  kind: Policy
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
 version: "3"

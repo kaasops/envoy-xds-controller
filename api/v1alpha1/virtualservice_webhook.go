@@ -19,11 +19,13 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"slices"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/kaasops/envoy-xds-controller/pkg/config"
 	"github.com/kaasops/envoy-xds-controller/pkg/errors"
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
@@ -82,6 +84,10 @@ func (vs *VirtualService) Validate(
 		}
 	}
 
+	if _, err := VirtualServiceRBACFilter(ctx, client, vs); err != nil {
+		return err
+	}
+
 	// Check UpgradeConfigs spec
 	if vs.Spec.UpgradeConfigs != nil {
 		for _, upgradeConfig := range vs.Spec.UpgradeConfigs {
@@ -136,6 +142,7 @@ func (vs *VirtualService) Validate(
 	if vs.Spec.AdditionalHttpFilters != nil {
 		for _, ahf := range vs.Spec.AdditionalHttpFilters {
 			httpFilter := &HttpFilter{}
+			// TODO: ns from ref
 			err := client.Get(
 				ctx,
 				types.NamespacedName{
@@ -153,6 +160,7 @@ func (vs *VirtualService) Validate(
 	if vs.Spec.AdditionalRoutes != nil {
 		for _, ar := range vs.Spec.AdditionalRoutes {
 			route := &Route{}
+			// TODO: ns from ref
 			err := client.Get(
 				ctx,
 				types.NamespacedName{
@@ -166,8 +174,8 @@ func (vs *VirtualService) Validate(
 		}
 	}
 
-	// Check if VisturalService alredy exist for domain
-	err = vs.checkIfDomainAlredyExist(ctx, client)
+	// Check if VirtualService already exist for domain
+	err = vs.checkIfDomainAlreadyExist(ctx, client)
 	if err != nil {
 		return err
 	}
@@ -182,7 +190,7 @@ func (vs *VirtualService) Validate(
 	return nil
 }
 
-func (vs *VirtualService) checkIfDomainAlredyExist(
+func (vs *VirtualService) checkIfDomainAlreadyExist(
 	ctx context.Context,
 	cl client.Client,
 ) error {
@@ -322,4 +330,68 @@ func validateAutoDiscovery(
 	}
 
 	return nil
+}
+
+func VirtualServiceRBACFilter(ctx context.Context, client client.Client, vs *VirtualService) (*rbacFilter.RBAC, error) {
+	if vs.Spec.RBAC == nil {
+		return nil, nil
+	}
+
+	if vs.Spec.RBAC.Action == "" {
+		return nil, errors.Newf("RBAC action is empty")
+	}
+
+	action, ok := rbacv3.RBAC_Action_value[vs.Spec.RBAC.Action]
+	if !ok {
+		return nil, errors.Newf("invalid RBAC action '%s'", vs.Spec.RBAC.Action)
+	}
+
+	if len(vs.Spec.RBAC.Policies) == 0 && len(vs.Spec.RBAC.AdditionalPolicies) == 0 {
+		return nil, errors.Newf("RBAC policies and additional policies is empty")
+	}
+
+	rules := &rbacv3.RBAC{Action: rbacv3.RBAC_Action(action), Policies: make(map[string]*rbacv3.Policy, len(vs.Spec.RBAC.Policies))}
+	for policyName, rawPolicy := range vs.Spec.RBAC.Policies {
+		policy := &rbacv3.Policy{}
+		if err := options.Unmarshaler.Unmarshal(rawPolicy.Raw, policy); err != nil {
+			return nil, errors.Wrap(err, errors.UnmarshalMessage)
+		}
+		if err := policy.ValidateAll(); err != nil {
+			return nil, errors.Newf("virtualService: %s, policy: %s: %v", vs.Name, policyName, err)
+		}
+		rules.Policies[policyName] = policy
+	}
+
+	if len(vs.Spec.RBAC.AdditionalPolicies) > 0 {
+		for _, policyRef := range vs.Spec.RBAC.AdditionalPolicies {
+			policy := &Policy{}
+			ns := policyRef.Namespace
+			if ns == nil {
+				ns = &vs.Namespace
+			}
+			err := client.Get(ctx, types.NamespacedName{
+				Namespace: *ns,
+				Name:      policyRef.Name,
+			}, policy)
+			if err != nil {
+				return nil, err
+			}
+			if !policy.Status.Valid {
+				return nil, errors.Newf("policy '%s' is invalid", policy.Name)
+			}
+			if _, ok := rules.Policies[policy.Name]; ok {
+				return nil, errors.Newf("policy '%s' already exist in RBAC", policy.Name)
+			}
+			rbacPolicy := &rbacv3.Policy{}
+			if err := options.Unmarshaler.Unmarshal(policy.Spec.Raw, rbacPolicy); err != nil {
+				return nil, errors.Newf("virtualService: %s, err: %v, %v", vs.Name, err, errors.UnmarshalMessage)
+			}
+			if err = rbacPolicy.ValidateAll(); err != nil {
+				return nil, errors.Newf("virtualService: %s, policy: %s: %v", vs.Name, policy.Name, err)
+			}
+			rules.Policies[policy.Name] = rbacPolicy
+		}
+	}
+
+	return &rbacFilter.RBAC{Rules: rules}, nil
 }

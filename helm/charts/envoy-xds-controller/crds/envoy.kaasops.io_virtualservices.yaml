@@ -91,6 +91,25 @@ spec:
                   namespace:
                     type: string
                 type: object
+              rbac:
+                properties:
+                  action:
+                    type: string
+                  additionalPolicies:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      type: object
+                    type: array
+                  policies:
+                    additionalProperties:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                type: object
               tlsConfig:
                 properties:
                   autoDiscovery:

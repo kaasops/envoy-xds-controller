@@ -352,6 +352,7 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.HttpFilter{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
+		Watches(&v1alpha1.Policy{}, listenerRequestMapper).
 		Complete(r)
 }
 

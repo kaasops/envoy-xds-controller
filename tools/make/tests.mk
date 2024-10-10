@@ -29,7 +29,7 @@ conformance-1.30: prepare-kind kind-with-registry-1.30 build-deploy-exc run-conf
 .PHONY: run-conformance
 run-conformance:
 	@$(LOG_TARGET)
-	go test -v -tags conformance ./test/conformance
+	go test -v -tags conformance -count=1 ./test/conformance
 
 ### E2E tests ###
 
@@ -67,7 +67,7 @@ e2e-1.31-1.30: envoy-1.31
 
 define RUN_E2E
     echo "Run e2e tests"
-    go test -v -tags e2e ./test/e2e
+    go test -v -tags e2e -count=1 ./test/e2e
 endef
 
 .PHONY: build-deploy-exc
