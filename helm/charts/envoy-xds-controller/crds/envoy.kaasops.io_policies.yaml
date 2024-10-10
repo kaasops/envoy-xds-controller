@@ -39,14 +39,6 @@ spec:
           spec:
             type: object
             x-kubernetes-preserve-unknown-fields: true
-          status:
-            description: PolicyStatus defines the observed state of Policy
-            properties:
-              message:
-                type: string
-              valid:
-                type: boolean
-            type: object
         type: object
     served: true
     storage: true
