@@ -328,6 +328,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/common_inputs/ssl/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/input_matchers/consistent_hashing/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/input_matchers/ip/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/input_matchers/metadata/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/matching/input_matchers/runtime_fraction/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/apple/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"

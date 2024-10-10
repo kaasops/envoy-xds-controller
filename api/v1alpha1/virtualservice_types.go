@@ -44,6 +44,7 @@ type VirtualServiceSpec struct {
 
 	// UpgradeConfigs - https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-msg-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-upgradeconfig
 	UpgradeConfigs []*runtime.RawExtension `json:"upgradeConfigs,omitempty"`
+	RBAC           *VirtualServiceRBACSpec `json:"rbac,omitempty"`
 }
 
 type TlsConfig struct {
@@ -101,4 +102,10 @@ func (v *VirtualService) GetListener() string {
 
 func (v *VirtualService) GetAccessLogConfig() string {
 	return v.Spec.AccessLogConfig.Name
+}
+
+type VirtualServiceRBACSpec struct {
+	Action             string                           `json:"action,omitempty"`
+	Policies           map[string]*runtime.RawExtension `json:"policies,omitempty"`
+	AdditionalPolicies []*ResourceRef                   `json:"additionalPolicies,omitempty"`
 }

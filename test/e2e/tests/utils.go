@@ -141,3 +141,13 @@ func curl(
 
 	return string(b)
 }
+
+func getEnvoyConfigDump(t *testing.T) string {
+	url := fmt.Sprintf("%s/%s", envoyAdminPannel(), "config_dump")
+	res, err := http.Get(url)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	return string(data)
+}

@@ -84,6 +84,7 @@ rules:
   - virtualservices
   - accesslogconfigs
   - httpfilters
+  - policies
   verbs:
   - create
   - delete
@@ -104,6 +105,7 @@ rules:
   - virtualservices/status
   - accesslogconfigs/status
   - httpfilters/status
+  - policies/status
   verbs:
   - get
   - patch
