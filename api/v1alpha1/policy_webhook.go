@@ -9,7 +9,7 @@ import (
 
 func (p *Policy) Validate(_ context.Context) error {
 	if p.Spec == nil {
-		return errors.New(errors.ListenerCannotBeEmptyMessage)
+		return errors.New(errors.PolicyCannotBeEmptyMessage)
 	}
 	policy := &rbacv3.Policy{}
 	if err := options.Unmarshaler.Unmarshal(p.Spec.Raw, policy); err != nil {

@@ -21,12 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// PolicyStatus defines the observed state of Policy
-type PolicyStatus struct {
-	Message Message `json:"message,omitempty"`
-	Valid   bool    `json:"valid,omitempty"`
-}
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -35,8 +29,7 @@ type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   *runtime.RawExtension `json:"spec,omitempty"`
-	Status PolicyStatus          `json:"status,omitempty"`
+	Spec *runtime.RawExtension `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
