@@ -24,6 +24,15 @@ func init() {
 		VirtualService_SaveSecretWithCertificate_SecretRef_DiferentNamespaces,
 		VirtualService_SaveSecretWithCertificate_AutoDiscovery_DiferentNamespaces,
 		VirtualService_EmptyDomains,
+		VirtualService_RBAC_Empty,
+		VirtualService_RBAC_EmptyAction,
+		VirtualService_RBAC_EmptyPermissions,
+		VirtualService_RBAC_EmptyPolicies,
+		VirtualService_RBAC_EmptyPolicy,
+		VirtualService_RBAC_EmptyPrincipals,
+		VirtualService_RBAC_InvalidAction,
+		VirtualService_RBAC_UnknownAdditionalPolicy,
+		VirtualService_RBAC_CollisionPoliciesNames,
 	)
 }
 
@@ -109,6 +118,78 @@ var VirtualService_SaveSecretWithCertificate_AutoDiscovery_DiferentNamespaces = 
 			"exc-kaasops-io-autodiscovery", "../testdata/conformance/virtualservice-secret-control-autoDiscovery.yaml", // Virtual Service data
 		)
 	},
+}
+
+var VirtualService_RBAC_Empty = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_Empty",
+	Description:        "Test that the VirtualService has empty RBAC",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-empty.yaml"},
+	ApplyErrorContains: fmt.Sprintf("%v%v", ValidationErrorMessage, "RBAC action is empty"),
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_EmptyAction = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_EmptyAction",
+	Description:        "Test that the VirtualService has empty action in RBAC",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-empty-action.yaml"},
+	ApplyErrorContains: fmt.Sprintf("%v%v", ValidationErrorMessage, "RBAC action is empty"),
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_EmptyPermissions = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_EmptyPermissions",
+	Description:        "Test that the VirtualService has empty permissions in RBAC policy",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-empty-permissions.yaml"},
+	ApplyErrorContains: "invalid Policy.Permissions: value must contain at least 1 item",
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_EmptyPolicies = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_EmptyPolicies",
+	Description:        "Test that the VirtualService has empty policies in RBAC",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-empty-policies.yaml"},
+	ApplyErrorContains: "RBAC policies and additional policies is empty",
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_EmptyPolicy = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_EmptyPolicy",
+	Description:        "Test that the VirtualService has empty policy in RBAC policies",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-empty-policy.yaml"},
+	ApplyErrorContains: "invalid Policy.Permissions: value must contain at least 1 item(s); invalid Policy.Principals: value must contain at least 1 item(s)",
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_EmptyPrincipals = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_EmptyPrincipals",
+	Description:        "Test that the VirtualService has empty principals in RBAC policy",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-empty-principals.yaml"},
+	ApplyErrorContains: "invalid Policy.Principals: value must contain at least 1 item",
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_InvalidAction = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_InvalidAction",
+	Description:        "Test that the VirtualService has invalid action in RBAC",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-invalid-action.yaml"},
+	ApplyErrorContains: "invalid RBAC action",
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_UnknownAdditionalPolicy = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_UnknownAdditionalPolicy",
+	Description:        "Test that the VirtualService has unknown additional policy in RBAC",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-unknown-additional-policy.yaml"},
+	ApplyErrorContains: `Policy.envoy.kaasops.io "test" not found`,
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_RBAC_CollisionPoliciesNames = utils.TestCase{
+	ShortName:          "VirtualService_RBAC_CollisionPoliciesNames",
+	Description:        "Test that the VirtualService contains policies with the same name",
+	Manifests:          []string{"../testdata/conformance/vsvc-rbac-collision-policies-names.yaml"},
+	ApplyErrorContains: `Policy.envoy.kaasops.io "demo-policy" not found`,
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
 }
 
 /**

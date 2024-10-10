@@ -154,7 +154,38 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 			}
 
 		}
-		// TODO: Add check for double certificates
+	// TODO: Add check for double certificates
+	case "Policy":
+		policy := &v1alpha1.Policy{}
+		if err := json.Unmarshal(req.Object.Raw, policy); err != nil {
+			return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
+		}
+
+		if req.Operation == admissionv1.Delete {
+
+			virtualServices := &v1alpha1.VirtualServiceList{}
+
+			if err := h.Client.List(ctx, virtualServices); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.GetFromKubernetesMessage, err))
+			}
+
+			for _, vs := range virtualServices.Items {
+				if vs.Spec.RBAC == nil || len(vs.Spec.RBAC.AdditionalPolicies) == 0 {
+					continue
+				}
+
+				for _, p := range vs.Spec.RBAC.AdditionalPolicies {
+					if p.Name == req.Name && *p.Namespace == req.Namespace {
+						return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. It used in Virtual Service %v/%v", errors.DeleteInKubernetesMessage, vs.Namespace, vs.Name))
+					}
+				}
+			}
+
+		} else {
+			if err := policy.Validate(ctx); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+		}
 	}
 
 	return admission.Allowed("")

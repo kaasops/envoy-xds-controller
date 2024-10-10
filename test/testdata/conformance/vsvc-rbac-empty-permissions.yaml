@@ -1,0 +1,30 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vsvc-rbac-empty-permissions
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  rbac:
+    action: ALLOW
+    policies:
+      demo-policy:
+        principals:
+          - any: true
+  listener:
+    name: http
+  accessLogConfig:
+    name: stdout
+  additionalHttpFilters:
+    - name: router
+  virtualHost:
+    domains:
+      - "*"
+    name: test
+    routes:
+      - match:
+          prefix: "/"
+        direct_response:
+          status: 200
+          body:
+            inline_string: "{\"answer\":\"true\"}"

@@ -16,6 +16,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/options"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	"github.com/kaasops/envoy-xds-controller/pkg/xds/filterchain"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -117,7 +118,7 @@ func (f *VirtualServiceFactory) Create(ctx context.Context, name string) (Virtua
 		return VirtualService{}, errors.Wrap(err, "cannot create Virtual Host for Virtual Service")
 	}
 
-	httpFilters, err := f.HttpFilters(ctx, name)
+	httpFilters, err := f.HttpFilters(ctx)
 	if err != nil {
 		return VirtualService{}, errors.Wrap(err, "cannot create HTTP Filters for Virtual Service")
 	}
@@ -225,8 +226,27 @@ func (f *VirtualServiceFactory) VirtualHost(ctx context.Context) (*routev3.Virtu
 	return virtualHost, nil
 }
 
-func (f *VirtualServiceFactory) HttpFilters(ctx context.Context, name string) ([]*hcmv3.HttpFilter, error) {
+func (f *VirtualServiceFactory) HttpFilters(ctx context.Context) ([]*hcmv3.HttpFilter, error) {
+
 	httpFilters := []*hcmv3.HttpFilter{}
+
+	rbacFilter, err := v1alpha1.VirtualServiceRBACFilter(ctx, f.client, f.VirtualService)
+	if err != nil {
+		return nil, err
+	}
+	if rbacFilter != nil {
+		configType := &hcmv3.HttpFilter_TypedConfig{
+			TypedConfig: &anypb.Any{},
+		}
+		if err := configType.TypedConfig.MarshalFrom(rbacFilter); err != nil {
+			return nil, err
+		}
+		httpFilters = append(httpFilters, &hcmv3.HttpFilter{
+			Name:       "exc.filters.http.rbac",
+			ConfigType: configType,
+		})
+	}
+
 	for _, httpFilter := range f.Spec.HTTPFilters {
 		hf := &hcmv3.HttpFilter{}
 		if err := v1alpha1.UnmarshalAndValidateHTTPFilter(httpFilter.Raw, hf); err != nil {
