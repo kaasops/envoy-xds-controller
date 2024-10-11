@@ -26,6 +26,11 @@ import (
 
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
+	VirtualServiceCommonSpec `json:",inline"`
+	Template                 *ResourceRef `json:"template,omitempty"`
+}
+
+type VirtualServiceCommonSpec struct {
 	VirtualHost *runtime.RawExtension `json:"virtualHost,omitempty"`
 	// +kubebuilder:validation:Required
 	Listener              *ResourceRef          `json:"listener,omitempty"`
