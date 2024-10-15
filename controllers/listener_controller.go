@@ -157,6 +157,18 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		for _, vs := range virtualServices.Items {
 			var vsMessage v1alpha1.Message
 
+			if err := v1alpha1.FillFromTemplateIfNeeded(ctx, r.Client, &vs); err != nil {
+				if errors.NeedStatusUpdate(err) {
+					vsMessage.Add(errors.Wrap(err, "cannot get Virtual Service struct").Error())
+					if err := vs.SetError(ctx, r.Client, vsMessage); err != nil {
+						errs = append(errs, err)
+					}
+					continue
+				}
+				errs = append(errs, err)
+				continue
+			}
+
 			// If Virtual Service has nodeID or Virtual Service don't have any nondeID (or all NodeID)
 			if slices.Contains(k8s.NodeIDs(&vs), nodeID) || k8s.NodeIDs(&vs) == nil {
 				// Create Factory for TLS

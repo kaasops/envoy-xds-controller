@@ -18,10 +18,12 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"github.com/kaasops/envoy-xds-controller/pkg/merge"
 	"slices"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -52,6 +54,10 @@ func (vs *VirtualService) Validate(
 	/**
 		Validate struct
 	**/
+
+	if err := FillFromTemplateIfNeeded(ctx, client, vs); err != nil {
+		return err
+	}
 
 	// Validate Virtual Host spec
 	if vs.Spec.VirtualHost == nil {
@@ -391,4 +397,36 @@ func VirtualServiceRBACFilter(ctx context.Context, client client.Client, vs *Vir
 	}
 
 	return &rbacFilter.RBAC{Rules: rules}, nil
+}
+
+func FillFromTemplateIfNeeded(ctx context.Context, client client.Client, vs *VirtualService) error {
+	if vs.Spec.Template == nil {
+		return nil
+	}
+	vst := &VirtualServiceTemplate{}
+	ns := vs.Spec.Template.Namespace
+	if ns == nil {
+		ns = &vs.Namespace
+	}
+	err := client.Get(ctx, types.NamespacedName{
+		Namespace: *ns,
+		Name:      vs.Spec.Template.Name,
+	}, vst)
+	if err != nil {
+		return err
+	}
+	baseData, err := json.Marshal(vst.Spec.VirtualServiceCommonSpec)
+	if err != nil {
+		return err
+	}
+	svcData, err := json.Marshal(vst.Spec.VirtualServiceCommonSpec)
+	if err != nil {
+		return err
+	}
+	mergedDate := merge.JSONRawMessages(baseData, svcData, nil)
+	err = json.Unmarshal(mergedDate, &vs.Spec.VirtualServiceCommonSpec)
+	if err != nil {
+		return err
+	}
+	return nil
 }

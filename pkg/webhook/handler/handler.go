@@ -193,6 +193,37 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 		}
+	case "VirtualServiceTemplate":
+		vst := &v1alpha1.VirtualServiceTemplate{}
+
+		if req.Operation == admissionv1.Delete {
+
+			if err := json.Unmarshal(req.OldObject.Raw, vst); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
+			}
+
+			virtualServices := &v1alpha1.VirtualServiceList{}
+
+			if err := h.Client.List(ctx, virtualServices); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.GetFromKubernetesMessage, err))
+			}
+
+			for _, vs := range virtualServices.Items {
+				if vs.Spec.Template == nil {
+					continue
+				}
+
+				if vs.Spec.Template.Name == req.Name &&
+					((vs.Spec.Template.Namespace != nil && *vs.Spec.Template.Namespace == req.Namespace) || req.Namespace == vs.Namespace) {
+					return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. It used in Virtual Service %v/%v", errors.DeleteInKubernetesMessage, vs.Namespace, vs.Name))
+				}
+			}
+
+		} else {
+			if err := json.Unmarshal(req.Object.Raw, vst); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
+			}
+		}
 	}
 
 	return admission.Allowed("")
