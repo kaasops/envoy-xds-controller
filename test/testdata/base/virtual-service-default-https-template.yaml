@@ -9,6 +9,8 @@ spec:
     name: stdout
   additionalHttpFilters:
     - name: router
+  tlsConfig:
+    autoDiscovery: true
   virtualHost:
     name: test
     routes:

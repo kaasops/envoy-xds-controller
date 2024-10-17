@@ -2,7 +2,6 @@ package tests
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/kaasops/envoy-xds-controller/pkg/utils/k8s"
 	"github.com/kaasops/envoy-xds-controller/test/utils"
 	"github.com/stretchr/testify/require"
@@ -13,12 +12,12 @@ import (
 func init() {
 	E2ETests = append(
 		E2ETests,
-		HTTPS_TEMPLATE,
+		HTTPS_Template,
 	)
 }
 
-var HTTPS_TEMPLATE = utils.TestCase{
-	ShortName:   "HTTPS_TEMPLATE",
+var HTTPS_Template = utils.TestCase{
+	ShortName:   "HTTPS_Template",
 	Description: "Validation of the correct application of the template to the virtual service",
 	Manifests:   nil,
 	Test: func(t *testing.T, suite *utils.TestSuite) {
@@ -66,9 +65,5 @@ var HTTPS_TEMPLATE = utils.TestCase{
 		tmp := make(map[string]any)
 		err = json.Unmarshal([]byte(cfgDump), &tmp)
 		require.NoError(t, err)
-
-		fmt.Println(cfgDump)
-		fmt.Println(tmp)
-
 	},
 }

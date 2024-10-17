@@ -6,7 +6,7 @@ metadata:
     envoy.kaasops.io/node-id: test
 spec:
   template:
-    - name: virtual-service-default-http-template
+    name: virtual-service-default-https-template
   virtualHost:
     domains:
       - exc.kaasops.io

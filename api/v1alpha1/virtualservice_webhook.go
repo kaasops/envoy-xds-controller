@@ -419,7 +419,7 @@ func FillFromTemplateIfNeeded(ctx context.Context, client client.Client, vs *Vir
 	if err != nil {
 		return err
 	}
-	svcData, err := json.Marshal(vst.Spec.VirtualServiceCommonSpec)
+	svcData, err := json.Marshal(vs.Spec.VirtualServiceCommonSpec)
 	if err != nil {
 		return err
 	}
