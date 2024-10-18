@@ -44,7 +44,8 @@ kubectl get secrets -n ${namespace} $(kubectl get secrets -n ${namespace} --no-h
 kubectl delete service -n ${namespace} $(kubectl get service -n ${namespace} envoy-xds-controller-webhook-service --no-headers -o custom-columns=":metadata.name")
 
 # 6. Get local IP
-ip=$(ip a | grep "inet " | grep ${eth} | awk '{print $2}' | cut -d "/" -f 1)
+ip=$(ip a | grep ${eth} -A3 | grep "inet " | awk '{print $2}' | cut -d "/" -f 1)
+echo "Local IP: ${ip}"
 
 # 7. Create service for route Webhooks to local Envoy xDS Controller
 cat <<EOF | kubectl apply -n ${namespace} -f -
