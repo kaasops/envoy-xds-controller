@@ -8,6 +8,7 @@ var (
 	MultipleAccessLogConfigMessage = "only one access log config is allowed"
 
 	UnmarshalMessage        = "cannot unmarshal"
+	ConvertTypeErrorMessage = "cannot convert type"
 	NodeIDMismatchMessage   = "nodeID mismatch"
 	GetDefaultNodeIDMessage = "cannot get default NodeID"
 
