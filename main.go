@@ -123,12 +123,10 @@ func main() {
 		},
 	}
 
-	if !cfg.Webhook.Disable {
-		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
-			Port:    cfg.GetWebhookPort(),
-			CertDir: "/tmp/k8s-webhook-server/serving-certs",
-		})
-	}
+	mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+		Port:    cfg.GetWebhookPort(),
+		CertDir: "/tmp/k8s-webhook-server/serving-certs",
+	})
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
@@ -144,59 +142,57 @@ func main() {
 	}
 
 	// Register Webhook
-	if !cfg.Webhook.Disable {
-		webhookClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{
-			Scheme: mgr.GetScheme(),
-			Mapper: mgr.GetRESTMapper(),
-		})
-		if err != nil {
-			setupLog.Error(err, "unable to create webhook client")
-			os.Exit(1)
-		}
-
-		// Enable Webhook Reconcile for create Certificates
-		webhookReconciler := &controllers.WebhookReconciler{
-			Client:    webhookClient,
-			Scheme:    mgr.GetScheme(),
-			Namespace: cfg.GetInstalationNamespace(),
-			Config:    cfg,
-		}
-		if err = webhookReconciler.SetupWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create controller", "controller", "Webhook")
-			os.Exit(1)
-		}
-
-		// Check secret with TLS for webhook
-		certSecret := &corev1.Secret{
-			ObjectMeta: ctrl.ObjectMeta{
-				Name:      cfg.GetTLSSecretName(),
-				Namespace: cfg.GetInstalationNamespace(),
-			},
-		}
-
-		if err := webhookClient.Get(context.Background(), types.NamespacedName{Namespace: certSecret.Namespace, Name: certSecret.Name}, certSecret); err != nil {
-			setupLog.Error(err, "unable to get webhook secret")
-			os.Exit(1)
-		}
-
-		// Reconcile secret with TLS for webhook
-		if err := webhookReconciler.ReconcileCertificates(context.Background(), certSecret); err != nil {
-			setupLog.Error(err, "unable to reconcile webhook secret")
-			os.Exit(1)
-		}
-
-		// Register Webhook Server
-		mgr.GetWebhookServer().Register(
-			cfg.GetWebhookPath(),
-			&webhook.Admission{
-				Handler: &handler.Handler{
-					Config:          cfg,
-					Client:          mgr.GetClient(),
-					DiscoveryClient: discoveryClient,
-				},
-			},
-		)
+	webhookClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to create webhook client")
+		os.Exit(1)
 	}
+
+	// Enable Webhook Reconcile for create Certificates
+	webhookReconciler := &controllers.WebhookReconciler{
+		Client:    webhookClient,
+		Scheme:    mgr.GetScheme(),
+		Namespace: cfg.GetInstalationNamespace(),
+		Config:    cfg,
+	}
+	if err = webhookReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Webhook")
+		os.Exit(1)
+	}
+
+	// Check secret with TLS for webhook
+	certSecret := &corev1.Secret{
+		ObjectMeta: ctrl.ObjectMeta{
+			Name:      cfg.GetTLSSecretName(),
+			Namespace: cfg.GetInstalationNamespace(),
+		},
+	}
+
+	if err := webhookClient.Get(context.Background(), types.NamespacedName{Namespace: certSecret.Namespace, Name: certSecret.Name}, certSecret); err != nil {
+		setupLog.Error(err, "unable to get webhook secret")
+		os.Exit(1)
+	}
+
+	// Reconcile secret with TLS for webhook
+	if err := webhookReconciler.ReconcileCertificates(context.Background(), certSecret); err != nil {
+		setupLog.Error(err, "unable to reconcile webhook secret")
+		os.Exit(1)
+	}
+
+	// Register Webhook Server
+	mgr.GetWebhookServer().Register(
+		cfg.GetWebhookPath(),
+		&webhook.Admission{
+			Handler: &handler.Handler{
+				Config:          cfg,
+				Client:          mgr.GetClient(),
+				DiscoveryClient: discoveryClient,
+			},
+		},
+	)
 
 	xDSCache := xdscache.New()
 	xDSServer := server.New(xDSCache, &testv3.Callbacks{Debug: true})
