@@ -40,7 +40,10 @@ func (alc *AccessLogConfig) Validate(ctx context.Context) error {
 		return errors.Wrap(err, errors.UnmarshalMessage)
 	}
 
-	accessLogConfigv3.ValidateAll()
+	err := accessLogConfigv3.ValidateAll()
+	if err != nil {
+		return errors.Wrap(err, errors.ValidateStructMessage)
+	}
 
 	// Validate if file type set path
 	configType, ok := accessLogConfigv3.GetConfigType().(*accesslogv3.AccessLog_TypedConfig)
@@ -55,7 +58,7 @@ func (alc *AccessLogConfig) Validate(ctx context.Context) error {
 	}
 
 	// Validate annotations
-	err := alc.validateAutoGenerateFilename(accessLogConfigv3)
+	err = alc.validateAutoGenerateFilename(accessLogConfigv3)
 	if err != nil {
 		return err
 	}
