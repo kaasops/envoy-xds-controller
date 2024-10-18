@@ -40,6 +40,7 @@ func (e *EnqueueRequestForVirtualService) Create(ctx context.Context, evt event.
 			Name:      vs.Name,
 			Namespace: vs.Namespace,
 		}})
+		return
 	}
 
 	req := types.NamespacedName{
@@ -80,6 +81,7 @@ func (e *EnqueueRequestForVirtualService) Update(ctx context.Context, evt event.
 					Name:      newVS.Name,
 					Namespace: newVS.Namespace,
 				}})
+				return
 			}
 
 			req := reconcile.Request{NamespacedName: types.NamespacedName{
@@ -107,6 +109,7 @@ func (e *EnqueueRequestForVirtualService) Update(ctx context.Context, evt event.
 					Name:      oldVS.Name,
 					Namespace: oldVS.Namespace,
 				}})
+				return
 			}
 
 			req := reconcile.Request{NamespacedName: types.NamespacedName{
@@ -141,6 +144,7 @@ func (e *EnqueueRequestForVirtualService) Delete(ctx context.Context, evt event.
 			Name:      vs.Name,
 			Namespace: vs.Namespace,
 		}})
+		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      vs.GetListener(),
@@ -165,6 +169,7 @@ func (e *EnqueueRequestForVirtualService) Generic(ctx context.Context, evt event
 			Name:      vs.Name,
 			Namespace: vs.Namespace,
 		}})
+		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      vs.GetListener(),

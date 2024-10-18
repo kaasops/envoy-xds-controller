@@ -18,10 +18,12 @@ package controllers
 
 import (
 	"context"
-
+	"github.com/kaasops/envoy-xds-controller/pkg/options"
+	api_errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
@@ -31,6 +33,8 @@ import (
 type VirtualServiceTemplateReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	EventChan chan event.GenericEvent
 }
 
 //+kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservicetemplates,verbs=get;list;watch;create;update;patch;delete
@@ -49,7 +53,31 @@ type VirtualServiceTemplateReconciler struct {
 func (r *VirtualServiceTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
-	// TODO(user): your logic here
+	var vsList envoyv1alpha1.VirtualServiceList
+	if err := r.List(ctx, &vsList, client.MatchingFields{options.VirtualServiceTemplateNameField: req.Name}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	emitListenersReconcile := func() {
+		for _, vs := range vsList.Items {
+			if (vs.Spec.Template.Namespace != nil && *vs.Spec.Template.Namespace == req.Namespace) || req.Namespace == vs.Namespace {
+				r.EventChan <- event.GenericEvent{
+					Object: &vs,
+				}
+			}
+		}
+	}
+
+	var template envoyv1alpha1.VirtualServiceTemplate
+	if err := r.Get(ctx, req.NamespacedName, &template); err != nil {
+		if api_errors.IsNotFound(err) {
+			emitListenersReconcile()
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	emitListenersReconcile()
 
 	return ctrl.Result{}, nil
 }

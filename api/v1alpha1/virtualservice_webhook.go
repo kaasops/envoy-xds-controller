@@ -210,7 +210,7 @@ func (vs *VirtualService) checkIfDomainAlreadyExist(
 	virtualServices := &VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(vs.Namespace),
-		client.MatchingFields{options.VirtualServiceListenerNameFeild: vs.Spec.Listener.Name},
+		client.MatchingFields{options.VirtualServiceListenerNameField: vs.Spec.Listener.Name},
 	}
 	if err := cl.List(ctx, virtualServices, listOpts...); err != nil {
 		return err

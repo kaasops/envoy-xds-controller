@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	"slices"
 	"sort"
 	"strings"
@@ -56,9 +58,10 @@ import (
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Cache  *xdscache.Cache
-	Config *config.Config
+	Scheme    *runtime.Scheme
+	Cache     *xdscache.Cache
+	Config    *config.Config
+	EventChan chan event.GenericEvent
 
 	log logr.Logger
 }
@@ -119,7 +122,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
-		client.MatchingFields{options.VirtualServiceListenerNameFeild: req.Name},
+		client.MatchingFields{options.VirtualServiceListenerNameField: req.Name},
 	}
 	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
@@ -158,8 +161,8 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			var vsMessage v1alpha1.Message
 
 			if err := v1alpha1.FillFromTemplateIfNeeded(ctx, r.Client, &vs); err != nil {
-				if errors.NeedStatusUpdate(err) {
-					vsMessage.Add(errors.Wrap(err, "cannot get Virtual Service struct").Error())
+				if api_errors.IsNotFound(err) || errors.NeedStatusUpdate(err) {
+					vsMessage.Add(errors.Wrap(err, "cannot fill virtual service from template").Error())
 					if err := vs.SetError(ctx, r.Client, vsMessage); err != nil {
 						errs = append(errs, err)
 					}
@@ -317,15 +320,26 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add listener name to index
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceListenerNameFeild, func(rawObject client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceListenerNameField, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)
-		// if listener feild is empty use default listener name as index
+		// if listener field is empty use default listener name as index
 		if virtualService.Spec.Listener == nil {
 			return []string{options.DefaultListenerName}
 		}
 		return []string{virtualService.Spec.Listener.Name}
 	}); err != nil {
 		return errors.Wrap(err, "cannot add Listener names to Listener Reconcile Index")
+	}
+
+	// Add template name to index
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceTemplateNameField, func(rawObject client.Object) []string {
+		virtualService := rawObject.(*v1alpha1.VirtualService)
+		if virtualService.Spec.Template == nil {
+			return []string{}
+		}
+		return []string{virtualService.Spec.Template.Name}
+	}); err != nil {
+		return errors.Wrap(err, "cannot add template names to Listener Reconcile Index")
 	}
 
 	// EnqueueRequestsFromMapFunc
@@ -358,9 +372,12 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return reconcileRequests
 	})
 
+	eventHandler := &virtualservice.EnqueueRequestForVirtualService{Client: mgr.GetClient()}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{Client: mgr.GetClient()}, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
+		WatchesRawSource(&source.Channel{Source: r.EventChan}, eventHandler).
+		Watches(&v1alpha1.VirtualService{}, eventHandler, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.HttpFilter{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
