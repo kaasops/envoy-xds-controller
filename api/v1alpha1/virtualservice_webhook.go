@@ -18,12 +18,10 @@ package v1alpha1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/kaasops/envoy-xds-controller/pkg/merge"
 	"slices"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -397,58 +395,4 @@ func VirtualServiceRBACFilter(ctx context.Context, client client.Client, vs *Vir
 	}
 
 	return &rbacFilter.RBAC{Rules: rules}, nil
-}
-
-func FillFromTemplateIfNeeded(ctx context.Context, client client.Client, vs *VirtualService) error {
-	if vs.Spec.Template == nil {
-		return nil
-	}
-	vst := &VirtualServiceTemplate{}
-	ns := vs.Spec.Template.Namespace
-	if ns == nil {
-		ns = &vs.Namespace
-	}
-	err := client.Get(ctx, types.NamespacedName{
-		Namespace: *ns,
-		Name:      vs.Spec.Template.Name,
-	}, vst)
-	if err != nil {
-		return err
-	}
-	baseData, err := json.Marshal(vst.Spec.VirtualServiceCommonSpec)
-	if err != nil {
-		return err
-	}
-	svcData, err := json.Marshal(vs.Spec.VirtualServiceCommonSpec)
-	if err != nil {
-		return err
-	}
-	var opts []merge.Opt
-	if len(vs.Spec.TemplateOptions) > 0 {
-		opts = make([]merge.Opt, 0, len(vs.Spec.TemplateOptions))
-		for _, opt := range vs.Spec.TemplateOptions {
-			if opt.Field == "" {
-				return errors.Newf("template option field is empty")
-			}
-			var op merge.OperationType
-			switch opt.Modifier {
-			case ModifierMerge:
-				op = merge.OperationMerge
-			case ModifierReplace:
-				op = merge.OperationReplace
-			default:
-				return errors.Newf("template option modifier is invalid")
-			}
-			opts = append(opts, merge.Opt{
-				Path:      opt.Field,
-				Operation: op,
-			})
-		}
-	}
-	mergedDate := merge.JSONRawMessages(baseData, svcData, opts)
-	err = json.Unmarshal(mergedDate, &vs.Spec.VirtualServiceCommonSpec)
-	if err != nil {
-		return err
-	}
-	return nil
 }

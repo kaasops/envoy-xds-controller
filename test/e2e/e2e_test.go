@@ -2,6 +2,7 @@ package conformance
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/test/e2e/tests"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -25,6 +27,8 @@ var (
 func TestE2E(t *testing.T) {
 	// Wait when envoy started
 	time.Sleep(60 * time.Second)
+
+	ctrllog.SetLogger(logr.New(ctrllog.NullLogSink{}))
 
 	cfg, err := config.GetConfig()
 	require.NoError(t, err)

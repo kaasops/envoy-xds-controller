@@ -25,6 +25,7 @@ type Modifier string
 const (
 	ModifierMerge   Modifier = "merge"
 	ModifierReplace Modifier = "replace"
+	ModifierDelete  Modifier = "delete"
 )
 
 type TemplateOpts struct {

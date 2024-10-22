@@ -137,6 +137,28 @@ func TestMergeJSON(t *testing.T) {
 				},
 			},
 		},
+		{
+			A:        json.RawMessage(`{"a":1,"c":3}`),
+			B:        json.RawMessage(`{"b":2}`),
+			Expected: json.RawMessage(`{"b":2,"c":3}`),
+			Options: []Opt{
+				{
+					Path:      "a",
+					Operation: OperationDelete,
+				},
+			},
+		},
+		{
+			A:        json.RawMessage(`{"object":{"name":"test","foo":"bar"}}`),
+			B:        json.RawMessage(`{"b":2}`),
+			Expected: json.RawMessage(`{"b":2,"object":{"name":"test"}}`),
+			Options: []Opt{
+				{
+					Path:      "object.foo",
+					Operation: OperationDelete,
+				},
+			},
+		},
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("test_%d", i+1), func(t *testing.T) {

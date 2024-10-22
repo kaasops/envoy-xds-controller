@@ -350,7 +350,11 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 		for _, vs := range virtualServiceList.Items {
-
+			err := v1alpha1.FillFromTemplateIfNeeded(ctx, r.Client, &vs)
+			if err != nil {
+				r.log.Error(err, "failed to fill VirtualService from template")
+				continue
+			}
 			if refContains(virtualServiceResourceRefMapper(obj, vs), obj) {
 				name := vs.Spec.Listener.Name
 				namespace := obj.GetNamespace()

@@ -50,9 +50,11 @@ func (alc *AccessLogConfig) ValidateDelete(ctx context.Context, cl client.Client
 	if len(virtualServices.Items) > 0 {
 		vsNames := []string{}
 		for _, vs := range virtualServices.Items {
-			if vs.Spec.AccessLogConfig.Name == alc.Name {
-				vsNames = append(vsNames, vs.Name)
-				continue
+			if vs.Spec.AccessLogConfig != nil {
+				if vs.Spec.AccessLogConfig.Name == alc.Name {
+					vsNames = append(vsNames, vs.Name)
+					continue
+				}
 			}
 		}
 		if len(vsNames) > 0 {
