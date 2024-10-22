@@ -20,8 +20,6 @@ import (
 	"context"
 	"flag"
 	"os"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
@@ -216,16 +214,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	listenerEventChan := make(chan event.GenericEvent, 10)
-	defer close(listenerEventChan)
-
 	if err = (&controllers.ListenerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		Cache:  xDSCache,
 		// DiscoveryClient: discoveryClient,
-		Config:    cfg,
-		EventChan: listenerEventChan,
+		Config: cfg,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
 		os.Exit(1)
@@ -260,15 +254,6 @@ func main() {
 		Cache:  xDSCache,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret Certificare")
-		os.Exit(1)
-	}
-
-	if err = (&controllers.VirtualServiceTemplateReconciler{
-		Client:    mgr.GetClient(),
-		Scheme:    mgr.GetScheme(),
-		EventChan: listenerEventChan,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VirtualServiceTemplate")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

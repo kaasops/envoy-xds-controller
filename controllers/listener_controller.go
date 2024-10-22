@@ -19,8 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"slices"
 	"sort"
 	"strings"
@@ -58,10 +56,9 @@ import (
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	Cache     *xdscache.Cache
-	Config    *config.Config
-	EventChan chan event.GenericEvent
+	Scheme *runtime.Scheme
+	Cache  *xdscache.Cache
+	Config *config.Config
 
 	log logr.Logger
 }
@@ -376,12 +373,12 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		WatchesRawSource(&source.Channel{Source: r.EventChan}, eventHandler).
 		Watches(&v1alpha1.VirtualService{}, eventHandler, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.HttpFilter{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
 		Watches(&v1alpha1.Policy{}, listenerRequestMapper).
+		Watches(&v1alpha1.VirtualServiceTemplate{}, listenerRequestMapper).
 		Complete(r)
 }
 

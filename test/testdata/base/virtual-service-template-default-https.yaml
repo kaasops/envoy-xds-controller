@@ -1,7 +1,7 @@
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualServiceTemplate
 metadata:
-  name: virtual-service-default-https-template
+  name: virtual-service-template-default-https
 spec:
   listener:
     name: https

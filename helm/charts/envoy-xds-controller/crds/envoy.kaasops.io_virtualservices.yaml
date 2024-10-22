@@ -117,6 +117,15 @@ spec:
                   namespace:
                     type: string
                 type: object
+              templateOptions:
+                items:
+                  properties:
+                    field:
+                      type: string
+                    modifier:
+                      type: string
+                  type: object
+                type: array
               tlsConfig:
                 properties:
                   autoDiscovery:

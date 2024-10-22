@@ -11,6 +11,7 @@ type OperationType string
 const (
 	OperationMerge   OperationType = "merge"
 	OperationReplace OperationType = "replace"
+	OperationRemove  OperationType = "remove"
 )
 
 type Opt struct {
@@ -20,7 +21,11 @@ type Opt struct {
 
 func JSONRawMessages(a, b json.RawMessage, opts []Opt) json.RawMessage {
 	mapA, mapB := parseJSON(a), parseJSON(b)
-	result := mergeMaps(mapA, mapB, opts, "")
+	optsMap := make(map[string]OperationType, len(opts))
+	for _, opt := range opts {
+		optsMap[opt.Path] = opt.Operation
+	}
+	result := mergeMaps(mapA, mapB, optsMap, "")
 	mergedJSON, _ := json.Marshal(result)
 	return mergedJSON
 }
@@ -33,7 +38,7 @@ func parseJSON(data json.RawMessage) map[string]any {
 	return result
 }
 
-func mergeMaps(a, b map[string]any, opts []Opt, currentPath string) map[string]any {
+func mergeMaps(a, b map[string]any, opts map[string]OperationType, currentPath string) map[string]any {
 	result := make(map[string]any, len(a)+len(b))
 
 	for k, v := range a {
@@ -46,7 +51,11 @@ func mergeMaps(a, b map[string]any, opts []Opt, currentPath string) map[string]a
 			switch newVal := v.(type) {
 			case map[string]any:
 				if existingMap, ok := existingValue.(map[string]any); ok {
-					result[k] = mergeMaps(existingMap, newVal, opts, keyPath)
+					if v, ok := opts[keyPath]; ok && v == OperationReplace {
+						result[k] = newVal
+					} else {
+						result[k] = mergeMaps(existingMap, newVal, opts, keyPath)
+					}
 				} else {
 					result[k] = v
 				}
@@ -67,11 +76,9 @@ func mergeMaps(a, b map[string]any, opts []Opt, currentPath string) map[string]a
 	return result
 }
 
-func mergeArrays(a, b []any, opts []Opt, path string) []any {
-	for _, opt := range opts {
-		if opt.Path == path && opt.Operation == OperationReplace {
-			return b
-		}
+func mergeArrays(a, b []any, opts map[string]OperationType, path string) []any {
+	if v, ok := opts[path]; ok && v == OperationReplace {
+		return b
 	}
 	return append(a, b...)
 }

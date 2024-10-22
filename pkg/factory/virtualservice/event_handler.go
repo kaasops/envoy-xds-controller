@@ -36,10 +36,6 @@ func (e *EnqueueRequestForVirtualService) Create(ctx context.Context, evt event.
 
 	if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, vs); err != nil {
 		enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.Object.GetName())
-		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      vs.Name,
-			Namespace: vs.Namespace,
-		}})
 		return
 	}
 
@@ -77,10 +73,6 @@ func (e *EnqueueRequestForVirtualService) Update(ctx context.Context, evt event.
 
 			if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, newVS); err != nil {
 				enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.ObjectNew.GetName())
-				q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-					Name:      newVS.Name,
-					Namespace: newVS.Namespace,
-				}})
 				return
 			}
 
@@ -105,10 +97,6 @@ func (e *EnqueueRequestForVirtualService) Update(ctx context.Context, evt event.
 
 			if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, oldVS); err != nil {
 				enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.ObjectOld.GetName())
-				q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-					Name:      oldVS.Name,
-					Namespace: oldVS.Namespace,
-				}})
 				return
 			}
 
@@ -140,10 +128,6 @@ func (e *EnqueueRequestForVirtualService) Delete(ctx context.Context, evt event.
 	}
 	if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, vs); err != nil {
 		enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.Object.GetName())
-		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      vs.Name,
-			Namespace: vs.Namespace,
-		}})
 		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
@@ -165,10 +149,6 @@ func (e *EnqueueRequestForVirtualService) Generic(ctx context.Context, evt event
 	}
 	if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, vs); err != nil {
 		enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.Object.GetName())
-		q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      vs.Name,
-			Namespace: vs.Namespace,
-		}})
 		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{

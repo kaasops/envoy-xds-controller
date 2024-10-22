@@ -103,7 +103,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
-  controller: true
+  controller: false
   domain: kaasops.io
   group: envoy
   kind: VirtualServiceTemplate

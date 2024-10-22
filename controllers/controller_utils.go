@@ -26,6 +26,11 @@ func virtualServiceResourceRefMapper(obj client.Object, vs v1alpha1.VirtualServi
 		return vs.Spec.AdditionalRoutes
 	case *v1alpha1.HttpFilter:
 		return vs.Spec.AdditionalHttpFilters
+	case *v1alpha1.VirtualServiceTemplate:
+		if vs.Spec.Template == nil {
+			return nil
+		}
+		return append(resources, vs.Spec.Template)
 	}
 	return nil
 }

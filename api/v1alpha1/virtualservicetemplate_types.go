@@ -20,6 +20,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type Modifier string
+
+const (
+	ModifierMerge   Modifier = "merge"
+	ModifierReplace Modifier = "replace"
+)
+
+type TemplateOpts struct {
+	Field    string   `json:"field,omitempty"`
+	Modifier Modifier `json:"modifier,omitempty"`
+}
+
 // VirtualServiceTemplateSpec defines the desired state of VirtualServiceTemplate
 type VirtualServiceTemplateSpec struct {
 	VirtualServiceCommonSpec `json:",inline"`

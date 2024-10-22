@@ -33,6 +33,7 @@ func init() {
 		VirtualService_RBAC_InvalidAction,
 		VirtualService_RBAC_UnknownAdditionalPolicy,
 		VirtualService_RBAC_CollisionPoliciesNames,
+		VirtualService_Template_NotFound,
 	)
 }
 
@@ -189,6 +190,14 @@ var VirtualService_RBAC_CollisionPoliciesNames = utils.TestCase{
 	Description:        "Test that the VirtualService contains policies with the same name",
 	Manifests:          []string{"../testdata/conformance/vsvc-rbac-collision-policies-names.yaml"},
 	ApplyErrorContains: `Policy.envoy.kaasops.io "demo-policy" not found`,
+	Test:               func(t *testing.T, suite *utils.TestSuite) {},
+}
+
+var VirtualService_Template_NotFound = utils.TestCase{
+	ShortName:          "VirtualService_Template_NotFound",
+	Description:        "Test that you can't create a virtual service with a non-existent template",
+	Manifests:          []string{"../testdata/conformance/vsvc-template-not-found.yaml"},
+	ApplyErrorContains: `VirtualServiceTemplate.envoy.kaasops.io "unknown-template-name" not found`,
 	Test:               func(t *testing.T, suite *utils.TestSuite) {},
 }
 

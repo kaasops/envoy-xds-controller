@@ -423,7 +423,29 @@ func FillFromTemplateIfNeeded(ctx context.Context, client client.Client, vs *Vir
 	if err != nil {
 		return err
 	}
-	mergedDate := merge.JSONRawMessages(baseData, svcData, nil)
+	var opts []merge.Opt
+	if len(vs.Spec.TemplateOptions) > 0 {
+		opts = make([]merge.Opt, 0, len(vs.Spec.TemplateOptions))
+		for _, opt := range vs.Spec.TemplateOptions {
+			if opt.Field == "" {
+				return errors.Newf("template option field is empty")
+			}
+			var op merge.OperationType
+			switch opt.Modifier {
+			case ModifierMerge:
+				op = merge.OperationMerge
+			case ModifierReplace:
+				op = merge.OperationReplace
+			default:
+				return errors.Newf("template option modifier is invalid")
+			}
+			opts = append(opts, merge.Opt{
+				Path:      opt.Field,
+				Operation: op,
+			})
+		}
+	}
+	mergedDate := merge.JSONRawMessages(baseData, svcData, opts)
 	err = json.Unmarshal(mergedDate, &vs.Spec.VirtualServiceCommonSpec)
 	if err != nil {
 		return err
