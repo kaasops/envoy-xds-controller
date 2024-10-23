@@ -31,7 +31,7 @@ then
 fi
 
 # 2. Scale running Envoy xDS Controller to 0 replicas
-kubectl scale deployment -n ${namespace} $(kubectl get deployments.apps -n ${namespace} --no-headers -o custom-columns=":metadata.name") --replicas 0
+kubectl scale deployment -n ${namespace} $(kubectl get deployments.apps -n ${namespace} --no-headers -o custom-columns=":metadata.name" | grep envoy-xds-controller) --replicas 0
 
 # 3. Create dir for local certificates
 mkdir -p /tmp/k8s-webhook-server/serving-certs

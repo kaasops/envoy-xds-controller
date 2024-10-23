@@ -46,6 +46,7 @@ type VirtualServiceTemplateStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:shortName=vst,categories=all
 
 // VirtualServiceTemplate is the Schema for the virtualservicetemplates API
 type VirtualServiceTemplate struct {

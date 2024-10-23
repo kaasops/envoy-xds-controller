@@ -8,9 +8,13 @@ metadata:
 spec:
   group: envoy.kaasops.io
   names:
+    categories:
+    - all
     kind: VirtualServiceTemplate
     listKind: VirtualServiceTemplateList
     plural: virtualservicetemplates
+    shortNames:
+    - vst
     singular: virtualservicetemplate
   scope: Namespaced
   versions:
