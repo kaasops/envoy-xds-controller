@@ -53,6 +53,10 @@ func (vs *VirtualService) Validate(
 		Validate struct
 	**/
 
+	if err := FillFromTemplateIfNeeded(ctx, client, vs); err != nil {
+		return err
+	}
+
 	// Validate Virtual Host spec
 	if vs.Spec.VirtualHost == nil {
 		return errors.New(errors.VirtualHostCantBeEmptyMessage)
@@ -204,7 +208,7 @@ func (vs *VirtualService) checkIfDomainAlreadyExist(
 	virtualServices := &VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(vs.Namespace),
-		client.MatchingFields{options.VirtualServiceListenerNameFeild: vs.Spec.Listener.Name},
+		client.MatchingFields{options.VirtualServiceListenerNameField: vs.Spec.Listener.Name},
 	}
 	if err := cl.List(ctx, virtualServices, listOpts...); err != nil {
 		return err

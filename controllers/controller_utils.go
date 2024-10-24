@@ -35,6 +35,11 @@ func virtualServiceResourceRefMapper(obj client.Object, vs v1alpha1.VirtualServi
 				return vs.Spec.RBAC.AdditionalPolicies
 			}
 		}
+	case *v1alpha1.VirtualServiceTemplate:
+		if vs.Spec.Template == nil {
+			return nil
+		}
+		return append(resources, vs.Spec.Template)
 	}
 	return nil
 }

@@ -3,6 +3,7 @@ package virtualservice
 import (
 	"context"
 	"reflect"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
@@ -15,7 +16,9 @@ import (
 
 var enqueueLog = log.Log.WithName("eventhandler").WithName("EnqueueRequestForVirtualService")
 
-type EnqueueRequestForVirtualService struct{}
+type EnqueueRequestForVirtualService struct {
+	Client client.Client
+}
 type empty struct{}
 
 // Create implements EventHandler.
@@ -26,9 +29,13 @@ func (e *EnqueueRequestForVirtualService) Create(ctx context.Context, evt event.
 	}
 
 	vs, ok := evt.Object.(*v1alpha1.VirtualService)
-
 	if !ok {
 		enqueueLog.Error(nil, "Object is not a VirtualService", "event", evt)
+		return
+	}
+
+	if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, vs); err != nil {
+		enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.Object.GetName())
 		return
 	}
 
@@ -38,7 +45,6 @@ func (e *EnqueueRequestForVirtualService) Create(ctx context.Context, evt event.
 	}
 
 	checkResult, err := vs.CheckHash()
-
 	if err != nil {
 		enqueueLog.Error(err, "failed to get virtualService hash", "virtualService", evt.Object.GetName())
 		q.Add(reconcile.Request{NamespacedName: req})
@@ -64,6 +70,12 @@ func (e *EnqueueRequestForVirtualService) Update(ctx context.Context, evt event.
 	if evt.ObjectNew != nil {
 		newVS, ok := evt.ObjectNew.(*v1alpha1.VirtualService)
 		if ok {
+
+			if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, newVS); err != nil {
+				enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.ObjectNew.GetName())
+				return
+			}
+
 			req := reconcile.Request{NamespacedName: types.NamespacedName{
 				Name:      newVS.GetListener(),
 				Namespace: newVS.GetNamespace(),
@@ -82,6 +94,12 @@ func (e *EnqueueRequestForVirtualService) Update(ctx context.Context, evt event.
 		oldVS, ok := evt.ObjectOld.(*v1alpha1.VirtualService)
 
 		if ok {
+
+			if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, oldVS); err != nil {
+				enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.ObjectOld.GetName())
+				return
+			}
+
 			req := reconcile.Request{NamespacedName: types.NamespacedName{
 				Name:      oldVS.GetListener(),
 				Namespace: oldVS.GetNamespace(),
@@ -108,6 +126,10 @@ func (e *EnqueueRequestForVirtualService) Delete(ctx context.Context, evt event.
 		enqueueLog.Error(nil, "Object is not a VirtualService", "event", evt)
 		return
 	}
+	if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, vs); err != nil {
+		enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.Object.GetName())
+		return
+	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      vs.GetListener(),
 		Namespace: vs.GetNamespace(),
@@ -123,6 +145,10 @@ func (e *EnqueueRequestForVirtualService) Generic(ctx context.Context, evt event
 	vs, ok := evt.Object.(*v1alpha1.VirtualService)
 	if !ok {
 		enqueueLog.Error(nil, "Object is not a VirtualService", "event", evt)
+		return
+	}
+	if err := v1alpha1.FillFromTemplateIfNeeded(ctx, e.Client, vs); err != nil {
+		enqueueLog.Error(err, "failed to fill virtualService from template", "virtualService", evt.Object.GetName())
 		return
 	}
 	q.Add(reconcile.Request{NamespacedName: types.NamespacedName{

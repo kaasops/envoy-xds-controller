@@ -119,7 +119,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	virtualServices := &v1alpha1.VirtualServiceList{}
 	listOpts := []client.ListOption{
 		client.InNamespace(req.Namespace),
-		client.MatchingFields{options.VirtualServiceListenerNameFeild: req.Name},
+		client.MatchingFields{options.VirtualServiceListenerNameField: req.Name},
 	}
 	if err = r.List(ctx, virtualServices, listOpts...); err != nil {
 		return ctrl.Result{}, errors.Wrap(err, errors.GetFromKubernetesMessage)
@@ -156,6 +156,18 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 		for _, vs := range virtualServices.Items {
 			var vsMessage v1alpha1.Message
+
+			if err := v1alpha1.FillFromTemplateIfNeeded(ctx, r.Client, &vs); err != nil {
+				if api_errors.IsNotFound(err) || errors.NeedStatusUpdate(err) {
+					vsMessage.Add(errors.Wrap(err, "cannot fill virtual service from template").Error())
+					if err := vs.SetError(ctx, r.Client, vsMessage); err != nil {
+						errs = append(errs, err)
+					}
+					continue
+				}
+				errs = append(errs, err)
+				continue
+			}
 
 			// If Virtual Service has nodeID or Virtual Service don't have any nondeID (or all NodeID)
 			if slices.Contains(k8s.NodeIDs(&vs), nodeID) || k8s.NodeIDs(&vs) == nil {
@@ -305,15 +317,48 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	// Add listener name to index
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceListenerNameFeild, func(rawObject client.Object) []string {
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceListenerNameField, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)
-		// if listener feild is empty use default listener name as index
+		// if listener field is empty use default listener name as index
 		if virtualService.Spec.Listener == nil {
 			return []string{options.DefaultListenerName}
 		}
 		return []string{virtualService.Spec.Listener.Name}
 	}); err != nil {
 		return errors.Wrap(err, "cannot add Listener names to Listener Reconcile Index")
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualServiceTemplate{}, options.VirtualServiceTemplateListenerNameField, func(rawObject client.Object) []string {
+		vst := rawObject.(*v1alpha1.VirtualServiceTemplate)
+		// if listener field is empty use default listener name as index
+		if vst.Spec.Listener == nil {
+			return []string{}
+		}
+		return []string{vst.Spec.Listener.Name}
+	}); err != nil {
+		return errors.Wrap(err, "cannot add Listener names to Listener Reconcile Index")
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualServiceTemplate{}, options.VirtualServiceTemplateAccessLogConfigNameField, func(rawObject client.Object) []string {
+		vst := rawObject.(*v1alpha1.VirtualServiceTemplate)
+		// if listener field is empty use default listener name as index
+		if vst.Spec.Listener == nil {
+			return []string{}
+		}
+		return []string{vst.Spec.AccessLogConfig.Name}
+	}); err != nil {
+		return errors.Wrap(err, "cannot add Access log config names to Listener Reconcile Index")
+	}
+
+	// Add template name to index
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceTemplateNameField, func(rawObject client.Object) []string {
+		virtualService := rawObject.(*v1alpha1.VirtualService)
+		if virtualService.Spec.Template == nil {
+			return []string{}
+		}
+		return []string{virtualService.Spec.Template.Name}
+	}); err != nil {
+		return errors.Wrap(err, "cannot add template names to Listener Reconcile Index")
 	}
 
 	// EnqueueRequestsFromMapFunc
@@ -327,7 +372,11 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			return nil
 		}
 		for _, vs := range virtualServiceList.Items {
-
+			err := v1alpha1.FillFromTemplateIfNeeded(ctx, r.Client, &vs)
+			if err != nil {
+				r.log.Error(err, "failed to fill VirtualService from template")
+				continue
+			}
 			if refContains(virtualServiceResourceRefMapper(obj, vs), obj) {
 				name := vs.Spec.Listener.Name
 				namespace := obj.GetNamespace()
@@ -348,11 +397,12 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{}, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
+		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{Client: mgr.GetClient()}, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.HttpFilter{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
 		Watches(&v1alpha1.Policy{}, listenerRequestMapper).
+		Watches(&v1alpha1.VirtualServiceTemplate{}, listenerRequestMapper).
 		Complete(r)
 }
 

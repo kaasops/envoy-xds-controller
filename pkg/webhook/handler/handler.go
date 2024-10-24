@@ -193,6 +193,21 @@ func (h *Handler) Handle(ctx context.Context, req admission.Request) admission.R
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 		}
+	case "VirtualServiceTemplate":
+		vst := &v1alpha1.VirtualServiceTemplate{}
+
+		if req.Operation == admissionv1.Delete {
+			if err := json.Unmarshal(req.OldObject.Raw, vst); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
+			}
+			if err := vst.ValidateDelete(ctx, h.Client); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+		} else {
+			if err := json.Unmarshal(req.Object.Raw, vst); err != nil {
+				return admission.Errored(http.StatusInternalServerError, fmt.Errorf("%v. %w", errors.UnmarshalMessage, err))
+			}
+		}
 	}
 
 	return admission.Allowed("")

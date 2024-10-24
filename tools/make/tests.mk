@@ -74,4 +74,4 @@ endef
 build-deploy-exc: image.build-local image.push-local kube-deploy-local
 
 .PHONY: run-local
-run-local: prepare-kind kind-with-registry-1.30 build-deploy-exc
+run-local: prepare-kind kind-with-registry-1.30 build-deploy-exc envoy-1.30

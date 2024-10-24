@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"golang.org/x/exp/slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -46,6 +47,7 @@ func (tc *TestCase) Run(t *testing.T, suite *TestSuite) {
 	}
 	// Cleanup manifests
 	defer func() {
+		slices.Reverse(tc.Manifests)
 		CleanupManifests(suite.Client, tc.Manifests, suite.Namespace)
 	}()
 

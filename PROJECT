@@ -100,4 +100,13 @@ resources:
   kind: Policy
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: false
+  domain: kaasops.io
+  group: envoy
+  kind: VirtualServiceTemplate
+  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
+  version: v1alpha1
 version: "3"
