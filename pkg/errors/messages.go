@@ -29,10 +29,12 @@ var (
 	AccessLogConfigDeleteUsedMessage    = "cannot delete accesslogconfig, bc is used in Virtual Services: "
 	HTTPFilterCannotBeEmptyMessage      = "httpFilter could not be empty"
 	HTTPFilterDeleteUsed                = "cannot delete httpFilter, bc is used in Virtual Services: "
+	HTTPFilterUsedInVST                 = "httpFilter is used in Virtual Services templates"
 	InvalidHTTPFilter                   = "invalid http_filter"
 	InvalidParamsCombination            = "invalid combination of parameters"
 	RouteCannotBeEmptyMessage           = "route could not be empty"
 	RouteDeleteUsed                     = "cannot delete route, bc is used in Virtual Services: "
+	RouteUsedInVST                      = "route is used in Virtual Services templates"
 	ClusterCannotBeEmptyMessage         = "cluster could not be empty"
 	PolicyCannotBeEmptyMessage          = "policy could not be empty"
 

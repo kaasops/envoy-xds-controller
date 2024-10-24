@@ -62,5 +62,22 @@ func (alc *AccessLogConfig) ValidateDelete(ctx context.Context, cl client.Client
 		}
 	}
 
+	virtualServiceTemplates := &VirtualServiceTemplateList{}
+	vstListOpts := []client.ListOption{
+		client.InNamespace(alc.Namespace),
+		client.MatchingFields{options.VirtualServiceTemplateAccessLogConfigNameField: alc.Name},
+	}
+	if err := cl.List(ctx, virtualServiceTemplates, vstListOpts...); err != nil {
+		return err
+	}
+
+	if len(virtualServiceTemplates.Items) > 0 {
+		vstNames := make([]string, 0, len(virtualServiceTemplates.Items))
+		for _, vs := range virtualServiceTemplates.Items {
+			vstNames = append(vstNames, vs.Name)
+		}
+		return errors.New(fmt.Sprintf("access log config is used in Virtual Service Templates: %+v", vstNames))
+	}
+
 	return nil
 }

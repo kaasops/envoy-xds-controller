@@ -59,5 +59,22 @@ func (l *Listener) ValidateDelete(ctx context.Context, cl client.Client) error {
 		return errors.New(fmt.Sprintf("listener is used in Virtual Services: %+v", vsNames))
 	}
 
+	virtualServiceTemplates := &VirtualServiceTemplateList{}
+	vstListOpts := []client.ListOption{
+		client.InNamespace(l.Namespace),
+		client.MatchingFields{options.VirtualServiceTemplateListenerNameField: l.Name},
+	}
+	if err := cl.List(ctx, virtualServiceTemplates, vstListOpts...); err != nil {
+		return err
+	}
+
+	if len(virtualServiceTemplates.Items) > 0 {
+		vstNames := make([]string, 0, len(virtualServiceTemplates.Items))
+		for _, vs := range virtualServiceTemplates.Items {
+			vstNames = append(vstNames, vs.Name)
+		}
+		return errors.New(fmt.Sprintf("listener is used in Virtual Service Templates: %+v", vstNames))
+	}
+
 	return nil
 }

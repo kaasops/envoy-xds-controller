@@ -328,6 +328,28 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return errors.Wrap(err, "cannot add Listener names to Listener Reconcile Index")
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualServiceTemplate{}, options.VirtualServiceTemplateListenerNameField, func(rawObject client.Object) []string {
+		vst := rawObject.(*v1alpha1.VirtualServiceTemplate)
+		// if listener field is empty use default listener name as index
+		if vst.Spec.Listener == nil {
+			return []string{}
+		}
+		return []string{vst.Spec.Listener.Name}
+	}); err != nil {
+		return errors.Wrap(err, "cannot add Listener names to Listener Reconcile Index")
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualServiceTemplate{}, options.VirtualServiceTemplateAccessLogConfigNameField, func(rawObject client.Object) []string {
+		vst := rawObject.(*v1alpha1.VirtualServiceTemplate)
+		// if listener field is empty use default listener name as index
+		if vst.Spec.Listener == nil {
+			return []string{}
+		}
+		return []string{vst.Spec.AccessLogConfig.Name}
+	}); err != nil {
+		return errors.Wrap(err, "cannot add Access log config names to Listener Reconcile Index")
+	}
+
 	// Add template name to index
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1alpha1.VirtualService{}, options.VirtualServiceTemplateNameField, func(rawObject client.Object) []string {
 		virtualService := rawObject.(*v1alpha1.VirtualService)

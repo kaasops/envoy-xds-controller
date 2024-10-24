@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"io"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
@@ -159,6 +160,7 @@ func CleanupManifestsFromPath(c client.Client, manifestsPath string, ns string) 
 	if err != nil {
 		return err
 	}
+	slices.Reverse(files)
 
 	for _, file := range files {
 		if file.IsDir() {

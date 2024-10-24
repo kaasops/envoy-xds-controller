@@ -66,5 +66,29 @@ func (r *Route) ValidateDelete(ctx context.Context, cl client.Client) error {
 		}
 	}
 
+	//
+
+	virtualServiceTemplates := &VirtualServiceTemplateList{}
+	vstlistOpts := []client.ListOption{client.InNamespace(r.Namespace)}
+	if err := cl.List(ctx, virtualServiceTemplates, vstlistOpts...); err != nil {
+		return err
+	}
+
+	if len(virtualServiceTemplates.Items) > 0 {
+		vstNames := []string{}
+	C2:
+		for _, vst := range virtualServiceTemplates.Items {
+			for _, route := range vst.Spec.AdditionalRoutes {
+				if route.Name == r.Name {
+					vstNames = append(vstNames, vst.Name)
+					continue C2
+				}
+			}
+		}
+		if len(vstNames) > 0 {
+			return errors.New(fmt.Sprintf("%v:%+v", errors.RouteUsedInVST, vstNames))
+		}
+	}
+
 	return nil
 }

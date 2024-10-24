@@ -66,6 +66,28 @@ func (h *HttpFilter) ValidateDelete(ctx context.Context, cl client.Client) error
 		}
 	}
 
+	virtualServiceTemplates := &VirtualServiceTemplateList{}
+	vstListOpts := []client.ListOption{client.InNamespace(h.Namespace)}
+	if err := cl.List(ctx, virtualServiceTemplates, vstListOpts...); err != nil {
+		return err
+	}
+
+	if len(virtualServiceTemplates.Items) > 0 {
+		vstNames := []string{}
+	C2:
+		for _, vst := range virtualServiceTemplates.Items {
+			for _, httpFilter := range vst.Spec.AdditionalHttpFilters {
+				if httpFilter.Name == h.Name {
+					vstNames = append(vstNames, vst.Name)
+					continue C2
+				}
+			}
+		}
+		if len(vstNames) > 0 {
+			return errors.New(fmt.Sprintf("%v:%+v", errors.HTTPFilterUsedInVST, vstNames))
+		}
+	}
+
 	return nil
 }
 
