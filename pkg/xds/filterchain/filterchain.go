@@ -51,6 +51,7 @@ func (b *builder) WithDownstreamTlsContext(secret string) Builder {
 					ResourceApiVersion: corev3.ApiVersion_V3,
 				},
 			}},
+			AlpnProtocols: []string{"h2", "http/1.1"},
 		},
 	}
 

@@ -18,14 +18,23 @@ func virtualServiceResourceRefMapper(obj client.Object, vs v1alpha1.VirtualServi
 	var resources []*v1alpha1.ResourceRef
 	switch obj.(type) {
 	case *v1alpha1.AccessLogConfig:
-		if vs.Spec.AccessLogConfig == nil {
-			return nil
+		if vs.Spec.AccessLogConfig != nil {
+			return append(resources, vs.Spec.AccessLogConfig)
 		}
-		return append(resources, vs.Spec.AccessLogConfig)
 	case *v1alpha1.Route:
-		return vs.Spec.AdditionalRoutes
+		if vs.Spec.AdditionalRoutes != nil {
+			return vs.Spec.AdditionalRoutes
+		}
 	case *v1alpha1.HttpFilter:
-		return vs.Spec.AdditionalHttpFilters
+		if vs.Spec.AdditionalHttpFilters != nil {
+			return vs.Spec.AdditionalHttpFilters
+		}
+	case *v1alpha1.Policy:
+		if vs.Spec.RBAC != nil {
+			if vs.Spec.RBAC.AdditionalPolicies != nil {
+				return vs.Spec.RBAC.AdditionalPolicies
+			}
+		}
 	case *v1alpha1.VirtualServiceTemplate:
 		if vs.Spec.Template == nil {
 			return nil
