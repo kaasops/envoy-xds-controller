@@ -84,7 +84,7 @@ func (h *HttpFilter) ValidateDelete(ctx context.Context, cl client.Client) error
 			}
 		}
 		if len(vstNames) > 0 {
-			return errors.New(fmt.Sprintf("%v:%+v", errors.HTTPFilterUsedInVST, vstNames))
+			return errors.New(fmt.Sprintf("%v: %+v", errors.HTTPFilterUsedInVST, vstNames))
 		}
 	}
 

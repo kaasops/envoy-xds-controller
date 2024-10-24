@@ -76,7 +76,7 @@ func (alc *AccessLogConfig) ValidateDelete(ctx context.Context, cl client.Client
 		for _, vs := range virtualServiceTemplates.Items {
 			vstNames = append(vstNames, vs.Name)
 		}
-		return errors.New(fmt.Sprintf("access log config is used in Virtual Service Templates: %+v", vstNames))
+		return errors.New(fmt.Sprintf("%v: %+v", errors.AccessLogConfigUsedInVST, vstNames))
 	}
 
 	return nil

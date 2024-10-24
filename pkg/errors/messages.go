@@ -35,8 +35,10 @@ var (
 	RouteCannotBeEmptyMessage           = "route could not be empty"
 	RouteDeleteUsed                     = "cannot delete route, bc is used in Virtual Services: "
 	RouteUsedInVST                      = "route is used in Virtual Services templates"
+	ListenerUsedInVST                   = "listener is used in Virtual Service Templates"
 	ClusterCannotBeEmptyMessage         = "cluster could not be empty"
 	PolicyCannotBeEmptyMessage          = "policy could not be empty"
+	AccessLogConfigUsedInVST            = "accesslogconfig is used in Virtual Services templates"
 
 	// TLS Errors
 	ManyParamMessage = `not supported using more then 1 param for configure TLS.

@@ -86,7 +86,7 @@ func (r *Route) ValidateDelete(ctx context.Context, cl client.Client) error {
 			}
 		}
 		if len(vstNames) > 0 {
-			return errors.New(fmt.Sprintf("%v:%+v", errors.RouteUsedInVST, vstNames))
+			return errors.New(fmt.Sprintf("%v: %+v", errors.RouteUsedInVST, vstNames))
 		}
 	}
 

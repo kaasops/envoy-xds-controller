@@ -28,28 +28,31 @@ var VirtualServiceTemplate_CannotDeleteLinkedResources = utils.TestCase{
 		"../testdata/conformance/templates_testdata/virtual-service-template.yaml",
 	},
 	Test: func(t *testing.T, suite *utils.TestSuite) {
+
+		vstNames := []string{"virtual-service-template"}
+
 		listener := v1alpha1.Listener{}
 		listener.Name = "listener-for-template"
 		listener.Namespace = suite.Namespace
 		err := suite.Client.Delete(context.TODO(), &listener)
-		require.ErrorContains(t, err, "listener is used in Virtual Service Templates: [virtual-service-template]")
+		require.ErrorContains(t, err, fmt.Sprintf("%s: %+v", errors.ListenerUsedInVST, vstNames))
 
 		alc := v1alpha1.AccessLogConfig{}
 		alc.Name = "alc-for-template"
 		alc.Namespace = suite.Namespace
 		err = suite.Client.Delete(context.TODO(), &alc)
-		require.ErrorContains(t, err, "access log config is used in Virtual Service Templates: [virtual-service-template]")
+		require.ErrorContains(t, err, fmt.Sprintf("%s: %+v", errors.AccessLogConfigUsedInVST, vstNames))
 
 		httpFilter := v1alpha1.HttpFilter{}
 		httpFilter.Name = "http-filter-for-template"
 		httpFilter.Namespace = suite.Namespace
 		err = suite.Client.Delete(context.TODO(), &httpFilter)
-		require.ErrorContains(t, err, fmt.Sprintf("%s:%+v", errors.HTTPFilterUsedInVST, []string{"virtual-service-template"}))
+		require.ErrorContains(t, err, fmt.Sprintf("%s: %+v", errors.HTTPFilterUsedInVST, vstNames))
 
 		route := v1alpha1.Route{}
 		route.Name = "route-for-template"
 		route.Namespace = suite.Namespace
 		err = suite.Client.Delete(context.TODO(), &route)
-		require.ErrorContains(t, err, fmt.Sprintf("%s:%+v", errors.RouteUsedInVST, []string{"virtual-service-template"}))
+		require.ErrorContains(t, err, fmt.Sprintf("%s: %+v", errors.RouteUsedInVST, vstNames))
 	},
 }

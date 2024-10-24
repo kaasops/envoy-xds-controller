@@ -73,7 +73,7 @@ func (l *Listener) ValidateDelete(ctx context.Context, cl client.Client) error {
 		for _, vs := range virtualServiceTemplates.Items {
 			vstNames = append(vstNames, vs.Name)
 		}
-		return errors.New(fmt.Sprintf("listener is used in Virtual Service Templates: %+v", vstNames))
+		return errors.New(fmt.Sprintf("%s: %+v", errors.ListenerUsedInVST, vstNames))
 	}
 
 	return nil
