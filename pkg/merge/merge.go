@@ -132,9 +132,5 @@ func deleteRecursive(m map[string]any, keys []string) {
 
 	if nextMap, ok := m[keys[0]].(map[string]any); ok {
 		deleteRecursive(nextMap, keys[1:])
-
-		if len(nextMap) == 0 {
-			delete(m, keys[0])
-		}
 	}
 }

@@ -395,11 +395,9 @@ func (r *ListenerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return reconcileRequests
 	})
 
-	eventHandler := &virtualservice.EnqueueRequestForVirtualService{Client: mgr.GetClient()}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Listener{}).
-		Watches(&v1alpha1.VirtualService{}, eventHandler, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
+		Watches(&v1alpha1.VirtualService{}, &virtualservice.EnqueueRequestForVirtualService{Client: mgr.GetClient()}, builder.WithPredicates(virtualservice.GenerationOrMetadataChangedPredicate{})).
 		Watches(&v1alpha1.AccessLogConfig{}, listenerRequestMapper).
 		Watches(&v1alpha1.HttpFilter{}, listenerRequestMapper).
 		Watches(&v1alpha1.Route{}, listenerRequestMapper).
