@@ -19,6 +19,12 @@ kube-deploy-local: kube-manifests ## Install Envoy xDS Controller into the local
 	@$(LOG_TARGET)
 	helm install exc --set image.repository=$(LOCAL_IMAGE) --set image.tag=$(TAG) --namespace envoy-xds-controller --create-namespace ./helm/charts/envoy-xds-controller --debug --timeout='$(WAIT_TIMEOUT)' --wait
 
+.PHONY: kube-deploy-with-ui-local
+kube-deploy-with-ui-local: kube-manifests ## Install Envoy xDS Controller with UI into the local Kubernetes cluster specified in ~/.kube/config.
+	@$(LOG_TARGET)
+	helm install exc --set image.repository=$(LOCAL_IMAGE) --set image.tag=$(TAG) --set ui.enabled=true --set cacheAPI.enabled=true --set ui.cacheAPI=http://localhost:9999/api/v1 --set ui.image.repository=$(LOCAL_UI_IMAGE) --set ui.image.tag=$(TAG) --namespace envoy-xds-controller --create-namespace ./helm/charts/envoy-xds-controller --debug --timeout='$(WAIT_TIMEOUT)' --wait
+
+
 .PHONY: kube-undeploy
 kube-undeploy: kube-manifests ## Uninstall the Envoy xDS Controller from the Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)

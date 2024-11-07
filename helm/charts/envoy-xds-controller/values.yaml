@@ -159,3 +159,10 @@ webhook:
   tls:
     # -- Name of the Envoy xDS Controller TLS Secret name when externally managed.
     name: "envoy-xds-controller-tls"
+
+oidc:
+  enabled: true
+  clientId: envoy-xds-controller
+  authority: http://localhost:5556
+  scope: 'openid profile'
+  redirectUri: http://localhost:8080/callback

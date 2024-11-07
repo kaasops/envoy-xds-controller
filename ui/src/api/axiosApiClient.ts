@@ -7,3 +7,15 @@ const axiosClient = axios.create({
 })
 
 export default axiosClient
+
+export function setAccessToken(token: string | undefined) {
+	axiosClient.interceptors.request.use(
+		config => {
+			config.headers['Authorization'] = `Bearer ${token}`
+			return config
+		},
+		error => {
+			return Promise.reject(error)
+		}
+	)
+}

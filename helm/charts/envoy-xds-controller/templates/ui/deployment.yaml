@@ -45,6 +45,33 @@ spec:
         env:
           - name: VITE_ROOT_API_URL
             value: "{{ .Values.ui.cacheAPI }}"
+          {{- if .Values.oidc.enabled }}
+          - name: VITE_OIDC_ENABLED
+            valueFrom:
+              secretKeyRef:
+                name: oidc-ui
+                key: OIDC_ENABLED
+          - name: VITE_OIDC_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: oidc-ui
+                key: OIDC_CLIENT_ID
+          - name: VITE_OIDC_AUTHORITY
+            valueFrom:
+              secretKeyRef:
+                name: oidc-ui
+                key: OIDC_AUTHORITY
+          - name: VITE_OIDC_SCOPE
+            valueFrom:
+              secretKeyRef:
+                name: oidc-ui
+                key: OIDC_SCOPE
+          - name: VITE_OIDC_REDIRECT_URI
+            valueFrom:
+              secretKeyRef:
+                name: oidc-ui
+                key: OIDC_REDIRECT_URI
+          {{- end }}
         {{- with .Values.ui.envs }}
           {{- tpl . $ | nindent 10 }}
         {{- end }}

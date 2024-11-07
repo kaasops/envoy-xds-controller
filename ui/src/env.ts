@@ -6,6 +6,11 @@ declare global {
 
 type EnvType = {
 	VITE_ROOT_API_URL: string
+	VITE_OIDC_ENABLED: boolean
+	VITE_OIDC_CLIENT_ID: string
+	VITE_OIDC_AUTHORITY: string
+	VITE_OIDC_REDIRECT_URI: string
+	VITE_OIDC_SCOPE: string
 }
 
 export const env: EnvType = { ...import.meta.env, ...window.env }
