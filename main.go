@@ -20,6 +20,8 @@ import (
 	"context"
 	"flag"
 	"os"
+	"strconv"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
@@ -198,7 +200,11 @@ func main() {
 
 	if enableCacheAPI {
 		go func() {
-			if err := xdsclient.New(xDSCache).Run(cacheAPIPort, cacheAPIScheme, cacheAPIAddr); err != nil {
+			xdsServerCfg := &xdsclient.Config{}
+			xdsServerCfg.Auth.Enabled, _ = strconv.ParseBool(os.Getenv("OIDC_ENABLED"))
+			xdsServerCfg.Auth.IssuerURL = os.Getenv("OIDC_ISSUER_URL")
+			xdsServerCfg.Auth.ClientID = os.Getenv("OIDC_CLIENT_ID")
+			if err := xdsclient.New(xDSCache, xdsServerCfg).Run(cacheAPIPort, cacheAPIScheme, cacheAPIAddr); err != nil {
 				setupLog.Error(err, "cannot run http xDS server")
 				os.Exit(1)
 			}

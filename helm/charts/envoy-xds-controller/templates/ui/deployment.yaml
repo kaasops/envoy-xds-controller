@@ -49,27 +49,31 @@ spec:
           - name: VITE_OIDC_ENABLED
             valueFrom:
               secretKeyRef:
-                name: oidc-ui
+                name: oidc
                 key: OIDC_ENABLED
+
           - name: VITE_OIDC_CLIENT_ID
             valueFrom:
               secretKeyRef:
-                name: oidc-ui
+                name: oidc
                 key: OIDC_CLIENT_ID
+
           - name: VITE_OIDC_AUTHORITY
             valueFrom:
               secretKeyRef:
-                name: oidc-ui
-                key: OIDC_AUTHORITY
+                name: oidc
+                key: OIDC_ISSUER_URL
+
           - name: VITE_OIDC_SCOPE
             valueFrom:
               secretKeyRef:
-                name: oidc-ui
+                name: oidc
                 key: OIDC_SCOPE
+
           - name: VITE_OIDC_REDIRECT_URI
             valueFrom:
               secretKeyRef:
-                name: oidc-ui
+                name: oidc
                 key: OIDC_REDIRECT_URI
           {{- end }}
         {{- with .Values.ui.envs }}

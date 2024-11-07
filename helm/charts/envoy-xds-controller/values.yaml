@@ -162,7 +162,7 @@ webhook:
 
 oidc:
   enabled: true
-  clientId: envoy-xds-controller
-  authority: http://localhost:5556
-  scope: 'openid profile'
-  redirectUri: http://localhost:8080/callback
+  clientId: "envoy-xds-controller"
+  issuerUrl: "http://dex.dex:5556"
+  scope: "openid profile"
+  redirectUri: "http://localhost:8080/callback"

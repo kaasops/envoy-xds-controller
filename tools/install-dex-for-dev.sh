@@ -11,7 +11,7 @@ metadata:
   name: dex-config
 data:
   config.yaml: |
-    issuer: http://localhost:5556
+    issuer: http://dex.${NAMESPACE}:5556
 
     storage:
       type: sqlite3
