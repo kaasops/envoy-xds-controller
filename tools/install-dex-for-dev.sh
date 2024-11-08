@@ -12,30 +12,24 @@ metadata:
 data:
   config.yaml: |
     issuer: http://dex.${NAMESPACE}:5556
-
     storage:
       type: sqlite3
       config:
         file: /tmp/dex.db
-
     web:
       http: 0.0.0.0:5556
       allowedOrigins: ['*']
-
     connectors:
     - type: mockCallback
       id: mock
       name: Example
-
     staticClients:
     - id: envoy-xds-controller
       redirectURIs:
       - 'http://localhost:8080/callback'
       name: 'Envoy xDS controller'
       public: true
-
     enablePasswordDB: true
-
     staticPasswords:
     - email: "admin@example.com"
       # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)

@@ -45,7 +45,7 @@ func (h *handler) getListeners(ctx *gin.Context) {
 	}
 
 	// Check node_id exist in cache
-	nodeIDs := h.cache.GetNodeIDs()
+	nodeIDs := h.cache.GetNodeIDs(ctx)
 	if !slices.Contains(nodeIDs, params[nodeIDParamName][0]) {
 		ctx.JSON(400, gin.H{"error": "node_id not found in cache", "node_id": params[nodeIDParamName][0]})
 		return

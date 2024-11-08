@@ -17,10 +17,12 @@ import (
 )
 
 type Config struct {
-	Auth struct {
+	EnableDevMode bool
+	Auth          struct {
 		Enabled   bool
 		IssuerURL string
 		ClientID  string
+		ACL       map[string][]string
 	}
 }
 
@@ -49,7 +51,7 @@ func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	}))
 
 	if c.cfg.Auth.Enabled {
-		authMiddleware, err := middlewares.NewAuth(c.cfg.Auth.IssuerURL, c.cfg.Auth.ClientID)
+		authMiddleware, err := middlewares.NewAuth(c.cfg.Auth.IssuerURL, c.cfg.Auth.ClientID, c.cfg.Auth.ACL, c.cfg.EnableDevMode)
 		if err != nil {
 			return fmt.Errorf("failed to create auth middleware: %w", err)
 		}

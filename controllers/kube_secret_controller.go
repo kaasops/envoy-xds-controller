@@ -83,7 +83,7 @@ func (r *KubeSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	nodeIDs := k8s.NodeIDs(kubeSecret)
 	if len(nodeIDs) == 0 {
-		nodeIDs = r.Cache.GetNodeIDs()
+		nodeIDs = r.Cache.GetAllNodeIDs()
 	}
 
 	envoySecrets, err := cache.MakeEnvoySecretFromKubernetesSecret(kubeSecret)

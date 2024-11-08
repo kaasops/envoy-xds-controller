@@ -49,13 +49,15 @@ spec:
           - --cache-api-port={{ .Values.cacheAPI.port }}
           - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
           - --cache-api-addr={{ .Values.cacheAPI.address }}
+          - --cache-api-dev-mode={{ .Values.cacheAPI.devMode }}
           {{- end }}
         {{- else if .Values.cacheAPI.enabled }}
         args:
-          - --cache-api-port={{ .Values.cacheAPI.port }}
           - --enable-cache-api=true
+          - --cache-api-port={{ .Values.cacheAPI.port }}
           - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
           - --cache-api-addr={{ .Values.cacheAPI.address }}
+          - --cache-api-dev-mode={{ .Values.cacheAPI.devMode }}
         {{- end }}
         env:
           - name: XDS_PORT
@@ -78,6 +80,13 @@ spec:
               secretKeyRef:
                 name: oidc
                 key: OIDC_CLIENT_ID
+        {{- end }}
+        {{- if .Values.acl.enabled }}
+          - name: ACL_CONFIG
+            valueFrom:
+              secretKeyRef:
+                name: acl
+                key: ACL_CONFIG
         {{- end }}
         {{- with .Values.envs }}
           {{- tpl . $ | nindent 10 }}
