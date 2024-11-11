@@ -18,15 +18,15 @@ COPY entrypoint.sh /entrypoint.sh
 
 RUN apt-get update && \
     apt-get install -yq --no-install-recommends \
-    curl \ 
+    curl \
     wget \
     git \
-    gnupg 
+    gnupg
 
 RUN curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && \
     apt-get install -y nodejs \
     build-essential && \
-    node --version && \ 
+    node --version && \
     npm --version
 
 WORKDIR /usr/share/nginx/html

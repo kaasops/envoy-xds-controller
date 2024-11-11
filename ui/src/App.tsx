@@ -2,14 +2,14 @@ import { ThemeProvider } from '@emotion/react'
 import { useAuth } from 'react-oidc-context'
 import { CssBaseline } from '@mui/material'
 import { Suspense, lazy } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, Navigate } from 'react-router-dom'
 import ErrorBoundary from './components/errorBoundary/ErrorBoundary'
 import Spinner from './components/spinner/Spinner'
 import Layout from './layout/layout'
 import { ColorModeContext } from './theme/theme'
 import useThemeMode from './utils/hooks/useThemeMode'
 import { setAccessToken } from './api/axiosApiClient.ts'
-import { env } from "./env.ts";
+import { env } from './env.ts'
 
 const HomePage = lazy(() => import('./pages/home/Home'))
 const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'))
@@ -32,7 +32,7 @@ function App() {
 
 		if (!auth.isAuthenticated) {
 			void auth.signinRedirect()
-			return <div>Redirecting...</div>
+			return <div>Redirect to login...</div>
 		}
 
 		setAccessToken(auth.user?.access_token)
@@ -52,6 +52,7 @@ function App() {
 							<Route path='kuber' element={<Layout />}>
 								<Route index element={<KuberPage />} />
 							</Route>
+							<Route path='callback' element={<Navigate to='/nodeIDs' replace />} />
 							<Route path='*' element={<Page404 />} />
 						</Routes>
 					</ErrorBoundary>
