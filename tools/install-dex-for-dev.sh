@@ -4,6 +4,8 @@ NAMESPACE=dex
 
 kubectl create namespace $NAMESPACE
 
+TEST_STATIC_PASSWORD=$(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
+
 cat <<EOF | kubectl apply -n $NAMESPACE -f -
 apiVersion: v1
 kind: ConfigMap
@@ -32,8 +34,7 @@ data:
     enablePasswordDB: true
     staticPasswords:
     - email: "admin@example.com"
-      # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
-      hash: "\$2a\$10\$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
+      hash: "${TEST_STATIC_PASSWORD}"
       username: "admin"
       userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
 EOF
