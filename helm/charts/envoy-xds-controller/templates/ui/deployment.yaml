@@ -45,7 +45,7 @@ spec:
         env:
           - name: VITE_ROOT_API_URL
             value: "{{ .Values.ui.cacheAPI }}"
-          {{- if .Values.oidc.enabled }}
+          {{- if .Values.auth.enabled }}
           - name: VITE_OIDC_ENABLED
             valueFrom:
               secretKeyRef:

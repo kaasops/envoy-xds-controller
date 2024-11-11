@@ -1,12 +1,11 @@
-{{- if .Values.acl.nodeIdsByGroup -}}
+{{- if .Values.auth.acl.nodeIdsByGroup -}}
 apiVersion: v1
-kind: Secret
+kind: ConfigMap
 metadata:
   name: acl
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
-type: Opaque
 data:
-  ACL_CONFIG: {{ .Values.acl.nodeIdsByGroup | toJson | b64enc }}
+  ACL_CONFIG: '{{ .Values.auth.acl.nodeIdsByGroup | toJson }}'
 {{- end }}

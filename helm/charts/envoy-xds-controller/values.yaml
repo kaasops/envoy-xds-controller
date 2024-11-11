@@ -161,19 +161,19 @@ webhook:
     # -- Name of the Envoy xDS Controller TLS Secret name when externally managed.
     name: "envoy-xds-controller-tls"
 
-oidc:
+auth:
   enabled: true
-  clientId: "envoy-xds-controller"
-  issuerUrl: "http://dex.dex:5556"
-  scope: "openid profile groups"
-  redirectUri: "http://localhost:8080/callback"
-
-acl:
-  nodeIdsByGroup:
-    admins:
-      - "*"
-    authors:
-      - "node1"
-    users:
-      - "node1"
-      - "node2"
+  oidc:
+    clientId: "envoy-xds-controller"
+    issuerUrl: "http://dex.dex:5556"
+    scope: "openid profile groups"
+    redirectUri: "http://localhost:8080/callback"
+  acl:
+    nodeIdsByGroup:
+      admins:
+        - "*"
+      authors:
+        - "node1"
+      users:
+        - "node1"
+        - "node2"

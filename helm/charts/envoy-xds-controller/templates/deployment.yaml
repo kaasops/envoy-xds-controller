@@ -64,7 +64,7 @@ spec:
             value: "{{ .Values.xds.port }}"
           - name: INSTALATION_NAMESPACE
             value: {{ .Release.Namespace }}
-        {{- if .Values.oidc.enabled }}
+        {{- if .Values.auth.enabled }}
           - name: OIDC_ENABLED
             valueFrom:
               secretKeyRef:
@@ -81,10 +81,10 @@ spec:
                 name: oidc
                 key: OIDC_CLIENT_ID
         {{- end }}
-        {{- if .Values.acl.enabled }}
+        {{- if .Values.auth.acl.nodeIdsByGroup }}
           - name: ACL_CONFIG
             valueFrom:
-              secretKeyRef:
+              configMapKeyRef:
                 name: acl
                 key: ACL_CONFIG
         {{- end }}

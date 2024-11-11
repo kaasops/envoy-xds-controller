@@ -8,10 +8,11 @@ TEST_STATIC_PASSWORD=$(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
 
 cat <<EOF | kubectl apply -n $NAMESPACE -f -
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: dex-config
-data:
+type: Opaque
+stringData:
   config.yaml: |
     issuer: http://dex.${NAMESPACE}:5556
     storage:
@@ -39,7 +40,6 @@ data:
       userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
 EOF
 
-# Создаем Deployment для Dex
 cat <<EOF | kubectl apply -n $NAMESPACE -f -
 apiVersion: apps/v1
 kind: Deployment
@@ -67,8 +67,8 @@ spec:
           mountPath: /etc/dex
       volumes:
       - name: config
-        configMap:
-          name: dex-config
+        secret:
+          secretName: dex-config
 EOF
 
 cat <<EOF | kubectl apply -n $NAMESPACE -f -
