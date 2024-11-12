@@ -7,7 +7,7 @@ xds:
 
 cacheAPI:
   enabled: false
-  devMode: true
+  devMode: false
   port: 9999
   address: "localhost:9999"
   scheme: "http"
@@ -162,7 +162,7 @@ webhook:
     name: "envoy-xds-controller-tls"
 
 auth:
-  enabled: true
+  enabled: false
   oidc:
     clientId: "envoy-xds-controller"
     issuerUrl: "http://dex.dex:5556"

@@ -18,7 +18,7 @@ const Page404 = lazy(() => import('./pages/page404/page404'))
 
 function App() {
 	const [theme, colorMode] = useThemeMode()
-	if (env.VITE_OIDC_ENABLED) {
+	if (env.VITE_OIDC_ENABLED === 'true') {
 		// eslint-disable-next-line react-hooks/rules-of-hooks
 		const auth = useAuth()
 

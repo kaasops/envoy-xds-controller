@@ -13,23 +13,26 @@ import { BrowserRouter } from 'react-router-dom';
 import queryClient from './utils/queryClient/queryClient.ts';
 import { env } from './env.ts'
 
-const oidcConfig = {
-	authority: env.VITE_OIDC_AUTHORITY,
-	client_id: env.VITE_OIDC_CLIENT_ID,
-	redirect_uri: env.VITE_OIDC_REDIRECT_URI || document.location.origin,
-	scope: env.VITE_OIDC_SCOPE
+function createApp() {
+	const app = (
+		<QueryClientProvider client={queryClient}>
+			<BrowserRouter>
+				<React.StrictMode>
+					<App />
+				</React.StrictMode>
+			</BrowserRouter>
+		</QueryClientProvider>
+	)
+	if (env.VITE_OIDC_ENABLED === 'true') {
+		const oidcConfig = {
+			authority: env.VITE_OIDC_AUTHORITY,
+			client_id: env.VITE_OIDC_CLIENT_ID,
+			redirect_uri: env.VITE_OIDC_REDIRECT_URI || document.location.origin,
+			scope: env.VITE_OIDC_SCOPE
+		}
+		return <AuthProvider {...oidcConfig}>{app}</AuthProvider>
+	}
+	return app
 }
 
-const app = (
-	<QueryClientProvider client={queryClient}>
-		<BrowserRouter>
-			<React.StrictMode>
-				<App />
-			</React.StrictMode>
-		</BrowserRouter>
-	</QueryClientProvider>
-)
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-	env.VITE_OIDC_ENABLED ? <AuthProvider {...oidcConfig}>{app}</AuthProvider> : app
-)
+ReactDOM.createRoot(document.getElementById('root')!).render(createApp())
