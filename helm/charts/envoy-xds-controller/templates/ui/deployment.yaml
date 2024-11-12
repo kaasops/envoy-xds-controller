@@ -43,7 +43,7 @@ spec:
           {{- toYaml .Values.ui.args | nindent 10 }}
         {{- end }}
         env:
-          - name: VITE_ROOT_API_URL
+          - name: API_PROXY_PASS
             value: "{{ .Values.ui.cacheAPI }}"
           {{- if .Values.auth.enabled }}
           - name: VITE_OIDC_ENABLED

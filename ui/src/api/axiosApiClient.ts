@@ -2,7 +2,7 @@ import axios from 'axios'
 import { env } from '../env.ts'
 
 const axiosClient = axios.create({
-	baseURL: env.VITE_ROOT_API_URL,
+	baseURL: env.VITE_ROOT_API_URL || '/api/v1',
 	headers: { 'Content-Type': 'application/json' }
 })
 

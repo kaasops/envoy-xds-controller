@@ -33,7 +33,7 @@ ui:
     pullPolicy: IfNotPresent
   args: []
   envs: {}
-  cacheAPI: "https://envoy-xds-controller-api.<DOMAIN-ZONE>/api/v1"
+  cacheAPI: "http://exc-envoy-xds-controller-cache-api:9999"
   resources:
     limits:
       cpu: "1"

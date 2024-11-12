@@ -12,8 +12,11 @@ RUN npm run build
 
 FROM nginx:1.25.3
 
+ENV API_PROXY_PASS=http://exc-envoy-xds-controller-cache-api:9999
+
 COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.cfg/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.cfg/template.conf /etc/nginx/conf.d/template.conf
+
 COPY entrypoint.sh /entrypoint.sh
 
 RUN apt-get update && \
