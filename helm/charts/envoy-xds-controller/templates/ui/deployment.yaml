@@ -43,8 +43,39 @@ spec:
           {{- toYaml .Values.ui.args | nindent 10 }}
         {{- end }}
         env:
-          - name: VITE_ROOT_API_URL
+          - name: API_PROXY_PASS
             value: "{{ .Values.ui.cacheAPI }}"
+          {{- if .Values.auth.enabled }}
+          - name: VITE_OIDC_ENABLED
+            valueFrom:
+              secretKeyRef:
+                name: oidc
+                key: OIDC_ENABLED
+
+          - name: VITE_OIDC_CLIENT_ID
+            valueFrom:
+              secretKeyRef:
+                name: oidc
+                key: OIDC_CLIENT_ID
+
+          - name: VITE_OIDC_AUTHORITY
+            valueFrom:
+              secretKeyRef:
+                name: oidc
+                key: OIDC_ISSUER_URL
+
+          - name: VITE_OIDC_SCOPE
+            valueFrom:
+              secretKeyRef:
+                name: oidc
+                key: OIDC_SCOPE
+
+          - name: VITE_OIDC_REDIRECT_URI
+            valueFrom:
+              secretKeyRef:
+                name: oidc
+                key: OIDC_REDIRECT_URI
+          {{- end }}
         {{- with .Values.ui.envs }}
           {{- tpl . $ | nindent 10 }}
         {{- end }}

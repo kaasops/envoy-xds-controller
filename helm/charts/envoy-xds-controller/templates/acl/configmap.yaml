@@ -1,0 +1,11 @@
+{{- if .Values.auth.acl.nodeIdsByGroup -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: acl
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  ACL_CONFIG: '{{ .Values.auth.acl.nodeIdsByGroup | toJson }}'
+{{- end }}

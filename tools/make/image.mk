@@ -47,3 +47,20 @@ image.push-local: image.build-local
 	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
 	@$(call log, "Pushing docker image tag $(LOCAL_IMAGE):$(TAG) in linux/$(GOARCH)")
 	$(DOCKER) push $(LOCAL_IMAGE):$(TAG)
+
+# ui
+
+.PHONY: image.build-ui-local
+image.build-ui-local:
+	@$(LOG_TARGET)
+	@$(call log, "Building image $(LOCAL_UI_IMAGE):$(TAG) in linux/$(GOARCH)")
+	$(eval BUILD_SUFFIX := --pull --load -t $(LOCAL_UI_IMAGE):$(TAG) -f $(ROOT_DIR)/ui/Dockerfile ./ui)
+	@$(call log, "Creating image tag $(LOCAL_UI_IMAGE):$(TAG) in linux/$(GOARCH)")
+	$(DOCKER) buildx build --platform linux/$(GOARCH) $(BUILD_SUFFIX)
+
+.PHONY: image.push-ui-local
+image.push-ui-local: image.build-ui-local
+	@$(LOG_TARGET)
+	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	@$(call log, "Pushing docker image tag $(LOCAL_UI_IMAGE):$(TAG) in linux/$(GOARCH)")
+	$(DOCKER) push $(LOCAL_UI_IMAGE):$(TAG)

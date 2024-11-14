@@ -18,8 +18,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
+	"strconv"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 
@@ -78,6 +81,7 @@ func main() {
 	var cacheAPIPort int
 	var cacheAPIScheme string
 	var cacheAPIAddr string
+	var cacheAPIDevMode bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -87,6 +91,7 @@ func main() {
 	flag.IntVar(&cacheAPIPort, "cache-api-port", 9999, "Cache API port")
 	flag.StringVar(&cacheAPIScheme, "cache-api-scheme", "http", "Cache API scheme")
 	flag.StringVar(&cacheAPIAddr, "cache-api-addr", "localhost:9999", "Cache API address")
+	flag.BoolVar(&cacheAPIDevMode, "cache-api-dev-mode", false, "Enable dev mode")
 
 	cfg, err := config.New()
 	if err != nil {
@@ -198,7 +203,19 @@ func main() {
 
 	if enableCacheAPI {
 		go func() {
-			if err := xdsclient.New(xDSCache).Run(cacheAPIPort, cacheAPIScheme, cacheAPIAddr); err != nil {
+			xdsServerCfg := &xdsclient.Config{}
+			xdsServerCfg.EnableDevMode = cacheAPIDevMode
+			xdsServerCfg.Auth.Enabled, _ = strconv.ParseBool(os.Getenv("OIDC_ENABLED"))
+			xdsServerCfg.Auth.IssuerURL = os.Getenv("OIDC_ISSUER_URL")
+			xdsServerCfg.Auth.ClientID = os.Getenv("OIDC_CLIENT_ID")
+			if acl := os.Getenv("ACL_CONFIG"); acl != "" {
+				err = json.Unmarshal([]byte(acl), &xdsServerCfg.Auth.ACL)
+				if err != nil {
+					setupLog.Error(err, "failed to parse ACL config")
+					os.Exit(1)
+				}
+			}
+			if err := xdsclient.New(xDSCache, xdsServerCfg).Run(cacheAPIPort, cacheAPIScheme, cacheAPIAddr); err != nil {
 				setupLog.Error(err, "cannot run http xDS server")
 				os.Exit(1)
 			}

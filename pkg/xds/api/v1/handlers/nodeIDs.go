@@ -14,7 +14,7 @@ import (
 // @Success 200 {array} string
 // @Router /api/v1/nodeIDs [get]
 func (h *handler) getNodeIDs(ctx *gin.Context) {
-	nodeIDs := h.cache.GetNodeIDs()
+	nodeIDs := h.cache.GetNodeIDs(ctx)
 	sort.Strings(nodeIDs)
 
 	ctx.JSON(200, nodeIDs)

@@ -3,6 +3,8 @@ package cache
 import (
 	"context"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/kaasops/envoy-xds-controller/pkg/xds/api/v1/middlewares"
 	"strconv"
 	"strings"
 	"sync"
@@ -174,7 +176,21 @@ func (c *Cache) GetResources(nodeID string) (map[resourcev3.Type][]types.Resourc
 	return resources, version, nil
 }
 
-func (c *Cache) GetNodeIDs() []string {
+func (c *Cache) GetNodeIDs(ctx *gin.Context) []string {
+	if v, exists := ctx.Get(middlewares.AvailableNodeIDs); exists {
+		availableNodeIDs := v.(map[string]struct{})
+		nodeIDs := make([]string, 0, len(availableNodeIDs))
+		for _, nodeID := range c.nodeIDs {
+			if _, ok := availableNodeIDs[nodeID]; ok {
+				nodeIDs = append(nodeIDs, nodeID)
+			}
+		}
+		return nodeIDs
+	}
+	return c.nodeIDs
+}
+
+func (c *Cache) GetAllNodeIDs() []string {
 	return c.nodeIDs
 }
 
@@ -208,7 +224,7 @@ func (c *Cache) Wait() error {
 func (c *Cache) getResourceCount() (int, error) {
 	resourceCount := 0
 
-	nodeIDs := c.GetNodeIDs()
+	nodeIDs := c.GetAllNodeIDs()
 
 	for _, nodeID := range nodeIDs {
 		resources, _, err := c.GetResources(nodeID)

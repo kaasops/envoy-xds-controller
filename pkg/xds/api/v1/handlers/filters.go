@@ -35,7 +35,7 @@ type getFilterTypeResponse struct {
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/filterType [get]
 func (h *handler) getFilterType(ctx *gin.Context) {
-	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
+	filters, err := h.getRequestFilters(ctx)
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -69,7 +69,7 @@ type GetHCMFilterResponse struct {
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/filters [get]
 func (h *handler) getFilter(ctx *gin.Context) {
-	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
+	filters, err := h.getRequestFilters(ctx)
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -107,7 +107,7 @@ type GetTCPProxyFilterResponse struct {
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/filtersTCPProxy [get]
 func (h *handler) getTCPProxyFilters(ctx *gin.Context) {
-	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
+	filters, err := h.getRequestFilters(ctx)
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -147,7 +147,7 @@ type GetHttpsFilterResponse struct {
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/httpFilters [get]
 func (h *handler) getHTTPFilters(ctx *gin.Context) {
-	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
+	filters, err := h.getRequestFilters(ctx)
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -181,7 +181,7 @@ type GetHttpFilterRouterResponse struct {
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/httpFilterRouter [get]
 func (h *handler) getHTTPFilterRouter(ctx *gin.Context) {
-	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
+	filters, err := h.getRequestFilters(ctx)
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -238,7 +238,7 @@ type GetHttpFilterRBACResponse struct {
 // @Failure 400 {object} map[string]string "error": "node_id not found in cache", "node_id": nodeID
 // @Router /api/v1/httpFilterRBAC [get]
 func (h *handler) getHTTPFilterRBAC(ctx *gin.Context) {
-	filters, err := h.getRequestFilters(ctx.Request.URL.Query())
+	filters, err := h.getRequestFilters(ctx)
 	if err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -277,7 +277,9 @@ func (h *handler) getHTTPFilterRBAC(ctx *gin.Context) {
 	}
 }
 
-func (h *handler) getRequestFilters(queryValues url.Values) ([]*listenerv3.Filter, error) {
+func (h *handler) getRequestFilters(ctx *gin.Context) ([]*listenerv3.Filter, error) {
+
+	queryValues := ctx.Request.URL.Query()
 	var filters []*listenerv3.Filter
 
 	params, err := h.getParamsForFilterRequests(queryValues)
@@ -286,7 +288,7 @@ func (h *handler) getRequestFilters(queryValues url.Values) ([]*listenerv3.Filte
 	}
 
 	// Check node_id exist in cache
-	nodeIDs := h.cache.GetNodeIDs()
+	nodeIDs := h.cache.GetNodeIDs(ctx)
 	if !slices.Contains(nodeIDs, params[nodeIDParamName][0]) {
 		return nil, fmt.Errorf("node_id not found in cache. node_id: %v", params[nodeIDParamName][0])
 	}
