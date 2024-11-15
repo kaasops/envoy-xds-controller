@@ -18,8 +18,8 @@ function CustomTabPanel(props: ICustomTabPanelProps) {
 			{...other}
 		>
 			{value === index && (
-				<Box sx={{ p: 3 }}>
-					<Box>{children}</Box>
+				<Box sx={{ p: 1 }} height='100%'>
+					<Box className='Costyl style Pane'>{children}</Box>
 				</Box>
 			)}
 		</div>
