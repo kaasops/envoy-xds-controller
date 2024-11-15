@@ -57,40 +57,60 @@ function CodeBlock({ jsonData, yamlData, heightCodeBox }: any) {
 		}
 	}
 
+	const elementRef = useRef<HTMLDivElement>(null)
+	const [height, setHeight] = useState<number | null>(null)
+
+	const updateHeight = () => {
+		if (elementRef.current) {
+			setHeight(elementRef.current.getBoundingClientRect().height)
+		}
+	}
+
+	useEffect(() => {
+		updateHeight() // Устанавливаем начальную высоту
+		window.addEventListener('resize', updateHeight) // Обновляем при изменении размера окна
+
+		return () => {
+			window.removeEventListener('resize', updateHeight) // Чистим обработчик
+		}
+	}, [])
+
 	return (
 		<Box className='CodeBox' display='flex' flexDirection='column' height={`${heightCodeBox}%`}>
-			<Box className='TabsWrapper' overflow='auto' maxHeight={'100%'} height={'100%'}>
+			<Box className='TabsWrapper' height='calc(100% - 36px)' display='flex' flexDirection='column'>
 				<Box className='TabsPanel' sx={{ borderBottom: 1, borderColor: 'divider' }}>
 					<Tabs value={tabIndex} onChange={handleChangeTabIndex} aria-label='basic tabs example'>
 						<Tab label='JSON' {...a11yProps(0)} />
 						<Tab label='YAML' {...a11yProps(1)} />
 					</Tabs>
 				</Box>
-				<CustomTabPanel value={tabIndex} index={0}>
-					<Editor
-						onMount={handleEditorDidMount}
-						height='100vh'
-						defaultLanguage='json'
-						value={JSON.stringify(jsonData, null, 2)}
-						theme={theme.palette.mode === 'light' ? 'light' : 'vs-dark'}
-						options={{ readOnly: true, minimap: { enabled: false } }}
-					/>
-				</CustomTabPanel>
-				<CustomTabPanel value={tabIndex} index={1}>
-					<Editor
-						onMount={handleEditorDidMount}
-						height='100vh'
-						defaultLanguage='yaml'
-						value={yamlData}
-						theme={theme.palette.mode === 'light' ? 'light' : 'vs-dark'}
-						options={{
-							readOnly: true,
-							minimap: { enabled: false }
-						}}
-					/>
-				</CustomTabPanel>
+				<Box className='panelBox' height='100%' ref={elementRef}>
+					<CustomTabPanel value={tabIndex} index={0}>
+						<Editor
+							onMount={handleEditorDidMount}
+							height={`calc(${height}px - 18px)`}
+							defaultLanguage='json'
+							value={JSON.stringify(jsonData, null, 2)}
+							theme={theme.palette.mode === 'light' ? 'light' : 'vs-dark'}
+							options={{ readOnly: true, minimap: { enabled: false } }}
+						/>
+					</CustomTabPanel>
+					<CustomTabPanel value={tabIndex} index={1}>
+						<Editor
+							onMount={handleEditorDidMount}
+							height={`calc(${height}px - 18px)`}
+							defaultLanguage='yaml'
+							value={yamlData}
+							theme={theme.palette.mode === 'light' ? 'light' : 'vs-dark'}
+							options={{
+								readOnly: true,
+								minimap: { enabled: false }
+							}}
+						/>
+					</CustomTabPanel>
+				</Box>
 			</Box>
-			<Box display='flex' justifyContent='flex-end' margin={'16px 23px'} gap={2}>
+			<Box display='flex' justifyContent='flex-end' margin={'16px 23px 0'} gap={2} height='36px'>
 				<Button variant='contained' onClick={handleCopyClick}>
 					Copy
 				</Button>
