@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	mgrCache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"strconv"
 
 	"github.com/go-logr/zapr"
@@ -78,8 +79,8 @@ func init() {
 }
 
 type Config struct {
-	WatchNamespaces       string `default:""                     envconfig:"WATCH_NAMESPACES"`
-	InstallationNamespace string `default:"envoy-xds-controller" envconfig:"INSTALLATION_NAMESPACE"`
+	WatchNamespaces       []string `default:""                     envconfig:"WATCH_NAMESPACES"`
+	InstallationNamespace string   `default:"envoy-xds-controller" envconfig:"INSTALLATION_NAMESPACE"`
 	XDS                   struct {
 		Port int `default:"9000" envconfig:"XDS_PORT"`
 	}
@@ -182,7 +183,7 @@ func main() {
 		// this setup is not recommended for production.
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgrOpts := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
@@ -200,7 +201,13 @@ func main() {
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
-	})
+	}
+	if mgrCacheOpts := managerCacheOptions(&cfg); mgrCacheOpts != nil {
+		setupLog.Info("watching namespaces", "namespaces", cfg.WatchNamespaces)
+		mgrOpts.Cache = *mgrCacheOpts
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
@@ -464,5 +471,17 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
 
+func managerCacheOptions(cfg *Config) *mgrCache.Options {
+	if len(cfg.WatchNamespaces) == 0 {
+		return nil
+	}
+	mgrCacheOpts := &mgrCache.Options{
+		DefaultNamespaces: make(map[string]mgrCache.Config),
+	}
+	for _, namespace := range cfg.WatchNamespaces {
+		mgrCacheOpts.DefaultNamespaces[namespace] = mgrCache.Config{}
+	}
+	return mgrCacheOpts
 }
