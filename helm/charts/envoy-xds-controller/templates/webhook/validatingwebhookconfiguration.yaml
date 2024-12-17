@@ -24,7 +24,11 @@ webhooks:
     failurePolicy: Fail
     matchPolicy: Equivalent
     name: {{ .name }}
+    {{- if .namespaceSelector }}
+    namespaceSelector: {{ .namespaceSelector | toYaml | nindent 6 }}
+    {{- else }}
     namespaceSelector: {}
+    {{- end }}
     objectSelector: {}
     rules: {{ .rules | toYaml | nindent 4 }}
     sideEffects: None

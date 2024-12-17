@@ -62,7 +62,7 @@ spec:
         env:
           - name: XDS_PORT
             value: "{{ .Values.xds.port }}"
-          - name: INSTALATION_NAMESPACE
+          - name: INSTALLATION_NAMESPACE
             value: {{ .Release.Namespace }}
         {{- if .Values.auth.enabled }}
           - name: OIDC_ENABLED

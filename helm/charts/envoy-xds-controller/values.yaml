@@ -271,7 +271,12 @@ webhook:
             - DELETE
           resources:
             - secrets
-          scope: '*'
+          scope: "Namespaced"
+      namespaceSelector:
+        matchExpressions:
+          - key: kubernetes.io/metadata.name
+            operator: In
+            values: [ "envoy-xds-controller" ]
     - name: vvirtualservice-v1alpha1.kb.io
       clientConfig:
         service:
