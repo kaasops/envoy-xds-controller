@@ -1,3 +1,4 @@
+
 {{- if .Values.webhook.enabled -}}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -10,41 +11,24 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 webhooks:
-- admissionReviewVersions:
-    - v1
-    - v1beta1
-  clientConfig:
-    caBundle: Cg==
-    service:
-      name: envoy-xds-controller-webhook-service
-      namespace: {{ .Release.Namespace }}
-      path: /validate
-      port: 443
-  failurePolicy: Fail
-  matchPolicy: Equivalent
-  name: validate.envoy.kaasops.io
-  objectSelector: {}
-  rules:
-    - apiGroups:
-        - 'envoy.kaasops.io'
-      apiVersions:
-        - '*'
-      operations:
-        - CREATE
-        - UPDATE
-        - DELETE
-      resources:
-        - '*'
-      scope: '*'
-    - apiGroups:
-        - ""
-      apiVersions:
-        - v1
-      operations:
-        - DELETE
-      resources:
-        - secrets
-      scope: '*'
-  sideEffects: None
-  timeoutSeconds: 30
+{{- range .Values.webhook.webhooks }}
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ $.Release.Namespace }}
+        path: {{ .clientConfig.service.path }}
+        port: 443
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: {{ .name }}
+    namespaceSelector: {}
+    objectSelector: {}
+    rules: {{ .rules | toYaml | nindent 4 }}
+    sideEffects: None
+    timeoutSeconds: 10
+{{- end }}
 {{- end -}}
+

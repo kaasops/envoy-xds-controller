@@ -1,8 +1,6 @@
 package v1alpha1
 
-// type Message struct {
-// 	S string
-// }
+const AnnotationSecretDomains = "envoy.kaasops.io/domains"
 
 type Message string
 

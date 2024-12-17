@@ -45,19 +45,19 @@ spec:
         args:
           {{- toYaml .Values.args | nindent 10 }}
           {{- if .Values.cacheAPI.enabled }}
+          - --development={{ .Values.development }}
           - --enable-cache-api=true
           - --cache-api-port={{ .Values.cacheAPI.port }}
           - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
           - --cache-api-addr={{ .Values.cacheAPI.address }}
-          - --cache-api-dev-mode={{ .Values.cacheAPI.devMode }}
           {{- end }}
         {{- else if .Values.cacheAPI.enabled }}
         args:
+          - --development={{ .Values.development }}
           - --enable-cache-api=true
           - --cache-api-port={{ .Values.cacheAPI.port }}
           - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
           - --cache-api-addr={{ .Values.cacheAPI.address }}
-          - --cache-api-dev-mode={{ .Values.cacheAPI.devMode }}
         {{- end }}
         env:
           - name: XDS_PORT

@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,11 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 )
-
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
@@ -40,13 +36,12 @@ type VirtualServiceStatus struct {
 	LastAppliedHash *uint32 `json:"lastAppliedHash,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=vs,categories=all
-//+kubebuilder:printcolumn:name="Valid",type="boolean",JSONPath=".status.valid"
-//+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=vs,categories=all
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
-// VirtualService is the Schema for the virtualservices API
+// VirtualService is the Schema for the virtualservices API.
 type VirtualService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -55,9 +50,9 @@ type VirtualService struct {
 	Status VirtualServiceStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// VirtualServiceList contains a list of VirtualService
+// VirtualServiceList contains a list of VirtualService.
 type VirtualServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -66,18 +61,4 @@ type VirtualServiceList struct {
 
 func init() {
 	SchemeBuilder.Register(&VirtualService{}, &VirtualServiceList{})
-}
-
-func (v *VirtualService) GetListener() string {
-	return v.Spec.Listener.Name
-}
-
-func (v *VirtualService) GetAccessLogConfig() string {
-	return v.Spec.AccessLogConfig.Name
-}
-
-type VirtualServiceRBACSpec struct {
-	Action             string                           `json:"action,omitempty"`
-	Policies           map[string]*runtime.RawExtension `json:"policies,omitempty"`
-	AdditionalPolicies []*ResourceRef                   `json:"additionalPolicies,omitempty"`
 }

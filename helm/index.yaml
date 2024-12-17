@@ -2,8 +2,21 @@ apiVersion: v1
 entries:
   envoy-xds-controller:
   - apiVersion: v2
+    appVersion: v0.8.0
+    created: "2024-12-17T11:13:31.383831+02:00"
+    description: A Helm chart to install Envoy xDS Controller
+    digest: 5526c43550cb712dacc5ee1b005e1113a5751a931166d007d956822bf15283cd
+    home: https://github.com/kaasops/envoy-xds-controller
+    name: envoy-xds-controller
+    sources:
+    - https://github.com/kaasops/envoy-xds-controller
+    type: application
+    urls:
+    - https://kaasops.github.io/envoy-xds-controller/helm/packages/envoy-xds-controller-0.69.tgz
+    version: "0.69"
+  - apiVersion: v2
     appVersion: v0.7.0
-    created: "2024-10-24T17:14:53.33704+03:00"
+    created: "2024-12-17T11:13:31.383063+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: bc25cde57669ff9468e47cc9a221aeb120f7debef6c108c6258116b6acfbcbec
     home: https://github.com/kaasops/envoy-xds-controller
@@ -16,7 +29,7 @@ entries:
     version: "0.68"
   - apiVersion: v2
     appVersion: v0.6.4
-    created: "2024-10-24T17:14:53.336734+03:00"
+    created: "2024-12-17T11:13:31.382633+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 9d3e806a5699509badd6cef761eac7e813b94a52c86aadb4e9677bb36dc37af2
     home: https://github.com/kaasops/envoy-xds-controller
@@ -29,7 +42,7 @@ entries:
     version: "0.67"
   - apiVersion: v2
     appVersion: v0.6.3
-    created: "2024-10-24T17:14:53.336434+03:00"
+    created: "2024-12-17T11:13:31.382247+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: d4881872132f5195fe2836cf38f183c41273f9ebb397a38f5c5a1191d63acde9
     home: https://github.com/kaasops/envoy-xds-controller
@@ -42,7 +55,7 @@ entries:
     version: "0.66"
   - apiVersion: v2
     appVersion: v0.6.2
-    created: "2024-10-24T17:14:53.335905+03:00"
+    created: "2024-12-17T11:13:31.381851+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: e59737d925eb9ea5ca26cc8af153daae63008840626d280993ffc1e5e9e3545e
     home: https://github.com/kaasops/envoy-xds-controller
@@ -55,7 +68,7 @@ entries:
     version: "0.65"
   - apiVersion: v2
     appVersion: v0.6.1
-    created: "2024-10-24T17:14:53.335414+03:00"
+    created: "2024-12-17T11:13:31.381338+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8d155f5ba265ed077b2a793d0191192c8bff61a3d36b62f73fce7d7f3426526a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -68,7 +81,7 @@ entries:
     version: "0.64"
   - apiVersion: v2
     appVersion: v0.6.0
-    created: "2024-10-24T17:14:53.335062+03:00"
+    created: "2024-12-17T11:13:31.380888+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: fc4f52be75fdf511deef48bc0c626dd8415a8e3b0d014b7af26ac31b65b6e04a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -81,7 +94,7 @@ entries:
     version: "0.63"
   - apiVersion: v2
     appVersion: v0.5.0
-    created: "2024-10-24T17:14:53.334636+03:00"
+    created: "2024-12-17T11:13:31.380301+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: abe26ba17c51b40eb6b3cbc061abfdc7a708621359b23f58fe25a624181f07a9
     home: https://github.com/kaasops/envoy-xds-controller
@@ -94,7 +107,7 @@ entries:
     version: "0.62"
   - apiVersion: v2
     appVersion: v0.4.2
-    created: "2024-10-24T17:14:53.334278+03:00"
+    created: "2024-12-17T11:13:31.379886+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 69bf941b25a3aaaa39d37fb5549962c6e030bde37c396d783453970e8b733e1c
     home: https://github.com/kaasops/envoy-xds-controller
@@ -107,7 +120,7 @@ entries:
     version: "0.61"
   - apiVersion: v2
     appVersion: v0.4.1
-    created: "2024-10-24T17:14:53.333885+03:00"
+    created: "2024-12-17T11:13:31.379546+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 7515ee360e8fe16279a476d60f5ba44a6b5fd842419eceb69a00b70a7fe7fb25
     home: https://github.com/kaasops/envoy-xds-controller
@@ -120,7 +133,7 @@ entries:
     version: "0.60"
   - apiVersion: v2
     appVersion: v0.4.0
-    created: "2024-10-24T17:14:53.333471+03:00"
+    created: "2024-12-17T11:13:31.379235+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 7cccd7d40bf4954dfc59f651bff1c0adb2b7ec40737826c4fc9573dbfc9a9438
     home: https://github.com/kaasops/envoy-xds-controller
@@ -133,7 +146,7 @@ entries:
     version: "0.59"
   - apiVersion: v2
     appVersion: v0.3.0
-    created: "2024-10-24T17:14:53.332961+03:00"
+    created: "2024-12-17T11:13:31.378808+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 0f9ccb8ace5c5a62d8682bd97d79be70b8954ecced99228841cea5c68e7c11b8
     home: https://github.com/kaasops/envoy-xds-controller
@@ -146,7 +159,7 @@ entries:
     version: "0.58"
   - apiVersion: v2
     appVersion: v0.2.1
-    created: "2024-10-24T17:14:53.332605+03:00"
+    created: "2024-12-17T11:13:31.378416+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: ea56b03071070365101b88a37415421fd34fb14df40ef92dbcff974c9d5b819b
     home: https://github.com/kaasops/envoy-xds-controller
@@ -159,7 +172,7 @@ entries:
     version: "0.57"
   - apiVersion: v2
     appVersion: v0.2.0
-    created: "2024-10-24T17:14:53.332179+03:00"
+    created: "2024-12-17T11:13:31.377926+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: e34b20286fab65c19993dd45fe5222202b9e15c9a8e9eeeec283ad0d87493d7d
     home: https://github.com/kaasops/envoy-xds-controller
@@ -172,7 +185,7 @@ entries:
     version: "0.56"
   - apiVersion: v2
     appVersion: v0.1.43
-    created: "2024-10-24T17:14:53.331399+03:00"
+    created: "2024-12-17T11:13:31.377611+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f29628c637bc850a01683ad5418707671a116a69ba373f02a3ffafd3ff1f0a38
     home: https://github.com/kaasops/envoy-xds-controller
@@ -185,7 +198,7 @@ entries:
     version: "0.55"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.330983+03:00"
+    created: "2024-12-17T11:13:31.377155+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: add722c2bc9c6a4fbc697b1fea28054a3afc6728fc5be9a07a44dda5ddc632f2
     home: https://github.com/kaasops/envoy-xds-controller
@@ -198,7 +211,7 @@ entries:
     version: "0.54"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.330609+03:00"
+    created: "2024-12-17T11:13:31.376344+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 0931508a907d04e54fc774b44023462ba3d819caae78b87d71a7b895461d9c7c
     home: https://github.com/kaasops/envoy-xds-controller
@@ -211,7 +224,7 @@ entries:
     version: "0.53"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.330199+03:00"
+    created: "2024-12-17T11:13:31.375981+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: a1e9e0f3ed505bf997d3e276d15c0abad4a8c1f6186d320ef5f7305b254226be
     home: https://github.com/kaasops/envoy-xds-controller
@@ -224,7 +237,7 @@ entries:
     version: "0.52"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.329826+03:00"
+    created: "2024-12-17T11:13:31.375582+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 517711f9404273947d373e133437928b095b4dc01d6d6612991a201c8bca82ef
     home: https://github.com/kaasops/envoy-xds-controller
@@ -237,7 +250,7 @@ entries:
     version: "0.51"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.329318+03:00"
+    created: "2024-12-17T11:13:31.375129+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f52c7889be6934ee7b48655e7523135837d3fe7b2f4790d73ef5684aa6000041
     home: https://github.com/kaasops/envoy-xds-controller
@@ -250,7 +263,7 @@ entries:
     version: "0.50"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.328926+03:00"
+    created: "2024-12-17T11:13:31.374761+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 3ca6c35148eaa4ffacd1754b6f0e842c0f712f145d45060365691aec280d590c
     home: https://github.com/kaasops/envoy-xds-controller
@@ -263,7 +276,7 @@ entries:
     version: "0.49"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.328533+03:00"
+    created: "2024-12-17T11:13:31.374288+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: adf5432553c3e048d59e68f65bfd00658eb684626f889f0479af43c4516dfc29
     home: https://github.com/kaasops/envoy-xds-controller
@@ -276,7 +289,7 @@ entries:
     version: "0.48"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.328112+03:00"
+    created: "2024-12-17T11:13:31.373896+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 37ac38d85d3bc43cf96d5248398237d2bb416764f5b6740bc9618dc8895cd0d0
     home: https://github.com/kaasops/envoy-xds-controller
@@ -289,7 +302,7 @@ entries:
     version: "0.47"
   - apiVersion: v2
     appVersion: v0.1.42
-    created: "2024-10-24T17:14:53.327679+03:00"
+    created: "2024-12-17T11:13:31.373424+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 9d03935fe98540cffa6376e4fda2fb983cca271a60fd2d1d7775e04cb4ed9872
     home: https://github.com/kaasops/envoy-xds-controller
@@ -302,7 +315,7 @@ entries:
     version: "0.46"
   - apiVersion: v2
     appVersion: v0.1.41
-    created: "2024-10-24T17:14:53.327327+03:00"
+    created: "2024-12-17T11:13:31.373122+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f86592a852a0565f860a36c1dfb889a5bd78c79f67001f4622cebcdba924f693
     home: https://github.com/kaasops/envoy-xds-controller
@@ -315,7 +328,7 @@ entries:
     version: "0.45"
   - apiVersion: v2
     appVersion: v0.1.40
-    created: "2024-10-24T17:14:53.326868+03:00"
+    created: "2024-12-17T11:13:31.372707+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: e2ebbe9ec61ef5bfb9d3c094fae9a45bb8b7208492d9cc4d8f12229188c5e49f
     home: https://github.com/kaasops/envoy-xds-controller
@@ -328,7 +341,7 @@ entries:
     version: "0.44"
   - apiVersion: v2
     appVersion: v0.1.39
-    created: "2024-10-24T17:14:53.326547+03:00"
+    created: "2024-12-17T11:13:31.372354+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: ee81dd0da2046d930147dcda63baaccf01db3ca0ad1161af9df92509dba05ea4
     home: https://github.com/kaasops/envoy-xds-controller
@@ -341,7 +354,7 @@ entries:
     version: "0.43"
   - apiVersion: v2
     appVersion: v0.1.38
-    created: "2024-10-24T17:14:53.326184+03:00"
+    created: "2024-12-17T11:13:31.372108+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 3c5ce495af29bc00b829440d7b0e797910df6c946f17b9cdf684a37dd559e053
     home: https://github.com/kaasops/envoy-xds-controller
@@ -354,7 +367,7 @@ entries:
     version: "0.42"
   - apiVersion: v2
     appVersion: v0.1.37
-    created: "2024-10-24T17:14:53.32581+03:00"
+    created: "2024-12-17T11:13:31.371755+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 735e6b139fed9b2061b6169506d4f9558c0083f6adf68b4ee8be71b08ded1fae
     home: https://github.com/kaasops/envoy-xds-controller
@@ -367,7 +380,7 @@ entries:
     version: "0.41"
   - apiVersion: v2
     appVersion: v0.1.36
-    created: "2024-10-24T17:14:53.325144+03:00"
+    created: "2024-12-17T11:13:31.371509+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: e51a80863d598bf29b48ab475a69b2ae3b5f7e67ae73e1b55684a61df025e306
     home: https://github.com/kaasops/envoy-xds-controller
@@ -380,7 +393,7 @@ entries:
     version: "0.40"
   - apiVersion: v2
     appVersion: v0.1.35
-    created: "2024-10-24T17:14:53.324791+03:00"
+    created: "2024-12-17T11:13:31.371242+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 0d6eb827c36da698c3158f54f5d8200c82de9373d61f4a2eead8bf32199b6da8
     home: https://github.com/kaasops/envoy-xds-controller
@@ -393,7 +406,7 @@ entries:
     version: "0.39"
   - apiVersion: v2
     appVersion: v0.1.34
-    created: "2024-10-24T17:14:53.324409+03:00"
+    created: "2024-12-17T11:13:31.370631+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: ad8685c97637ab33ef5db4083204e734f8aa823afdfc17943d4f289d8c2aaeaf
     home: https://github.com/kaasops/envoy-xds-controller
@@ -406,7 +419,7 @@ entries:
     version: "0.38"
   - apiVersion: v2
     appVersion: v0.1.33
-    created: "2024-10-24T17:14:53.323937+03:00"
+    created: "2024-12-17T11:13:31.370358+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: b3f4db6adc3187325247f657ed7e8b16c3af46b1a919fe3a475a043f2c27434e
     home: https://github.com/kaasops/envoy-xds-controller
@@ -419,7 +432,7 @@ entries:
     version: "0.37"
   - apiVersion: v2
     appVersion: v0.1.32
-    created: "2024-10-24T17:14:53.323571+03:00"
+    created: "2024-12-17T11:13:31.370004+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: de0f49e58c170fde1f6adf794a4d20cec9c0172ed3139a74783994b020100db8
     home: https://github.com/kaasops/envoy-xds-controller
@@ -432,7 +445,7 @@ entries:
     version: "0.36"
   - apiVersion: v2
     appVersion: v0.1.31
-    created: "2024-10-24T17:14:53.323215+03:00"
+    created: "2024-12-17T11:13:31.369678+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f8028b75c551fdc405eae56f89d2d72731c57fdbe3abdd5864d226826ef4545e
     home: https://github.com/kaasops/envoy-xds-controller
@@ -445,7 +458,7 @@ entries:
     version: "0.35"
   - apiVersion: v2
     appVersion: v0.1.30
-    created: "2024-10-24T17:14:53.322952+03:00"
+    created: "2024-12-17T11:13:31.369337+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: dde0eacfe7d960b4df3c4ff62c116797c3a48edfa0f4d4455b9880d4b90bb058
     home: https://github.com/kaasops/envoy-xds-controller
@@ -458,7 +471,7 @@ entries:
     version: "0.34"
   - apiVersion: v2
     appVersion: v0.1.29
-    created: "2024-10-24T17:14:53.322682+03:00"
+    created: "2024-12-17T11:13:31.368876+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: b0d106939dbf89ff5c12e31c91fb7ab840a91d4b15b32e4c8a0efd788579adc4
     home: https://github.com/kaasops/envoy-xds-controller
@@ -471,7 +484,7 @@ entries:
     version: "0.33"
   - apiVersion: v2
     appVersion: v0.1.28
-    created: "2024-10-24T17:14:53.322413+03:00"
+    created: "2024-12-17T11:13:31.36862+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 522fb27cc53196ae7bc5879fd70280e72a78075eac8c0971555c498015582314
     home: https://github.com/kaasops/envoy-xds-controller
@@ -484,7 +497,7 @@ entries:
     version: "0.32"
   - apiVersion: v2
     appVersion: v0.1.28
-    created: "2024-10-24T17:14:53.322085+03:00"
+    created: "2024-12-17T11:13:31.368329+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 34acf0f09f6e806e49f5bcde2e4c0d8ab77b5ccaf2ab36bf6f86a31edc09e454
     home: https://github.com/kaasops/envoy-xds-controller
@@ -497,7 +510,7 @@ entries:
     version: "0.31"
   - apiVersion: v2
     appVersion: v0.1.27
-    created: "2024-10-24T17:14:53.321807+03:00"
+    created: "2024-12-17T11:13:31.367986+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 2c4b3db8717e0728a22efa7eb8384e1811cbc258f6ac93d00da0cf4d16364044
     home: https://github.com/kaasops/envoy-xds-controller
@@ -510,7 +523,7 @@ entries:
     version: "0.30"
   - apiVersion: v2
     appVersion: v0.1.26
-    created: "2024-10-24T17:14:53.319349+03:00"
+    created: "2024-12-17T11:13:31.365709+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: be5663fbf3e15e18763819d8500ada8a98bd80926d9e9a65ee3eba8cbb0727e5
     home: https://github.com/kaasops/envoy-xds-controller
@@ -523,7 +536,7 @@ entries:
     version: 0.1.28
   - apiVersion: v2
     appVersion: v0.1.26
-    created: "2024-10-24T17:14:53.319081+03:00"
+    created: "2024-12-17T11:13:31.365286+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 2a3af9ca014aa73c9dee9139a00c4fe6a93fa9b24b711e2df00364bed8bc7b94
     home: https://github.com/kaasops/envoy-xds-controller
@@ -536,7 +549,7 @@ entries:
     version: 0.1.27
   - apiVersion: v2
     appVersion: v0.1.26
-    created: "2024-10-24T17:14:53.318724+03:00"
+    created: "2024-12-17T11:13:31.364682+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 987ed1084bd4a928c26b94884150ad72bf04c21fe0070fc51fcfad090adbdd92
     home: https://github.com/kaasops/envoy-xds-controller
@@ -549,7 +562,7 @@ entries:
     version: 0.1.26
   - apiVersion: v2
     appVersion: v0.1.25
-    created: "2024-10-24T17:14:53.318457+03:00"
+    created: "2024-12-17T11:13:31.364443+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 962d9d8aaf2d488dcc11b9bccff309eef2225413b12665f5b5e33c413e1f92b7
     home: https://github.com/kaasops/envoy-xds-controller
@@ -562,7 +575,7 @@ entries:
     version: 0.1.25
   - apiVersion: v2
     appVersion: v0.1.24
-    created: "2024-10-24T17:14:53.318189+03:00"
+    created: "2024-12-17T11:13:31.363994+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 1aa2f42757a2c3e9f68d835dfe87a516b547981034b3f6983457503facb8f51a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -575,7 +588,7 @@ entries:
     version: 0.1.24
   - apiVersion: v2
     appVersion: v0.1.23
-    created: "2024-10-24T17:14:53.317935+03:00"
+    created: "2024-12-17T11:13:31.363761+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 72b5c79f4fce51269fbf06aa229dde532fe5be7cf7ad8a90f2b4b488cfd90d50
     home: https://github.com/kaasops/envoy-xds-controller
@@ -588,7 +601,7 @@ entries:
     version: 0.1.23
   - apiVersion: v2
     appVersion: v0.1.22
-    created: "2024-10-24T17:14:53.317664+03:00"
+    created: "2024-12-17T11:13:31.363403+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 4c836fab27ef7ced09265e3a7ffb90bdfe01157074740be011938f6b99256a97
     home: https://github.com/kaasops/envoy-xds-controller
@@ -601,7 +614,7 @@ entries:
     version: 0.1.22
   - apiVersion: v2
     appVersion: v0.1.21
-    created: "2024-10-24T17:14:53.3174+03:00"
+    created: "2024-12-17T11:13:31.363076+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 3ca01a17b594667b446a1133436442e379b02440c667695181448e7f80492799
     home: https://github.com/kaasops/envoy-xds-controller
@@ -614,7 +627,7 @@ entries:
     version: 0.1.21
   - apiVersion: v2
     appVersion: v0.1.20
-    created: "2024-10-24T17:14:53.317137+03:00"
+    created: "2024-12-17T11:13:31.362766+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 950d37ed622830e595b5afce594fc9388f73bdfe6e73d66caefad33cbb197aa6
     home: https://github.com/kaasops/envoy-xds-controller
@@ -627,7 +640,7 @@ entries:
     version: 0.1.20
   - apiVersion: v2
     appVersion: v0.1.19
-    created: "2024-10-24T17:14:53.316609+03:00"
+    created: "2024-12-17T11:13:31.362214+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 4c601e2d1e438982178d9336cfaeb852cf17d48f902712ca1a911179acdbe59a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -640,7 +653,7 @@ entries:
     version: 0.1.19
   - apiVersion: v2
     appVersion: v0.1.18
-    created: "2024-10-24T17:14:53.316327+03:00"
+    created: "2024-12-17T11:13:31.361876+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f90c84812831a6a18ff9a6c4564ba54cbb4324e720fbabf6f4b4a9b818395b93
     home: https://github.com/kaasops/envoy-xds-controller
@@ -653,7 +666,7 @@ entries:
     version: 0.1.18
   - apiVersion: v2
     appVersion: v0.1.17
-    created: "2024-10-24T17:14:53.315966+03:00"
+    created: "2024-12-17T11:13:31.361525+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 317ca716eae5d1c6390dea3debb188d2c5e74e8298d7c46b30203a665d01a45d
     home: https://github.com/kaasops/envoy-xds-controller
@@ -666,7 +679,7 @@ entries:
     version: 0.1.17
   - apiVersion: v2
     appVersion: v0.1.15
-    created: "2024-10-24T17:14:53.315481+03:00"
+    created: "2024-12-17T11:13:31.3612+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: fb3a158bc9f462540dc3cb74aba444807b7ce3dc43f1b83295ca7be35166ef49
     home: https://github.com/kaasops/envoy-xds-controller
@@ -679,7 +692,7 @@ entries:
     version: 0.1.16
   - apiVersion: v2
     appVersion: v0.1.15
-    created: "2024-10-24T17:14:53.31517+03:00"
+    created: "2024-12-17T11:13:31.3608+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: c19854c7b3ceff6819650d7900023e78d3a6b45be871c8eff0d19551e18bd866
     home: https://github.com/kaasops/envoy-xds-controller
@@ -692,7 +705,7 @@ entries:
     version: 0.1.15
   - apiVersion: v2
     appVersion: v0.1.14
-    created: "2024-10-24T17:14:53.314641+03:00"
+    created: "2024-12-17T11:13:31.360481+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f618afdf1354187053fdfe32882b78323662b4833d236346be951def8ad3a590
     home: https://github.com/kaasops/envoy-xds-controller
@@ -705,7 +718,7 @@ entries:
     version: 0.1.14
   - apiVersion: v2
     appVersion: v0.1.13
-    created: "2024-10-24T17:14:53.314209+03:00"
+    created: "2024-12-17T11:13:31.359872+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 68129452a03a5ece26de60abb5b8389159714c208f53efbec2da8a89d3af51c9
     home: https://github.com/kaasops/envoy-xds-controller
@@ -718,7 +731,7 @@ entries:
     version: 0.1.13
   - apiVersion: v2
     appVersion: v0.1.12
-    created: "2024-10-24T17:14:53.313751+03:00"
+    created: "2024-12-17T11:13:31.359557+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 15a596e8ba2b0b4f3ce17f2f6fc81b715b831ed265888f4131a0e9ad1f0b06de
     home: https://github.com/kaasops/envoy-xds-controller
@@ -731,7 +744,7 @@ entries:
     version: 0.1.12
   - apiVersion: v2
     appVersion: v0.1.11
-    created: "2024-10-24T17:14:53.313309+03:00"
+    created: "2024-12-17T11:13:31.35918+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 0a266d55c1f44eab186601782feb8ac6a68bd42f47a8f55ee92a8b7815e9e03a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -744,7 +757,7 @@ entries:
     version: 0.1.11
   - apiVersion: v2
     appVersion: v0.1.10
-    created: "2024-10-24T17:14:53.31299+03:00"
+    created: "2024-12-17T11:13:31.358915+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 65ed1516e72ac845492819f94ef92383ff641e98c5e796479b0fc7dcc772bc2e
     home: https://github.com/kaasops/envoy-xds-controller
@@ -757,7 +770,7 @@ entries:
     version: 0.1.10
   - apiVersion: v2
     appVersion: v0.1.9
-    created: "2024-10-24T17:14:53.321525+03:00"
+    created: "2024-12-17T11:13:31.367727+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 85fc41b26d964bc232cc68cbaf65c2b842f5c84cfea403d03131dd4def7d24a9
     home: https://github.com/kaasops/envoy-xds-controller
@@ -770,7 +783,7 @@ entries:
     version: 0.1.9
   - apiVersion: v2
     appVersion: v0.1.8
-    created: "2024-10-24T17:14:53.321253+03:00"
+    created: "2024-12-17T11:13:31.367443+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 96c6f05b7df38d78bf4c04ec2023f642569fb2f1b19d2230001cd993e579f87a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -783,7 +796,7 @@ entries:
     version: 0.1.8
   - apiVersion: v2
     appVersion: v0.1.7
-    created: "2024-10-24T17:14:53.320973+03:00"
+    created: "2024-12-17T11:13:31.367204+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8789c1ad67180504ad1e9b928431a96898974b7f31bdf5ac90bbf03bcc4bd611
     home: https://github.com/kaasops/envoy-xds-controller
@@ -796,7 +809,7 @@ entries:
     version: 0.1.7
   - apiVersion: v2
     appVersion: v0.1.6
-    created: "2024-10-24T17:14:53.320716+03:00"
+    created: "2024-12-17T11:13:31.366868+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: e2dbbda9c91e44d16aacbeef73d954d050bbf161c8cda0ed71ec4852b21ea1d5
     home: https://github.com/kaasops/envoy-xds-controller
@@ -809,7 +822,7 @@ entries:
     version: 0.1.6
   - apiVersion: v2
     appVersion: v0.1.5
-    created: "2024-10-24T17:14:53.320099+03:00"
+    created: "2024-12-17T11:13:31.366534+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 312282a316100d8c1d79330ff1ba2cbf4b86ef1d0ffa8d11af058285a85e4656
     home: https://github.com/kaasops/envoy-xds-controller
@@ -822,7 +835,7 @@ entries:
     version: 0.1.5
   - apiVersion: v2
     appVersion: v0.1.4
-    created: "2024-10-24T17:14:53.319851+03:00"
+    created: "2024-12-17T11:13:31.366283+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 91a48e81fb00b03bbc67382bb45a70214072c2a81c497e98eb97fcab831952c3
     home: https://github.com/kaasops/envoy-xds-controller
@@ -835,7 +848,7 @@ entries:
     version: 0.1.4
   - apiVersion: v2
     appVersion: v0.1.3
-    created: "2024-10-24T17:14:53.319601+03:00"
+    created: "2024-12-17T11:13:31.365958+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: fdf93a6f17cda2155c864be6c9e7b9c0757fa9e0602a527806a2ebbcec6468ce
     home: https://github.com/kaasops/envoy-xds-controller
@@ -848,7 +861,7 @@ entries:
     version: 0.1.3
   - apiVersion: v2
     appVersion: v0.1.2
-    created: "2024-10-24T17:14:53.316878+03:00"
+    created: "2024-12-17T11:13:31.362528+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: d29da14dc3c18006d6b9b10b7a49385d64b9d88caadc95897a9c81a1067d9c8b
     home: https://github.com/kaasops/envoy-xds-controller
@@ -861,7 +874,7 @@ entries:
     version: 0.1.2
   - apiVersion: v2
     appVersion: v0.1.0
-    created: "2024-10-24T17:14:53.312724+03:00"
+    created: "2024-12-17T11:13:31.358544+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: dbf6f703db92d6797e316ac3aa326b712005eb502a5b5222472e2d43e6013a8b
     home: https://github.com/kaasops/envoy-xds-controller
@@ -874,7 +887,7 @@ entries:
     version: 0.1.1
   - apiVersion: v2
     appVersion: v0.1.0
-    created: "2024-10-24T17:14:53.312463+03:00"
+    created: "2024-12-17T11:13:31.358252+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 6fda82e65fe301c2c31c61b400e0dc4f43048c980905fc1745e95c23c7cf25a9
     home: https://github.com/kaasops/envoy-xds-controller
@@ -887,7 +900,7 @@ entries:
     version: 0.1.0
   - apiVersion: v2
     appVersion: v0.0.21
-    created: "2024-10-24T17:14:53.309394+03:00"
+    created: "2024-12-17T11:13:31.355241+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: aae07e0d41beeeff2de6e7adb88ec06932fc7ec3ff5022602a0cd2f34f333357
     home: https://github.com/kaasops/envoy-xds-controller
@@ -900,7 +913,7 @@ entries:
     version: 0.0.21
   - apiVersion: v2
     appVersion: v0.0.20
-    created: "2024-10-24T17:14:53.309155+03:00"
+    created: "2024-12-17T11:13:31.354432+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: df5df06ce8812ca86fa4d8f8ab81347c86f7c2b787f9c58c1868a4db7055afa8
     home: https://github.com/kaasops/envoy-xds-controller
@@ -913,7 +926,7 @@ entries:
     version: 0.0.20
   - apiVersion: v2
     appVersion: v0.0.19
-    created: "2024-10-24T17:14:53.308905+03:00"
+    created: "2024-12-17T11:13:31.354074+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: a72ea41042d9b1452b44e33b4df76657c949ea78290465d2e3d9ba42f7bba0b5
     home: https://github.com/kaasops/envoy-xds-controller
@@ -926,7 +939,7 @@ entries:
     version: 0.0.19
   - apiVersion: v2
     appVersion: v0.0.18
-    created: "2024-10-24T17:14:53.308647+03:00"
+    created: "2024-12-17T11:13:31.353829+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: de1e88517d2dd90d44ea707a17ccdfeb265b84c60126062dc51379a809ebe561
     home: https://github.com/kaasops/envoy-xds-controller
@@ -939,7 +952,7 @@ entries:
     version: 0.0.18
   - apiVersion: v2
     appVersion: v0.0.16
-    created: "2024-10-24T17:14:53.308373+03:00"
+    created: "2024-12-17T11:13:31.353484+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: d24e9f62dee59a2a85906d76d4d701f892efac0b05488a9044dbde78d18e5935
     home: https://github.com/kaasops/envoy-xds-controller
@@ -952,7 +965,7 @@ entries:
     version: 0.0.16
   - apiVersion: v2
     appVersion: v0.0.15
-    created: "2024-10-24T17:14:53.308084+03:00"
+    created: "2024-12-17T11:13:31.353159+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8a33a3d1aaf045f3f59cec0d4f8a013f47d8562ccc8a63a53b6ddd88cb89f01a
     home: https://github.com/kaasops/envoy-xds-controller
@@ -965,7 +978,7 @@ entries:
     version: 0.0.15
   - apiVersion: v2
     appVersion: v0.0.14
-    created: "2024-10-24T17:14:53.30784+03:00"
+    created: "2024-12-17T11:13:31.352854+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: a861e030413908fc69ec95a58fc567c0b108cdf7daf6db86f74f853257e37824
     home: https://github.com/kaasops/envoy-xds-controller
@@ -978,7 +991,7 @@ entries:
     version: 0.0.14
   - apiVersion: v2
     appVersion: v0.0.13
-    created: "2024-10-24T17:14:53.307595+03:00"
+    created: "2024-12-17T11:13:31.352535+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8f8a4465903a83e7d85c7670497c7fe07bf8051cb2d58dbfb14e11ee9cb23928
     home: https://github.com/kaasops/envoy-xds-controller
@@ -991,7 +1004,7 @@ entries:
     version: 0.0.13
   - apiVersion: v2
     appVersion: v0.0.12
-    created: "2024-10-24T17:14:53.307351+03:00"
+    created: "2024-12-17T11:13:31.352186+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8304e845752464e3fa2804c28ed64370ff12c0ec5c9666c843879bf0b084ce5f
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1004,7 +1017,7 @@ entries:
     version: 0.0.12
   - apiVersion: v2
     appVersion: v0.0.11
-    created: "2024-10-24T17:14:53.307098+03:00"
+    created: "2024-12-17T11:13:31.351845+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 6b61ecfef85610861187e6d894a8ad921792704a9fd1ae1f089c6ed16f69c418
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1017,7 +1030,7 @@ entries:
     version: 0.0.11
   - apiVersion: v2
     appVersion: v0.0.9
-    created: "2024-10-24T17:14:53.306606+03:00"
+    created: "2024-12-17T11:13:31.351436+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: b43324376ec493ebb536c59dc51fca70e27c9a9b07033f453ff0d0c5d7b347b3
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1030,7 +1043,7 @@ entries:
     version: 0.0.10
   - apiVersion: v2
     appVersion: v0.0.9
-    created: "2024-10-24T17:14:53.312201+03:00"
+    created: "2024-12-17T11:13:31.357907+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: f8f3211b30fb0f680bb060506bbd78f8a9e69e674ad8553acee9381dc2915d98
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1043,7 +1056,7 @@ entries:
     version: 0.0.9
   - apiVersion: v2
     appVersion: v0.0.8
-    created: "2024-10-24T17:14:53.311966+03:00"
+    created: "2024-12-17T11:13:31.357591+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: a75e2661c2e55bbf34c0aee4aab877d7aebb98153f963a98e7c9d19907acb39e
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1056,7 +1069,7 @@ entries:
     version: 0.0.8
   - apiVersion: v2
     appVersion: v0.0.6
-    created: "2024-10-24T17:14:53.311421+03:00"
+    created: "2024-12-17T11:13:31.357275+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 7cdaafedeec6bacd1cd72d8f03e647980ffc03408662f56baaf176c01b659cec
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1069,7 +1082,7 @@ entries:
     version: 0.0.7
   - apiVersion: v2
     appVersion: v0.0.6
-    created: "2024-10-24T17:14:53.31113+03:00"
+    created: "2024-12-17T11:13:31.356801+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: e772b50846eeaf8fc886063a10668f75b6abaa70a796c0facfd2358c0b2beb89
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1082,7 +1095,7 @@ entries:
     version: 0.0.6
   - apiVersion: v2
     appVersion: v0.0.5
-    created: "2024-10-24T17:14:53.310836+03:00"
+    created: "2024-12-17T11:13:31.35642+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 8843b1fa9e6626c280824f101adf6e1a4100b91b0c6df6d69c7f63a382b84820
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1095,7 +1108,7 @@ entries:
     version: 0.0.5
   - apiVersion: v2
     appVersion: v0.0.4
-    created: "2024-10-24T17:14:53.310431+03:00"
+    created: "2024-12-17T11:13:31.355909+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 6255f997851ca4ae001e63c0445e771960b0f9dbb0c56d182252ef62fae65f0c
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1108,7 +1121,7 @@ entries:
     version: 0.0.4
   - apiVersion: v2
     appVersion: v0.0.3
-    created: "2024-10-24T17:14:53.309623+03:00"
+    created: "2024-12-17T11:13:31.355622+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 64d50deed6591c0b8a2e9516529dea16615e64045310c21fa38c9acd55d9dfcd
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1121,7 +1134,7 @@ entries:
     version: 0.0.3
   - apiVersion: v2
     appVersion: v0.0.1
-    created: "2024-10-24T17:14:53.306202+03:00"
+    created: "2024-12-17T11:13:31.350919+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 151225742ee62d504f23e573180e473b90ba80e4ec376f3b8d2422bd44a8d3a1
     home: https://github.com/kaasops/envoy-xds-controller
@@ -1132,4 +1145,4 @@ entries:
     urls:
     - https://kaasops.github.io/envoy-xds-controller/helm/packages/envoy-xds-controller-0.0.1.tgz
     version: 0.0.1
-generated: "2024-10-24T17:14:53.305626+03:00"
+generated: "2024-12-17T11:13:31.350157+02:00"

@@ -4,10 +4,7 @@
 # More info: https://book.kubebuilder.io/reference/project-config.html
 domain: kaasops.io
 layout:
-- go.kubebuilder.io/v3
-plugins:
-  manifests.sdk.operatorframework.io/v2: {}
-  scorecard.sdk.operatorframework.io/v2: {}
+- go.kubebuilder.io/v4
 projectName: envoy-xds-controller
 repo: github.com/kaasops/envoy-xds-controller
 resources:
@@ -20,6 +17,9 @@ resources:
   kind: Cluster
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -29,6 +29,9 @@ resources:
   kind: Listener
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -38,33 +41,9 @@ resources:
   kind: Route
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: kaasops.io
-  group: envoy
-  kind: Endpoint
-  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: kaasops.io
-  group: envoy
-  kind: VirtualHost
-  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: kaasops.io
-  group: envoy
-  kind: Secret
-  path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
-  version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -74,6 +53,9 @@ resources:
   kind: VirtualService
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -83,6 +65,9 @@ resources:
   kind: AccessLogConfig
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
@@ -92,21 +77,31 @@ resources:
   kind: HttpFilter
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: kaasops.io
   group: envoy
   kind: Policy
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 - api:
     crdVersion: v1
     namespaced: true
-  controller: false
+  controller: true
   domain: kaasops.io
   group: envoy
   kind: VirtualServiceTemplate
   path: github.com/kaasops/envoy-xds-controller/api/v1alpha1
   version: v1alpha1
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"

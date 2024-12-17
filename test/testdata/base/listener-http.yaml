@@ -2,34 +2,9 @@ apiVersion: envoy.kaasops.io/v1alpha1
 kind: Listener
 metadata:
   name: http
-  annotations:
-    envoy.kaasops.io/node-id: test
 spec:
   name: http
   address:
     socket_address:
       address: 0.0.0.0
       port_value: 10080
-  # filter_chains:
-  #   - name: "https_redirect"
-  #     filters:
-  #       - name: envoy.filters.network.http_connection_manager
-  #         typed_config:
-  #           "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-  #           stat_prefix: https_redirect
-  #           codec_type: AUTO
-  #           route_config:
-  #             name: https_redirect
-  #             virtual_hosts:
-  #               - name: https_redirect
-  #                 domains:
-  #                   - "*"
-  #                 routes:
-  #                   - match:
-  #                       prefix: "/"
-  #                     redirect:
-  #                       https_redirect: true
-  #           http_filters:
-  #             - name: envoy.filters.http.router
-  #               typed_config:
-  #                 "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router

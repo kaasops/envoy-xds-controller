@@ -1,0 +1,192 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-accesslogconfig
+  failurePolicy: Fail
+  name: vaccesslogconfig-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - accesslogconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-cluster
+  failurePolicy: Fail
+  name: vcluster-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - clusters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-httpfilter
+  failurePolicy: Fail
+  name: vhttpfilter-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - httpfilters
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-listener
+  failurePolicy: Fail
+  name: vlistener-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - listeners
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-policy
+  failurePolicy: Fail
+  name: vpolicy-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - policies
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-route
+  failurePolicy: Fail
+  name: vroute-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - routes
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate--v1-secret
+  failurePolicy: Fail
+  name: vsecret-v1.kb.io
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - DELETE
+    resources:
+    - secrets
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-virtualservice
+  failurePolicy: Fail
+  name: vvirtualservice-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - virtualservices
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-virtualservicetemplate
+  failurePolicy: Fail
+  name: vvirtualservicetemplate-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - virtualservicetemplates
+  sideEffects: None

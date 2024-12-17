@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,16 +18,19 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Valid",type="boolean",JSONPath=".status.valid"
-//+kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message"
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// ListenerStatus defines the observed state of Listener.
+type ListenerStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+}
 
-// Listener is the Schema for the listeners API
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+
+// Listener is the Schema for the listeners API.
 type Listener struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -36,15 +39,9 @@ type Listener struct {
 	Status ListenerStatus        `json:"status,omitempty"`
 }
 
-// ListenerStatus defines the observed state of VirtualService
-type ListenerStatus struct {
-	Message Message `json:"message,omitempty"`
-	Valid   bool    `json:"valid,omitempty"`
-}
+// +kubebuilder:object:root=true
 
-//+kubebuilder:object:root=true
-
-// ListenerList contains a list of Listener
+// ListenerList contains a list of Listener.
 type ListenerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

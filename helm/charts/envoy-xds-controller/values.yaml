@@ -2,12 +2,13 @@ fullnameOverride: ""
 nameOverride: ""
 namespaceOverride: ""
 
+development: false
+
 xds:
   port: 9000
 
 cacheAPI:
   enabled: false
-  devMode: false
   port: 9999
   address: "localhost:9999"
   scheme: "http"
@@ -155,11 +156,153 @@ secrets: {}
 # Validating Webhook Options
 webhook:
   enabled: true
-  name: "envoy-xds-controller-validating-webhook-cfg"
+  name: "envoy-xds-controller-validating-webhook-configuration"
   port: 9443
   tls:
     # -- Name of the Envoy xDS Controller TLS Secret name when externally managed.
-    name: "envoy-xds-controller-tls"
+    name: "envoy-xds-controller-webhook-cert"
+  webhooks:
+    - name: vaccesslogconfig-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-accesslogconfig
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+            - DELETE
+          resources:
+            - accesslogconfigs
+          scope: '*'
+    - name: vcluster-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-cluster
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+            - DELETE
+          resources:
+            - clusters
+          scope: '*'
+    - name: vhttpfilter-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-httpfilter
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+            - DELETE
+          resources:
+            - httpfilters
+          scope: '*'
+    - name: vlistener-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-listener
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+            - DELETE
+          resources:
+            - listeners
+          scope: '*'
+    - name: vpolicy-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-policy
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+            - DELETE
+          resources:
+            - policies
+          scope: '*'
+    - name: vroute-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-route
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+            - DELETE
+          resources:
+            - routes
+          scope: '*'
+    - name: vsecret-v1.kb.io
+      clientConfig:
+        service:
+          path: /validate--v1-secret
+      rules:
+        - apiGroups:
+            - ""
+          apiVersions:
+            - v1
+          operations:
+            - DELETE
+          resources:
+            - secrets
+          scope: '*'
+    - name: vvirtualservice-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-virtualservice
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+          resources:
+            - virtualservices
+          scope: '*'
+    - name: vvirtualservicetemplate-v1alpha1.kb.io
+      clientConfig:
+        service:
+          path: /validate-envoy-kaasops-io-v1alpha1-virtualservicetemplate
+      rules:
+        - apiGroups:
+            - envoy.kaasops.io
+          apiVersions:
+            - v1alpha1
+          operations:
+            - CREATE
+            - UPDATE
+            - DELETE
+          resources:
+            - virtualservicetemplates
+          scope: '*'
 
 auth:
   enabled: false
