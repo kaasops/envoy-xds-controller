@@ -6,13 +6,13 @@ entries:
     created: "2024-12-17T11:13:31.383831+02:00"
     description: A Helm chart to install Envoy xDS Controller
     digest: 5526c43550cb712dacc5ee1b005e1113a5751a931166d007d956822bf15283cd
-    home: https://github.com/kaasops/envoy-xds-controller
+    home: https://github.com/aa1ex/envoy-xds-controller
     name: envoy-xds-controller
     sources:
-    - https://github.com/kaasops/envoy-xds-controller
+    - https://github.com/aa1ex/envoy-xds-controller
     type: application
     urls:
-    - https://kaasops.github.io/envoy-xds-controller/helm/packages/envoy-xds-controller-0.69.tgz
+    - https://aa1ex.github.io/envoy-xds-controller/helm/packages/envoy-xds-controller-0.69.tgz
     version: "0.69"
   - apiVersion: v2
     appVersion: v0.7.0
