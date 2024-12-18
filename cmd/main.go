@@ -484,5 +484,6 @@ func managerCacheOptions(cfg *Config) *mgrCache.Options {
 	for _, namespace := range cfg.WatchNamespaces {
 		mgrCacheOpts.DefaultNamespaces[namespace] = mgrCache.Config{}
 	}
+	mgrCacheOpts.DefaultNamespaces[cfg.InstallationNamespace] = mgrCache.Config{}
 	return mgrCacheOpts
 }

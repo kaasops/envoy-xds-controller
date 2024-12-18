@@ -11,28 +11,326 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 webhooks:
-{{- range .Values.webhook.webhooks }}
+
   - admissionReviewVersions:
       - v1
     clientConfig:
       caBundle: Cg==
       service:
         name: envoy-xds-controller-webhook-service
-        namespace: {{ $.Release.Namespace }}
-        path: {{ .clientConfig.service.path }}
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-accesslogconfig
         port: 443
     failurePolicy: Fail
-    matchPolicy: Equivalent
-    name: {{ .name }}
-    {{- if .namespaceSelector }}
-    namespaceSelector: {{ .namespaceSelector | toYaml | nindent 6 }}
-    {{- else }}
-    namespaceSelector: {}
-    {{- end }}
-    objectSelector: {}
-    rules: {{ .rules | toYaml | nindent 4 }}
+    name: vaccesslogconfig-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - accesslogconfigs
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
     sideEffects: None
-    timeoutSeconds: 10
-{{- end }}
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-cluster
+        port: 443
+    failurePolicy: Fail
+    name: vcluster-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - clusters
+        scope: "Namespaced"
+        {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-httpfilter
+        port: 443
+    failurePolicy: Fail
+    name: vhttpfilter-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - httpfilters
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-listener
+        port: 443
+    failurePolicy: Fail
+    name: vlistener-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - listeners
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-policy
+        port: 443
+    failurePolicy: Fail
+    name: vpolicy-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - policies
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-route
+        port: 443
+    failurePolicy: Fail
+    name: vroute-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - routes
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate--v1-secret
+        port: 443
+    failurePolicy: Fail
+    name: vsecret-v1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - DELETE
+        resources:
+          - secrets
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-virtualservice
+        port: 443
+    failurePolicy: Fail
+    name: vvirtualservice-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - virtualservices
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-virtualservicetemplate
+        port: 443
+    failurePolicy: Fail
+    name: vvirtualservicetemplate-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - virtualservicetemplates
+        scope: "Namespaced"
+        {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
 {{- end -}}
 
