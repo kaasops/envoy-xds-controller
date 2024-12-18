@@ -18,9 +18,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: {{ template "chart.fullname" . }}-role
-  namespace: {{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: {{ template "chart.serviceAccountName" . }}
-    namespace: {{ .Release.Namespace }}
 {{- end -}}
