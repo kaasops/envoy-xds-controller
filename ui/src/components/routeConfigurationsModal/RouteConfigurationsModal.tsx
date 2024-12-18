@@ -65,7 +65,7 @@ function RouteConfigurationsModal({ open, onClose }: IModalProps) {
 				className='RouteConfigurationBox'
 				sx={{ ...styleModalSetting, ...(isFullscreen ? fullscreenStyles : {}) }}
 			>
-				<Box gap={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+				<Box gap={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }} overflow='auto'>
 					<Box display='flex' justifyContent='space-between' alignItems='flex-start'>
 						<Typography variant='h6' component='h2'>
 							Route Configurations Modal

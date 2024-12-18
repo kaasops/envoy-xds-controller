@@ -1,16 +1,16 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { AuthProvider } from 'react-oidc-context';
-import App from './App.tsx';
-import './index.css';
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { AuthProvider } from 'react-oidc-context'
+import App from './App.tsx'
+import './index.css'
 
-import '@fontsource/roboto/300.css';
-import '@fontsource/roboto/400.css';
-import '@fontsource/roboto/500.css';
-import '@fontsource/roboto/700.css';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter } from 'react-router-dom';
-import queryClient from './utils/queryClient/queryClient.ts';
+import '@fontsource/roboto/300.css'
+import '@fontsource/roboto/400.css'
+import '@fontsource/roboto/500.css'
+import '@fontsource/roboto/700.css'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter } from 'react-router-dom'
+import queryClient from './utils/queryClient/queryClient.ts'
 import { env } from './env.ts'
 
 function createApp() {
@@ -32,6 +32,11 @@ function createApp() {
 		}
 		return <AuthProvider {...oidcConfig}>{app}</AuthProvider>
 	}
+
+	// if (import.meta.env.MODE === 'development') {
+	// 	import('./api/axiosMock')
+	// }
+
 	return app
 }
 

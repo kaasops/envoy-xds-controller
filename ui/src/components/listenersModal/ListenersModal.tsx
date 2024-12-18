@@ -61,7 +61,7 @@ function ListenersModal({ open, onClose }: IModalProps) {
 	return (
 		<Modal open={open} onClose={onClose}>
 			<Box className='ListenersModalBox' sx={{ ...styleModalSetting, ...(isFullscreen ? fullscreenStyles : {}) }}>
-				<Box gap={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+				<Box gap={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }} overflow='auto'>
 					<Box display='flex' justifyContent='space-between' alignItems='flex-start'>
 						<Typography variant='h6' component='h2'>
 							Listeners Modal
