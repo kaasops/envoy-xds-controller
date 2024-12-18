@@ -269,7 +269,7 @@ helm-index:
 .PHONY: helm-deploy-local
 helm-deploy-local: manifests set-local## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)
-	helm install exc --set image.repository=$(IMG_WITHOUT_TAG) --set image.tag=$(TAG) --set ui.enabled=true --set cacheAPI.enabled=true --set ui.image.repository=$(UI_IMG_WITHOUT_TAG) --set ui.image.tag=$(TAG) --namespace envoy-xds-controller --create-namespace ./helm/charts/envoy-xds-controller --debug --timeout='$(DEPLOY_TIMEOUT)' --wait
+	helm install exc --set 'watchNamespaces={envoy-xds-controller,default}' --set image.repository=$(IMG_WITHOUT_TAG) --set image.tag=$(TAG) --set ui.enabled=true --set cacheAPI.enabled=true --set ui.image.repository=$(UI_IMG_WITHOUT_TAG) --set ui.image.tag=$(TAG) --namespace envoy-xds-controller --create-namespace ./helm/charts/envoy-xds-controller --debug --timeout='$(DEPLOY_TIMEOUT)' --wait
 
 .PHONY: set-local
 set-local:

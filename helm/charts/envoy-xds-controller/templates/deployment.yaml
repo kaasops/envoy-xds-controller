@@ -107,7 +107,7 @@ spec:
         {{- end }}
         {{- if .Values.watchNamespaces }}
           - name: WATCH_NAMESPACES
-            value: {{- join "," .Values.watchNamespaces }}
+            value: {{ join "," .Values.watchNamespaces | quote }}
         {{- end }}
         ports:
           - name: grpc
