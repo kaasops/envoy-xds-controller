@@ -14,9 +14,33 @@ metadata:
   {{- end }}
 rules:
   - apiGroups:
-      - ""
+      - envoy.kaasops.io
     resources:
-      - secrets
+      - clusters
+      - listeners
+      - routes
+      - virtualhosts
+      - virtualservices
+      - accesslogconfigs
+      - httpfilters
+      - policies
+      - virtualservicetemplates
     verbs:
       - "*"
+  - apiGroups:
+      - envoy.kaasops.io
+    resources:
+      - clusters/status
+      - listeners/status
+      - routes/status
+      - virtualhosts/status
+      - virtualservices/status
+      - accesslogconfigs/status
+      - httpfilters/status
+      - policies/status
+      - virtualservicetemplates/status
+    verbs:
+      - get
+      - patch
+      - update
 {{- end -}}

@@ -14,34 +14,10 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - clusters
-  - listeners
-  - routes
-  - virtualhosts
-  - virtualservices
-  - accesslogconfigs
-  - httpfilters
-  - policies
-  - virtualservicetemplates
-  verbs:
-  - "*"
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - clusters/status
-  - listeners/status
-  - routes/status
-  - virtualhosts/status
-  - virtualservices/status
-  - accesslogconfigs/status
-  - httpfilters/status
-  - policies/status
-  - virtualservicetemplates/status
-  verbs:
-  - get
-  - patch
-  - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - "*"
 {{- end -}}
