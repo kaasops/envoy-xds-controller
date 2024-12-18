@@ -14,6 +14,12 @@ metadata:
   {{- end }}
 rules:
   - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - "*"
+  - apiGroups:
       - envoy.kaasops.io
     resources:
       - clusters
