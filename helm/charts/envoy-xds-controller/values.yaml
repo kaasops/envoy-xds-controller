@@ -162,7 +162,7 @@ webhook:
     # -- Name of the Envoy xDS Controller TLS Secret name when externally managed.
     name: "envoy-xds-controller-webhook-cert"
   webhooks:
-    - name: vaccesslogconfig-v1alpha1.kb.io
+    - name: vaccesslogconfig-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-accesslogconfig
@@ -178,7 +178,7 @@ webhook:
           resources:
             - accesslogconfigs
           scope: '*'
-    - name: vcluster-v1alpha1.kb.io
+    - name: vcluster-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-cluster
@@ -194,7 +194,7 @@ webhook:
           resources:
             - clusters
           scope: '*'
-    - name: vhttpfilter-v1alpha1.kb.io
+    - name: vhttpfilter-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-httpfilter
@@ -210,7 +210,7 @@ webhook:
           resources:
             - httpfilters
           scope: '*'
-    - name: vlistener-v1alpha1.kb.io
+    - name: vlistener-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-listener
@@ -226,7 +226,7 @@ webhook:
           resources:
             - listeners
           scope: '*'
-    - name: vpolicy-v1alpha1.kb.io
+    - name: vpolicy-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-policy
@@ -242,7 +242,7 @@ webhook:
           resources:
             - policies
           scope: '*'
-    - name: vroute-v1alpha1.kb.io
+    - name: vroute-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-route
@@ -258,7 +258,7 @@ webhook:
           resources:
             - routes
           scope: '*'
-    - name: vsecret-v1.kb.io
+    - name: vsecret-v1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate--v1-secret
@@ -277,7 +277,7 @@ webhook:
           - key: kubernetes.io/metadata.name
             operator: In
             values: [ "envoy-xds-controller" ]
-    - name: vvirtualservice-v1alpha1.kb.io
+    - name: vvirtualservice-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-virtualservice
@@ -292,7 +292,7 @@ webhook:
           resources:
             - virtualservices
           scope: '*'
-    - name: vvirtualservicetemplate-v1alpha1.kb.io
+    - name: vvirtualservicetemplate-v1alpha1.envoy.kaasops.io
       clientConfig:
         service:
           path: /validate-envoy-kaasops-io-v1alpha1-virtualservicetemplate

@@ -12,7 +12,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-accesslogconfig
   failurePolicy: Fail
-  name: vaccesslogconfig-v1alpha1.kb.io
+  name: vaccesslogconfig-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io
@@ -33,7 +33,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-cluster
   failurePolicy: Fail
-  name: vcluster-v1alpha1.kb.io
+  name: vcluster-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io
@@ -54,7 +54,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-httpfilter
   failurePolicy: Fail
-  name: vhttpfilter-v1alpha1.kb.io
+  name: vhttpfilter-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io
@@ -75,7 +75,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-listener
   failurePolicy: Fail
-  name: vlistener-v1alpha1.kb.io
+  name: vlistener-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io
@@ -96,7 +96,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-policy
   failurePolicy: Fail
-  name: vpolicy-v1alpha1.kb.io
+  name: vpolicy-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io
@@ -117,7 +117,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-route
   failurePolicy: Fail
-  name: vroute-v1alpha1.kb.io
+  name: vroute-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io
@@ -138,7 +138,7 @@ webhooks:
       namespace: system
       path: /validate--v1-secret
   failurePolicy: Fail
-  name: vsecret-v1.kb.io
+  name: vsecret-v1.envoy.kaasops.io
   rules:
   - apiGroups:
     - ""
@@ -157,7 +157,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-virtualservice
   failurePolicy: Fail
-  name: vvirtualservice-v1alpha1.kb.io
+  name: vvirtualservice-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io
@@ -177,7 +177,7 @@ webhooks:
       namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-virtualservicetemplate
   failurePolicy: Fail
-  name: vvirtualservicetemplate-v1alpha1.kb.io
+  name: vvirtualservicetemplate-v1alpha1.envoy.kaasops.io
   rules:
   - apiGroups:
     - envoy.kaasops.io

@@ -49,7 +49,7 @@ func SetupClusterWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.Cach
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-cluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=clusters,verbs=create;update;delete,versions=v1alpha1,name=vcluster-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-cluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=clusters,verbs=create;update;delete,versions=v1alpha1,name=vcluster-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // ClusterCustomValidator struct is responsible for validating the Cluster resource
 // when it is created, updated, or deleted.

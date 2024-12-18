@@ -49,7 +49,7 @@ func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-virtualservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=virtualservices,verbs=create;update,versions=v1alpha1,name=vvirtualservice-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-virtualservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=virtualservices,verbs=create;update,versions=v1alpha1,name=vvirtualservice-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // VirtualServiceCustomValidator struct is responsible for validating the VirtualService resource
 // when it is created, updated, or deleted.

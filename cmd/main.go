@@ -24,8 +24,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	mgrCache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"strconv"
+
+	mgrCache "sigs.k8s.io/controller-runtime/pkg/cache"
 
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap/zapcore"
