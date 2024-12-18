@@ -1,9 +1,10 @@
 
 {{- if .Values.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
-  name: {{ template "chart.fullname" . }}-clusterrolebinding
+  name: {{ template "chart.fullname" . }}-rolebinding
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 {{- with .Values.rbac.extraLabels }}
@@ -15,8 +16,9 @@ metadata:
   {{- end }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ template "chart.fullname" . }}-clusterrole
+  kind: Role
+  name: {{ template "chart.fullname" . }}-role
+  namespace: {{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: {{ template "chart.serviceAccountName" . }}

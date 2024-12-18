@@ -3,7 +3,6 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ template "chart.fullname" . }}-clusterrole
-  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "chart.labels" . | nindent 4 }}
 {{- with .Values.rbac.extraLabels }}
@@ -14,123 +13,10 @@ metadata:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  - pods
-  - pods/log
-  - serviceaccounts
-  - services
-  - namespaces
-  - nodes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterroles
-  - clusterrolebindings
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - apps
-  - extensions
-  resources:
-  - deployments
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - clusters
-  - endpoints
-  - listeners
-  - routes
-  - secrets
-  - virtualhosts
-  - virtualservices
-  - accesslogconfigs
-  - httpfilters
-  - policies
-  - virtualservicetemplates
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - clusters/status
-  - endpoints/status
-  - listeners/status
-  - routes/status
-  - secrets/status
-  - virtualhosts/status
-  - virtualservices/status
-  - accesslogconfigs/status
-  - httpfilters/status
-  - policies/status
-  - virtualservicetemplates/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - podmonitors
-  verbs:
-  - '*'
-- apiGroups:
-  - cert-manager.io
-  resources:
-  - certificaterequests
-  - certificates
-  - clusterissuers
-  - issuers
-  verbs:
-  - '*'
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - validatingwebhookconfigurations
-  verbs:
-  - '*'
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - "*"
 {{- end -}}
