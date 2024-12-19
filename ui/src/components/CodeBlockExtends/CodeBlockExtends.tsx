@@ -5,8 +5,16 @@ import { Editor } from '@monaco-editor/react'
 import copy from 'clipboard-copy'
 
 import { a11yProps } from '../customTabPanel/style'
+import { ISecretsResponse } from '../../common/types/getSecretsApiTypes.ts'
+import SecretsTlsBlock from '../secretsTlsBlock/secretsTlsBlock.tsx'
 
-function CodeBlock({ jsonData, yamlData, heightCodeBox }: any) {
+interface ICodeBLockExtendsProps {
+	jsonData: ISecretsResponse
+	yamlData: string
+	heightCodeBox: number
+}
+
+function CodeBlockExtends({ jsonData, yamlData, heightCodeBox }: ICodeBLockExtendsProps) {
 	const editorRef = useRef<any>(null)
 	const theme = useTheme()
 	const [tabIndex, setTabIndex] = useState(0)
@@ -27,7 +35,7 @@ function CodeBlock({ jsonData, yamlData, heightCodeBox }: any) {
 
 	const handleCopyClick = () => {
 		const value = editorRef.current.getValue()
-		copy(value)
+		void copy(value)
 	}
 
 	const handleDownLoadClick = () => {
@@ -82,6 +90,7 @@ function CodeBlock({ jsonData, yamlData, heightCodeBox }: any) {
 					<Tabs value={tabIndex} onChange={handleChangeTabIndex} aria-label='basic tabs example'>
 						<Tab label='JSON' {...a11yProps(0)} />
 						<Tab label='YAML' {...a11yProps(1)} />
+						<Tab label='Certificates' {...a11yProps(2)} />
 					</Tabs>
 				</Box>
 				<Box className='panelBox' height='100%' ref={elementRef}>
@@ -108,9 +117,19 @@ function CodeBlock({ jsonData, yamlData, heightCodeBox }: any) {
 							}}
 						/>
 					</CustomTabPanel>
+					<CustomTabPanel index={2} value={tabIndex}>
+						<SecretsTlsBlock data={jsonData} />
+					</CustomTabPanel>
 				</Box>
 			</Box>
-			<Box display='flex' justifyContent='flex-end' margin={'16px 23px 0'} gap={2} height='36px'>
+			<Box
+				display='flex'
+				justifyContent='flex-end'
+				margin={'16px 23px 0'}
+				gap={2}
+				height='36px'
+				visibility={tabIndex === 2 ? 'hidden' : 'visible'}
+			>
 				<Button variant='contained' onClick={handleCopyClick}>
 					Copy
 				</Button>
@@ -122,4 +141,4 @@ function CodeBlock({ jsonData, yamlData, heightCodeBox }: any) {
 	)
 }
 
-export default CodeBlock
+export default CodeBlockExtends

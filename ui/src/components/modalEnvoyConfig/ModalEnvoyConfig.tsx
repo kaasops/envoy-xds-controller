@@ -1,8 +1,10 @@
-import { Box, Modal, Typography } from '@mui/material'
+import { Box, Button, Modal, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { convertToYaml } from '../../utils/helpers/convertToYaml'
 import CodeBlock from '../codeBlock/CodeBlock'
-import { modalBox } from './style'
+import { styleModalConfigs } from './style'
+import FullscreenIcon from '@mui/icons-material/Fullscreen'
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit'
 
 interface IModalEnvoyConfigProps {
 	configName: string
@@ -13,6 +15,11 @@ interface IModalEnvoyConfigProps {
 
 function ModalEnvoyConfig({ configName, onClose, open, modalData }: IModalEnvoyConfigProps) {
 	const [yamlData, setYamlData] = useState('')
+	const [isFullscreen, setIsFullscreen] = useState(false)
+	const fullscreenStyles = {
+		width: '95%',
+		height: '95%'
+	}
 
 	useEffect(() => {
 		if (modalData) {
@@ -21,13 +28,25 @@ function ModalEnvoyConfig({ configName, onClose, open, modalData }: IModalEnvoyC
 		}
 	}, [modalData, open])
 
+	useEffect(() => {
+		if (!open) {
+			setIsFullscreen(false)
+		}
+	}, [open])
+
 	return (
 		<Modal open={open} onClose={onClose}>
-			<Box className='ModalBox' sx={modalBox}>
-				<Typography variant='h6' component='h2' paddingBottom={2}>
-					Config: {configName}
-				</Typography>
-				{modalData && <CodeBlock jsonData={modalData} yamlData={yamlData} heightCodeBox={98} />}
+			<Box className='ConfigModalBox' sx={{ ...styleModalConfigs, ...(isFullscreen ? fullscreenStyles : {}) }}>
+				<Box display='flex' justifyContent='space-between' alignItems='flex-start'>
+					<Typography variant='h6' component='h2' paddingBottom={2}>
+						Config: {configName}
+					</Typography>
+					<Button onClick={() => setIsFullscreen(!isFullscreen)}>
+						{isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+					</Button>
+				</Box>
+
+				{modalData && <CodeBlock jsonData={modalData} yamlData={yamlData} heightCodeBox={100} />}
 			</Box>
 		</Modal>
 	)

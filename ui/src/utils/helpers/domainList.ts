@@ -1,7 +1,7 @@
 export const filterData = (query: string, data: string[]) => {
 	if (!query) {
-		return data;
+		return data
 	} else {
-		return data.filter((domain) => domain.includes(query.toLowerCase()));
+		return data.filter(domain => domain.includes(query.toLowerCase()))
 	}
-};
+}
