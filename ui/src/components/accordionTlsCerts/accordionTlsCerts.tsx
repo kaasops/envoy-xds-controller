@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import {
 	Accordion,
 	AccordionActions,
@@ -7,6 +7,7 @@ import {
 	Box,
 	Button,
 	Divider,
+	Tooltip,
 	Typography,
 	useTheme
 } from '@mui/material'
@@ -23,6 +24,8 @@ interface IAccordionTlsCertsProps {
 export const AccordionTlsCerts: React.FC<IAccordionTlsCertsProps> = ({ cert }) => {
 	const theme = useTheme()
 	const editorRef = useRef<any>(null)
+	const [tooltipOpen, setTooltipOpen] = useState(false)
+	const [textTooltip, setTextTooltip] = useState('')
 
 	function handleEditorDidMount(editor: any) {
 		editorRef.current = editor
@@ -33,8 +36,13 @@ export const AccordionTlsCerts: React.FC<IAccordionTlsCertsProps> = ({ cert }) =
 	const handleCopy = async () => {
 		try {
 			await navigator.clipboard.writeText(cert.raw)
-			alert('Certificate copied exactly as it appears!')
+			setTextTooltip('.PEM certificate successfully copied')
+			setTooltipOpen(true)
+			setTimeout(() => setTooltipOpen(false), 1000)
 		} catch (error) {
+			setTextTooltip('error with .PEM certificate')
+			setTooltipOpen(true)
+			setTimeout(() => setTooltipOpen(false), 1000)
 			console.error('Failed to copy:', error)
 		}
 	}
@@ -45,8 +53,10 @@ export const AccordionTlsCerts: React.FC<IAccordionTlsCertsProps> = ({ cert }) =
 				<AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls='panel3-content' id='panel3-header'>
 					<Box display='flex' alignItems='center' gap={2}>
 						{isExpired(cert.notAfter) && <WarningIcon color='warning' />}
+						<Typography color={isExpired(cert.notAfter) ? 'error' : 'inherit'}>{cert.subject}</Typography>
+						<Divider orientation='vertical' flexItem />
 						<Typography color={isExpired(cert.notAfter) ? 'error' : 'inherit'}>
-							{cert.subject} expired on: {formatDate(cert.notAfter)}
+							expired on: {formatDate(cert.notAfter)}
 						</Typography>
 					</Box>
 				</AccordionSummary>
@@ -61,7 +71,9 @@ export const AccordionTlsCerts: React.FC<IAccordionTlsCertsProps> = ({ cert }) =
 					/>
 				</AccordionDetails>
 				<AccordionActions>
-					<Button onClick={handleCopy}>Copy .PEM Certificate</Button>
+					<Tooltip title={textTooltip} open={tooltipOpen} placement='top-end'>
+						<Button onClick={handleCopy}>Copy .PEM Certificate</Button>
+					</Tooltip>
 				</AccordionActions>
 			</Accordion>
 			<Divider sx={{ marginY: 0.3, marginLeft: 2.5 }} />

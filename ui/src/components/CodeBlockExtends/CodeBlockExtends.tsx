@@ -35,7 +35,7 @@ function CodeBlockExtends({ jsonData, yamlData, heightCodeBox }: ICodeBLockExten
 
 	const handleCopyClick = () => {
 		const value = editorRef.current.getValue()
-		copy(value)
+		void copy(value)
 	}
 
 	const handleDownLoadClick = () => {
