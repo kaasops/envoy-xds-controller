@@ -98,13 +98,6 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 		return nil, nil, err
 	}
 
-	// Clusters ---
-
-	clusters, err := buildClusters(virtualHost, store)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	// Listener ---
 
 	httpFilters, err := buildHTTPFilters(vs, store)
@@ -165,6 +158,13 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 
 	xdsListener.FilterChains = fcs
 	if err := xdsListener.ValidateAll(); err != nil { // for validation
+		return nil, nil, err
+	}
+
+	// Clusters ---
+
+	clusters, err := buildClusters(virtualHost, httpFilters, store)
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -319,11 +319,37 @@ func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3
 	return httpFilters, nil
 }
 
-func buildClusters(virtualHost *routev3.VirtualHost, store *store.Store) ([]*cluster.Cluster, error) {
+func buildClusters(virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
 	var clusters []*cluster.Cluster
 
 	for _, route := range virtualHost.Routes {
 		jsonData, err := json.Marshal(route)
+		if err != nil {
+			return nil, err
+		}
+
+		var data any
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			return nil, err
+		}
+
+		clusterNames := findClusterNames(data, "Cluster")
+
+		for _, clusterName := range clusterNames {
+			cl := store.SpecClusters[clusterName]
+			if cl == nil {
+				return nil, fmt.Errorf("cluster %s not found", clusterName)
+			}
+			xdsCluster, err := cl.UnmarshalV3AndValidate()
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+			}
+			clusters = append(clusters, xdsCluster)
+		}
+	}
+
+	for _, httpFilter := range httpFilters {
+		jsonData, err := json.Marshal(httpFilter)
 		if err != nil {
 			return nil, err
 		}
