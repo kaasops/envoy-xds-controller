@@ -3,6 +3,7 @@ package resbuilder
 import (
 	"encoding/json"
 	"fmt"
+	oauth2v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/oauth2/v3"
 	"slices"
 	"strings"
 
@@ -349,28 +350,36 @@ func buildClusters(virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFi
 	}
 
 	for _, httpFilter := range httpFilters {
-		jsonData, err := json.Marshal(httpFilter)
-		if err != nil {
-			return nil, err
-		}
+		if tc := httpFilter.GetTypedConfig(); tc != nil {
+			if tc.TypeUrl == "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2" {
+				var oauthCfg oauth2v3.OAuth2
+				if err := tc.UnmarshalTo(&oauthCfg); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal oauth2 config: %w", err)
+				}
+				jsonData, err := json.Marshal(oauthCfg)
+				if err != nil {
+					return nil, err
+				}
 
-		var data any
-		if err := json.Unmarshal(jsonData, &data); err != nil {
-			return nil, err
-		}
+				var data any
+				if err := json.Unmarshal(jsonData, &data); err != nil {
+					return nil, err
+				}
 
-		clusterNames := findClusterNames(data, "Cluster")
+				clusterNames := findClusterNames(data, "Cluster")
 
-		for _, clusterName := range clusterNames {
-			cl := store.SpecClusters[clusterName]
-			if cl == nil {
-				return nil, fmt.Errorf("cluster %s not found", clusterName)
+				for _, clusterName := range clusterNames {
+					cl := store.SpecClusters[clusterName]
+					if cl == nil {
+						return nil, fmt.Errorf("cluster %s not found", clusterName)
+					}
+					xdsCluster, err := cl.UnmarshalV3AndValidate()
+					if err != nil {
+						return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+					}
+					clusters = append(clusters, xdsCluster)
+				}
 			}
-			xdsCluster, err := cl.UnmarshalV3AndValidate()
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-			}
-			clusters = append(clusters, xdsCluster)
 		}
 	}
 
