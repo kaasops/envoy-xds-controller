@@ -3,9 +3,10 @@ package resbuilder
 import (
 	"encoding/json"
 	"fmt"
-	oauth2v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/oauth2/v3"
 	"slices"
 	"strings"
+
+	oauth2v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/oauth2/v3"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -356,7 +357,7 @@ func buildClusters(virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFi
 				if err := tc.UnmarshalTo(&oauthCfg); err != nil {
 					return nil, fmt.Errorf("failed to unmarshal oauth2 config: %w", err)
 				}
-				jsonData, err := json.Marshal(oauthCfg)
+				jsonData, err := json.Marshal(oauthCfg.Config)
 				if err != nil {
 					return nil, err
 				}
