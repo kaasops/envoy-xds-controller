@@ -45,24 +45,24 @@ spec:
         args:
           {{- toYaml .Values.args | nindent 10 }}
           {{- if .Values.cacheAPI.enabled }}
+          - --development={{ .Values.development }}
           - --enable-cache-api=true
           - --cache-api-port={{ .Values.cacheAPI.port }}
           - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
           - --cache-api-addr={{ .Values.cacheAPI.address }}
-          - --cache-api-dev-mode={{ .Values.cacheAPI.devMode }}
           {{- end }}
         {{- else if .Values.cacheAPI.enabled }}
         args:
+          - --development={{ .Values.development }}
           - --enable-cache-api=true
           - --cache-api-port={{ .Values.cacheAPI.port }}
           - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
           - --cache-api-addr={{ .Values.cacheAPI.address }}
-          - --cache-api-dev-mode={{ .Values.cacheAPI.devMode }}
         {{- end }}
         env:
           - name: XDS_PORT
             value: "{{ .Values.xds.port }}"
-          - name: INSTALATION_NAMESPACE
+          - name: INSTALLATION_NAMESPACE
             value: {{ .Release.Namespace }}
         {{- if .Values.auth.enabled }}
           - name: OIDC_ENABLED
@@ -107,7 +107,7 @@ spec:
         {{- end }}
         {{- if .Values.watchNamespaces }}
           - name: WATCH_NAMESPACES
-            value: {{- join "," .Values.watchNamespaces }}
+            value: {{ join "," .Values.watchNamespaces | quote }}
         {{- end }}
         ports:
           - name: grpc

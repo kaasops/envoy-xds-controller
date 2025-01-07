@@ -21,20 +21,27 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// PolicyStatus defines the observed state of Policy.
+type PolicyStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+}
 
-// Policy is the Schema for the policies API
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+
+// Policy is the Schema for the policies API.
 type Policy struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec *runtime.RawExtension `json:"spec,omitempty"`
+	Spec   *runtime.RawExtension `json:"spec,omitempty"`
+	Status PolicyStatus          `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// PolicyList contains a list of Policy
+// PolicyList contains a list of Policy.
 type PolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

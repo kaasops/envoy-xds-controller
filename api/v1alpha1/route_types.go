@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,23 +18,30 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// RouteStatus defines the observed state of Route.
+type RouteStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+}
 
-// Route is the Schema for the routes API
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+
+// Route is the Schema for the routes API.
 type Route struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec []*runtime.RawExtension `json:"spec,omitempty"`
+	Spec   []*runtime.RawExtension `json:"spec,omitempty"`
+	Status RouteStatus             `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// RouteList contains a list of Route
+// RouteList contains a list of Route.
 type RouteList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

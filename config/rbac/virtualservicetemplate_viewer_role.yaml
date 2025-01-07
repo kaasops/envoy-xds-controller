@@ -3,11 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: virtualservicetemplate-viewer-role
-    app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: envoy-xds-controller
-    app.kubernetes.io/part-of: envoy-xds-controller
+    app.kubernetes.io/name: envoy-xds-controller
     app.kubernetes.io/managed-by: kustomize
   name: virtualservicetemplate-viewer-role
 rules:

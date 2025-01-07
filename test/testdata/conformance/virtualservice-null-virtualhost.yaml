@@ -1,6 +1,0 @@
-apiVersion: envoy.kaasops.io/v1alpha1
-kind: VirtualService
-metadata:
-  name: virtual-service-used-route
-spec:
-  virtualHost: {}

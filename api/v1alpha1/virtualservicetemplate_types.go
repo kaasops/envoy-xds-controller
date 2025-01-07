@@ -1,5 +1,5 @@
 /*
-Copyright 2023.
+Copyright 2024.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,17 +38,16 @@ type VirtualServiceTemplateSpec struct {
 	VirtualServiceCommonSpec `json:",inline"`
 }
 
-// VirtualServiceTemplateStatus defines the observed state of VirtualServiceTemplate
+// VirtualServiceTemplateStatus defines the observed state of VirtualServiceTemplate.
 type VirtualServiceTemplateStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName=vst,categories=all
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
-// VirtualServiceTemplate is the Schema for the virtualservicetemplates API
+// VirtualServiceTemplate is the Schema for the virtualservicetemplates API.
 type VirtualServiceTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -57,9 +56,9 @@ type VirtualServiceTemplate struct {
 	Status VirtualServiceTemplateStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
-// VirtualServiceTemplateList contains a list of VirtualServiceTemplate
+// VirtualServiceTemplateList contains a list of VirtualServiceTemplate.
 type VirtualServiceTemplateList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

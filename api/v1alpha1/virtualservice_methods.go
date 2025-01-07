@@ -1,188 +1,37 @@
-/*
-Copyright 2023.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1alpha1
 
 import (
-	"context"
 	"encoding/json"
-	"github.com/kaasops/envoy-xds-controller/pkg/merge"
-	"k8s.io/apimachinery/pkg/types"
+	"fmt"
 	"strings"
 
-	"github.com/kaasops/envoy-xds-controller/pkg/errors"
-	"github.com/kaasops/envoy-xds-controller/pkg/utils/hash"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/kaasops/envoy-xds-controller/internal/helpers"
+	"github.com/kaasops/envoy-xds-controller/internal/merge"
 )
 
-func (vs *VirtualService) SetError(ctx context.Context, cl client.Client, msg Message) error {
-	if !vs.validAlredySet() && vs.messageAlredySet(msg) {
+const (
+	AnnotationKeyEnvoyKaaSopsIoNodeID = "envoy.kaasops.io/node-id"
+)
+
+func (vs *VirtualService) GetNodeIDs() []string {
+	annotations := vs.GetAnnotations()
+	nodeIDsAnnotation := annotations[AnnotationKeyEnvoyKaaSopsIoNodeID]
+	if nodeIDsAnnotation == "" {
 		return nil
 	}
-
-	vs.Status.Message = msg
-	vs.Status.Valid = false
-
-	return cl.Status().Update(ctx, vs.DeepCopy())
-}
-
-func (vs *VirtualService) SetValid(ctx context.Context, cl client.Client, msg Message) error {
-	if vs.validAlredySet() && vs.messageAlredySet(msg) {
-		return nil
-	}
-
-	vs.Status.Message = msg
-	vs.Status.Valid = true
-
-	return cl.Status().Update(ctx, vs.DeepCopy())
-}
-
-func (vs *VirtualService) SetValidWithUsedSecrets(ctx context.Context, cl client.Client, secrets []string, msg Message) error {
-	err := vs.setUsedSecrets(secrets)
-	if err != nil {
-		return err
-	}
-
-	vs.Status.Message = msg
-	vs.Status.Valid = true
-
-	return cl.Status().Update(ctx, vs.DeepCopy())
-}
-
-func (vs *VirtualService) setUsedSecrets(secrets []string) error {
-	usedSecrets := []ResourceRef{}
-
-	for _, s := range secrets {
-		splitS := strings.Split(s, "/")
-
-		if len(splitS) != 2 {
-			return errors.New("something go wrong, when trying to get secret namespace and name")
+	keys := make(map[string]struct{})
+	var list []string
+	for _, entry := range strings.Split(nodeIDsAnnotation, ",") {
+		entry = strings.TrimSpace(entry)
+		if _, value := keys[entry]; !value {
+			keys[entry] = struct{}{}
+			list = append(list, entry)
 		}
-
-		usedSecret := ResourceRef{
-			Name:      splitS[1],
-			Namespace: &splitS[0],
-		}
-
-		usedSecrets = append(usedSecrets, usedSecret)
 	}
-
-	vs.Status.UsedSecrets = usedSecrets
-
-	return nil
+	return list
 }
 
-// func (vs *VirtualService) SetInvalid(ctx context.Context, cl client.Client) error {
-// 	if vs.Status.Valid != nil && !*vs.Status.Valid {
-// 		return nil
-// 	}
-// 	valid := false
-// 	vs.Status.Valid = &valid
-
-// 	vs.SetLastAppliedHash(ctx, cl)
-
-// 	return cl.Status().Update(ctx, vs.DeepCopy())
-// }
-
-func (vs *VirtualService) SetLastAppliedHash(ctx context.Context, cl client.Client) error {
-	hash, err := vs.getHash()
-	if err != nil {
-		return err
-	}
-	if vs.Status.LastAppliedHash != nil && *hash == *vs.Status.LastAppliedHash {
-		return nil
-	}
-	vs.Status.LastAppliedHash = hash
-
-	return nil
-}
-
-func (vs *VirtualService) CheckHash() (bool, error) {
-	hash, err := vs.getHash()
-	if err != nil {
-		return false, err
-	}
-
-	if vs.Status.LastAppliedHash != nil && *hash == *vs.Status.LastAppliedHash {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func (vs *VirtualService) getHash() (*uint32, error) {
-	specHash, err := json.Marshal(vs.Spec)
-	if err != nil {
-		return nil, err
-	}
-	annotationHash, err := json.Marshal(vs.Annotations)
-	if err != nil {
-		return nil, err
-	}
-	hash := hash.Get(specHash) + hash.Get(annotationHash)
-	return &hash, nil
-}
-
-func (vs *VirtualService) validAlredySet() bool {
-	return vs.Status.Valid
-}
-
-func (vs *VirtualService) messageAlredySet(msg Message) bool {
-	if vs.Status.Message == msg {
-		return true
-	}
-
-	return false
-}
-
-/**
-	TlsConfig Methods
-**/
-
-func (tc *TlsConfig) GetTLSType() (string, error) {
-	if tc.SecretRef != nil {
-		if tc.AutoDiscovery != nil {
-			return "", errors.New(errors.ManyParamMessage)
-		}
-		return SecretRefType, nil
-	}
-
-	if tc.AutoDiscovery != nil {
-		return AutoDiscoveryType, nil
-	}
-
-	return "", errors.New(errors.ZeroParamMessage)
-}
-
-func FillFromTemplateIfNeeded(ctx context.Context, client client.Client, vs *VirtualService) error {
-	if vs.Spec.Template == nil {
-		return nil
-	}
-	vst := &VirtualServiceTemplate{}
-	ns := vs.Spec.Template.Namespace
-	if ns == nil {
-		ns = &vs.Namespace
-	}
-	err := client.Get(ctx, types.NamespacedName{
-		Namespace: *ns,
-		Name:      vs.Spec.Template.Name,
-	}, vst)
-	if err != nil {
-		return err
-	}
+func (vs *VirtualService) FillFromTemplate(vst *VirtualServiceTemplate, templateOpts ...TemplateOpts) error {
 	baseData, err := json.Marshal(vst.Spec.VirtualServiceCommonSpec)
 	if err != nil {
 		return err
@@ -191,12 +40,12 @@ func FillFromTemplateIfNeeded(ctx context.Context, client client.Client, vs *Vir
 	if err != nil {
 		return err
 	}
-	var opts []merge.Opt
-	if len(vs.Spec.TemplateOptions) > 0 {
-		opts = make([]merge.Opt, 0, len(vs.Spec.TemplateOptions))
-		for _, opt := range vs.Spec.TemplateOptions {
+	var tOpts []merge.Opt
+	if len(templateOpts) > 0 {
+		tOpts = make([]merge.Opt, 0, len(templateOpts))
+		for _, opt := range templateOpts {
 			if opt.Field == "" {
-				return errors.Newf("template option field is empty")
+				return fmt.Errorf("template option field is empty")
 			}
 			var op merge.OperationType
 			switch opt.Modifier {
@@ -207,18 +56,65 @@ func FillFromTemplateIfNeeded(ctx context.Context, client client.Client, vs *Vir
 			case ModifierDelete:
 				op = merge.OperationDelete
 			default:
-				return errors.Newf("template option modifier is invalid")
+				return fmt.Errorf("template option modifier is invalid")
 			}
-			opts = append(opts, merge.Opt{
+			tOpts = append(tOpts, merge.Opt{
 				Path:      opt.Field,
 				Operation: op,
 			})
 		}
 	}
-	mergedDate := merge.JSONRawMessages(baseData, svcData, opts)
+	mergedDate := merge.JSONRawMessages(baseData, svcData, tOpts)
 	err = json.Unmarshal(mergedDate, &vs.Spec.VirtualServiceCommonSpec)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (vs *VirtualService) IsEqual(other *VirtualService) bool {
+	if vs == nil && other == nil {
+		return true
+	}
+	if vs == nil || other == nil {
+		return false
+	}
+	if vs.Annotations == nil || other.Annotations == nil {
+		return false
+	}
+	if vs.Annotations[AnnotationKeyEnvoyKaaSopsIoNodeID] != other.Annotations[AnnotationKeyEnvoyKaaSopsIoNodeID] {
+		return false
+	}
+	if !vs.Spec.VirtualServiceCommonSpec.IsEqual(&other.Spec.VirtualServiceCommonSpec) {
+		return false
+	}
+	if (vs.Spec.Template == nil) != (other.Spec.Template == nil) {
+		return false
+	}
+	if vs.Spec.Template != nil && other.Spec.Template != nil {
+		if vs.Spec.Template.Name != other.Spec.Template.Name ||
+			vs.Spec.Template.Namespace != other.Spec.Template.Namespace {
+			return false
+		}
+	}
+	if len(vs.Spec.TemplateOptions) != len(other.Spec.TemplateOptions) {
+		return false
+	}
+	for i := range vs.Spec.TemplateOptions {
+		if vs.Spec.TemplateOptions[i].Field != other.Spec.TemplateOptions[i].Field ||
+			vs.Spec.TemplateOptions[i].Modifier != other.Spec.TemplateOptions[i].Modifier {
+			return false
+		}
+	}
+	return true
+}
+
+func (vs *VirtualService) GetListenerNamespacedName() (helpers.NamespacedName, error) {
+	if vs.Spec.Listener == nil {
+		return helpers.NamespacedName{}, fmt.Errorf("listener is nil")
+	}
+	return helpers.NamespacedName{
+		Namespace: vs.Namespace,
+		Name:      vs.Spec.Listener.Name,
+	}, nil
 }

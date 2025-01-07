@@ -7,7 +7,6 @@ metadata:
   annotations:
     envoy.kaasops.io/domains: exc2.kaasops.io
   labels:
-    envoy.kaasops.io/autoDiscovery: "true"
     envoy.kaasops.io/secret-type: sds-cached
   name: exc2-kaasops-io
 type: kubernetes.io/tls 

@@ -1,4 +1,4 @@
-## Append samples you want in your CSV to this file as resources ##
+## Append samples of your project ##
 resources:
 - envoy_v1alpha1_cluster.yaml
 - envoy_v1alpha1_listener.yaml
@@ -9,4 +9,6 @@ resources:
 - envoy_v1alpha1_virtualservice.yaml
 - envoy_v1alpha1_accesslogconfig.yaml
 - envoy_v1alpha1_httpfilter.yaml
-#+kubebuilder:scaffold:manifestskustomizesamples
+- envoy_v1alpha1_policy.yaml
+- envoy_v1alpha1_virtualservicetemplate.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

@@ -4,8 +4,20 @@ kind: ClusterRole
 metadata:
   name: manager-role
 rules:
-- resources:
+- apiGroups:
+  - ""
+  resources:
   - secrets
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
   verbs:
   - create
   - delete
@@ -14,72 +26,17 @@ rules:
   - patch
   - update
   - watch
-- resources:
-  - secrets/finalizers
-  verbs:
-  - update
-- resources:
-  - secrets/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - envoy.kaasops.io
   resources:
+  - accesslogconfigs
   - clusters
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - clusters/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - clusters/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - endpoints
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - endpoints/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - endpoints/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
+  - httpfilters
   - listeners
+  - policies
+  - routes
+  - virtualservices
+  - virtualservicetemplates
   verbs:
   - create
   - delete
@@ -91,65 +48,27 @@ rules:
 - apiGroups:
   - envoy.kaasops.io
   resources:
+  - accesslogconfigs/finalizers
+  - clusters/finalizers
+  - httpfilters/finalizers
   - listeners/finalizers
+  - policies/finalizers
+  - routes/finalizers
+  - virtualservices/finalizers
+  - virtualservicetemplates/finalizers
   verbs:
   - update
 - apiGroups:
   - envoy.kaasops.io
   resources:
+  - accesslogconfigs/status
+  - clusters/status
+  - httpfilters/status
   - listeners/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - secrets/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - secrets/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - virtualhosts
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - virtualhosts/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - envoy.kaasops.io
-  resources:
-  - virtualhosts/status
+  - policies/status
+  - routes/status
+  - virtualservices/status
+  - virtualservicetemplates/status
   verbs:
   - get
   - patch

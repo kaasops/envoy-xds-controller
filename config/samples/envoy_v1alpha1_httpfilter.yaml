@@ -2,36 +2,8 @@ apiVersion: envoy.kaasops.io/v1alpha1
 kind: HttpFilter
 metadata:
   labels:
-    app.kubernetes.io/name: httpfilter
-    app.kubernetes.io/instance: httpfilter-sample
-    app.kubernetes.io/part-of: envoy-xds-controller
+    app.kubernetes.io/name: envoy-xds-controller
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/created-by: envoy-xds-controller
   name: httpfilter-sample
-  namespace: envoy-xds-controller
 spec:
-  - name: envoy.filters.http.rbac
-    typed_config:
-      "@type": type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
-      rules: 
-        action: ALLOW
-        policies:
-          localhost-alow-rules:
-            permissions:
-            - any: true
-            principals:
-            - source_ip: 
-                address_prefix: 192.168.0.0
-                prefix_len: 16
-            - source_ip: 
-                address_prefix: 23.106.0.0
-                prefix_len: 16
-            - source_ip: 
-                address_prefix: 23.111.0.0
-                prefix_len: 16
-            - source_ip: 
-                address_prefix: 127.0.0.1
-                prefix_len: 32
-  - name: envoy.filters.http.router
-    typed_config:
-      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  # TODO(user): Add fields here

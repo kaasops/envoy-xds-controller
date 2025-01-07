@@ -2,6 +2,8 @@ apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
 metadata:
   name: virtual-service-empty-domains
+  annotations:
+    envoy.kaasops.io/node-id: test3
 spec:
   listener:
     name: http

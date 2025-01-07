@@ -2,20 +2,29 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
+- bases/envoy.kaasops.io_clusters.yaml
+- bases/envoy.kaasops.io_listeners.yaml
+- bases/envoy.kaasops.io_routes.yaml
+- bases/envoy.kaasops.io_endpoints.yaml
+- bases/envoy.kaasops.io_virtualhosts.yaml
+- bases/envoy.kaasops.io_secrets.yaml
+- bases/envoy.kaasops.io_virtualservices.yaml
+- bases/envoy.kaasops.io_accesslogconfigs.yaml
+- bases/envoy.kaasops.io_httpfilters.yaml
+- bases/envoy.kaasops.io_policies.yaml
 - bases/envoy.kaasops.io_virtualservicetemplates.yaml
-#+kubebuilder:scaffold:crdkustomizeresource
+# +kubebuilder:scaffold:crdkustomizeresource
 
-patchesStrategicMerge:
+patches:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
-#- patches/webhook_in_virtualservicetemplates.yaml
-#+kubebuilder:scaffold:crdkustomizewebhookpatch
+# +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable cert-manager, uncomment all the sections with [CERTMANAGER] prefix.
 # patches here are for enabling the CA injection for each CRD
-#- patches/cainjection_in_virtualservicetemplates.yaml
-#+kubebuilder:scaffold:crdkustomizecainjectionpatch
+# +kubebuilder:scaffold:crdkustomizecainjectionpatch
 
+# [WEBHOOK] To enable webhook, uncomment the following section
 # the following config is for teaching kustomize how to do kustomization for CRDs.
-configurations:
-- kustomizeconfig.yaml
+#configurations:
+#- kustomizeconfig.yaml
