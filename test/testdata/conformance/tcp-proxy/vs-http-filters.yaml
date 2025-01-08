@@ -1,9 +1,11 @@
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
 metadata:
-  name: virtual-service
+  name: vs-http-filters
   annotations:
     envoy.kaasops.io/node-id: test
 spec:
   listener:
-    name: tcp-proxy
+    name: tcp-proxy-listener
+  httpFilters:
+    - name: test-http-filter

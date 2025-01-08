@@ -84,6 +84,46 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 
 	if len(xdsListener.FilterChains) > 0 {
 
+		if vs.Spec.VirtualHost != nil {
+			return nil, nil, fmt.Errorf("conflict: virtual host is set, but filter chains are found in listener")
+		}
+
+		if len(vs.Spec.AdditionalRoutes) > 0 {
+			return nil, nil, fmt.Errorf("conflict: additional routes are set, but filter chains are found in listener")
+		}
+
+		if len(vs.Spec.HTTPFilters) > 0 {
+			return nil, nil, fmt.Errorf("conflict: http filters are set, but filter chains are found in listener")
+		}
+
+		if len(vs.Spec.AdditionalHttpFilters) > 0 {
+			return nil, nil, fmt.Errorf("conflict: additional http filters are set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.TlsConfig != nil {
+			return nil, nil, fmt.Errorf("conflict: tls config is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.RBAC != nil {
+			return nil, nil, fmt.Errorf("conflict: rbac is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.UseRemoteAddress != nil {
+			return nil, nil, fmt.Errorf("conflict: use remote address is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.UpgradeConfigs != nil {
+			return nil, nil, fmt.Errorf("conflict: upgrade configs is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.AccessLog != nil {
+			return nil, nil, fmt.Errorf("conflict: access log is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.AccessLogConfig != nil {
+			return nil, nil, fmt.Errorf("conflict: access log config is set, but filter chains are found in listener")
+		}
+
 		if len(xdsListener.FilterChains) > 1 {
 			return nil, nil, fmt.Errorf("multiple filter chains found")
 		}

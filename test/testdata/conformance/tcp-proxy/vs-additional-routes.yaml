@@ -1,9 +1,11 @@
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
 metadata:
-  name: virtual-service
+  name: vs-additional-routes
   annotations:
     envoy.kaasops.io/node-id: test
 spec:
   listener:
-    name: tcp-proxy
+    name: tcp-proxy-listener
+  additionalRoutes:
+    - name: test-route

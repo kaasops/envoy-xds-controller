@@ -1,9 +1,11 @@
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
 metadata:
-  name: virtual-service
+  name: vs-access-log-config
   annotations:
     envoy.kaasops.io/node-id: test
 spec:
   listener:
-    name: tcp-proxy
+    name: tcp-proxy-listener
+  accessLogConfig:
+    name: envoy-access-log
