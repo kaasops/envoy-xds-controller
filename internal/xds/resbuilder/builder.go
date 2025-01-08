@@ -16,6 +16,7 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
@@ -54,6 +55,7 @@ type Resources struct {
 	Secrets     []*tlsv3.Secret
 }
 
+// nolint: gocyclo
 func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources, []helpers.NamespacedName, error) {
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
@@ -78,6 +80,44 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	xdsListener, err := buildListener(listenerNN, store)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(xdsListener.FilterChains) > 0 {
+
+		if len(xdsListener.FilterChains) > 1 {
+			return nil, nil, fmt.Errorf("multiple filter chains found")
+		}
+
+		clusters := make([]*cluster.Cluster, 0)
+		for _, fc := range xdsListener.FilterChains {
+			for _, filter := range fc.Filters {
+				if tc := filter.GetTypedConfig(); tc != nil {
+					if tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy" {
+						return nil, nil, fmt.Errorf("unexpected filter type: %s", tc.TypeUrl)
+					}
+					var tcpProxy tcpProxyv3.TcpProxy
+					if err := tc.UnmarshalTo(&tcpProxy); err != nil {
+						return nil, nil, err
+					}
+					clusterName := tcpProxy.GetCluster()
+					cl := store.SpecClusters[clusterName]
+					if cl == nil {
+						return nil, nil, fmt.Errorf("cluster %s not found", clusterName)
+					}
+					xdsCluster, err := cl.UnmarshalV3AndValidate()
+					if err != nil {
+						return nil, nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+					}
+					clusters = append(clusters, xdsCluster)
+				}
+			}
+		}
+
+		return &Resources{
+			Listener:    listenerNN,
+			FilterChain: xdsListener.FilterChains,
+			Clusters:    clusters,
+		}, nil, nil
 	}
 
 	// Route config ---
