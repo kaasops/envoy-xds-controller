@@ -1,4 +1,4 @@
-export const modalBox = {
+export const styleModalConfigs = {
 	position: 'absolute',
 	top: '50%',
 	left: '50%',
@@ -8,6 +8,9 @@ export const modalBox = {
 	border: `1px solid border.DEFAULT`,
 	boxShadow: 24,
 	p: 4,
-	height: '80vh',
-	maxHeight: '80vh'
+	height: '90%',
+	// maxHeight: '80vh',
+	display: 'flex',
+	minHeight: '570px',
+	flexDirection: 'column'
 }

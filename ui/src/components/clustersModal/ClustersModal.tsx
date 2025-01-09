@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Modal, TextField, Typography } from '@mui/material'
+import { Autocomplete, Box, Button, Modal, TextField, Typography } from '@mui/material'
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useGetClustersApi } from '../../api/hooks/useClusters'
@@ -7,6 +7,8 @@ import { IModalProps } from '../../common/types/modalProps'
 import { convertToYaml } from '../../utils/helpers/convertToYaml'
 import { styleModalSetting } from '../../utils/helpers/styleModalSettings'
 import CodeBlock from '../codeBlock/CodeBlock'
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit'
+import FullscreenIcon from '@mui/icons-material/Fullscreen'
 
 function ClustersModal({ open, onClose }: IModalProps) {
 	const { nodeID } = useParams()
@@ -14,6 +16,12 @@ function ClustersModal({ open, onClose }: IModalProps) {
 	const [clusterName, setClusterName] = useState('')
 	const [clustersNamesList, setClustersNamesList] = useState<string[]>([])
 	const [yamlData, setYamlData] = useState('')
+
+	const [isFullscreen, setIsFullscreen] = useState(false)
+	const fullscreenStyles = {
+		width: '95%',
+		height: '95%'
+	}
 
 	const { data, isFetching } = useGetClustersApi(nodeID as string, clusterName, loadDataFlag)
 
@@ -27,11 +35,12 @@ function ClustersModal({ open, onClose }: IModalProps) {
 	}, [])
 
 	useEffect(() => {
-		if (open === true) {
+		if (open) {
 			setLoadDataFlag(true)
 		}
 		if (!open) {
 			setClusterName('')
+			setIsFullscreen(false)
 		}
 	}, [open])
 
@@ -46,23 +55,28 @@ function ClustersModal({ open, onClose }: IModalProps) {
 		}
 	}, [data, isFetching, getClustersNames, clustersNamesList.length])
 
-	const handleChangeCluster = (value: string) => {
-		value === null ? setClusterName('') : setClusterName(value)
+	const handleChangeCluster = (value: string | null): void => {
+		setClusterName(value ?? '')
 	}
 
 	return (
 		<Modal open={open} onClose={onClose}>
-			<Box className='ClustersModalBox' sx={styleModalSetting}>
-				<Box gap={2} sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100% - 90px)' }}>
-					<Typography variant='h6' component='h2'>
-						Clusters Modal
-					</Typography>
+			<Box className='ClustersModalBox' sx={{ ...styleModalSetting, ...(isFullscreen ? fullscreenStyles : {}) }}>
+				<Box gap={2} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }} overflow='auto'>
+					<Box display='flex' justifyContent='space-between' alignItems='flex-start'>
+						<Typography variant='h6' component='h2'>
+							Clusters Modal
+						</Typography>
+						<Button onClick={() => setIsFullscreen(!isFullscreen)}>
+							{isFullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+						</Button>
+					</Box>
 					<Autocomplete
 						disablePortal
 						id='combo-box-demo'
 						options={clustersNamesList}
 						sx={{ width: '100%', height: 'auto' }}
-						onChange={(_event, value) => handleChangeCluster(value as string)}
+						onChange={(_event, value) => handleChangeCluster(value)}
 						renderInput={params => <TextField {...params} label='Clusters' />}
 					/>
 					{data && <CodeBlock jsonData={data} yamlData={yamlData} heightCodeBox={100} />}
