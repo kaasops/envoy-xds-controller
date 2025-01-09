@@ -16,6 +16,7 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
@@ -54,6 +55,7 @@ type Resources struct {
 	Secrets     []*tlsv3.Secret
 }
 
+// nolint: gocyclo
 func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources, []helpers.NamespacedName, error) {
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
@@ -78,6 +80,84 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	xdsListener, err := buildListener(listenerNN, store)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(xdsListener.FilterChains) > 0 {
+
+		if vs.Spec.VirtualHost != nil {
+			return nil, nil, fmt.Errorf("conflict: virtual host is set, but filter chains are found in listener")
+		}
+
+		if len(vs.Spec.AdditionalRoutes) > 0 {
+			return nil, nil, fmt.Errorf("conflict: additional routes are set, but filter chains are found in listener")
+		}
+
+		if len(vs.Spec.HTTPFilters) > 0 {
+			return nil, nil, fmt.Errorf("conflict: http filters are set, but filter chains are found in listener")
+		}
+
+		if len(vs.Spec.AdditionalHttpFilters) > 0 {
+			return nil, nil, fmt.Errorf("conflict: additional http filters are set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.TlsConfig != nil {
+			return nil, nil, fmt.Errorf("conflict: tls config is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.RBAC != nil {
+			return nil, nil, fmt.Errorf("conflict: rbac is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.UseRemoteAddress != nil {
+			return nil, nil, fmt.Errorf("conflict: use remote address is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.UpgradeConfigs != nil {
+			return nil, nil, fmt.Errorf("conflict: upgrade configs is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.AccessLog != nil {
+			return nil, nil, fmt.Errorf("conflict: access log is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.AccessLogConfig != nil {
+			return nil, nil, fmt.Errorf("conflict: access log config is set, but filter chains are found in listener")
+		}
+
+		if len(xdsListener.FilterChains) > 1 {
+			return nil, nil, fmt.Errorf("multiple filter chains found")
+		}
+
+		clusters := make([]*cluster.Cluster, 0)
+		for _, fc := range xdsListener.FilterChains {
+			for _, filter := range fc.Filters {
+				if tc := filter.GetTypedConfig(); tc != nil {
+					if tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy" {
+						return nil, nil, fmt.Errorf("unexpected filter type: %s", tc.TypeUrl)
+					}
+					var tcpProxy tcpProxyv3.TcpProxy
+					if err := tc.UnmarshalTo(&tcpProxy); err != nil {
+						return nil, nil, err
+					}
+					clusterName := tcpProxy.GetCluster()
+					cl := store.SpecClusters[clusterName]
+					if cl == nil {
+						return nil, nil, fmt.Errorf("cluster %s not found", clusterName)
+					}
+					xdsCluster, err := cl.UnmarshalV3AndValidate()
+					if err != nil {
+						return nil, nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+					}
+					clusters = append(clusters, xdsCluster)
+				}
+			}
+		}
+
+		return &Resources{
+			Listener:    listenerNN,
+			FilterChain: xdsListener.FilterChains,
+			Clusters:    clusters,
+		}, nil, nil
 	}
 
 	// Route config ---

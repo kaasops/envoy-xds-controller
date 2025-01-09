@@ -1,0 +1,17 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vs-rbac
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  listener:
+    name: tcp-proxy-listener
+  rbac:
+    action: ALLOW
+    policies:
+      demo-policy:
+        permissions:
+          - any: true
+        principals:
+          - any: true

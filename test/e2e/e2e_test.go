@@ -425,6 +425,94 @@ var _ = Describe("Manager", Ordered, func() {
 					expectedErrText: "",
 					cleanup:         true,
 				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-virtual-host.yaml",
+					expectedErrText: "conflict: virtual host is set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-additional-routes.yaml",
+					expectedErrText: "conflict: additional routes are set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-http-filters.yaml",
+					expectedErrText: "conflict: http filters are set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-additional-http-filters.yaml",
+					expectedErrText: "conflict: additional http filters are set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-additional-http-filters.yaml",
+					expectedErrText: "conflict: additional http filters are set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-tls-config.yaml",
+					expectedErrText: "conflict: tls config is set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-rbac.yaml",
+					expectedErrText: "conflict: rbac is set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-use-remote-address.yaml",
+					expectedErrText: "conflict: use remote address is set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-upgrade-configs.yaml",
+					expectedErrText: "conflict: upgrade configs is set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-access-log.yaml",
+					expectedErrText: "conflict: access log is set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
+				{
+					manifest:        "test/testdata/conformance/tcp-proxy/vs-access-log-config.yaml",
+					expectedErrText: "conflict: access log config is set, but filter chains are found in listener",
+					applyBefore: []string{
+						"test/testdata/conformance/tcp-proxy/cluster.yaml",
+						"test/testdata/conformance/tcp-proxy/listener.yaml",
+					},
+				},
 			} {
 				if len(tc.applyBefore) > 0 {
 					for _, f := range tc.applyBefore {
@@ -595,6 +683,72 @@ var _ = Describe("Manager", Ordered, func() {
 			Eventually(verifyConfigUpdated).Should(Succeed())
 		})
 
+		It("should ensure the envoy config changed (proxy)", func() {
+			By("apply manifests")
+
+			manifests := []string{
+				"test/testdata/e2e/vs4/tcp-echo-server.yaml",
+				"test/testdata/e2e/vs4/cluster.yaml",
+				"test/testdata/e2e/vs4/listener.yaml",
+				"test/testdata/e2e/vs4/virtual-service.yaml",
+			}
+
+			for _, manifest := range manifests {
+				err := utils.ApplyManifests(manifest)
+				Expect(err).NotTo(HaveOccurred(), "Failed to apply manifest: "+manifest)
+			}
+
+			By("wait for tcp echo server ready")
+			checkReady := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get", "pods",
+					"-l", "app=tcp-echo", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
+				out, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).To(Equal("true"))
+			}
+			Eventually(checkReady, time.Minute).Should(Succeed())
+		})
+
+		It("should applied configs to envoy", func() {
+			waitEnvoyConfigChanged(&actualCfgDump)
+
+			verifyConfigUpdated := func(g Gomega) {
+				dump := string(actualCfgDump)
+				// nolint: lll
+				for path, value := range map[string]string{
+					"configs.0.bootstrap.node.id":                                 "test",
+					"configs.0.bootstrap.node.cluster":                            "e2e",
+					"configs.0.bootstrap.admin.address.socket_address.port_value": "19000",
+					"configs.2.dynamic_listeners.0.name":                          "default/tcp-proxy",
+				} {
+					Expect(value).To(Equal(gjson.Get(dump, path).String()))
+				}
+			}
+			Eventually(verifyConfigUpdated).Should(Succeed())
+		})
+
+		It("should ensure the proxy return expected response", func() {
+			podName := "dummy"
+			cmd := exec.Command("kubectl", "run", "--restart=Never", podName,
+				"--image=busybox", "--", "sh", "-c", "echo world | nc tcp-echo 9001")
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred())
+
+			checkReady := func(g Gomega) {
+				cmd := exec.Command("kubectl", "get", "pods", podName, "-o", "jsonpath={.status.phase}")
+				out, err := utils.Run(cmd)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(out).To(Equal("Succeeded"))
+			}
+			Eventually(checkReady, time.Minute).Should(Succeed())
+
+			out, err := utils.Run(exec.Command("kubectl", "logs", podName))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(ContainSubstring("hello world"))
+
+			_, err = utils.Run(exec.Command("kubectl", "delete", "pod", podName))
+			Expect(err).NotTo(HaveOccurred())
+		})
 	})
 })
 

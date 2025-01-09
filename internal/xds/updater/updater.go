@@ -89,7 +89,9 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 		}
 
 		for _, nodeID := range vsNodeIDs {
-			mixer.Add(nodeID, resource.RouteType, vsRes.RouteConfig)
+			if vsRes.RouteConfig != nil {
+				mixer.Add(nodeID, resource.RouteType, vsRes.RouteConfig)
+			}
 			for _, cl := range vsRes.Clusters {
 				mixer.Add(nodeID, resource.ClusterType, cl)
 			}
@@ -112,7 +114,9 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 			}
 
 			for nodeID := range mixer.nodeIDs {
-				mixer.Add(nodeID, resource.RouteType, vsRes.RouteConfig)
+				if vsRes.RouteConfig != nil {
+					mixer.Add(nodeID, resource.RouteType, vsRes.RouteConfig)
+				}
 				for _, cl := range vsRes.Clusters {
 					mixer.Add(nodeID, resource.ClusterType, cl)
 				}

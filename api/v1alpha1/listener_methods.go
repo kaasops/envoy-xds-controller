@@ -2,7 +2,6 @@ package v1alpha1
 
 import (
 	"bytes"
-	"fmt"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
@@ -28,9 +27,9 @@ func (l *Listener) UnmarshalV3AndValidate() (*listenerv3.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(listener.FilterChains) > 0 {
-		return nil, fmt.Errorf("filter chains are not supported")
-	}
+	// if len(listener.FilterChains) > 0 {
+	//	 return nil, fmt.Errorf("filter chains are not supported")
+	// }
 	return nil, listener.ValidateAll()
 }
 

@@ -1,0 +1,11 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vs-additional-http-filters
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  listener:
+    name: tcp-proxy-listener
+  additionalHttpFilters:
+    - name: test-additional-http-filter
