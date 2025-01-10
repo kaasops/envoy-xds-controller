@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 
+	"google.golang.org/protobuf/proto"
+
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -89,7 +91,9 @@ func (c *SnapshotCache) GetSecrets(nodeID string) ([]*tlsv3.Secret, error) {
 	data := snapshot.GetResources(resourcev3.SecretType)
 	secrets := make([]*tlsv3.Secret, 0, len(data))
 	for _, secret := range data {
-		secrets = append(secrets, secret.(*tlsv3.Secret))
+		tlsSecret := secret.(*tlsv3.Secret)
+		copySecret := proto.Clone(tlsSecret).(*tlsv3.Secret)
+		secrets = append(secrets, copySecret)
 	}
 	return secrets, nil
 }

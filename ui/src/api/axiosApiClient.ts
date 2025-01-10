@@ -6,8 +6,6 @@ const axiosClient = axios.create({
 	headers: { 'Content-Type': 'application/json' }
 })
 
-export default axiosClient
-
 export function setAccessToken(token: string | undefined) {
 	axiosClient.interceptors.request.use(
 		config => {
@@ -19,3 +17,5 @@ export function setAccessToken(token: string | undefined) {
 		}
 	)
 }
+
+export default axiosClient
