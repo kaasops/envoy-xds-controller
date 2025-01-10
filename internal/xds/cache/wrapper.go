@@ -2,8 +2,9 @@ package cache
 
 import (
 	"context"
-	"google.golang.org/protobuf/proto"
 	"sync"
+
+	"google.golang.org/protobuf/proto"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
