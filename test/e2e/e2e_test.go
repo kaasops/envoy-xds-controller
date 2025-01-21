@@ -513,6 +513,14 @@ var _ = Describe("Manager", Ordered, func() {
 						"test/testdata/conformance/tcp-proxy/listener.yaml",
 					},
 				},
+				{
+					manifest:        "test/testdata/conformance/virtual-service-https-without-tls.yaml",
+					expectedErrText: "tls listener not configured, virtual service has not tls config",
+				},
+				{
+					manifest:        "test/testdata/conformance/virtual-service-http-with-tls.yaml",
+					expectedErrText: "listener is not tls, virtual service has tls config",
+				},
 			} {
 				if len(tc.applyBefore) > 0 {
 					for _, f := range tc.applyBefore {
@@ -588,7 +596,7 @@ var _ = Describe("Manager", Ordered, func() {
 		})
 
 		It("should ensure the envoy return expected response", func() {
-			response := fetchDataFromEnvoy()
+			response := fetchDataFromEnvoy("https://exc.kaasops.io:10443/", "exc.kaasops.io:10443")
 			Expect(strings.TrimSpace(response)).To(Equal("{\"message\":\"Hello\"}"))
 		})
 
@@ -628,6 +636,14 @@ var _ = Describe("Manager", Ordered, func() {
 					"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.http_filters.0.typed_config.@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
 					"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.stat_prefix":                       "default/virtual-service",
 					"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.access_log.0.typed_config.@type":   "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+					"configs.4.dynamic_route_configs.0.route_config.name":                                                                          "default/virtual-service",
+					"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.#":                                                               "2",
+					"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.domains.#":                                                     "2",
+					"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.domains.1":                                                     "exc.kaasops.io:10443",
+					"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.domains.#":                                                     "1",
+					"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.domains.0":                                                     "*",
+					"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.name":                                                          "421vh",
+					"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.routes.0.direct_response.status":                               "421",
 				} {
 					Expect(value).To(Equal(gjson.Get(dump, path).String()))
 				}
@@ -636,7 +652,7 @@ var _ = Describe("Manager", Ordered, func() {
 		})
 
 		It("should ensure the envoy return expected response", func() {
-			response := fetchDataFromEnvoy()
+			response := fetchDataFromEnvoy("https://exc.kaasops.io:10443/", "exc.kaasops.io:10443")
 			Expect(strings.TrimSpace(response)).To(Equal("{\"message\":\"Hello from template\"}"))
 		})
 
@@ -749,6 +765,37 @@ var _ = Describe("Manager", Ordered, func() {
 			_, err = utils.Run(exec.Command("kubectl", "delete", "pod", podName))
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("should apply http config", func() {
+			By("apply manifests")
+			for _, manifest := range []string{
+				"test/testdata/e2e/vs5/http-listener.yaml",
+				"test/testdata/e2e/vs5/vs.yaml",
+			} {
+				err := utils.ApplyManifests(manifest)
+				Expect(err).NotTo(HaveOccurred(), "Failed to apply manifest: "+manifest)
+			}
+
+			By("wait for envoy config changed")
+			waitEnvoyConfigChanged(&actualCfgDump)
+
+			By("ensure the envoy config changed")
+			verifyConfigUpdated := func(g Gomega) {
+				dump := string(actualCfgDump)
+				for path, value := range map[string]string{
+					"configs.2.dynamic_listeners.1.name":                                                    "default/http",
+					"configs.2.dynamic_listeners.1.active_state.listener.address.socket_address.port_value": "8080",
+				} {
+					Expect(value).To(Equal(gjson.Get(dump, path).String()))
+				}
+			}
+			Eventually(verifyConfigUpdated).Should(Succeed())
+
+			By("ensure the envoy return expected response")
+			response := fetchDataFromEnvoy("http://test.kaasops.io:8080/", "test.kaasops.io:8080")
+			Expect(strings.TrimSpace(response)).To(Equal(`{"message":"test"}`))
+		})
+
 	})
 })
 
@@ -837,7 +884,7 @@ func getEnvoyConfigDump(queryParams string) json.RawMessage {
 	Expect(err).NotTo(HaveOccurred(), "Failed to unmarshal config dump")
 	return dump
 }
-func fetchDataFromEnvoy() string {
+func fetchDataFromEnvoy(address, domain string) string {
 	podName := "curl-fetch-data"
 
 	By("resolve ip address of the envoy pod")
@@ -850,7 +897,7 @@ func fetchDataFromEnvoy() string {
 	By("creating the curl-config-dump pod to access config dump")
 	cmd = exec.Command("kubectl", "run", podName, "--restart=Never",
 		"--image=curlimages/curl:7.78.0",
-		"--", "/bin/sh", "-c", "curl -s -k https://exc.kaasops.io:10443/"+" --resolve exc.kaasops.io:10443:"+envoyIP)
+		"--", "/bin/sh", "-c", "curl -s -k "+address+" --resolve "+domain+":"+envoyIP)
 	_, err = utils.Run(cmd)
 	Expect(err).NotTo(HaveOccurred(), "Failed to create curl-fetch-data pod")
 
