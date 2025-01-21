@@ -3,7 +3,9 @@ package resbuilder
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"slices"
+	"strconv"
 	"strings"
 
 	oauth2v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/oauth2/v3"
@@ -45,6 +47,7 @@ type FilterChainsParams struct {
 	Domains              []string
 	DownstreamTLSContext *tlsv3.DownstreamTlsContext
 	SecretNameToDomains  map[helpers.NamespacedName][]string
+	IsTLS                bool
 }
 
 type Resources struct {
@@ -160,6 +163,8 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 		}, nil, nil
 	}
 
+	listenerIsTLS := isTLSListener(xdsListener)
+
 	// Route config ---
 
 	virtualHost, err := buildVirtualHost(vs, store)
@@ -171,10 +176,27 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 		Name: nn.String(),
 		VirtualHosts: []*routev3.VirtualHost{{
 			Name:                nn.String(),
-			Domains:             []string{"*"},
+			Domains:             domainsWithPorts(virtualHost.Domains, xdsListener),
 			Routes:              virtualHost.Routes,
 			RequestHeadersToAdd: virtualHost.RequestHeadersToAdd,
 		}},
+	}
+	// https://github.com/envoyproxy/envoy/issues/37810
+	if listenerIsTLS && !(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") {
+		routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, &routev3.VirtualHost{
+			Name:    "421vh",
+			Domains: []string{"*"},
+			Routes: []*routev3.Route{
+				{
+					Match: &routev3.RouteMatch{PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"}},
+					Action: &routev3.Route_DirectResponse{
+						DirectResponse: &routev3.DirectResponseAction{
+							Status: 421,
+						},
+					},
+				},
+			},
+		})
 	}
 	if err = routeConfiguration.ValidateAll(); err != nil {
 		return nil, nil, err
@@ -193,6 +215,7 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 		RouteConfigName:  nn.String(),
 		StatPrefix:       strings.ReplaceAll(nn.String(), ".", "-"),
 		HTTPFilters:      httpFilters,
+		IsTLS:            listenerIsTLS,
 	}
 
 	filterChainParams.UpgradeConfigs, err = buildUpgradeConfigs(vs.Spec.UpgradeConfigs)
@@ -204,8 +227,6 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	if err != nil {
 		return nil, nil, err
 	}
-
-	listenerIsTLS := isTLSListener(xdsListener)
 
 	if listenerIsTLS && vs.Spec.TlsConfig == nil {
 		return nil, nil, fmt.Errorf("tls listener not configured, virtual service has not tls config")
@@ -401,6 +422,25 @@ func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3
 	return httpFilters, nil
 }
 
+func domainsWithPorts(domains []string, listener *listenerv3.Listener) []string {
+	if listener == nil || listener.Address == nil || listener.Address.GetSocketAddress() == nil {
+		return domains
+	}
+	portStr := strconv.Itoa(int(listener.Address.GetSocketAddress().GetPortValue()))
+	if portStr == "80" || portStr == "443" {
+		return domains
+	}
+	newList := make([]string, 0, len(domains))
+	newList = append(newList, domains...)
+	for _, domain := range domains {
+		if strings.Contains(domain, ":") || strings.Contains(domain, "*") {
+			continue
+		}
+		newList = append(newList, net.JoinHostPort(domain, portStr))
+	}
+	return newList
+}
+
 func buildClusters(virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
 	var clusters []*cluster.Cluster
 
@@ -593,7 +633,7 @@ func buildFilterChain(params *FilterChainsParams) (*listenerv3.FilterChain, erro
 			TypedConfig: pbst,
 		},
 	}}
-	if len(params.Domains) > 0 && !slices.Contains(params.Domains, "*") {
+	if params.IsTLS && len(params.Domains) > 0 && !slices.Contains(params.Domains, "*") {
 		fc.FilterChainMatch = &listenerv3.FilterChainMatch{
 			ServerNames: params.Domains,
 		}
