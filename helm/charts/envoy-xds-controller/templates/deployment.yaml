@@ -41,9 +41,11 @@ spec:
       {{- end }}
       containers:
       - image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
-        {{- if .Values.args }}
+        {{- if or .Values.args .Values.cacheAPI.enabled }}
         args:
+          {{- if .Values.args }}
           {{- toYaml .Values.args | nindent 10 }}
+          {{- end }}
           {{- if .Values.cacheAPI.enabled }}
           - --development={{ .Values.development }}
           - --enable-cache-api=true
@@ -51,13 +53,6 @@ spec:
           - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
           - --cache-api-addr={{ .Values.cacheAPI.address }}
           {{- end }}
-        {{- else if .Values.cacheAPI.enabled }}
-        args:
-          - --development={{ .Values.development }}
-          - --enable-cache-api=true
-          - --cache-api-port={{ .Values.cacheAPI.port }}
-          - --cache-api-scheme={{ .Values.cacheAPI.scheme }}
-          - --cache-api-addr={{ .Values.cacheAPI.address }}
         {{- end }}
         env:
           - name: XDS_PORT
@@ -92,14 +87,14 @@ spec:
           {{- tpl . $ | nindent 10 }}
         {{- end }}
         {{- if .Values.webhook.enabled }}
-        {{- if .Values.webhook.tls.name }}
+          {{- if .Values.webhook.tls.name }}
           - name: TLS_SECRET_NAME
             value: {{ .Values.webhook.tls.name }}
-        {{- end }}
-        {{- if .Values.webhook.port }}
+          {{- end }}
+          {{- if .Values.webhook.port }}
           - name: WEBHOOK_PORT
             value: "{{ .Values.webhook.port }}"
-        {{- end }}
+          {{- end }}
         {{- end }}
         {{- if not .Values.webhook.enabled }}
           - name: WEBHOOK_DISABLE
@@ -120,15 +115,16 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         name: envoy-xds-controller
         resources:
-{{ toYaml .Values.resources | indent 12 }}
-{{- if .Values.webhook.enabled }}
+          {{- toYaml .Values.resources | nindent 12 }}
+        {{- /* Volume Mounts */}}
+        {{- $mounts := include "chart.volumeMounts" . }}
+        {{- if $mounts }}
         volumeMounts:
-        - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
-          readOnly: true
+          {{- $mounts | nindent 10 }}
+        {{- end }}
+      {{- /* Volumes */}}
+      {{- $volumes := include "chart.volumes" . }}
+      {{- if $volumes }}
       volumes:
-      - name: cert
-        secret:
-          defaultMode: 420
-          secretName: {{ .Values.webhook.tls.name }}
-{{- end }}
+        {{- $volumes | nindent 8 }}
+      {{- end }}

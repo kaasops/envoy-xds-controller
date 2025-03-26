@@ -75,3 +75,40 @@ Create the name of the service account to use
     {{ default "default" .Values.serviceAccount.name }}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Generate volumeMounts
+*/}}
+{{- define "chart.volumeMounts" -}}
+{{- $mounts := list -}}
+{{- if .Values.webhook.enabled -}}
+{{- $mounts = append $mounts (dict "name" "cert" "mountPath" "/tmp/k8s-webhook-server/serving-certs" "readOnly" true) -}}
+{{- end -}}
+{{- if .Values.extraVolumeMounts -}}
+{{- $mounts = concat $mounts .Values.extraVolumeMounts -}}
+{{- end -}}
+{{- if $mounts -}}
+{{- toYaml $mounts -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Generate volumes
+*/}}
+{{- define "chart.volumes" -}}
+{{- $volumes := list -}}
+{{- if .Values.webhook.enabled -}}
+{{- $certVolume := dict "name" "cert" 
+    "secret" (dict 
+        "secretName" (.Values.webhook.tls.name | required "webhook.tls.name is required")
+        "defaultMode" 420
+    ) -}}
+{{- $volumes = append $volumes $certVolume -}}
+{{- end -}}
+{{- if .Values.extraVolumes -}}
+{{- $volumes = concat $volumes .Values.extraVolumes -}}
+{{- end -}}
+{{- if $volumes -}}
+{{- toYaml $volumes -}}
+{{- end -}}
+{{- end -}}
