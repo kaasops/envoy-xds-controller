@@ -39,6 +39,7 @@ const (
 type FilterChainsParams struct {
 	VSName               string
 	UseRemoteAddress     bool
+	XFFNumTrustedHops    *uint32
 	RouteConfigName      string
 	StatPrefix           string
 	HTTPFilters          []*hcmv3.HttpFilter
@@ -113,6 +114,10 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 
 		if vs.Spec.UseRemoteAddress != nil {
 			return nil, nil, fmt.Errorf("conflict: use remote address is set, but filter chains are found in listener")
+		}
+
+		if vs.Spec.XFFNumTrustedHops != nil {
+			return nil, nil, fmt.Errorf("conflict: xff_num_trusted_hops is set, but filter chains are found in listener")
 		}
 
 		if vs.Spec.UpgradeConfigs != nil {
@@ -210,12 +215,13 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	}
 
 	filterChainParams := &FilterChainsParams{
-		VSName:           nn.String(),
-		UseRemoteAddress: helpers.BoolFromPtr(vs.Spec.UseRemoteAddress),
-		RouteConfigName:  nn.String(),
-		StatPrefix:       strings.ReplaceAll(nn.String(), ".", "-"),
-		HTTPFilters:      httpFilters,
-		IsTLS:            listenerIsTLS,
+		VSName:            nn.String(),
+		UseRemoteAddress:  helpers.BoolFromPtr(vs.Spec.UseRemoteAddress),
+		RouteConfigName:   nn.String(),
+		StatPrefix:        strings.ReplaceAll(nn.String(), ".", "-"),
+		HTTPFilters:       httpFilters,
+		IsTLS:             listenerIsTLS,
+		XFFNumTrustedHops: vs.Spec.XFFNumTrustedHops,
 	}
 
 	filterChainParams.UpgradeConfigs, err = buildUpgradeConfigs(vs.Spec.UpgradeConfigs)
@@ -612,6 +618,9 @@ func buildFilterChain(params *FilterChainsParams) (*listenerv3.FilterChain, erro
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: params.UseRemoteAddress},
 		UpgradeConfigs:   params.UpgradeConfigs,
 		HttpFilters:      params.HTTPFilters,
+	}
+	if params.XFFNumTrustedHops != nil {
+		httpConnectionManager.XffNumTrustedHops = *params.XFFNumTrustedHops
 	}
 	if params.AccessLog != nil {
 		httpConnectionManager.AccessLog = append(httpConnectionManager.AccessLog, params.AccessLog)

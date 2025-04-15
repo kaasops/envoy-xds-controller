@@ -26,6 +26,11 @@ type VirtualServiceCommonSpec struct {
 	// UpgradeConfigs - https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-msg-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-upgradeconfig
 	UpgradeConfigs []*runtime.RawExtension `json:"upgradeConfigs,omitempty"`
 	RBAC           *VirtualServiceRBACSpec `json:"rbac,omitempty"`
+	// The number of additional ingress proxy hops from the right side of the x-forwarded-for HTTP header to trust
+	// when determining the origin client’s IP address. The default is zero if this option is not specified.
+	// See the documentation for x-forwarded-for for more information.
+	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto
+	XFFNumTrustedHops *uint32 `json:"xffNumTrustedHops,omitempty"`
 }
 
 type TlsConfig struct {

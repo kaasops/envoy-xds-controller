@@ -1,0 +1,13 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: virtual-service
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  template:
+    name: virtual-service-template
+  xffNumTrustedHops: 3
+  virtualHost:
+    domains:
+      - exc.kaasops.io
