@@ -1,0 +1,62 @@
+{{- if .Values.auth.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: access-control-model
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+data:
+  model.conf: |-
+    [request_definition]
+    r = sub, dom, obj, act
+
+    [policy_definition]
+    p = sub, dom, obj, act
+
+    [role_definition]
+    g = _, _, _
+
+    [policy_effect]
+    e = some(where (p.eft == allow))
+
+    [matchers]
+    m = g(r.sub, p.sub, r.dom) && globMatch(r.dom, p.dom) && globMatch(r.obj, p.obj) && r.act == p.act || r.sub == "superuser"
+  policy.csv: |-
+    p, role:reader, *, *, list-virtual-services
+    p, role:reader, *, *, list-virtual-service-templates
+    p, role:reader, *, *, list-listeners
+    p, role:reader, *, *, list-nodes
+    p, role:reader, *, *, list-access-log-configs
+    p, role:reader, *, *, list-http-filters
+    p, role:reader, *, *, list-routes
+    p, role:reader, *, *, get-virtual-service
+    p, role:reader, *, *, fill-template
+
+    p, role:editor, *, *, list-virtual-services
+    p, role:editor, *, *, list-virtual-service-templates
+    p, role:editor, *, *, list-listeners
+    p, role:editor, *, *, list-nodes
+    p, role:editor, *, *, list-access-log-configs
+    p, role:editor, *, *, list-http-filters
+    p, role:editor, *, *, list-routes
+    p, role:editor, *, *, get-virtual-service
+    p, role:editor, *, *, fill-template
+    p, role:editor, *, *, create-virtual-service
+    p, role:editor, *, *, update-virtual-service
+
+    p, role:admin, *, *, list-virtual-services
+    p, role:admin, *, *, list-virtual-service-templates
+    p, role:admin, *, *, list-listeners
+    p, role:admin, *, *, list-nodes
+    p, role:admin, *, *, list-access-log-configs
+    p, role:admin, *, *, list-http-filters
+    p, role:admin, *, *, list-routes
+    p, role:admin, *, *, get-virtual-service
+    p, role:admin, *, *, fill-template
+    p, role:admin, *, *, create-virtual-service
+    p, role:admin, *, *, update-virtual-service
+    p, role:admin, *, *, delete-virtual-service
+
+    {{- .Values.auth.rbacPolicy | nindent 4 -}}
+{{- end }}

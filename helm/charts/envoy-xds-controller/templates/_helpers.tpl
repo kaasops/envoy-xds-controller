@@ -77,38 +77,54 @@ Create the name of the service account to use
 {{- end -}}
 
 {{/*
-Generate volumeMounts
-*/}}
-{{- define "chart.volumeMounts" -}}
-{{- $mounts := list -}}
-{{- if .Values.webhook.enabled -}}
-{{- $mounts = append $mounts (dict "name" "cert" "mountPath" "/tmp/k8s-webhook-server/serving-certs" "readOnly" true) -}}
-{{- end -}}
-{{- if .Values.extraVolumeMounts -}}
-{{- $mounts = concat $mounts .Values.extraVolumeMounts -}}
-{{- end -}}
-{{- if $mounts -}}
-{{- toYaml $mounts -}}
-{{- end -}}
-{{- end -}}
+ Generate volumeMounts
+ */}}
+ {{- define "chart.volumeMounts" -}}
+ {{- $mounts := list -}}
+ {{- if .Values.webhook.enabled -}}
+ {{- $mounts = append $mounts (dict "name" "cert" "mountPath" "/tmp/k8s-webhook-server/serving-certs" "readOnly" true) -}}
+ {{- end -}}
+ {{- if .Values.extraVolumeMounts -}}
+ {{- $mounts = concat $mounts .Values.extraVolumeMounts -}}
+ {{- end -}}
+ {{- if .Values.auth.enabled -}}
+ {{- $modelVolumeMount := dict "name" "auth" "mountPath" "/etc/exc/access-control" -}}
+ {{- $mounts = append $mounts $modelVolumeMount -}}
+ {{- end -}}
+ {{- if .Values.config -}}
+ {{- $configVolumeMount := dict "name" "config" "mountPath" "/etc/exc" -}}
+ {{- $mounts = append $mounts $configVolumeMount -}}
+ {{- end -}}
+ {{- if $mounts -}}
+ {{- toYaml $mounts -}}
+ {{- end -}}
+ {{- end -}}
 
-{{/*
-Generate volumes
-*/}}
-{{- define "chart.volumes" -}}
-{{- $volumes := list -}}
-{{- if .Values.webhook.enabled -}}
-{{- $certVolume := dict "name" "cert" 
-    "secret" (dict 
-        "secretName" (.Values.webhook.tls.name | required "webhook.tls.name is required")
-        "defaultMode" 420
-    ) -}}
-{{- $volumes = append $volumes $certVolume -}}
-{{- end -}}
-{{- if .Values.extraVolumes -}}
-{{- $volumes = concat $volumes .Values.extraVolumes -}}
-{{- end -}}
-{{- if $volumes -}}
-{{- toYaml $volumes -}}
-{{- end -}}
-{{- end -}}
+ {{/*
+ Generate volumes
+ */}}
+ {{- define "chart.volumes" -}}
+ {{- $volumes := list -}}
+ {{- if .Values.webhook.enabled -}}
+ {{- $certVolume := dict "name" "cert"
+     "secret" (dict
+         "secretName" (.Values.webhook.tls.name | required "webhook.tls.name is required")
+         "defaultMode" 420
+     ) -}}
+ {{- $volumes = append $volumes $certVolume -}}
+ {{- end -}}
+ {{- if .Values.extraVolumes -}}
+ {{- $volumes = concat $volumes .Values.extraVolumes -}}
+ {{- end -}}
+ {{- if .Values.auth.enabled -}}
+ {{- $modelVolume := dict "name" "auth" "configMap" (dict "name" "access-control-model" ) -}}
+ {{- $volumes = append $volumes $modelVolume -}}
+ {{- end -}}
+ {{- if .Values.config -}}
+ {{- $configVolume := dict "name" "config" "configMap" (dict "name" "config" ) -}}
+ {{- $volumes = append $volumes $configVolume -}}
+ {{- end -}}
+ {{- if $volumes -}}
+ {{- toYaml $volumes -}}
+ {{- end -}}
+ {{- end -}}

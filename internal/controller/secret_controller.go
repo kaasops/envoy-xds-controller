@@ -60,7 +60,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, r.Updater.DeleteSecret(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertSecret(ctx, &secret); err != nil {
+	if err := r.Updater.ApplySecret(ctx, &secret); err != nil {
 		return ctrl.Result{}, err
 	}
 

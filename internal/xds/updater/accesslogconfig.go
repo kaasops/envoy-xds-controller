@@ -8,27 +8,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) UpsertAccessLogConfig(ctx context.Context, alc *v1alpha1.AccessLogConfig) error {
+func (c *CacheUpdater) ApplyAccessLogConfig(ctx context.Context, alc *v1alpha1.AccessLogConfig) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	prevALC := c.store.AccessLogs[helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name}]
+	prevALC := c.store.GetAccessLog(helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name})
 	if prevALC == nil {
-		c.store.AccessLogs[helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name}] = alc
-		return c.buildCache(ctx)
+		c.store.SetAccessLog(alc)
+		return c.rebuildSnapshot(ctx)
 	}
 	if prevALC.IsEqual(alc) {
 		return nil
 	}
-	c.store.AccessLogs[helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name}] = alc
-	return c.buildCache(ctx)
+	c.store.SetAccessLog(alc)
+	return c.rebuildSnapshot(ctx)
 }
 
 func (c *CacheUpdater) DeleteAccessLogConfig(ctx context.Context, alc types.NamespacedName) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	if c.store.AccessLogs[helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name}] == nil {
+	if !c.store.IsExistingAccessLog(helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name}) {
 		return nil
 	}
-	delete(c.store.AccessLogs, helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name})
-	return c.buildCache(ctx)
+	c.store.DeleteAccessLog(helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name})
+	return c.rebuildSnapshot(ctx)
 }

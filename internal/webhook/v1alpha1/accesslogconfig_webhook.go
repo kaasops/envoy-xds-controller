@@ -105,7 +105,7 @@ func (v *AccessLogConfigCustomValidator) ValidateDelete(ctx context.Context, obj
 		var refVsNames []string
 		for _, vs := range virtualServiceList.Items {
 			if vs.Spec.AccessLogConfig != nil && vs.Spec.AccessLogConfig.Name == accesslogconfig.GetName() {
-				refVsNames = append(refVsNames, vs.GetName())
+				refVsNames = append(refVsNames, vs.GetLabelName())
 			}
 		}
 		if len(refVsNames) > 0 {

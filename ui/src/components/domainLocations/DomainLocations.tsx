@@ -1,9 +1,13 @@
-import { Box, CircularProgress, Container, List } from '@mui/material'
+import Box from '@mui/material/Box'
+import CircularProgress from '@mui/material/CircularProgress'
+import Container from '@mui/material/Container'
+
 import { IDomainLocationsResponse } from '../../common/types/getDomainLocationsApiTypes'
 import useSetDomainStore from '../../store/setDomainStore'
 import LocationCard from '../locationCard/LocationCard'
 import LocationState from '../locationState/LocationState'
 import { styleDomainLocationsBox, styleList } from './style'
+import List from '@mui/material/List'
 
 interface IDomainLocationsProps {
 	locations: IDomainLocationsResponse[]
@@ -25,12 +29,14 @@ function DomainLocations({ locations, isFetching }: IDomainLocationsProps) {
 						<Container
 							style={{
 								height: '100%',
-								overflow: 'auto',
+								width: '100%',
 								margin: 0,
-								display: 'flex'
+								overflow: 'auto',
+								padding: 1
+								// display: 'flex',
 							}}
 						>
-							<List sx={{ ...styleList }}>
+							<List sx={{ ...styleList }} className='ListLocationsCard'>
 								{locations?.map((domain, index) => <LocationCard key={index} domain={domain} />)}
 							</List>
 						</Container>

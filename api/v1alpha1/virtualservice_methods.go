@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -10,12 +11,15 @@ import (
 )
 
 const (
-	AnnotationKeyEnvoyKaaSopsIoNodeID = "envoy.kaasops.io/node-id"
+	AnnotationNodeIDs  = "envoy.kaasops.io/node-id"
+	AnnotationEditable = "envoy.kaasops.io/editable"
+	LabelAccessGroup   = "exc-access-group"
+	LabelName          = "exc-name"
 )
 
 func (vs *VirtualService) GetNodeIDs() []string {
 	annotations := vs.GetAnnotations()
-	nodeIDsAnnotation := annotations[AnnotationKeyEnvoyKaaSopsIoNodeID]
+	nodeIDsAnnotation := annotations[AnnotationNodeIDs]
 	if nodeIDsAnnotation == "" {
 		return nil
 	}
@@ -29,6 +33,57 @@ func (vs *VirtualService) GetNodeIDs() []string {
 		}
 	}
 	return list
+}
+
+func (vs *VirtualService) SetNodeIDs(nodeIDs []string) {
+	annotations := vs.GetAnnotations()
+	if len(nodeIDs) == 0 {
+		delete(annotations, AnnotationNodeIDs)
+	} else {
+		annotations[AnnotationNodeIDs] = strings.Join(nodeIDs, ",")
+	}
+	vs.SetAnnotations(annotations)
+}
+
+func (vs *VirtualService) GetLabelName() string {
+	name, ok := vs.GetLabels()[LabelName]
+	if !ok {
+		return vs.Name
+	}
+	return name
+}
+
+func (vs *VirtualService) SetLabelName(name string) {
+	labels := vs.GetLabels()
+	if len(labels) == 0 {
+		labels = make(map[string]string)
+	}
+	labels[LabelName] = name
+	vs.SetLabels(labels)
+}
+
+func (vs *VirtualService) GetAccessGroup() string {
+	accessGroup := vs.GetLabels()[LabelAccessGroup]
+	if accessGroup == "" {
+		return GeneralAccessGroup
+	}
+	return accessGroup
+}
+
+func (vs *VirtualService) SetAccessGroup(accessGroup string) {
+	labels := vs.GetLabels()
+	if len(labels) == 0 {
+		labels = make(map[string]string)
+	}
+	labels[LabelAccessGroup] = accessGroup
+	vs.SetLabels(labels)
+}
+
+func (vs *VirtualService) SetEditable(editable bool) {
+	if len(vs.GetAnnotations()) == 0 {
+		vs.SetAnnotations(make(map[string]string))
+	}
+	vs.Annotations[AnnotationEditable] = strconv.FormatBool(editable)
 }
 
 func (vs *VirtualService) FillFromTemplate(vst *VirtualServiceTemplate, templateOpts ...TemplateOpts) error {
@@ -82,7 +137,7 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 	if vs.Annotations == nil || other.Annotations == nil {
 		return false
 	}
-	if vs.Annotations[AnnotationKeyEnvoyKaaSopsIoNodeID] != other.Annotations[AnnotationKeyEnvoyKaaSopsIoNodeID] {
+	if vs.Annotations[AnnotationNodeIDs] != other.Annotations[AnnotationNodeIDs] {
 		return false
 	}
 	if !vs.Spec.VirtualServiceCommonSpec.IsEqual(&other.Spec.VirtualServiceCommonSpec) {
@@ -114,7 +169,29 @@ func (vs *VirtualService) GetListenerNamespacedName() (helpers.NamespacedName, e
 		return helpers.NamespacedName{}, fmt.Errorf("listener is nil")
 	}
 	return helpers.NamespacedName{
-		Namespace: vs.Namespace,
+		Namespace: helpers.GetNamespace(vs.Spec.Listener.Namespace, vs.Namespace),
 		Name:      vs.Spec.Listener.Name,
 	}, nil
+}
+
+func (vs *VirtualService) IsEditable() bool {
+	if vs.Annotations == nil {
+		return false
+	}
+	editable, ok := vs.Annotations[AnnotationEditable]
+	if !ok {
+		return false
+	}
+	return editable == "true"
+}
+
+func (vs *VirtualService) GetDescription() string {
+	return vs.Annotations[annotationDescription]
+}
+
+func (vs *VirtualService) SetDescription(description string) {
+	if vs.Annotations == nil {
+		vs.Annotations = make(map[string]string)
+	}
+	vs.Annotations[annotationDescription] = description
 }

@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envoy-config
+data:
+  envoy.yaml: |
+    admin:
+      address:
+        socket_address:
+          address: 0.0.0.0
+          port_value: 19000
+    dynamic_resources:
+      ads_config:
+        api_type: DELTA_GRPC
+        transport_api_version: V3
+        set_node_on_first_message_only: true
+        grpc_services:
+          - envoy_grpc:
+              cluster_name: xds_cluster
+      lds_config:
+        resource_api_version: V3
+        ads: {}
+      cds_config:
+        resource_api_version: V3
+        ads: {}
+    node:
+      cluster: e2e  # TODO: hardcode
+      id: test      # TODO: hardcode
+    static_resources:
+      clusters:
+        - typed_extension_protocol_options:
+            envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+              "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+              explicit_http_config:
+                http2_protocol_options:
+                  connection_keepalive:
+                    interval: 30s
+                    timeout: 50s
+          connect_timeout: 100s
+          load_assignment:
+            cluster_name: xds_cluster
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: exc-envoy-xds-controller.envoy-xds-controller
+                          port_value: 9000
+          http2_protocol_options: {}
+          name: xds_cluster
+          type: LOGICAL_DNS

@@ -1,0 +1,10 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Route
+metadata:
+  name: test-route
+spec:
+  - name: test-route
+    match:
+      prefix: "/"
+    route:
+      cluster: test-cluster

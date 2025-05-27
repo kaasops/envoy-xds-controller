@@ -60,3 +60,7 @@ func (c *Cluster) IsEqual(other *Cluster) bool {
 	}
 	return true
 }
+
+func (c *Cluster) GetDescription() string {
+	return c.Annotations[annotationDescription]
+}

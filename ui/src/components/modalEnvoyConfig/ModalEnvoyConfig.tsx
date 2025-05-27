@@ -1,4 +1,7 @@
-import { Box, Button, Modal, Typography } from '@mui/material'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Modal from '@mui/material/Modal'
+import Typography from '@mui/material/Typography'
 import { useEffect, useState } from 'react'
 import { convertToYaml } from '../../utils/helpers/convertToYaml'
 import CodeBlock from '../codeBlock/CodeBlock'

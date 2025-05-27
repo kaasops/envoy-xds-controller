@@ -23,7 +23,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	runtime2 "k8s.io/apimachinery/pkg/runtime"
 
@@ -130,6 +129,6 @@ func testStore() (*store.Store, error) {
 		return nil, err
 	}
 
-	cacheStore.Listeners[helpers.NamespacedName{Name: "http", Namespace: "default"}] = listener
+	cacheStore.SetListener(listener)
 	return cacheStore, nil
 }

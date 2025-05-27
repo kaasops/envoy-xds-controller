@@ -60,7 +60,7 @@ func (r *AccessLogConfigReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return ctrl.Result{}, r.Updater.DeleteAccessLogConfig(ctx, req.NamespacedName)
 	}
-	if err := r.Updater.UpsertAccessLogConfig(ctx, &accessLogConfig); err != nil {
+	if err := r.Updater.ApplyAccessLogConfig(ctx, &accessLogConfig); err != nil {
 		return ctrl.Result{}, err
 	}
 

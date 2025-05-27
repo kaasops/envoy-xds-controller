@@ -8,27 +8,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) UpsertRoute(ctx context.Context, route *v1alpha1.Route) error {
+func (c *CacheUpdater) ApplyRoute(ctx context.Context, route *v1alpha1.Route) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	prevRoute := c.store.Routes[helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name}]
+	prevRoute := c.store.GetRoute(helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name})
 	if prevRoute == nil {
-		c.store.Routes[helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = route
-		return c.buildCache(ctx)
+		c.store.SetRoute(route)
+		return c.rebuildSnapshot(ctx)
 	}
 	if prevRoute.IsEqual(route) {
 		return nil
 	}
-	c.store.Routes[helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = route
-	return c.buildCache(ctx)
+	c.store.SetRoute(route)
+	return c.rebuildSnapshot(ctx)
 }
 
 func (c *CacheUpdater) DeleteRoute(ctx context.Context, nn types.NamespacedName) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	if c.store.Routes[helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}] == nil {
+	if !c.store.IsExistingRoute(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}) {
 		return nil
 	}
-	delete(c.store.Routes, helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.buildCache(ctx)
+	c.store.DeleteRoute(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
+	return c.rebuildSnapshot(ctx)
 }

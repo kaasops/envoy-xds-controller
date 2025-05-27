@@ -1,5 +1,5 @@
 import { Box } from '@mui/material'
-import useColors from '../../utils/hooks/useColors'
+import { useColors } from '../../utils/hooks/useColors'
 import { styleSettingsNodeSection, styleWrapperNodeSettingsCards } from './style'
 import nodeSettingsItems from '../../utils/helpers/nodeSettingsItems'
 import NodeSettingsCard from '../nodeSettingsCard/NodeSettingsCard'

@@ -45,7 +45,7 @@ func (m *Mixer) Mix(store *store.Store) (map[string]map[resource.Type][]types.Re
 	result := make(map[string]map[resource.Type][]types.Resource)
 
 	for listenerNamespacedName, data := range m.listeners {
-		listener := store.Listeners[listenerNamespacedName]
+		listener := store.GetListener(listenerNamespacedName)
 		for nodeID, fcs := range data {
 			lv3, err := listener.UnmarshalV3()
 			if err != nil {

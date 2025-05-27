@@ -4,12 +4,16 @@ namespaceOverride: ""
 
 development: false
 
+metrics:
+  address: "0" # set "0" for disabling
+
 xds:
   port: 9000
 
 cacheAPI:
   enabled: false
   port: 9999
+  grpcPort: 10000
   address: "localhost:9999"
   scheme: "http"
   ingress:
@@ -25,7 +29,6 @@ cacheAPI:
     # - hosts:
     #   - envoy-xds-controller-api.<DOMAIN-ZONE>
 
-
 ui:
   enabled: false
   image:
@@ -35,6 +38,7 @@ ui:
   args: []
   envs: {}
   cacheAPI: "http://exc-envoy-xds-controller-cache-api:9999"
+  grpcAPI: "http://exc-envoy-xds-controller-grpc-api:10000"
   resources:
     limits:
       cpu: "1"
@@ -154,14 +158,14 @@ secrets: {}
 
 # -- Extra Volumes for the pod
 extraVolumes: []
-  # - name: example
-  #   configMap:
-  #     name: example
+# - name: example
+#   configMap:
+#     name: example
 
 # -- Extra Volume Mounts for the container
 extraVolumeMounts: []
-  # - name: example
-  #   mountPath: /example
+# - name: example
+#   mountPath: /example
 
 # Validating Webhook Options
 webhook:
@@ -188,3 +192,52 @@ auth:
       users:
         - "node1"
         - "node2"
+      testers:
+        - "test"
+  rbacPolicy: |-
+    g, admins, role:admin, general
+    g, admins, role:admin, dev
+    g, admins, role:admin, test
+
+    g, developers, role:reader, general
+    g, developers, role:reader, dev
+
+    g, testers,, test
+    g, testers,, general
+    
+    p, testers, general, *, list-virtual-service-templates
+    p, testers, general, *, list-listeners
+    p, testers, general, *, list-access-log-configs
+    p, testers, general, *, list-http-filters
+    p, testers, general, *, list-routes
+    p, testers, general, *, fill-template
+    
+    p, testers, test, *, list-virtual-services
+    p, testers, test, *, list-virtual-service-templates
+    p, testers, test, *, list-listeners
+    p, testers, test, test, list-nodes
+    p, testers, test, *, list-access-log-configs
+    p, testers, test, *, list-http-filters
+    p, testers, test, *, list-routes
+    p, testers, test, *, get-virtual-service
+    p, testers, test, *, fill-template
+    p, testers, test, *, create-virtual-service
+    p, testers, test, *, update-virtual-service
+    
+    g, sa, developers, general
+    g, sa, developers, dev
+
+config:
+  nodeIds:
+    - "node1"
+    - "node2"
+    - "node3"
+    - "node4"
+    - "test"
+    - "dev"
+  accessGroups:
+    - "group1"
+    - "group2"
+    - "group3"
+    - "dev"
+    - "test"

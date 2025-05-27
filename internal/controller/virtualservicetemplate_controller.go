@@ -62,7 +62,7 @@ func (r *VirtualServiceTemplateReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, r.Updater.DeleteVirtualServiceTemplate(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertVirtualServiceTemplate(ctx, &vst); err != nil {
+	if err := r.Updater.ApplyVirtualServiceTemplate(ctx, &vst); err != nil {
 		return ctrl.Result{}, err
 	}
 

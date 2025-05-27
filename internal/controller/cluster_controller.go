@@ -60,7 +60,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, r.Updater.DeleteCluster(ctx, req.NamespacedName)
 	}
-	if err := r.Updater.UpsertCluster(ctx, &cluster); err != nil {
+	if err := r.Updater.ApplyCluster(ctx, &cluster); err != nil {
 		return ctrl.Result{}, err
 	}
 

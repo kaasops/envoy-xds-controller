@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
@@ -32,6 +33,9 @@ func (c *SnapshotCache) SetSnapshot(ctx context.Context, nodeID string, snapshot
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.nodeIDs[nodeID] = struct{}{}
+	if err := c.validateCache(snapshot); err != nil {
+		return fmt.Errorf("snapshot is invalid: %w", err)
+	}
 	return c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot)
 }
 
@@ -120,10 +124,33 @@ func (c *SnapshotCache) GetListeners(nodeID string) ([]*listenerv3.Listener, err
 	if err != nil {
 		return nil, err
 	}
+	return getListenersFromSnapshot(snapshot), nil
+}
+
+func (c *SnapshotCache) validateCache(snapshot cache.ResourceSnapshot) error {
+	listeners := getListenersFromSnapshot(snapshot)
+	addressListener := make(map[string]string, len(listeners))
+	for _, listener := range listeners {
+		host := listener.GetAddress().GetSocketAddress().GetAddress()
+		port := listener.GetAddress().GetSocketAddress().GetPortValue()
+		hostPort := fmt.Sprintf("%s:%d", host, port)
+		if existListener, ok := addressListener[hostPort]; ok {
+			return fmt.Errorf("'%s' has duplicate address '%s' as existing listener '%s'",
+				listener.GetName(),
+				hostPort,
+				existListener,
+			)
+		}
+		addressListener[hostPort] = listener.GetName()
+	}
+	return nil
+}
+
+func getListenersFromSnapshot(snapshot cache.ResourceSnapshot) []*listenerv3.Listener {
 	data := snapshot.GetResources(resourcev3.ListenerType)
 	listeners := make([]*listenerv3.Listener, 0, len(data))
 	for _, listener := range data {
 		listeners = append(listeners, listener.(*listenerv3.Listener))
 	}
-	return listeners, nil
+	return listeners
 }

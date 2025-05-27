@@ -61,7 +61,7 @@ func (r *HttpFilterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{}, r.Updater.DeleteHTTPFilter(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertHTTPFilter(ctx, &httpFilter); err != nil {
+	if err := r.Updater.ApplyHTTPFilter(ctx, &httpFilter); err != nil {
 		return ctrl.Result{}, err
 	}
 

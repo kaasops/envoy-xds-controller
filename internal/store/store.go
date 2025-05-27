@@ -2,7 +2,7 @@ package store
 
 import (
 	"context"
-	"strings"
+	"sync"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -12,33 +12,47 @@ import (
 )
 
 type Store struct {
-	VirtualServices         map[helpers.NamespacedName]*v1alpha1.VirtualService
-	VirtualServiceTemplates map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate
-	Routes                  map[helpers.NamespacedName]*v1alpha1.Route
-	Clusters                map[helpers.NamespacedName]*v1alpha1.Cluster
-	SpecClusters            map[string]*v1alpha1.Cluster
-	HTTPFilters             map[helpers.NamespacedName]*v1alpha1.HttpFilter
-	Listeners               map[helpers.NamespacedName]*v1alpha1.Listener
-	AccessLogs              map[helpers.NamespacedName]*v1alpha1.AccessLogConfig
-	Policies                map[helpers.NamespacedName]*v1alpha1.Policy
-	DomainToSecretMap       map[string]v1.Secret
-	Secrets                 map[helpers.NamespacedName]*v1.Secret
+	mu                          sync.RWMutex
+	virtualServices             map[helpers.NamespacedName]*v1alpha1.VirtualService
+	virtualServiceByUID         map[string]*v1alpha1.VirtualService
+	virtualServiceTemplates     map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate
+	virtualServiceTemplateByUID map[string]*v1alpha1.VirtualServiceTemplate
+	routes                      map[helpers.NamespacedName]*v1alpha1.Route
+	routeByUID                  map[string]*v1alpha1.Route
+	clusters                    map[helpers.NamespacedName]*v1alpha1.Cluster
+	clusterByUID                map[string]*v1alpha1.Cluster
+	specClusters                map[string]*v1alpha1.Cluster
+	httpFilters                 map[helpers.NamespacedName]*v1alpha1.HttpFilter
+	httpFilterByUID             map[string]*v1alpha1.HttpFilter
+	listeners                   map[helpers.NamespacedName]*v1alpha1.Listener
+	listenerByUID               map[string]*v1alpha1.Listener
+	accessLogs                  map[helpers.NamespacedName]*v1alpha1.AccessLogConfig
+	accessLogByUID              map[string]*v1alpha1.AccessLogConfig
+	policies                    map[helpers.NamespacedName]*v1alpha1.Policy
+	secrets                     map[helpers.NamespacedName]*v1.Secret
+	domainToSecretMap           map[string]v1.Secret
 }
 
 func New() *Store {
 	store := &Store{
-		AccessLogs:              make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig),
-		VirtualServices:         make(map[helpers.NamespacedName]*v1alpha1.VirtualService),
-		VirtualServiceTemplates: make(map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate),
-		Routes:                  make(map[helpers.NamespacedName]*v1alpha1.Route),
-		Clusters:                make(map[helpers.NamespacedName]*v1alpha1.Cluster),
-		HTTPFilters:             make(map[helpers.NamespacedName]*v1alpha1.HttpFilter),
-		Listeners:               make(map[helpers.NamespacedName]*v1alpha1.Listener),
-		Policies:                make(map[helpers.NamespacedName]*v1alpha1.Policy),
-		Secrets:                 make(map[helpers.NamespacedName]*v1.Secret),
+		accessLogs:                  make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig),
+		accessLogByUID:              make(map[string]*v1alpha1.AccessLogConfig),
+		virtualServices:             make(map[helpers.NamespacedName]*v1alpha1.VirtualService),
+		virtualServiceTemplates:     make(map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate),
+		virtualServiceTemplateByUID: make(map[string]*v1alpha1.VirtualServiceTemplate),
+		routes:                      make(map[helpers.NamespacedName]*v1alpha1.Route),
+		routeByUID:                  make(map[string]*v1alpha1.Route),
+		clusters:                    make(map[helpers.NamespacedName]*v1alpha1.Cluster),
+		clusterByUID:                make(map[string]*v1alpha1.Cluster),
+		httpFilters:                 make(map[helpers.NamespacedName]*v1alpha1.HttpFilter),
+		httpFilterByUID:             make(map[string]*v1alpha1.HttpFilter),
+		listeners:                   make(map[helpers.NamespacedName]*v1alpha1.Listener),
+		listenerByUID:               make(map[string]*v1alpha1.Listener),
+		policies:                    make(map[helpers.NamespacedName]*v1alpha1.Policy),
+		secrets:                     make(map[helpers.NamespacedName]*v1.Secret),
+		domainToSecretMap:           make(map[string]v1.Secret),
+		specClusters:                make(map[string]*v1alpha1.Cluster),
 	}
-	store.UpdateDomainSecretsMap()
-	store.UpdateSpecClusters()
 	return store
 }
 
@@ -86,76 +100,53 @@ func (s *Store) Fill(ctx context.Context, cl client.Client) error {
 		return err
 	}
 
-	s.VirtualServices = make(map[helpers.NamespacedName]*v1alpha1.VirtualService, len(virtualServices.Items))
-	s.VirtualServiceTemplates = make(map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate, len(virtualServiceTemplates.Items))
-	s.Routes = make(map[helpers.NamespacedName]*v1alpha1.Route, len(routes.Items))
-	s.Clusters = make(map[helpers.NamespacedName]*v1alpha1.Cluster, len(clusters.Items))
-	s.HTTPFilters = make(map[helpers.NamespacedName]*v1alpha1.HttpFilter, len(httpFilters.Items))
-	s.Listeners = make(map[helpers.NamespacedName]*v1alpha1.Listener, len(listeners.Items))
-	s.AccessLogs = make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig, len(accessLogConfigs.Items))
-	s.Policies = make(map[helpers.NamespacedName]*v1alpha1.Policy, len(policies.Items))
-	s.Secrets = make(map[helpers.NamespacedName]*v1.Secret, len(secrets.Items))
-	s.DomainToSecretMap = make(map[string]v1.Secret, len(secrets.Items))
-	s.SpecClusters = make(map[string]*v1alpha1.Cluster, len(clusters.Items))
+	s.virtualServices = make(map[helpers.NamespacedName]*v1alpha1.VirtualService, len(virtualServices.Items))
+	s.virtualServiceTemplates = make(map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate, len(virtualServiceTemplates.Items))
+	s.routes = make(map[helpers.NamespacedName]*v1alpha1.Route, len(routes.Items))
+	s.clusters = make(map[helpers.NamespacedName]*v1alpha1.Cluster, len(clusters.Items))
+	s.httpFilters = make(map[helpers.NamespacedName]*v1alpha1.HttpFilter, len(httpFilters.Items))
+	s.listeners = make(map[helpers.NamespacedName]*v1alpha1.Listener, len(listeners.Items))
+	s.accessLogs = make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig, len(accessLogConfigs.Items))
+	s.policies = make(map[helpers.NamespacedName]*v1alpha1.Policy, len(policies.Items))
+	s.secrets = make(map[helpers.NamespacedName]*v1.Secret, len(secrets.Items))
+	s.domainToSecretMap = make(map[string]v1.Secret, len(secrets.Items))
+	s.specClusters = make(map[string]*v1alpha1.Cluster, len(clusters.Items))
 
 	for _, vs := range virtualServices.Items {
-		s.VirtualServices[helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = &vs
+		s.virtualServices[helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = &vs
 	}
 	for _, vst := range virtualServiceTemplates.Items {
-		s.VirtualServiceTemplates[helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name}] = &vst
+		s.virtualServiceTemplates[helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name}] = &vst
 	}
 	for _, route := range routes.Items {
-		s.Routes[helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = &route
+		s.routes[helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name}] = &route
 	}
 	for _, cluster := range clusters.Items {
-		s.Clusters[helpers.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}] = &cluster
+		s.clusters[helpers.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}] = &cluster
 	}
-	s.UpdateSpecClusters()
 	for _, httpFilter := range httpFilters.Items {
-		s.HTTPFilters[helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name}] = &httpFilter
+		s.httpFilters[helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name}] = &httpFilter
 	}
 	for _, listener := range listeners.Items {
-		s.Listeners[helpers.NamespacedName{Namespace: listener.Namespace, Name: listener.Name}] = &listener
+		s.listeners[helpers.NamespacedName{Namespace: listener.Namespace, Name: listener.Name}] = &listener
 	}
 	for _, accessLogConfig := range accessLogConfigs.Items {
-		s.AccessLogs[helpers.NamespacedName{Namespace: accessLogConfig.Namespace, Name: accessLogConfig.Name}] = &accessLogConfig
+		s.accessLogs[helpers.NamespacedName{Namespace: accessLogConfig.Namespace, Name: accessLogConfig.Name}] = &accessLogConfig
 	}
 	for _, policy := range policies.Items {
-		s.Policies[helpers.NamespacedName{Namespace: policy.Namespace, Name: policy.Name}] = &policy
+		s.policies[helpers.NamespacedName{Namespace: policy.Namespace, Name: policy.Name}] = &policy
 	}
 	for _, secret := range secrets.Items {
-		s.Secrets[helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}] = &secret
+		s.secrets[helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}] = &secret
 	}
-	s.UpdateDomainSecretsMap()
-	return err
-}
-
-func (s *Store) UpdateDomainSecretsMap() {
-	m := make(map[string]v1.Secret)
-
-	for _, secret := range s.Secrets {
-		for _, domain := range strings.Split(secret.Annotations[v1alpha1.AnnotationSecretDomains], ",") {
-			domain = strings.TrimSpace(domain)
-			if domain == "" {
-				continue
-			}
-			if _, ok := m[domain]; ok {
-				// TODO domain already exist in another secret! Need create error case
-				continue
-			}
-			m[domain] = *secret
-		}
-	}
-	s.DomainToSecretMap = m
-}
-
-func (s *Store) UpdateSpecClusters() {
-	m := make(map[string]*v1alpha1.Cluster)
-
-	for _, cluster := range s.Clusters {
-		clusterV3, _ := cluster.UnmarshalV3()
-		m[clusterV3.Name] = cluster
-	}
-
-	s.SpecClusters = m
+	s.updateListenerByUIDMap()
+	s.updateVirtualServiceByUIDMap()
+	s.updateVirtualServiceTemplateByUIDMap()
+	s.updateRouteByUIDMap()
+	s.updateClusterByUIDMap()
+	s.updateAccessLogByUIDMap()
+	s.updateHTTPFilterByUIDMap()
+	s.updateDomainSecretsMap()
+	s.updateSpecClusters()
+	return nil
 }

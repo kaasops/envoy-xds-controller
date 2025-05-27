@@ -1,0 +1,215 @@
+syntax = "proto3";
+
+package virtual_service.v1;
+
+option go_package = "virtualservicev1";
+
+import "common/v1/common.proto";
+import "virtual_service_template/v1/virtual_service_template.proto";
+
+// The VirtualServiceStoreService defines operations for managing virtual services.
+service VirtualServiceStoreService {
+  // CreateVirtualService creates a new virtual service.
+  rpc CreateVirtualService(CreateVirtualServiceRequest) returns (CreateVirtualServiceResponse);
+
+  // UpdateVirtualService updates an existing virtual service.
+  rpc UpdateVirtualService(UpdateVirtualServiceRequest) returns (UpdateVirtualServiceResponse);
+
+  // DeleteVirtualService deletes a virtual service by its UID.
+  rpc DeleteVirtualService(DeleteVirtualServiceRequest) returns (DeleteVirtualServiceResponse);
+
+  // GetVirtualService retrieves a virtual service by its UID.
+  rpc GetVirtualService(GetVirtualServiceRequest) returns (GetVirtualServiceResponse);
+
+  // ListVirtualServices retrieves a list of virtual services for the specified access group.
+  rpc ListVirtualServices(ListVirtualServicesRequest) returns (ListVirtualServicesResponse);
+}
+
+// CreateVirtualServiceRequest is the request message for creating a virtual service.
+message CreateVirtualServiceRequest {
+  // The name of the virtual service.
+  string name = 1;
+
+  // The node IDs associated with the virtual service.
+  repeated string node_ids = 2;
+
+  // The access group of the virtual service.
+  string access_group = 3;
+
+  // The UID of the template used by the virtual service.
+  string template_uid = 4;
+
+  // The UID of the listener associated with the virtual service.
+  string listener_uid = 5;
+
+  // The virtual host configuration for the virtual service.
+  common.v1.VirtualHost virtual_host = 6;
+
+  // The configuration for access logs.
+  oneof access_log_config {
+    // The UID of the access log configuration.
+    string access_log_config_uid = 7;
+  }
+
+  // UIDs of additional HTTP filters appended to the virtual service.
+  repeated string additional_http_filter_uids = 8;
+
+  // UIDs of additional routes appended to the virtual service.
+  repeated string additional_route_uids = 9;
+
+  // Whether to use the remote address for the virtual service.
+  optional bool use_remote_address = 10;
+
+  // Template options for the virtual service.
+  repeated virtual_service_template.v1.TemplateOption template_options = 11;
+
+  // Description is the human-readable description of the resource
+  string description = 12;
+}
+
+// CreateVirtualServiceResponse is the response message for creating a virtual service.
+message CreateVirtualServiceResponse {}
+
+// UpdateVirtualServiceRequest is the request message for updating a virtual service.
+message UpdateVirtualServiceRequest {
+  // The UID of the virtual service.
+  string uid = 1;
+
+  // The node IDs associated with the virtual service.
+  repeated string node_ids = 2;
+
+  // The UID of the template used by the virtual service.
+  string template_uid = 3;
+
+  // The UID of the listener associated with the virtual service.
+  string listener_uid = 4;
+
+  // The virtual host configuration for the virtual service.
+  common.v1.VirtualHost virtual_host = 5;
+
+  // The configuration for access logs.
+  oneof access_log_config {
+    // The UID of the access log configuration.
+    string access_log_config_uid = 6;
+  }
+
+  // UIDs of additional HTTP filters appended to the virtual service.
+  repeated string additional_http_filter_uids = 7;
+
+  // UIDs of additional routes appended to the virtual service.
+  repeated string additional_route_uids = 8;
+
+  // Whether to use the remote address for the virtual service.
+  optional bool use_remote_address = 9;
+
+  // Template options for the virtual service.
+  repeated virtual_service_template.v1.TemplateOption template_options = 10;
+
+  // Description is the human-readable description of the resource
+  string description = 11;
+}
+
+// UpdateVirtualServiceResponse is the response message for updating a virtual service.
+message UpdateVirtualServiceResponse {}
+
+// DeleteVirtualServiceRequest is the request message for deleting a virtual service.
+message DeleteVirtualServiceRequest {
+  // The UID of the virtual service to delete.
+  string uid = 1;
+}
+
+// DeleteVirtualServiceResponse is the response message for deleting a virtual service.
+message DeleteVirtualServiceResponse {}
+
+// GetVirtualServiceRequest is the request message for retrieving a virtual service.
+message GetVirtualServiceRequest {
+  // The UID of the virtual service to retrieve.
+  string uid = 1;
+}
+
+// GetVirtualServiceResponse is the response message for retrieving a virtual service.
+message GetVirtualServiceResponse {
+  // The UID of the virtual service.
+  string uid = 1;
+
+  // The name of the virtual service.
+  string name = 2;
+
+  // The node IDs associated with the virtual service.
+  repeated string node_ids = 3;
+
+  // The access group of the virtual service.
+  string access_group = 4;
+
+  // A reference to the template used by the virtual service.
+  common.v1.ResourceRef template = 5;
+
+  // A reference to the listener associated with the virtual service.
+  common.v1.ResourceRef listener = 6;
+
+  // The virtual host configuration for the virtual service.
+  common.v1.VirtualHost virtual_host = 7;
+
+  // The configuration of access logs.
+  oneof access_log {
+    // A reference to the access log configuration.
+    common.v1.ResourceRef access_log_config = 8;
+
+    // Raw configuration for access logs.
+    bytes access_log_config_raw = 9;
+  }
+
+  // Additional HTTP filters associated with the virtual service.
+  repeated common.v1.ResourceRef additional_http_filters = 10;
+
+  // Additional routes associated with the virtual service.
+  repeated common.v1.ResourceRef additional_routes = 11;
+
+  // Whether the virtual service uses the remote address.
+  optional bool use_remote_address = 12;
+
+  // Template options for the virtual service.
+  repeated virtual_service_template.v1.TemplateOption template_options = 13;
+
+  // Indicates whether the virtual service is editable.
+  bool is_editable = 14;
+
+  // Description is the human-readable description of the resource
+  string description = 15;
+}
+
+// ListVirtualServicesRequest is the request message for listing virtual services.
+message ListVirtualServicesRequest {
+  // The access group for which to list virtual services.
+  string access_group = 1;
+}
+
+// VirtualServiceListItem represents a single virtual service in a list response.
+message VirtualServiceListItem {
+  // The UID of the virtual service.
+  string uid = 1;
+
+  // The name of the virtual service.
+  string name = 2;
+
+  // The node IDs associated with the virtual service.
+  repeated string node_ids = 3;
+
+  // The access group of the virtual service.
+  string access_group = 4;
+
+  // A reference to the template used by the virtual service.
+  common.v1.ResourceRef template = 5;
+
+  // Indicates whether the virtual service is editable.
+  bool is_editable = 6;
+
+  // Description is the human-readable description of the resource
+  string description = 7;
+}
+
+// ListVirtualServicesResponse is the response message for listing virtual services.
+message ListVirtualServicesResponse {
+  // The list of virtual services.
+  repeated VirtualServiceListItem items = 1;
+}

@@ -61,7 +61,7 @@ func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, r.Updater.DeleteRoute(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertRoute(ctx, &route); err != nil {
+	if err := r.Updater.ApplyRoute(ctx, &route); err != nil {
 		return ctrl.Result{}, err
 	}
 

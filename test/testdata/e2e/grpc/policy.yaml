@@ -1,0 +1,9 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Policy
+metadata:
+  name: test-policy
+spec:
+  permissions:
+    - any: true
+  principals:
+    - any: true

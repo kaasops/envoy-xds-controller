@@ -22,6 +22,9 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.labels['exc-access-group']
+      name: accessGroup
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:

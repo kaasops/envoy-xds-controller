@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package permissions.v1;
+
+option go_package = "permissionsv1";
+
+service PermissionsService {
+  // Lists the permissions associated with a specific access group.
+  rpc ListPermissions(ListPermissionsRequest) returns (ListPermissionsResponse);
+}
+
+message AccessGroupPermissions {
+  // Access group name
+  string access_group = 1;
+  // Permission items associated with access group.
+  repeated PermissionsItem permissions = 2;
+}
+
+// Represents a permission item with an action and associated objects.
+message PermissionsItem {
+  // The action of the permission.
+  string action = 1;
+
+  // The objects associated with the permission.
+  repeated string objects = 2;
+}
+
+// Request message for listing permissions.
+message ListPermissionsRequest {}
+
+// Response message containing a list of permission items.
+message ListPermissionsResponse {
+  // The list of permission items.
+  repeated AccessGroupPermissions items = 1;
+}

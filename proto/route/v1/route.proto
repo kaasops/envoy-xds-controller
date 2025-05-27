@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package route.v1;
+
+option go_package = "routev1";
+
+// Service to manage routes.
+service RouteStoreService {
+  // Lists all the routes for the specified access group.
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse);
+}
+
+// Represents a route in the route list.
+message RouteListItem {
+  // Unique identifier for the route.
+  string uid = 1;
+
+  // Name of the route.
+  string name = 2;
+
+  // Description is the human-readable description of the resource
+  string description = 3;
+}
+
+// Request message for listing routes.
+message ListRoutesRequest {
+  // Access group to filter the routes.
+  string access_group = 1;
+}
+
+// Response message containing the list of routes.
+message ListRoutesResponse {
+  // List of route items.
+  repeated RouteListItem items = 1;
+}

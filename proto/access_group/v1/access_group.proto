@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package access_group.v1;
+
+option go_package = "accessgroupv1";
+
+// Service to manage access groups.
+service AccessGroupStoreService {
+  // Lists access groups.
+  rpc ListAccessGroups(ListAccessGroupsRequest) returns (ListAccessGroupsResponse);
+}
+
+// Represents an access group item.
+message AccessGroupListItem {
+  // The name of the access group.
+  string name = 1;
+}
+
+// Request message for listing access groups.
+message ListAccessGroupsRequest {}
+
+// Response message containing a list of access groups.
+message ListAccessGroupsResponse {
+  // The list of access group items.
+  repeated AccessGroupListItem items = 1;
+}

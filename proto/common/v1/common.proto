@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "commonv1";
+
+// ResourceRef represents a reference to a resource with a UID and name.
+message ResourceRef {
+  // UID is the unique identifier of the resource.
+  string uid = 1;
+
+  // Name is the human-readable name of the resource.
+  string name = 2;
+}
+
+// VirtualHost represents a virtual host with a list of domain names.
+message VirtualHost {
+  // The list of domain names associated with the virtual host.
+  repeated string domains = 1;
+}

@@ -87,7 +87,7 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateDelete(ctx context.Conte
 		var refVsNames []string
 		for _, vs := range virtualServiceList.Items {
 			if vs.Spec.Template != nil && vs.Spec.Template.Name == virtualservicetemplate.GetName() {
-				refVsNames = append(refVsNames, vs.GetName())
+				refVsNames = append(refVsNames, vs.GetLabelName())
 			}
 		}
 		if len(refVsNames) > 0 {

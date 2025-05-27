@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: envoy-xds-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: controller-manager-grpc-api
+  namespace: system
+spec:
+  ports:
+    - name: grpc
+      port: 10000
+      protocol: TCP
+      targetPort: 10000
+  selector:
+    control-plane: controller-manager

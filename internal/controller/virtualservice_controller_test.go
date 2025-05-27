@@ -65,7 +65,7 @@ var _ = Describe("VirtualService Controller", func() {
 
 		virtualservice := &envoyv1alpha1.VirtualService{}
 		virtualservice.Annotations = map[string]string{
-			envoyv1alpha1.AnnotationKeyEnvoyKaaSopsIoNodeID: "test",
+			envoyv1alpha1.AnnotationNodeIDs: "test",
 		}
 		virtualservice.Name = resourceName
 		virtualservice.Namespace = "default"

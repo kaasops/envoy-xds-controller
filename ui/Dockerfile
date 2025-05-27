@@ -1,4 +1,4 @@
-FROM node:18.16-alpine as build
+FROM node:22.11.0-alpine as build
 
 RUN npm install -g vite
 WORKDIR /app
@@ -13,6 +13,7 @@ RUN npm run build
 FROM nginx:1.25.3
 
 ENV API_PROXY_PASS=http://exc-envoy-xds-controller-cache-api:9999
+ENV GRPC_API_PROXY_PASS=http://exc-envoy-xds-controller-grpc-api:10000
 
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.cfg/template.conf /etc/nginx/conf.d/template.conf

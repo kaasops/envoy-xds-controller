@@ -10,35 +10,32 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) UpsertSecret(ctx context.Context, secret *v1.Secret) error {
+func (c *CacheUpdater) ApplySecret(ctx context.Context, secret *v1.Secret) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	prevSecret := c.store.Secrets[helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}]
+	prevSecret := c.store.GetSecret(helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name})
 	if prevSecret == nil {
-		c.store.Secrets[helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}] = secret
-		c.store.UpdateDomainSecretsMap()
-		return c.buildCache(ctx)
+		c.store.SetSecret(secret)
+		return c.rebuildSnapshot(ctx)
 	}
-	if checkSecretsEqual(prevSecret, secret) {
+	if secretsEqual(prevSecret, secret) {
 		return nil
 	}
-	c.store.Secrets[helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}] = secret
-	c.store.UpdateDomainSecretsMap()
-	return c.buildCache(ctx)
+	c.store.SetSecret(secret)
+	return c.rebuildSnapshot(ctx)
 }
 
 func (c *CacheUpdater) DeleteSecret(ctx context.Context, nn types.NamespacedName) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	if c.store.Secrets[helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}] == nil {
+	if !c.store.IsExistingSecret(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}) {
 		return nil
 	}
-	delete(c.store.Secrets, helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	c.store.UpdateDomainSecretsMap()
-	return c.buildCache(ctx)
+	c.store.DeleteSecret(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
+	return c.rebuildSnapshot(ctx)
 }
 
-func checkSecretsEqual(a, b *v1.Secret) bool {
+func secretsEqual(a, b *v1.Secret) bool {
 	if a.Data == nil && b.Data == nil {
 		return true
 	}

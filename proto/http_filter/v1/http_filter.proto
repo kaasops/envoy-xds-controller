@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package http_filter.v1;
+
+option go_package = "httpfilterv1";
+
+// Service to manage HTTP filters.
+service HTTPFilterStoreService {
+  // Lists all HTTP filters for a given access group.
+  rpc ListHTTPFilters(ListHTTPFiltersRequest) returns (ListHTTPFiltersResponse);
+}
+
+// Represents an individual HTTP filter.
+message HTTPFilterListItem {
+  // Unique identifier of the HTTP filter.
+  string uid = 1;
+  // Name of the HTTP filter.
+  string name = 2;
+  // Description is the human-readable description of the resource
+  string description = 3;
+}
+
+// Request message for listing HTTP filters.
+message ListHTTPFiltersRequest {
+  // Name of the access group to filter HTTP filters by.
+  string access_group = 1;
+}
+
+// Response message containing a list of HTTP filters.
+message ListHTTPFiltersResponse {
+  // List of HTTP filter items.
+  repeated HTTPFilterListItem items = 1;
+}

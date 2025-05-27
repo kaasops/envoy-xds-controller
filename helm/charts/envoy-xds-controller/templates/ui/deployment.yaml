@@ -45,6 +45,8 @@ spec:
         env:
           - name: API_PROXY_PASS
             value: "{{ .Values.ui.cacheAPI }}"
+          - name: GRPC_API_PROXY_PASS
+            value: "{{ .Values.ui.grpcAPI }}"
           {{- if .Values.auth.enabled }}
           - name: VITE_OIDC_ENABLED
             valueFrom:

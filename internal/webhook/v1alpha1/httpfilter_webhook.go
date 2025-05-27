@@ -111,7 +111,7 @@ func (v *HttpFilterCustomValidator) ValidateDelete(ctx context.Context, obj runt
 			if len(vs.Spec.AdditionalHttpFilters) > 0 {
 				for _, additionalHTTPFilter := range vs.Spec.AdditionalHttpFilters {
 					if additionalHTTPFilter.Name == httpfilter.Name {
-						refVsNames = append(refVsNames, vs.GetName())
+						refVsNames = append(refVsNames, vs.GetLabelName())
 					}
 				}
 			}

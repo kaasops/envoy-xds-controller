@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package node.v1;
+
+option go_package = "nodev1";
+
+// NodeStoreService provides operations for managing nodes.
+service NodeStoreService {
+  // ListNodes retrieves a list of nodes belonging to the specified access group.
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+}
+
+// NodeListItem represents a node with its unique identifier.
+message NodeListItem {
+  // The unique identifier of the node.
+  string id = 1;
+}
+
+// ListNodesRequest represents the request to list nodes.
+message ListNodesRequest {
+  // The access group to filter the nodes by.
+  string access_group = 1;
+}
+
+// ListNodesResponse represents the response containing the list of nodes.
+message ListNodesResponse {
+  // The list of nodes items.
+  repeated NodeListItem items = 1;
+}

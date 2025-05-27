@@ -61,7 +61,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, r.Updater.DeleteVirtualService(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertVirtualService(ctx, &vs); err != nil {
+	if err := r.Updater.ApplyVirtualService(ctx, &vs); err != nil {
 		return ctrl.Result{}, err
 	}
 

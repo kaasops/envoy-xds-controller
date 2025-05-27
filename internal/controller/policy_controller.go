@@ -60,7 +60,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		return ctrl.Result{}, r.Updater.DeletePolicy(ctx, req.NamespacedName)
 	}
-	if err := r.Updater.UpsertPolicy(ctx, &policy); err != nil {
+	if err := r.Updater.ApplyPolicy(ctx, &policy); err != nil {
 		return ctrl.Result{}, err
 	}
 
