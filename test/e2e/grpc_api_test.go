@@ -239,7 +239,7 @@ func fetchDataViaGRPC(params string, endpoint string) string {
 	cmd := exec.Command("kubectl", "run", podName, "-n", namespace, "--restart=Never",
 		"--image=fullstorydev/grpcurl:v1.9.3-alpine",
 		"--", "-plaintext", "-d", params,
-		"exc-e2e-envoy-xds-controller-grpc-api:10000",
+		"exc-e2e-envoy-xds-controller-resource-api:10000",
 		endpoint)
 	_, err := utils.Run(cmd)
 	Expect(err).NotTo(HaveOccurred(), "Failed to create grpcurl pod")

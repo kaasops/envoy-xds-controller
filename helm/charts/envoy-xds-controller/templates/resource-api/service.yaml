@@ -1,9 +1,9 @@
-{{- if .Values.cacheAPI.enabled }}
+{{- if .Values.resourceAPI.enabled }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ template "chart.fullname" . }}-cache-api
+  name: {{ template "chart.fullname" . }}-resource-api
   labels:
     {{- include "chart.labels" . | nindent 4 }}
   {{- with .Values.extraLabels }}
@@ -12,8 +12,8 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.cacheAPI.port }}
-      targetPort: {{ .Values.cacheAPI.port }}
+    - port: {{ .Values.resourceAPI.port }}
+      targetPort: {{ .Values.resourceAPI.port }}
       protocol: TCP
       name: http
   selector:

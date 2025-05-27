@@ -62,6 +62,8 @@ spec:
             value: "{{ .Values.xds.port }}"
           - name: INSTALLATION_NAMESPACE
             value: {{ .Release.Namespace }}
+          - name: TARGET_NAMESPACE
+            value: {{ default .Values.resourceAPI.targetNamespace .Release.Namespace}}
         {{- if .Values.auth.enabled }}
           - name: OIDC_ENABLED
             valueFrom:
@@ -86,13 +88,6 @@ spec:
                 name: acl
                 key: ACL_CONFIG
         {{- end }}
-{{/*        {{- if .Values.config }}*/}}
-{{/*          - name: CONFIG # TODO: rename*/}}
-{{/*            valueFrom:*/}}
-{{/*              configMapKeyRef:*/}}
-{{/*                name: config*/}}
-{{/*                key: CONFIG*/}}
-{{/*        {{- end }}*/}}
         {{- with .Values.envs }}
           {{- tpl . $ | nindent 10 }}
         {{- end }}

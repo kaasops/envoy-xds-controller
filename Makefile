@@ -272,7 +272,18 @@ helm-index:
 .PHONY: helm-deploy-local
 helm-deploy-local: manifests set-local## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)
-	helm install exc --set auth.enabled=$(AUTH_ENABLED) --set 'watchNamespaces={default}' --set image.repository=$(IMG_WITHOUT_TAG) --set image.tag=$(TAG) --set ui.enabled=true --set cacheAPI.enabled=true --set ui.image.repository=$(UI_IMG_WITHOUT_TAG) --set ui.image.tag=$(TAG) --namespace envoy-xds-controller --create-namespace ./helm/charts/envoy-xds-controller --debug --timeout='$(DEPLOY_TIMEOUT)' --wait
+	helm install exc --set auth.enabled=$(AUTH_ENABLED) \
+ 		--set 'watchNamespaces={default}' \
+ 		--set image.repository=$(IMG_WITHOUT_TAG) \
+ 		--set image.tag=$(TAG) \
+ 		--set ui.enabled=true \
+ 		--set cacheAPI.enabled=true \
+ 		--set ui.image.repository=$(UI_IMG_WITHOUT_TAG) \
+ 		--set ui.image.tag=$(TAG) \
+ 		--set resourceAPI.enabled=true \
+ 		--namespace envoy-xds-controller \
+ 		--create-namespace ./helm/charts/envoy-xds-controller \
+ 		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
 
 .PHONY: set-local
 set-local:
@@ -305,14 +316,30 @@ dev-apply-resources:
 .PHONY: helm-deploy-backend-local
 helm-deploy-backend-local: manifests set-local## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)
-	helm install exc --set metrics.enabled=true --set 'watchNamespaces={default}' --set image.repository=$(IMG_WITHOUT_TAG) --set image.tag=$(TAG) --set cacheAPI.enabled=true --namespace envoy-xds-controller --create-namespace ./helm/charts/envoy-xds-controller --debug --timeout='$(DEPLOY_TIMEOUT)' --wait
+	helm install exc --set metrics.address=:8443 \
+ 		--set 'watchNamespaces={default}' \
+ 		--set image.repository=$(IMG_WITHOUT_TAG) \
+ 		--set image.tag=$(TAG) \
+ 		--set cacheAPI.enabled=true \
+ 		--set resourceAPI.enabled=true \
+ 		--namespace envoy-xds-controller \
+ 		--create-namespace ./helm/charts/envoy-xds-controller \
+ 		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
 
 .PHONY: dev-backend
 dev-backend: set-local docker-build docker-push install-prometheus helm-deploy-backend-local
 
 .PHONY: deploy-e2e
 deploy-e2e: manifests
-	helm install exc-e2e --set metrics.address=:8443 --set 'watchNamespaces={default}' --set image.repository=$(IMG_WITHOUT_TAG) --set image.tag=$(TAG) --set cacheAPI.enabled=true --namespace envoy-xds-controller --create-namespace ./helm/charts/envoy-xds-controller --debug --timeout='$(DEPLOY_TIMEOUT)' --wait
+	helm install exc-e2e --set metrics.address=:8443 \
+ 		--set 'watchNamespaces={default}' \
+ 		--set image.repository=$(IMG_WITHOUT_TAG) \
+ 		--set image.tag=$(TAG) \
+ 		--set cacheAPI.enabled=true \
+ 		--set resourceAPI.enabled=true \
+ 		--namespace envoy-xds-controller \
+ 		--create-namespace ./helm/charts/envoy-xds-controller \
+ 		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
 
 .PHONY: undeploy-e2e
 undeploy-e2e:

@@ -10,10 +10,20 @@ metrics:
 xds:
   port: 9000
 
+resourceAPI:
+  targetNamespace: ""
+  enabled: false
+  port: 10000
+  ingress:
+    enabled: false
+    annotations: { }
+    className: ""
+    hosts: []
+    tls: []
+
 cacheAPI:
   enabled: false
   port: 9999
-  grpcPort: 10000
   address: "localhost:9999"
   scheme: "http"
   ingress:
@@ -38,7 +48,7 @@ ui:
   args: []
   envs: {}
   cacheAPI: "http://exc-envoy-xds-controller-cache-api:9999"
-  grpcAPI: "http://exc-envoy-xds-controller-grpc-api:10000"
+  resourceAPI: "http://exc-envoy-xds-controller-resource-api:10000"
   resources:
     limits:
       cpu: "1"
