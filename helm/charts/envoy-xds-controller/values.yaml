@@ -42,7 +42,7 @@ cacheAPI:
 ui:
   enabled: false
   image:
-    repository: kaasops/envoy-xds-controller-ui
+    repository: aa1ex/envoy-xds-controller-ui
     tag: "" # rewrites Chart.AppVersion
     pullPolicy: IfNotPresent
   args: []
@@ -79,7 +79,7 @@ watchNamespaces: []
 replicaCount: 1
 
 image:
-  repository: kaasops/envoy-xds-controller
+  repository: aa1ex/envoy-xds-controller
   tag: "" # rewrites Chart.AppVersion
   pullPolicy: IfNotPresent
 

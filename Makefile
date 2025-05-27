@@ -252,7 +252,7 @@ endef
 
 ## HELM
 
-URL=https://kaasops.github.io/envoy-xds-controller/helm
+URL=https://aa1ex.github.io/envoy-xds-controller/helm
 AUTH_ENABLED=false
 
 .PHONY: helm-lint
