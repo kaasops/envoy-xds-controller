@@ -154,7 +154,14 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 						<List sx={{ padding: 1, borderRadius: '4px', width: '100%' }}>
 							{selectedUids.map(uid => {
 								const item = (data?.items || []).find(el => el.uid === uid)
-								return item ? <SortableItemDnd key={uid} uid={uid} name={item.name} /> : null
+								return item ? (
+									<SortableItemDnd
+										key={uid}
+										uid={uid}
+										name={item.name}
+										description={item.description}
+									/>
+								) : null
 							})}
 						</List>
 					</Box>
