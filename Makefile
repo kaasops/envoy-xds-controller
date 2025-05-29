@@ -281,7 +281,6 @@ helm-deploy-local: manifests set-local## Install Envoy xDS Controller into the l
  		--set ui.image.repository=$(UI_IMG_WITHOUT_TAG) \
  		--set ui.image.tag=$(TAG) \
  		--set resourceAPI.enabled=true \
- 		--set resourceAPI.targetNamespace=default \
  		--namespace envoy-xds-controller \
  		--create-namespace ./helm/charts/envoy-xds-controller \
  		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait

@@ -63,7 +63,7 @@ spec:
           - name: INSTALLATION_NAMESPACE
             value: {{ .Release.Namespace }}
           - name: TARGET_NAMESPACE
-            value: {{ default .Values.resourceAPI.targetNamespace .Release.Namespace}}
+            value: {{ .Values.resourceAPI.targetNamespace | default .Release.Namespace }}
         {{- if .Values.auth.enabled }}
           - name: OIDC_ENABLED
             valueFrom:
