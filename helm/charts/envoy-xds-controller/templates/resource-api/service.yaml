@@ -15,7 +15,7 @@ spec:
     - port: {{ .Values.resourceAPI.port }}
       targetPort: {{ .Values.resourceAPI.port }}
       protocol: TCP
-      name: http
+      name: grpc
   selector:
     {{- include "chart.selectorLabels" . | nindent 4 }}
 {{- end }}

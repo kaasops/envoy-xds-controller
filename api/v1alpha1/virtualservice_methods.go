@@ -87,6 +87,7 @@ func (vs *VirtualService) SetEditable(editable bool) {
 }
 
 func (vs *VirtualService) FillFromTemplate(vst *VirtualServiceTemplate, templateOpts ...TemplateOpts) error {
+	vst.NormalizeSpec()
 	baseData, err := json.Marshal(vst.Spec.VirtualServiceCommonSpec)
 	if err != nil {
 		return err
