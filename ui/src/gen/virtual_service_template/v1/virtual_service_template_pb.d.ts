@@ -195,6 +195,14 @@ export declare type FillTemplateRequest = Message<"virtual_service_template.v1.F
    * @generated from field: string description = 10;
    */
   description: string;
+
+  /**
+   * Expand references determines whether to replace reference links
+   * with their full expanded content in the returned structure.
+   *
+   * @generated from field: bool expand_references = 11;
+   */
+  expandReferences: boolean;
 };
 
 /**

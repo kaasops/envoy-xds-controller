@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/kaasops/envoy-xds-controller/internal/helpers"
+
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 
@@ -15,6 +17,7 @@ import (
 	v1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service_template/v1"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service_template/v1/virtual_service_templatev1connect"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
 )
 
 type VirtualServiceTemplateStore struct {
@@ -168,10 +171,125 @@ func (s *VirtualServiceTemplateStore) FillTemplate(ctx context.Context, req *con
 		return nil, err
 	}
 
-	data, err := json.Marshal(vs.Spec)
-	if err != nil {
-		return nil, err
+	res := &v1.FillTemplateResponse{}
+
+	if req.Msg.ExpandReferences {
+		data, err := s.expandReferences(vs)
+		if err != nil {
+			return nil, err
+		}
+		res.Raw = string(data)
+	} else {
+		data, err := json.Marshal(vs.Spec)
+		if err != nil {
+			return nil, err
+		}
+		res.Raw = string(data)
 	}
 
-	return connect.NewResponse(&v1.FillTemplateResponse{Raw: string(data)}), nil
+	return connect.NewResponse(res), nil
+}
+
+func (s *VirtualServiceTemplateStore) expandReferences(vs *v1alpha1.VirtualService) ([]byte, error) {
+	data, err := json.Marshal(vs.Spec.VirtualServiceCommonSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal to JSON: %w", err)
+	}
+
+	var result map[string]interface{}
+	err = json.Unmarshal(data, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal to map: %w", err)
+	}
+
+	if vs.Spec.VirtualServiceCommonSpec.Listener != nil {
+		if vs.Spec.VirtualServiceCommonSpec.Listener.Namespace == nil {
+			return nil, fmt.Errorf("listener namespace is required")
+		}
+		listener := s.store.GetListener(helpers.NamespacedName{
+			Namespace: *vs.Spec.VirtualServiceCommonSpec.Listener.Namespace,
+			Name:      vs.Spec.VirtualServiceCommonSpec.Listener.Name,
+		})
+		if listener == nil {
+			return nil, fmt.Errorf("listener '%s' not found", vs.Spec.VirtualServiceCommonSpec.Listener.Name)
+		}
+		var listenerMap map[string]interface{}
+		if err := yaml.Unmarshal(listener.Spec.Raw, &listenerMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal listener spec: %w", err)
+		}
+		result["listener"] = listenerMap
+	}
+
+	if vs.Spec.AccessLogConfig != nil {
+		if vs.Spec.VirtualServiceCommonSpec.AccessLogConfig.Namespace == nil {
+			return nil, fmt.Errorf("access log config namespace is required")
+		}
+		accessLogConfig := s.store.GetAccessLog(helpers.NamespacedName{
+			Namespace: *vs.Spec.VirtualServiceCommonSpec.AccessLogConfig.Namespace,
+			Name:      vs.Spec.VirtualServiceCommonSpec.AccessLogConfig.Name,
+		})
+		if accessLogConfig == nil {
+			return nil, fmt.Errorf("accessLogConfig '%s' not found", vs.Spec.VirtualServiceCommonSpec.AccessLogConfig.Name)
+		}
+		var accessLogConfigMap map[string]interface{}
+		if err := yaml.Unmarshal(accessLogConfig.Spec.Raw, &accessLogConfigMap); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal accessLogConfig spec: %w", err)
+		}
+		result["accessLogConfig"] = accessLogConfigMap
+	}
+
+	if len(vs.Spec.AdditionalRoutes) > 0 {
+		routes := make([]map[string]interface{}, 0)
+		for _, route := range vs.Spec.AdditionalRoutes {
+			if route.Namespace == nil {
+				return nil, fmt.Errorf("route namespace is required")
+			}
+			r := s.store.GetRoute(helpers.NamespacedName{
+				Namespace: *route.Namespace,
+				Name:      route.Name,
+			})
+			if r == nil {
+				return nil, fmt.Errorf("route '%s' not found", route.Name)
+			}
+			for _, rr := range r.Spec {
+				var tmp map[string]interface{}
+				if err := yaml.Unmarshal(rr.Raw, &tmp); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal route spec: %w", err)
+				}
+				routes = append(routes, tmp)
+			}
+		}
+		result["additionalRoutes"] = routes
+	}
+
+	if len(vs.Spec.AdditionalHttpFilters) > 0 {
+		httpFilters := make([]map[string]interface{}, 0)
+		for _, httpFilter := range vs.Spec.AdditionalHttpFilters {
+			if httpFilter.Namespace == nil {
+				return nil, fmt.Errorf("httpFilter namespace is required")
+			}
+			hf := s.store.GetHTTPFilter(helpers.NamespacedName{
+				Namespace: *httpFilter.Namespace,
+				Name:      httpFilter.Name,
+			})
+			if hf == nil {
+				return nil, fmt.Errorf("httpFilter '%s' not found", httpFilter.Name)
+			}
+			for _, h := range hf.Spec {
+				var tmp map[string]interface{}
+				if err := yaml.Unmarshal(h.Raw, &tmp); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal httpFilter spec: %w", err)
+				}
+				httpFilters = append(httpFilters, tmp)
+			}
+		}
+		result["additionalHttpFilters"] = httpFilters
+	}
+
+	resultData, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal virtual service map: %v", err)
+	}
+
+	return resultData, nil
 }

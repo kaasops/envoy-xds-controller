@@ -97,6 +97,10 @@ message FillTemplateRequest {
 
   // Description is the human-readable description of the resource
   string description = 10;
+
+  // Expand references determines whether to replace reference links
+  // with their full expanded content in the returned structure.
+  bool expand_references = 11;
 }
 
 // Response message containing the filled template as a raw string.

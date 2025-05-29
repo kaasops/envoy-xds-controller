@@ -544,6 +544,7 @@ Request message for filling a template with specific configurations.
 | template_options | [repeated TemplateOption](#templateoption) | Options to modify the template. |
 | name | [ string](#string) | Virtual service name |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| expand_references | [ bool](#bool) | Expand references determines whether to replace reference links with their full expanded content in the returned structure. |
 
 
 
