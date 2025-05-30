@@ -1,5 +1,7 @@
 package v1alpha1
 
+import "encoding/json"
+
 func (vst *VirtualServiceTemplate) IsEqual(other *VirtualServiceTemplate) bool {
 	if vst == nil && other == nil {
 		return true
@@ -46,4 +48,15 @@ func (vst *VirtualServiceTemplate) NormalizeSpec() {
 			}
 		}
 	}
+}
+
+func (vst *VirtualServiceTemplate) Raw() []byte {
+	if vst == nil {
+		return nil
+	}
+	data, err := json.Marshal(vst.Spec)
+	if err != nil {
+		return nil
+	}
+	return data
 }

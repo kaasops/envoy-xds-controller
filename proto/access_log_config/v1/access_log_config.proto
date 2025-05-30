@@ -18,6 +18,8 @@ message AccessLogConfigListItem {
   string name = 2;
   // Description is the human-readable description of the resource
   string description = 3;
+  // The raw string representation of the resource
+  string raw = 4;
 }
 
 // Request message for listing access log configurations.

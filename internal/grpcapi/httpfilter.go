@@ -36,6 +36,7 @@ func (s *HTTPFilterStore) ListHTTPFilters(ctx context.Context, req *connect.Requ
 			Uid:         string(v.UID),
 			Name:        v.Name,
 			Description: v.GetDescription(),
+			Raw:         string(v.Raw()),
 		}
 		isAllowed, err := authorizer.Authorize(httpFilterAG, item.Name)
 		if err != nil {

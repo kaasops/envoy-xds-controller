@@ -84,6 +84,13 @@ export declare type VirtualServiceTemplateListItem = Message<"virtual_service_te
    * @generated from field: string description = 3;
    */
   description: string;
+
+  /**
+   * The raw string representation of the resource
+   *
+   * @generated from field: string raw = 5;
+   */
+  raw: string;
 };
 
 /**

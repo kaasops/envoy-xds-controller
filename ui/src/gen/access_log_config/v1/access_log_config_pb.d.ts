@@ -36,6 +36,13 @@ export declare type AccessLogConfigListItem = Message<"access_log_config.v1.Acce
    * @generated from field: string description = 3;
    */
   description: string;
+
+  /**
+   * The raw string representation of the resource
+   *
+   * @generated from field: string raw = 4;
+   */
+  raw: string;
 };
 
 /**

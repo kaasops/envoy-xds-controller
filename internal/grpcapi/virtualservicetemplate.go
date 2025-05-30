@@ -46,6 +46,7 @@ func (s *VirtualServiceTemplateStore) ListVirtualServiceTemplates(ctx context.Co
 			Uid:         string(v.UID),
 			Name:        v.Name,
 			Description: v.GetDescription(),
+			Raw:         string(v.Raw()),
 		}
 		isAllowed, err := authorizer.Authorize(accessGroup, item.Name)
 		if err != nil {

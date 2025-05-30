@@ -43,6 +43,13 @@ export declare type ListenerListItem = Message<"listener.v1.ListenerListItem"> &
    * @generated from field: string description = 4;
    */
   description: string;
+
+  /**
+   * The raw string representation of the resource
+   *
+   * @generated from field: string raw = 5;
+   */
+  raw: string;
 };
 
 /**

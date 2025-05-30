@@ -39,6 +39,7 @@ func (s *ListenerStore) ListListeners(ctx context.Context, req *connect.Request[
 			Name:        v.Name,
 			Type:        listenerType(v),
 			Description: v.GetDescription(),
+			Raw:         string(v.Spec.Raw),
 		}
 		isAllowed, err := authorizer.Authorize(listenerAG, item.Name)
 		if err != nil {

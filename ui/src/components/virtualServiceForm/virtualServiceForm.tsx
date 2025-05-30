@@ -107,7 +107,7 @@ export const VirtualServiceForm: React.FC<IVirtualServiceFormProps> = ({ virtual
 				case: 'accessLogConfigUid'
 			},
 			templateOptions: cleanedTemplateOptions,
-			expandReferences: true
+			expandReferences: false
 		}
 	}
 

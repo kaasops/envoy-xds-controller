@@ -36,6 +36,13 @@ export declare type HTTPFilterListItem = Message<"http_filter.v1.HTTPFilterListI
    * @generated from field: string description = 3;
    */
   description: string;
+
+  /**
+   * The raw string representation of the resource
+   *
+   * @generated from field: string raw = 4;
+   */
+  raw: string;
 };
 
 /**

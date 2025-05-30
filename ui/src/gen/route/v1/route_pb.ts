@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file route/v1/route.proto.
  */
 export const file_route_v1_route: GenFile = /*@__PURE__*/
-  fileDesc("ChRyb3V0ZS92MS9yb3V0ZS5wcm90bxIIcm91dGUudjEiPwoNUm91dGVMaXN0SXRlbRILCgN1aWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCSIpChFMaXN0Um91dGVzUmVxdWVzdBIUCgxhY2Nlc3NfZ3JvdXAYASABKAkiPAoSTGlzdFJvdXRlc1Jlc3BvbnNlEiYKBWl0ZW1zGAEgAygLMhcucm91dGUudjEuUm91dGVMaXN0SXRlbTJcChFSb3V0ZVN0b3JlU2VydmljZRJHCgpMaXN0Um91dGVzEhsucm91dGUudjEuTGlzdFJvdXRlc1JlcXVlc3QaHC5yb3V0ZS52MS5MaXN0Um91dGVzUmVzcG9uc2VCogEKDGNvbS5yb3V0ZS52MUIKUm91dGVQcm90b1ABWkVnaXRodWIuY29tL2thYXNvcHMvZW52b3kteGRzLWNvbnRyb2xsZXIvcGtnL2FwaS9ncnBjL3JvdXRlL3YxO3JvdXRldjGiAgNSWFiqAghSb3V0ZS5WMcoCCFJvdXRlXFYx4gIUUm91dGVcVjFcR1BCTWV0YWRhdGHqAglSb3V0ZTo6VjFiBnByb3RvMw");
+  fileDesc("ChRyb3V0ZS92MS9yb3V0ZS5wcm90bxIIcm91dGUudjEiTAoNUm91dGVMaXN0SXRlbRILCgN1aWQYASABKAkSDAoEbmFtZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRILCgNyYXcYBCABKAkiKQoRTGlzdFJvdXRlc1JlcXVlc3QSFAoMYWNjZXNzX2dyb3VwGAEgASgJIjwKEkxpc3RSb3V0ZXNSZXNwb25zZRImCgVpdGVtcxgBIAMoCzIXLnJvdXRlLnYxLlJvdXRlTGlzdEl0ZW0yXAoRUm91dGVTdG9yZVNlcnZpY2USRwoKTGlzdFJvdXRlcxIbLnJvdXRlLnYxLkxpc3RSb3V0ZXNSZXF1ZXN0Ghwucm91dGUudjEuTGlzdFJvdXRlc1Jlc3BvbnNlQqIBCgxjb20ucm91dGUudjFCClJvdXRlUHJvdG9QAVpFZ2l0aHViLmNvbS9rYWFzb3BzL2Vudm95LXhkcy1jb250cm9sbGVyL3BrZy9hcGkvZ3JwYy9yb3V0ZS92MTtyb3V0ZXYxogIDUlhYqgIIUm91dGUuVjHKAghSb3V0ZVxWMeICFFJvdXRlXFYxXEdQQk1ldGFkYXRh6gIJUm91dGU6OlYxYgZwcm90bzM");
 
 /**
  * Represents a route in the route list.
@@ -38,6 +38,13 @@ export type RouteListItem = Message<"route.v1.RouteListItem"> & {
    * @generated from field: string description = 3;
    */
   description: string;
+
+  /**
+   * The raw string representation of the resource
+   *
+   * @generated from field: string raw = 4;
+   */
+  raw: string;
 };
 
 /**

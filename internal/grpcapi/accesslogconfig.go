@@ -35,6 +35,7 @@ func (s *AccessLogConfigStore) ListAccessLogConfigs(ctx context.Context, req *co
 			Uid:         string(v.UID),
 			Name:        v.Name,
 			Description: v.GetDescription(),
+			Raw:         string(v.Spec.Raw),
 		}
 		isAllowed, err := authorizer.Authorize(accessLogAG, item.Name)
 		if err != nil {

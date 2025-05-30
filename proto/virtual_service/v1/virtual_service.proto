@@ -176,6 +176,9 @@ message GetVirtualServiceResponse {
 
   // Description is the human-readable description of the resource
   string description = 15;
+
+  // The raw string representation of the resource
+  string raw = 16;
 }
 
 // ListVirtualServicesRequest is the request message for listing virtual services.

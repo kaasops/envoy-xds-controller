@@ -55,6 +55,9 @@ message VirtualServiceTemplateListItem {
 
   // Description is the human-readable description of the resource
   string description = 3;
+
+  // The raw string representation of the resource
+  string raw = 5;
 }
 
 // Response message containing the list of virtual service templates.

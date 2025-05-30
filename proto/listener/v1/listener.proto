@@ -19,6 +19,8 @@ message ListenerListItem {
   ListenerType type = 3;  // The type of listener.
   // Description is the human-readable description of the resource
   string description = 4;
+  // The raw string representation of the resource
+  string raw = 5;
 }
 
 // Service for managing listeners.

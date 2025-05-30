@@ -3,8 +3,11 @@ package v1alpha1
 import (
 	"bytes"
 
+	"encoding/json"
+
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
+	"sigs.k8s.io/yaml"
 )
 
 func (r *Route) UnmarshalV3() ([]*routev3.Route, error) {
@@ -68,4 +71,23 @@ func (r *Route) GetAccessGroup() string {
 
 func (r *Route) GetDescription() string {
 	return r.Annotations[annotationDescription]
+}
+
+func (r *Route) Raw() []byte {
+	if r == nil || len(r.Spec) == 0 {
+		return nil
+	}
+	items := make([]any, 0, len(r.Spec))
+	for _, spec := range r.Spec {
+		var routeMap map[string]interface{}
+		if err := yaml.Unmarshal(spec.Raw, &routeMap); err != nil {
+			return nil
+		}
+		items = append(items, routeMap)
+	}
+	data, err := json.Marshal(items)
+	if err != nil {
+		return nil
+	}
+	return data
 }

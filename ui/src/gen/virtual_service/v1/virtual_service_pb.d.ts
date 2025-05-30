@@ -416,6 +416,13 @@ export declare type GetVirtualServiceResponse = Message<"virtual_service.v1.GetV
    * @generated from field: string description = 15;
    */
   description: string;
+
+  /**
+   * The raw string representation of the resource
+   *
+   * @generated from field: string raw = 16;
+   */
+  raw: string;
 };
 
 /**

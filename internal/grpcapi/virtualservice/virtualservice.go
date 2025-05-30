@@ -73,6 +73,7 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 		AccessGroup: vs.GetAccessGroup(),
 		IsEditable:  vs.IsEditable(),
 		Description: vs.GetDescription(),
+		Raw:         string(vs.Raw()),
 	}
 	if vs.Spec.Template != nil {
 		template := s.store.GetVirtualServiceTemplate(helpers.NamespacedName{

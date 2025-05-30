@@ -232,6 +232,7 @@ Represents an access log configuration item.
 | uid | [ string](#string) | The unique identifier of the access log configuration. |
 | name | [ string](#string) | The name of the access log configuration. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| raw | [ string](#string) | The raw string representation of the resource |
 
 
 
@@ -311,6 +312,7 @@ Represents an individual HTTP filter.
 | uid | [ string](#string) | Unique identifier of the HTTP filter. |
 | name | [ string](#string) | Name of the HTTP filter. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| raw | [ string](#string) | The raw string representation of the resource |
 
 
 
@@ -364,6 +366,7 @@ Details of a listener.
 | name | [ string](#string) | Display name of the listener. |
 | type | [ ListenerType](#listenertype) | The type of listener. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| raw | [ string](#string) | The raw string representation of the resource |
 
 
 
@@ -490,6 +493,7 @@ Represents a route in the route list.
 | uid | [ string](#string) | Unique identifier for the route. |
 | name | [ string](#string) | Name of the route. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| raw | [ string](#string) | The raw string representation of the resource |
 
 
 
@@ -598,6 +602,7 @@ Details of a virtual service template.
 | uid | [ string](#string) | Unique identifier of the template. |
 | name | [ string](#string) | Name of the template. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| raw | [ string](#string) | The raw string representation of the resource |
 
 
 
@@ -673,6 +678,7 @@ GetVirtualServiceResponse is the response message for retrieving a virtual servi
 | template_options | [repeated virtual_service_template.v1.TemplateOption](#virtual_service_templatev1templateoption) | Template options for the virtual service. |
 | is_editable | [ bool](#bool) | Indicates whether the virtual service is editable. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| raw | [ string](#string) | The raw string representation of the resource |
 
 
 

@@ -35,6 +35,7 @@ func (s *RouteStore) ListRoutes(ctx context.Context, req *connect.Request[v1.Lis
 			Uid:         string(v.UID),
 			Name:        v.Name,
 			Description: v.GetDescription(),
+			Raw:         string(v.Raw()),
 		}
 		isAllowed, err := authorizer.Authorize(routeAG, item.Name)
 		if err != nil {

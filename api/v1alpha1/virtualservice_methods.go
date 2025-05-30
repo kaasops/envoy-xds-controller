@@ -196,3 +196,14 @@ func (vs *VirtualService) SetDescription(description string) {
 	}
 	vs.Annotations[annotationDescription] = description
 }
+
+func (vs *VirtualService) Raw() []byte {
+	if vs == nil {
+		return nil
+	}
+	data, err := json.Marshal(vs.Spec.VirtualServiceCommonSpec)
+	if err != nil {
+		return nil
+	}
+	return data
+}
