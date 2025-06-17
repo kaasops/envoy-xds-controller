@@ -24,4 +24,8 @@ export interface IVirtualServiceForm {
 	additionalRouteUids: string[]
 	useRemoteAddress: boolean | undefined
 	templateOptions: ITemplateOption[]
+	viewTemplateMode: boolean
+	virtualHostDomainsMode: boolean
+	additionalHttpFilterMode: boolean
+	additionalRouteMode: boolean
 }

@@ -1,8 +1,8 @@
 import React from 'react'
-import { useColors } from '../../utils/hooks/useColors.ts'
+import { useColors } from '../../utils/hooks'
 import { Box } from '@mui/material'
 import { styleBox, styleRootBoxCreateVS } from './style.ts'
-import { VirtualServiceForm } from '../../components/virtualServiceForm/virtualServiceForm.tsx'
+import { VirtualServiceForm } from '../../components/virtualServiceForm'
 
 interface ICreateVsProps {
 	title?: string

@@ -10,7 +10,7 @@ export const styleBox = {
 	pt: 0.5,
 	display: 'flex',
 	flexDirection: 'column',
-	gap: 0.5
+	gap: 1
 }
 
 export const styleTooltip = {

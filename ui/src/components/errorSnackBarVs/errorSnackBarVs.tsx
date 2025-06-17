@@ -8,7 +8,7 @@ interface IErrorSnackBarVsProps {
 	errorUpdateVs: Error | null
 	errorCreateVs: Error | null
 	errorFillTemplate: Error | null
-	isSubmitted: boolean
+	isSubmitting: boolean
 	isFormReady: boolean
 }
 
@@ -17,7 +17,7 @@ export const ErrorSnackBarVs: React.FC<IErrorSnackBarVsProps> = ({
 	errorUpdateVs,
 	errorCreateVs,
 	errorFillTemplate,
-	isSubmitted,
+	isSubmitting,
 	isFormReady
 }) => {
 	const [open, setOpen] = useState(false)
@@ -27,12 +27,12 @@ export const ErrorSnackBarVs: React.FC<IErrorSnackBarVsProps> = ({
 	const setTabIndex = useTabStore(state => state.setTabIndex)
 
 	useEffect(() => {
-		if (isSubmitted) {
+		if (isSubmitting) {
+			console.log(errors)
 			if (Object.keys(errors).length > 0 || !isFormReady) {
 				const errorMessages = Object.values(errors)
 					.map((error: any) => error.message)
 					.join('\n')
-
 				setMessage(!isFormReady ? 'Fields Name, NodeIds and Template is required' : errorMessages)
 				setSeverity('warning')
 				setAutoHideDuration(3000)
@@ -44,13 +44,15 @@ export const ErrorSnackBarVs: React.FC<IErrorSnackBarVsProps> = ({
 				setAutoHideDuration(3000)
 				setOpen(true)
 			} else if (errorUpdateVs || errorCreateVs) {
-				setMessage(errorUpdateVs?.message || errorCreateVs?.message || 'An error occurred')
+				const rawMessage = errorUpdateVs?.message || errorCreateVs?.message || 'An error occurred'
+				const cleanMessage = rawMessage.replace(/^\[unknown]\s*/, '')
+				setMessage(cleanMessage)
 				setSeverity('error')
 				setAutoHideDuration(null)
 				setOpen(true)
 			}
 		}
-	}, [errors, errorUpdateVs, errorCreateVs, isSubmitted, isFormReady, errorFillTemplate, setTabIndex])
+	}, [errors, errorUpdateVs, errorCreateVs, isSubmitting, isFormReady, errorFillTemplate, setTabIndex])
 
 	const handleClose = () => setOpen(false)
 

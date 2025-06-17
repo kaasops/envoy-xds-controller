@@ -45,7 +45,7 @@ export const RemoteAddrFormVs: React.FC<IRemoteAddrFormVsProps> = ({ nameField, 
 							value={field.value ?? ''}
 							onChange={e => {
 								const value =
-									e.target.value === 'true' ? true : e.target.value === 'false' ? false : null
+									e.target.value === 'true' ? true : e.target.value === 'false' ? false : undefined
 								field.onChange(value)
 							}}
 						>

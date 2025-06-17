@@ -3,8 +3,8 @@ import { useParams } from 'react-router-dom'
 import { useGetVs } from '../../api/grpc/hooks/useVirtualService.ts'
 import { useVirtualServiceStore } from '../../store/setVsStore.ts'
 import { Box } from '@mui/material'
-import { VirtualServiceForm } from '../../components/virtualServiceForm/virtualServiceForm.tsx'
-import { useColors } from '../../utils/hooks/useColors.ts'
+import { VirtualServiceForm } from '../../components/virtualServiceForm'
+import { useColors } from '../../utils/hooks'
 import { styleBox, styleRootBoxEditVS } from './style.ts'
 
 interface IEditVsPageProps {

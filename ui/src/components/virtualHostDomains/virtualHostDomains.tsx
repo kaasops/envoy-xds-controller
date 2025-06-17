@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import {
 	Control,
 	Controller,
@@ -6,12 +6,10 @@ import {
 	UseFormClearErrors,
 	UseFormSetError,
 	UseFormSetValue,
-	UseFormWatch
+	useWatch
 } from 'react-hook-form'
 import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
 import Typography from '@mui/material/Typography'
-import Tooltip from '@mui/material/Tooltip'
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
@@ -20,12 +18,14 @@ import TextField from '@mui/material/TextField'
 import { validationRulesVsForm } from '../../utils/helpers/validationRulesVsForm.ts'
 import Card from '@mui/material/Card'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { CustomCardContent, styleBox, styleTooltip } from './style.ts'
+import { CustomCardContent, styleBox } from './style.ts'
 import FormControl from '@mui/material/FormControl'
 import FormHelperText from '@mui/material/FormHelperText'
 import { useViewModeStore } from '../../store/viewModeVsStore.ts'
 import Checkbox from '@mui/material/Checkbox'
 import { useVerifyDomains } from '../../api/grpc/hooks/useVirtualService.ts'
+import { TooltipVhDomains } from './tooltipVhDomains.tsx'
+import { AddOrReplaceButtons } from './addOrReplaceButtons.tsx'
 
 interface IVirtualHostDomainsProps {
 	control: Control<IVirtualServiceForm>
@@ -33,7 +33,6 @@ interface IVirtualHostDomainsProps {
 	errors: FieldErrors<IVirtualServiceForm>
 	setError: UseFormSetError<IVirtualServiceForm>
 	clearErrors: UseFormClearErrors<IVirtualServiceForm>
-	watch: UseFormWatch<IVirtualServiceForm>
 }
 
 export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
@@ -41,8 +40,7 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 	errors,
 	setError,
 	clearErrors,
-	setValue,
-	watch
+	setValue
 }) => {
 	const nameField = 'virtualHostDomains'
 	const [newDomain, setNewDomain] = useState('')
@@ -50,9 +48,10 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
 
-	const domains = watch(nameField)
-	const stableDomains = useMemo(() => [...domains], [domains])
-	const { data: verifyDomains } = useVerifyDomains(stableDomains)
+	// const domains = watch(nameField)
+	const domainsWatch = useWatch({ control, name: nameField })
+	// const stableDomains = useMemo(() => [...domainsWatch], [domainsWatch])
+	const { data: verifyDomains } = useVerifyDomains(domainsWatch)
 
 	const addDomain = () => {
 		if (newDomain.trim() === '') return
@@ -61,7 +60,7 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 			.split('\n')
 			.map(d => d.trim())
 			.filter(Boolean)
-		const currentDomains = watch(nameField)
+		const currentDomains = domainsWatch
 		const uniqueNewDomains = inputDomains.filter(d => !currentDomains.includes(d))
 
 		if (uniqueNewDomains.length === 0) {
@@ -82,7 +81,7 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 	}
 
 	const removeDomain = (index: number) => {
-		const domains = watch(nameField)
+		const domains = domainsWatch
 		domains.splice(index, 1)
 		setValue(nameField, [...domains])
 	}
@@ -101,14 +100,13 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 	}
 
 	const removeSelectedDomains = () => {
-		const domains = watch(nameField)
-		const remaining = domains.filter((_, i) => !selectedDomains.includes(i))
+		const remaining = domainsWatch.filter((_, i) => !selectedDomains.includes(i))
 		setValue(nameField, remaining)
 		setSelectedDomains([])
 	}
 
 	const toggleSelectAll = () => {
-		const domains = watch(nameField)
+		const domains = domainsWatch
 		if (selectedDomains.length === domains.length) {
 			setSelectedDomains([])
 		} else {
@@ -130,7 +128,7 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 				.map(domain => domain.trim())
 				.filter(Boolean)
 
-			const currentDomains = watch(nameField)
+			const currentDomains = domainsWatch
 
 			const newDomains = [
 				...currentDomains,
@@ -145,17 +143,10 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 
 	return (
 		<Box sx={{ ...styleBox }}>
-			<Typography fontSize={15} color='gray' mt={1} display='flex' alignItems='center' gap={0.5}>
-				Configure the Domains
-				<Tooltip
-					title='Enter Domain. Press Enter to add it to the list or use key Add Domain.'
-					placement='bottom-start'
-					enterDelay={300}
-					slotProps={{ ...styleTooltip }}
-				>
-					<InfoOutlinedIcon fontSize='inherit' sx={{ cursor: 'pointer', fontSize: '14px' }} />
-				</Tooltip>
-			</Typography>
+			<Box display='flex' justifyContent='space-between' alignItems='center'>
+				<TooltipVhDomains />
+				<AddOrReplaceButtons control={control} setValue={setValue} mode={'virtualHostDomainsMode'} />
+			</Box>
 
 			<Box display='flex' width='100%' alignItems='flex-start'>
 				<Controller
@@ -203,9 +194,9 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 						Remove selected
 					</Button>
 				)}
-				{!readMode && watch(nameField).length > 0 && (
+				{!readMode && domainsWatch.length > 0 && (
 					<Button variant='outlined' onClick={toggleSelectAll} sx={{ flexShrink: 0, marginX: '10px' }}>
-						{selectedDomains.length === watch(nameField).length ? 'Deselect all' : 'Select all'}
+						{selectedDomains.length === domainsWatch.length ? 'Deselect all' : 'Select all'}
 					</Button>
 				)}
 			</Box>
@@ -217,7 +208,7 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 				gap={0.7}
 				sx={{ overflowY: 'auto', padding: '1px 10px 10px 1px' }}
 			>
-				{watch(nameField).map((domain, index) => {
+				{domainsWatch.map((domain, index) => {
 					const isVerified = verifyDomains?.results?.[index]?.validCertificate
 					const errorText = verifyDomains?.results?.[index]?.error
 

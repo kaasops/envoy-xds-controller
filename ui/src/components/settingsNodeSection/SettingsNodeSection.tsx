@@ -1,7 +1,6 @@
 import { Box } from '@mui/material'
-import { useColors } from '../../utils/hooks/useColors'
+import { useColors } from '../../utils/hooks'
 import { styleSettingsNodeSection, styleWrapperNodeSettingsCards } from './style'
-import nodeSettingsItems from '../../utils/helpers/nodeSettingsItems'
 import NodeSettingsCard from '../nodeSettingsCard/NodeSettingsCard'
 import React, { useState } from 'react'
 import { IModalProps } from '../../common/types/modalProps'
@@ -9,6 +8,7 @@ import ListenersModal from '../listenersModal/ListenersModal'
 import ClustersModal from '../clustersModal/ClustersModal'
 import SecretsModal from '../secretsModal/SecretsModal'
 import RouteConfigurationsModal from '../routeConfigurationsModal/RouteConfigurationsModal'
+import { nodeSettingsItems } from '../../utils/helpers'
 
 function SettingsNodeSection() {
 	const { colors } = useColors()

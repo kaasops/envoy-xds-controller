@@ -92,42 +92,42 @@ export const useAccessGroupsVs = () => {
 
 export const useAccessLogsVs = (accessGroup?: string) => {
 	return useQuery({
-		queryKey: ['accessLogsVs'],
+		queryKey: ['accessLogsVs', accessGroup],
 		queryFn: () => accessLogServiceClient.listAccessLogConfigs({ accessGroup: accessGroup || '' })
 	})
 }
 
 export const useHttpFilterVs = (accessGroup?: string) => {
 	return useQuery({
-		queryKey: ['httpFilterVs'],
+		queryKey: ['httpFilterVs', accessGroup],
 		queryFn: () => httpFilterServiceClient.listHTTPFilters({ accessGroup: accessGroup || '' })
 	})
 }
 
 export const useListenerVs = (accessGroup?: string) => {
 	return useQuery({
-		queryKey: ['listenerVs'],
+		queryKey: ['listenerVs', accessGroup],
 		queryFn: () => listenerServiceClient.listListeners({ accessGroup: accessGroup || '' })
 	})
 }
 
 export const useRouteVs = (accessGroup?: string) => {
 	return useQuery({
-		queryKey: ['routeVs'],
+		queryKey: ['routeVs', accessGroup],
 		queryFn: () => routeServiceClient.listRoutes({ accessGroup: accessGroup || '' })
 	})
 }
 
 export const useTemplatesVs = (accessGroup?: string) => {
 	return useQuery({
-		queryKey: ['templatesVs'],
+		queryKey: ['templatesVs', accessGroup],
 		queryFn: () => templateServiceClient.listVirtualServiceTemplates({ accessGroup: accessGroup || '' })
 	})
 }
 
 export const useNodeListVs = (accessGroup?: string) => {
 	return useQuery({
-		queryKey: ['nodeListVs'],
+		queryKey: ['nodeListVs', accessGroup],
 		queryFn: () => nodeServiceClient.listNodes({ accessGroup: accessGroup || '' })
 	})
 }
@@ -148,6 +148,7 @@ export const useFillTemplate = () => {
 	})
 
 	return {
+		getTemplate: fillTemplateMutation.mutate,
 		fillTemplate: fillTemplateMutation.mutateAsync,
 		isLoadingFillTemplate: fillTemplateMutation.isPending,
 		rawData: fillTemplateMutation.data,

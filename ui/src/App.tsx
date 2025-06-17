@@ -7,14 +7,14 @@ import ErrorBoundary from './components/errorBoundary/ErrorBoundary'
 import Spinner from './components/spinner/Spinner'
 import Layout from './layout/layout'
 
-import { ColorModeContext } from './theme/theme'
-import useThemeMode from './utils/hooks/useThemeMode'
+import { ColorModeContext } from './theme'
 import { env } from './env.ts'
-import { provideAuth } from './utils/helpers/authBridge.ts'
+import { provideAuth } from './utils/helpers'
 import ErrorMessage from './components/errorMessage/ErrorMessage.tsx'
 import { ThemedWrapper } from './components/themeWrapper/themeWrapper.tsx'
 import { useGetPermissions } from './api/grpc/hooks/useVirtualService.ts'
 import { usePermissionsStore } from './store/permissionsStore.ts'
+import { useThemeMode } from './utils/hooks'
 
 const HomePage = lazy(() => import('./pages/home/Home'))
 const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'))

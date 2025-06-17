@@ -5,7 +5,7 @@ export const validationRulesVsForm: Record<
 	(value: string | string[] | boolean | null | ITemplateOption[]) => string | true
 > = {
 	name: value => {
-		if (typeof value !== 'string') return 'Invalid value'
+		if (typeof value !== 'string' || value === '') return 'The Name field is required'
 		if (value.length < 3) return 'Name must be at least 3 characters long'
 		if (value.length > 50) return 'Name must be at most 50 characters long'
 		if (!/^[a-zA-Z0-9_-]+$/.test(value)) return 'Name must contain only letters, numbers, hyphens, and underscores'
@@ -95,6 +95,18 @@ export const validationRulesVsForm: Record<
 			return 'Template options must be an array'
 		}
 
+		return true
+	},
+	viewTemplateMode: () => {
+		return true
+	},
+	virtualHostDomainsMode: () => {
+		return true
+	},
+	additionalHttpFilterMode: () => {
+		return true
+	},
+	additionalRouteMode: () => {
 		return true
 	}
 }

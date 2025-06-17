@@ -1,57 +1,86 @@
-import useTheme from '@mui/material/styles/useTheme'
-import React, { memo, useLayoutEffect, useRef, useState } from 'react'
-import { convertRawToFullYaml } from '../../utils/helpers/convertToYaml.ts'
-import { Editor } from '@monaco-editor/react'
+import React, { memo } from 'react'
+import Typography from '@mui/material/Typography'
+import CircularProgress from '@mui/material/CircularProgress'
+import Fade from '@mui/material/Fade'
+import { CodeEditorVs } from '../codeEditorVs/codeEditorVs.tsx'
 import Box from '@mui/material/Box'
+import { codeBlockVs } from './style.ts'
+import { Control, UseFormSetValue, useWatch } from 'react-hook-form'
+import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
+import { ButtonGroup } from '@mui/material'
+import Button from '@mui/material/Button'
 
 interface ICodeBlockVsProps {
-	raw: { raw: string }
+	rawDataTemplate: string | undefined
+	rawDataPreview: string | undefined
+	isLoadingFillTemplate: boolean
+	control: Control<IVirtualServiceForm>
+	isCreateMode: boolean
+	setValue: UseFormSetValue<IVirtualServiceForm>
 }
 
-export const CodeBlockVs: React.FC<ICodeBlockVsProps> = memo(({ raw }) => {
-	const theme = useTheme()
+export const CodeBlockVs: React.FC<ICodeBlockVsProps> = memo(
+	({ rawDataTemplate, rawDataPreview, isLoadingFillTemplate, isCreateMode, control, setValue }) => {
+		const templateUid = useWatch({ control, name: 'templateUid' })
+		const isExpanded = useWatch({ control, name: 'viewTemplateMode', defaultValue: false })
 
-	const [height, setHeight] = useState<number | null>(null)
-	const elementRef = useRef<HTMLDivElement>(null)
-	const updateHeight = () => {
-		if (elementRef.current) {
-			setHeight(elementRef.current.getBoundingClientRect().height)
+		const renderCodeBlock = () => {
+			if (isCreateMode && !templateUid) {
+				return (
+					<Typography align='center' variant='h3'>
+						For a preview, select a template
+					</Typography>
+				)
+			}
+			if (isLoadingFillTemplate) {
+				return <CircularProgress size={100} />
+			}
+
+			if (!isCreateMode && !templateUid && rawDataPreview) {
+				return (
+					<div style={{ width: '100%', height: '100%' }}>
+						<CodeEditorVs raw={rawDataPreview} />
+					</div>
+				)
+			}
+			if (rawDataTemplate) {
+				return (
+					<Fade in timeout={300}>
+						<div style={{ width: '100%', height: '100%' }}>
+							<CodeEditorVs raw={rawDataTemplate} />
+						</div>
+					</Fade>
+				)
+			}
 		}
+
+		const renderViewTemplateMode = () => {
+			if (isCreateMode && !templateUid) return null
+			if (!isCreateMode && !templateUid) return null
+
+			return (
+				<ButtonGroup variant='contained' size='small' sx={{ position: 'absolute', top: '35px', right: '45px' }}>
+					<Button
+						onClick={() => setValue('viewTemplateMode', true)}
+						color={isExpanded ? 'primary' : 'inherit'}
+					>
+						Expanded
+					</Button>
+					<Button
+						onClick={() => setValue('viewTemplateMode', false)}
+						color={!isExpanded ? 'primary' : 'inherit'}
+					>
+						Compact
+					</Button>
+				</ButtonGroup>
+			)
+		}
+
+		return (
+			<Box className='codeBlockVs' sx={{ ...codeBlockVs }}>
+				{renderCodeBlock()}
+				{renderViewTemplateMode()}
+			</Box>
+		)
 	}
-
-	useLayoutEffect(() => {
-		updateHeight() // Устанавливаем начальную высоту
-		window.addEventListener('resize', updateHeight) // Обновляем при изменении размера окна
-
-		return () => {
-			window.removeEventListener('resize', updateHeight) // Чистим обработчик
-		}
-	}, [])
-
-	const yamlData = convertRawToFullYaml(raw.raw)
-
-	return (
-		<Box
-			border='1px solid gray'
-			borderRadius={1}
-			p={2}
-			height='100%'
-			width='100%'
-			mr={1}
-			ref={elementRef}
-			sx={{ overflow: 'auto' }}
-		>
-			<Editor
-				height={`calc(${height}px - 40px)`}
-				defaultLanguage='yaml'
-				value={yamlData}
-				theme={theme.palette.mode === 'light' ? 'light' : 'vs-dark'}
-				options={{
-					readOnly: true,
-					minimap: { enabled: false }
-				}}
-				loading
-			/>
-		</Box>
-	)
-})
+)
