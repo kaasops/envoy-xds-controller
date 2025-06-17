@@ -80,13 +80,18 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 		return nil, err
 	}
 
-	// If listener already has filter chains, use them
+	// If the listener already has filter chains, use them
 	if len(xdsListener.FilterChains) > 0 {
 		return buildResourcesFromExistingFilterChains(vs, xdsListener, listenerNN, store)
 	}
 
 	// Otherwise, build resources from virtual service configuration
-	return buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn, store)
+	resources, err := buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn, store)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build resources from vs '%s' : %w", vs.Name, err)
+	}
+
+	return resources, nil
 }
 
 // applyVirtualServiceTemplate applies a template to the virtual service if specified
