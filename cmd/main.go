@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -423,8 +422,13 @@ func main() {
 		setupServers := log.FromContext(ctx)
 		setupServers.Info("Starting servers")
 
-		if err := cacheUpdater.InitFromKubernetes(ctx, mgr.GetClient()); err != nil {
-			return fmt.Errorf("unable to init cache updater: %w", err)
+		if err := resStore.FillFromKubernetes(ctx, mgr.GetClient()); err != nil {
+			setupServers.Error(err, "unable to fill store")
+			os.Exit(1)
+		}
+
+		if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {
+			setupLog.Error(err, "rebuild snapshot with errors")
 		}
 
 		connectedClients := xdsClients.NewRegistry()

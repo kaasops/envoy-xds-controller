@@ -251,7 +251,7 @@ func (s *VirtualServiceStore) buildAndCreateVirtualService(
 	vs *v1alpha1.VirtualService,
 ) error {
 	tmpStore := store.New()
-	if err := tmpStore.Fill(ctx, s.client); err != nil {
+	if err := tmpStore.FillFromKubernetes(ctx, s.client); err != nil {
 		return err
 	}
 

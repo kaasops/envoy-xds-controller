@@ -19,7 +19,6 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CacheUpdater struct {
@@ -30,17 +29,16 @@ type CacheUpdater struct {
 }
 
 func NewCacheUpdater(wsc *wrapped.SnapshotCache, store *store.Store) *CacheUpdater {
-	return &CacheUpdater{snapshotCache: wsc, usedSecrets: make(map[helpers.NamespacedName]helpers.NamespacedName), store: store}
+	return &CacheUpdater{
+		snapshotCache: wsc,
+		usedSecrets:   make(map[helpers.NamespacedName]helpers.NamespacedName),
+		store:         store,
+	}
 }
 
-func (c *CacheUpdater) InitFromKubernetes(ctx context.Context, cl client.Client) error {
+func (c *CacheUpdater) RebuildSnapshot(ctx context.Context) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-
-	if err := c.store.Fill(ctx, cl); err != nil {
-		return fmt.Errorf("failed to fill store: %w", err)
-	}
-
 	return c.rebuildSnapshot(ctx)
 }
 

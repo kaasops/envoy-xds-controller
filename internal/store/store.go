@@ -56,7 +56,7 @@ func New() *Store {
 	return store
 }
 
-func (s *Store) Fill(ctx context.Context, cl client.Client) error {
+func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error {
 	var accessLogConfigs v1alpha1.AccessLogConfigList
 	if err := cl.List(ctx, &accessLogConfigs); err != nil {
 		return err

@@ -103,11 +103,14 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 	if len(vs.GetNodeIDs()) == 0 {
 		return fmt.Errorf("nodeIDs is required")
 	}
-	s := store.New()
+	resStore := store.New()
+	if err := resStore.FillFromKubernetes(ctx, v.Client); err != nil {
+		return fmt.Errorf("failed to fill store: %w", err)
+	}
 	snapshotCache := cache.NewSnapshotCache()
-	cacheUpdater := updater.NewCacheUpdater(snapshotCache, s)
-	if err := cacheUpdater.InitFromKubernetes(ctx, v.Client); err != nil {
-		return fmt.Errorf("failed to init cache updater for validation: %w", err)
+	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
+	if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {
+		return fmt.Errorf("failed build snapshot for validation: %w", err)
 	}
 	return cacheUpdater.ApplyVirtualService(ctx, vs)
 }
