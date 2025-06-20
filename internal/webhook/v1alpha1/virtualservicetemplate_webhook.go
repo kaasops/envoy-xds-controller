@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,6 +70,23 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(ctx context.Conte
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type VirtualServiceTemplate.
 func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	virtualservicetemplate, ok := newObj.(*envoyv1alpha1.VirtualServiceTemplate)
+	if !ok {
+		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", newObj)
+	}
+	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update", "name", virtualservicetemplate.GetName())
+	resStore := store.New()
+	if err := resStore.FillFromKubernetes(ctx, v.Client); err != nil {
+		return nil, fmt.Errorf("failed to fill store for validation: %w", err)
+	}
+	snapshotCache := cache.NewSnapshotCache()
+	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
+	if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {
+		return nil, fmt.Errorf("failed build snapshot for validation: %w", err)
+	}
+	if err := cacheUpdater.ApplyVirtualServiceTemplate(ctx, virtualservicetemplate); err != nil {
+		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
+	}
 	return nil, nil
 }
 

@@ -88,7 +88,7 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	// Otherwise, build resources from virtual service configuration
 	resources, err := buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn, store)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build resources from vs '%s' : %w", vs.Name, err)
+		return nil, fmt.Errorf("failed to build resources for vs '%s': %w", vs.Name, err)
 	}
 
 	return resources, nil
@@ -410,7 +410,7 @@ func buildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, st
 	rootMatchIndexes := make([]int, 0, 1)
 	// reorder routes, root must be in the end
 	for index, route := range virtualHost.Routes {
-		if route.Match != nil && route.Match.GetPrefix() == "/" {
+		if route.Match != nil && (route.Match.GetPrefix() == "/" || route.Match.GetPath() == "/") {
 			rootMatchIndexes = append(rootMatchIndexes, index)
 		}
 	}

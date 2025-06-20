@@ -268,6 +268,18 @@ func envoyContext() {
 				manifest:        "test/testdata/conformance/virtual-service-http-with-tls.yaml",
 				expectedErrText: "listener is not tls, virtual service has tls config",
 			},
+			{
+				manifest: "test/testdata/e2e/vs7/virtual-service-template-2.yaml",
+				expectedErrText: "failed to apply VirtualServiceTemplate: failed to build " +
+					"resources for vs 'virtual-service': multiple root routes found",
+				applyBefore: []string{
+					"test/testdata/e2e/vs7/cert.yaml",
+					"test/testdata/e2e/vs7/listener.yaml",
+					"test/testdata/e2e/vs7/route.yaml",
+					"test/testdata/e2e/vs7/virtual-service-template-1.yaml",
+					"test/testdata/e2e/vs7/virtual-service.yaml",
+				},
+			},
 		} {
 			if len(tc.applyBefore) > 0 {
 				for _, f := range tc.applyBefore {
@@ -287,8 +299,8 @@ func envoyContext() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 			if len(tc.applyBefore) > 0 {
-				for _, f := range tc.applyBefore {
-					err := utils.DeleteManifests(f)
+				for i := len(tc.applyBefore) - 1; i >= 0; i-- {
+					err := utils.DeleteManifests(tc.applyBefore[i])
 					Expect(err).NotTo(HaveOccurred())
 				}
 			}

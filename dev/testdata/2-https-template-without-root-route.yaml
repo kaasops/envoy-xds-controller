@@ -1,0 +1,19 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: https-template-without-root-route
+  annotations:
+    envoy.kaasops.io/description: "HTTPS virtual service template with TLS auto-discovery and without root route"
+spec:
+  listener:
+    name: https
+  accessLogConfig:
+    name: access-log-config
+  additionalHttpFilters:
+    - name: http-filter
+#  additionalRoutes:
+#    - name: route-root
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    name: test-virtual-host

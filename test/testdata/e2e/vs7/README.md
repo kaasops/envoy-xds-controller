@@ -1,0 +1,1 @@
+Test data to ensure that applying a virtual service template that disrupts existing virtual services is not allowed

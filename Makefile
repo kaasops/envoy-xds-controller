@@ -313,6 +313,10 @@ kd:
 dev-apply-resources:
 	kubectl -n envoy-xds-controller apply -f dev/testdata
 
+.PHONY: dev-delete-resources
+dev-delete-resources:
+	kubectl -n envoy-xds-controller delete -f dev/testdata
+
 .PHONY: helm-deploy-backend-local
 helm-deploy-backend-local: manifests set-local## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)
