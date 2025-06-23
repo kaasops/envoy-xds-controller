@@ -47,8 +47,8 @@ message CreateVirtualServiceRequest {
 
   // The configuration for access logs.
   oneof access_log_config {
-    // The UID of the access log configuration.
-    string access_log_config_uid = 7;
+    // UIDs of the access log configurations.
+    common.v1.UIDS access_log_config_uids = 7;
   }
 
   // UIDs of additional HTTP filters appended to the virtual service.
@@ -89,8 +89,8 @@ message UpdateVirtualServiceRequest {
 
   // The configuration for access logs.
   oneof access_log_config {
-    // The UID of the access log configuration.
-    string access_log_config_uid = 6;
+    // UIDs of the access log configurations.
+    common.v1.UIDS access_log_config_uids = 6;
   }
 
   // UIDs of additional HTTP filters appended to the virtual service.
@@ -152,11 +152,11 @@ message GetVirtualServiceResponse {
 
   // The configuration of access logs.
   oneof access_log {
-    // A reference to the access log configuration.
-    common.v1.ResourceRef access_log_config = 8;
+    // A reference to the access log configurations.
+    common.v1.ResourceRefs access_log_configs = 8;
 
     // Raw configuration for access logs.
-    bytes access_log_config_raw = 9;
+    string access_log_config_raw = 9;
   }
 
   // Additional HTTP filters associated with the virtual service.

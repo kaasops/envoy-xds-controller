@@ -21,7 +21,7 @@ import { useAccessLogTemplateOptions } from '../../utils/hooks'
 
 export type nameFieldKeys = Extract<
 	keyof IVirtualServiceForm,
-	'templateUid' | 'listenerUid' | 'accessLogConfigUid' | 'additionalHttpFilterUids' | 'additionalRouteUids'
+	'templateUid' | 'listenerUid' | 'accessLogConfigUids' | 'additionalHttpFilterUids' | 'additionalRouteUids'
 >
 
 export type ItemVs = ListenerListItem | VirtualServiceTemplateListItem | AccessLogConfigListItem
@@ -90,7 +90,7 @@ export const AutocompleteVs: React.FC<IAutocompleteVsProps> = ({
 						if (nameField === 'listenerUid') return item.$typeName === 'listener.v1.ListenerListItem'
 						if (nameField === 'templateUid')
 							return item.$typeName === 'virtual_service_template.v1.VirtualServiceTemplateListItem'
-						if (nameField === 'accessLogConfigUid')
+						if (nameField === 'accessLogConfigUids')
 							return item.$typeName === 'access_log_config.v1.AccessLogConfigListItem'
 						return false
 					})

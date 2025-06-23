@@ -48,9 +48,9 @@ export const validationRulesVsForm: Record<
 		}
 		return true
 	},
-	accessLogConfigUid: value => {
+	accessLogConfigUids: value => {
 		// if (typeof value !== 'string') return 'The AccessLogConfig field is required'
-		if (!value) return true
+		if (!Array.isArray(value)) return 'Access logs must be an array'
 		return true
 	},
 	additionalHttpFilterUids: value => {
@@ -107,6 +107,9 @@ export const validationRulesVsForm: Record<
 		return true
 	},
 	additionalRouteMode: () => {
+		return true
+	},
+	additionalAccessLogConfigMode: () => {
 		return true
 	}
 }

@@ -79,8 +79,8 @@ message FillTemplateRequest {
 
   // Access log configuration.
   oneof access_log_config {
-    // Unique identifier of the access log configuration.
-    string access_log_config_uid = 4;
+    // UIDs of the access log configurations.
+    common.v1.UIDS access_log_config_uids = 4;
   }
 
   // Additional HTTP filter unique identifiers.

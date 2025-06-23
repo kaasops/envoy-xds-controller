@@ -1,4 +1,4 @@
-import { VirtualHost } from '../../gen/common/v1/common_pb.ts'
+import { UIDS, VirtualHost } from '../../gen/common/v1/common_pb.ts'
 import { ITemplateOption, IVirtualServiceForm } from '../../components/virtualServiceForm'
 import {
 	CreateVirtualServiceRequest,
@@ -23,9 +23,15 @@ export const buildTemplateOptions = (templateOptions: ITemplateOption[] = []): T
 }
 
 export const buildAccessLogConfig = (
-	uid?: string
-): { case: 'accessLogConfigUid'; value: string } | { case: undefined } => {
-	return uid ? { case: 'accessLogConfigUid' as const, value: uid } : { case: undefined }
+	uids?: string[]
+): { case: 'accessLogConfigUids'; value: UIDS } | { case: undefined } => {
+	return uids ? { 
+		case: 'accessLogConfigUids' as const, 
+		value: {
+			$typeName: 'common.v1.UIDS',
+			uids: uids
+		} 
+	} : { case: undefined }
 }
 
 export const buildBaseVSData = (data: IVirtualServiceForm) => {
@@ -38,7 +44,7 @@ export const buildBaseVSData = (data: IVirtualServiceForm) => {
 		//necessary data
 		virtualHostDomains,
 		templateOptions,
-		accessLogConfigUid,
+		accessLogConfigUids,
 		...rest
 	} = data
 
@@ -46,7 +52,7 @@ export const buildBaseVSData = (data: IVirtualServiceForm) => {
 		...rest,
 		virtualHost: buildVirtualHost(virtualHostDomains),
 		templateOptions: buildTemplateOptions(templateOptions),
-		accessLogConfig: buildAccessLogConfig(accessLogConfigUid)
+		accessLogConfig: buildAccessLogConfig(accessLogConfigUids)
 	}
 }
 

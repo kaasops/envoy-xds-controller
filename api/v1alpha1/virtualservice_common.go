@@ -8,13 +8,15 @@ import (
 )
 
 type VirtualServiceCommonSpec struct {
-	VirtualHost           *runtime.RawExtension `json:"virtualHost,omitempty"`
-	Listener              *ResourceRef          `json:"listener,omitempty"`
-	TlsConfig             *TlsConfig            `json:"tlsConfig,omitempty"`
-	AccessLog             *runtime.RawExtension `json:"accessLog,omitempty"`
-	AccessLogConfig       *ResourceRef          `json:"accessLogConfig,omitempty"`
-	AdditionalHttpFilters []*ResourceRef        `json:"additionalHttpFilters,omitempty"`
-	AdditionalRoutes      []*ResourceRef        `json:"additionalRoutes,omitempty"`
+	VirtualHost           *runtime.RawExtension   `json:"virtualHost,omitempty"`
+	Listener              *ResourceRef            `json:"listener,omitempty"`
+	TlsConfig             *TlsConfig              `json:"tlsConfig,omitempty"`
+	AccessLog             *runtime.RawExtension   `json:"accessLog,omitempty"` // DEPRECATED
+	AccessLogs            []*runtime.RawExtension `json:"accessLogs,omitempty"`
+	AccessLogConfig       *ResourceRef            `json:"accessLogConfig,omitempty"` // DEPRECATED
+	AccessLogConfigs      []*ResourceRef          `json:"accessLogConfigs,omitempty"`
+	AdditionalHttpFilters []*ResourceRef          `json:"additionalHttpFilters,omitempty"`
+	AdditionalRoutes      []*ResourceRef          `json:"additionalRoutes,omitempty"`
 
 	// HTTPFilters for use custom HTTP filters
 	HTTPFilters []*runtime.RawExtension `json:"httpFilters,omitempty"`

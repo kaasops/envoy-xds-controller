@@ -12,13 +12,14 @@ import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
 import { nameFieldKeys } from './dNdSelectFormVs.tsx'
 import { ListHTTPFiltersResponse } from '../../gen/http_filter/v1/http_filter_pb.ts'
 import { ListRoutesResponse } from '../../gen/route/v1/route_pb.ts'
+import { ListAccessLogConfigsResponse } from '../../gen/access_log_config/v1/access_log_config_pb.ts'
 
 interface IDNdElementsBoxProps {
 	titleMessage: 'HTTP filter' | 'Route'
 	nameField: nameFieldKeys
 	control: Control<IVirtualServiceForm>
 	setValue: UseFormSetValue<IVirtualServiceForm>
-	data: ListHTTPFiltersResponse | ListRoutesResponse | undefined
+	data: ListAccessLogConfigsResponse | ListHTTPFiltersResponse | ListRoutesResponse | undefined
 }
 
 export const DNdElements: React.FC<IDNdElementsBoxProps> = ({ titleMessage, nameField, control, setValue, data }) => {

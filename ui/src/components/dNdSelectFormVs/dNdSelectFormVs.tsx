@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Control, Controller, FieldErrors, UseFormSetValue } from 'react-hook-form'
 import { HTTPFilterListItem, ListHTTPFiltersResponse } from '../../gen/http_filter/v1/http_filter_pb.ts'
 import { ListRoutesResponse, RouteListItem } from '../../gen/route/v1/route_pb.ts'
+import { ListAccessLogConfigsResponse } from '../../gen/access_log_config/v1/access_log_config_pb.ts'
 import { validationRulesVsForm } from '../../utils/helpers/validationRulesVsForm.ts'
 import { dNdBox } from './style.ts'
 import Autocomplete from '@mui/material/Autocomplete'
@@ -13,13 +14,16 @@ import { DNdElements } from './dNdElements.tsx'
 import { AutocompleteOption, PopoverOption, RenderInputField } from '../autocompleteVs'
 import { AddOrReplaceButtons } from '../virtualHostDomains'
 
-export type nameFieldKeys = Extract<keyof IVirtualServiceForm, 'additionalHttpFilterUids' | 'additionalRouteUids'>
+export type nameFieldKeys = Extract<
+	keyof IVirtualServiceForm,
+	'additionalHttpFilterUids' | 'accessLogConfigUids' | 'additionalRouteUids'
+>
 
 export type ItemDnd = HTTPFilterListItem | RouteListItem
 
 interface IdNdSelectFormVsProps {
 	nameField: nameFieldKeys
-	data: ListHTTPFiltersResponse | ListRoutesResponse | undefined
+	data: ListAccessLogConfigsResponse | ListHTTPFiltersResponse | ListRoutesResponse | undefined
 	control: Control<IVirtualServiceForm>
 	setValue: UseFormSetValue<IVirtualServiceForm>
 	errors: FieldErrors<IVirtualServiceForm>
@@ -41,10 +45,24 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 	const [popoverOption, setPopoverOption] = useState<ItemDnd | null>(null)
-	const templateOptionMode =
-		nameField === 'additionalHttpFilterUids' ? 'additionalHttpFilterMode' : 'additionalRouteMode'
+	let templateOptionMode:'virtualHostDomainsMode' | 'additionalHttpFilterMode' | 'additionalRouteMode' | 'accessLogConfigMode'
+	switch (nameField) {
+		case 'additionalHttpFilterUids':
+			templateOptionMode = 'additionalHttpFilterMode'
+			break
+		case 'additionalRouteUids':
+			templateOptionMode = 'additionalRouteMode'
+			break
+		case 'accessLogConfigUids':
+			templateOptionMode = 'accessLogConfigMode'
+			break
+	}
 
-	const SUPPORTED_TYPES = new Set(['http_filter.v1.HTTPFilterListItem', 'route.v1.RouteListItem'])
+	const SUPPORTED_TYPES = new Set([
+		'http_filter.v1.HTTPFilterListItem',
+		'route.v1.RouteListItem',
+		'access_log_config.v1.AccessLogConfigListItem'
+	])
 
 	const handleOpenPopover = (event: React.MouseEvent<HTMLButtonElement>, option: AutocompleteOption) => {
 		if (!SUPPORTED_TYPES.has(option.$typeName)) return

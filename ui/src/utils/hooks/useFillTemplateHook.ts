@@ -3,6 +3,7 @@ import {
 	FillTemplateRequest,
 	TemplateOption
 } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
+import { UIDS } from '../../gen/common/v1/common_pb.ts'
 import { useCallback, useEffect, useMemo } from 'react'
 import { debounce } from '@mui/material'
 import { useFillTemplate } from '../../api/grpc/hooks/useVirtualService.ts'
@@ -19,7 +20,7 @@ export const useFillTemplateHook = ({ formValues }: IUseFillTemplate) => {
 			nodeIds,
 			virtualHostDomains,
 			templateOptions,
-			accessLogConfigUid,
+			accessLogConfigUids,
 			viewTemplateMode,
 			virtualHostDomainsMode,
 			additionalRouteMode,
@@ -45,8 +46,11 @@ export const useFillTemplateHook = ({ formValues }: IUseFillTemplate) => {
 				domains: virtualHostDomains || []
 			},
 			accessLogConfig: {
-				value: accessLogConfigUid || '',
-				case: 'accessLogConfigUid'
+				value: {
+					$typeName: 'common.v1.UIDS',
+					uids: accessLogConfigUids || []
+				} as UIDS,
+				case: 'accessLogConfigUids'
 			},
 			templateOptions: cleanedTemplateOptions,
 			expandReferences: viewTemplateMode,

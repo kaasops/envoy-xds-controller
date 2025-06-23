@@ -17,7 +17,7 @@ export const useAccessLogTemplateOptions = ({
 	fillTemplate
 }: UseAccessLogTemplateOptionsProps): void => {
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
-	const accessLogField = useWatch({ control, name: 'accessLogConfigUid' })
+	const accessLogField = useWatch({ control, name: 'accessLogConfigUids' })
 	const currentOptions = useWatch({ control, name: 'templateOptions' })
 
 	const [initialRaw, setInitialRaw] = useState<string | undefined>(undefined)

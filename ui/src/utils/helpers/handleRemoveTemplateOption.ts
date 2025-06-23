@@ -11,7 +11,7 @@ export const handleRemoveTemplateOption = ({ field, setValue }: HandleRemovePara
 		'virtualHost.domains': { name: 'virtualHostDomainsMode', value: false },
 		additionalHttpFilters: { name: 'additionalHttpFilterMode', value: false },
 		additionalRoutes: { name: 'additionalRouteMode', value: false },
-		accessLog: { name: 'accessLogConfigUid', value: '' }
+		accessLog: { name: 'accessLogConfigUids', value: false }
 	}
 
 	const target = fieldToStateMap[field.field]

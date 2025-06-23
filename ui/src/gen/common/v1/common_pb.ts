@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file common/v1/common.proto.
  */
 export const file_common_v1_common: GenFile = /*@__PURE__*/
-  fileDesc("ChZjb21tb24vdjEvY29tbW9uLnByb3RvEgljb21tb24udjEiKAoLUmVzb3VyY2VSZWYSCwoDdWlkGAEgASgJEgwKBG5hbWUYAiABKAkiHgoLVmlydHVhbEhvc3QSDwoHZG9tYWlucxgBIAMoCUKqAQoNY29tLmNvbW1vbi52MUILQ29tbW9uUHJvdG9QAVpHZ2l0aHViLmNvbS9rYWFzb3BzL2Vudm95LXhkcy1jb250cm9sbGVyL3BrZy9hcGkvZ3JwYy9jb21tb24vdjE7Y29tbW9udjGiAgNDWFiqAglDb21tb24uVjHKAglDb21tb25cVjHiAhVDb21tb25cVjFcR1BCTWV0YWRhdGHqAgpDb21tb246OlYxYgZwcm90bzM");
+  fileDesc("ChZjb21tb24vdjEvY29tbW9uLnByb3RvEgljb21tb24udjEiKAoLUmVzb3VyY2VSZWYSCwoDdWlkGAEgASgJEgwKBG5hbWUYAiABKAkiHgoLVmlydHVhbEhvc3QSDwoHZG9tYWlucxgBIAMoCSIUCgRVSURTEgwKBHVpZHMYASADKAkiNAoMUmVzb3VyY2VSZWZzEiQKBHJlZnMYAiADKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWZCqgEKDWNvbS5jb21tb24udjFCC0NvbW1vblByb3RvUAFaR2dpdGh1Yi5jb20va2Fhc29wcy9lbnZveS14ZHMtY29udHJvbGxlci9wa2cvYXBpL2dycGMvY29tbW9uL3YxO2NvbW1vbnYxogIDQ1hYqgIJQ29tbW9uLlYxygIJQ29tbW9uXFYx4gIVQ29tbW9uXFYxXEdQQk1ldGFkYXRh6gIKQ29tbW9uOjpWMWIGcHJvdG8z");
 
 /**
  * ResourceRef represents a reference to a resource with a UID and name.
@@ -60,4 +60,38 @@ export type VirtualHost = Message<"common.v1.VirtualHost"> & {
  */
 export const VirtualHostSchema: GenMessage<VirtualHost> = /*@__PURE__*/
   messageDesc(file_common_v1_common, 1);
+
+/**
+ * @generated from message common.v1.UIDS
+ */
+export type UIDS = Message<"common.v1.UIDS"> & {
+  /**
+   * @generated from field: repeated string uids = 1;
+   */
+  uids: string[];
+};
+
+/**
+ * Describes the message common.v1.UIDS.
+ * Use `create(UIDSSchema)` to create a new message.
+ */
+export const UIDSSchema: GenMessage<UIDS> = /*@__PURE__*/
+  messageDesc(file_common_v1_common, 2);
+
+/**
+ * @generated from message common.v1.ResourceRefs
+ */
+export type ResourceRefs = Message<"common.v1.ResourceRefs"> & {
+  /**
+   * @generated from field: repeated common.v1.ResourceRef refs = 2;
+   */
+  refs: ResourceRef[];
+};
+
+/**
+ * Describes the message common.v1.ResourceRefs.
+ * Use `create(ResourceRefsSchema)` to create a new message.
+ */
+export const ResourceRefsSchema: GenMessage<ResourceRefs> = /*@__PURE__*/
+  messageDesc(file_common_v1_common, 3);
 

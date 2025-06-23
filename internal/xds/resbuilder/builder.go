@@ -42,7 +42,7 @@ type FilterChainsParams struct {
 	StatPrefix           string
 	HTTPFilters          []*hcmv3.HttpFilter
 	UpgradeConfigs       []*hcmv3.HttpConnectionManager_UpgradeConfig
-	AccessLog            *accesslogv3.AccessLog
+	AccessLogs           []*accesslogv3.AccessLog
 	Domains              []string
 	DownstreamTLSContext *tlsv3.DownstreamTlsContext
 	SecretNameToDomains  map[helpers.NamespacedName][]string
@@ -158,6 +158,8 @@ func checkFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
 		{vs.Spec.UpgradeConfigs != nil, "upgrade configs is set, but filter chains are found in listener"},
 		{vs.Spec.AccessLog != nil, "access log is set, but filter chains are found in listener"},
 		{vs.Spec.AccessLogConfig != nil, "access log config is set, but filter chains are found in listener"},
+		{len(vs.Spec.AccessLogs) > 0, "access logs are set, but filter chains are found in listener"},
+		{len(vs.Spec.AccessLogConfigs) > 0, "access log configs are set, but filter chains are found in listener"},
 	}
 
 	for _, conflict := range conflicts {
@@ -325,11 +327,11 @@ func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedNa
 	filterChainParams.UpgradeConfigs = upgradeConfigs
 
 	// Build access log config
-	accessLog, err := buildAccessLogConfig(vs, store)
+	accessLogs, err := buildAccessLogConfigs(vs, store)
 	if err != nil {
 		return nil, err
 	}
-	filterChainParams.AccessLog = accessLog
+	filterChainParams.AccessLogs = accessLogs
 
 	// Check TLS configuration
 	if listenerIsTLS && vs.Spec.TlsConfig == nil {
@@ -685,8 +687,8 @@ func buildFilterChain(params *FilterChainsParams) (*listenerv3.FilterChain, erro
 	if params.XFFNumTrustedHops != nil {
 		httpConnectionManager.XffNumTrustedHops = *params.XFFNumTrustedHops
 	}
-	if params.AccessLog != nil {
-		httpConnectionManager.AccessLog = append(httpConnectionManager.AccessLog, params.AccessLog)
+	if len(params.AccessLogs) > 0 {
+		httpConnectionManager.AccessLog = append(httpConnectionManager.AccessLog, params.AccessLogs...)
 	}
 
 	if err := httpConnectionManager.ValidateAll(); err != nil {
@@ -747,13 +749,29 @@ func buildUpgradeConfigs(rawUpgradeConfigs []*runtime.RawExtension) ([]*hcmv3.Ht
 	return upgradeConfigs, nil
 }
 
-func buildAccessLogConfig(vs *v1alpha1.VirtualService, store *store.Store) (*accesslogv3.AccessLog, error) {
-	if vs.Spec.AccessLog == nil && vs.Spec.AccessLogConfig == nil {
+func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*accesslogv3.AccessLog, error) {
+	var i int
+
+	if vs.Spec.AccessLog != nil {
+		i++
+	}
+	if vs.Spec.AccessLogConfig != nil {
+		i++
+	}
+	if len(vs.Spec.AccessLogs) > 0 {
+		i++
+	}
+	if len(vs.Spec.AccessLogConfigs) > 0 {
+		i++
+	}
+	if i == 0 {
 		return nil, nil
 	}
-	if vs.Spec.AccessLog != nil && vs.Spec.AccessLogConfig != nil {
-		return nil, fmt.Errorf("can't use accessLog and accessLogConfig at the same time")
+	if i > 1 {
+		return nil, fmt.Errorf("can't use accessLog, accessLogConfig, accessLogs and accessLogConfigs at the same time")
 	}
+
+	accessLogConfigs := make([]*accesslogv3.AccessLog, 0)
 	if vs.Spec.AccessLog != nil {
 		var accessLog accesslogv3.AccessLog
 		if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, &accessLog); err != nil {
@@ -762,21 +780,52 @@ func buildAccessLogConfig(vs *v1alpha1.VirtualService, store *store.Store) (*acc
 		if err := accessLog.ValidateAll(); err != nil {
 			return nil, err
 		}
-		return &accessLog, nil
+		accessLogConfigs = append(accessLogConfigs, &accessLog)
+		return accessLogConfigs, nil
 	}
 
-	accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
-	accessLogConfig := store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name})
-	if accessLogConfig == nil {
-		return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, vs.Spec.AccessLogConfig.Name)
+	if vs.Spec.AccessLogConfig != nil {
+		accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
+		accessLogConfig := store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name})
+		if accessLogConfig == nil {
+			return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, vs.Spec.AccessLogConfig.Name)
+		}
+		accessLog, err := accessLogConfig.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
+		if err != nil {
+			return nil, err
+		}
+		accessLogConfigs = append(accessLogConfigs, accessLog)
+		return accessLogConfigs, nil
 	}
 
-	accessLog, err := accessLogConfig.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
-	if err != nil {
-		return nil, err
+	if len(vs.Spec.AccessLogs) > 0 {
+		for _, accessLog := range vs.Spec.AccessLogs {
+			var accessLogV3 accesslogv3.AccessLog
+			if err := protoutil.Unmarshaler.Unmarshal(accessLog.Raw, &accessLogV3); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
+			}
+			if err := accessLogV3.ValidateAll(); err != nil {
+				return nil, err
+			}
+			accessLogConfigs = append(accessLogConfigs, &accessLogV3)
+		}
+		return accessLogConfigs, nil
 	}
 
-	return accessLog, nil
+	for _, accessLogConfig := range vs.Spec.AccessLogConfigs {
+		accessLogNs := helpers.GetNamespace(accessLogConfig.Namespace, vs.Namespace)
+		accessLog := store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: accessLogConfig.Name})
+		if accessLog == nil {
+			return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, accessLogConfig.Name)
+		}
+		accessLogV3, err := accessLog.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
+		if err != nil {
+			return nil, err
+		}
+		accessLogConfigs = append(accessLogConfigs, accessLogV3)
+	}
+	return accessLogConfigs, nil
+
 }
 
 func getTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error) {

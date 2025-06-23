@@ -19,7 +19,7 @@ export interface IVirtualServiceForm {
 	templateUid: string
 	listenerUid: string
 	virtualHostDomains: string[]
-	accessLogConfigUid: string
+	accessLogConfigUids: string[]
 	additionalHttpFilterUids: string[]
 	additionalRouteUids: string[]
 	useRemoteAddress: boolean | undefined
@@ -28,4 +28,5 @@ export interface IVirtualServiceForm {
 	virtualHostDomainsMode: boolean
 	additionalHttpFilterMode: boolean
 	additionalRouteMode: boolean
+	additionalAccessLogConfigMode: boolean
 }

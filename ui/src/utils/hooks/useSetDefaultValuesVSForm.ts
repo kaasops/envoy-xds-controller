@@ -1,7 +1,7 @@
 import { UseFormReset } from 'react-hook-form'
 import { IVirtualServiceForm } from '../../components/virtualServiceForm/types.ts'
 import { useCallback, useEffect } from 'react'
-import { ResourceRef } from '../../gen/common/v1/common_pb.ts'
+import { ResourceRefs } from '../../gen/common/v1/common_pb.ts'
 import { GetVirtualServiceResponse } from '../../gen/virtual_service/v1/virtual_service_pb'
 
 interface ISetDefaultValuesVSFormProps {
@@ -22,7 +22,8 @@ export const useSetDefaultValuesVSForm = ({ reset, isCreate, virtualServiceInfo 
 			accessGroup: virtualServiceInfo.accessGroup,
 			templateUid: virtualServiceInfo.template?.uid,
 			listenerUid: virtualServiceInfo.listener?.uid,
-			accessLogConfigUid: (virtualServiceInfo.accessLog?.value as ResourceRef)?.uid || '',
+			accessLogConfigUids:
+				(virtualServiceInfo.accessLog?.value as ResourceRefs).refs.map(filter => filter.uid) || [],
 			useRemoteAddress: virtualServiceInfo.useRemoteAddress,
 			templateOptions: virtualServiceInfo.templateOptions,
 			virtualHostDomains: vhDomains,
