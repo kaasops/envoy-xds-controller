@@ -13,14 +13,14 @@ import {
 interface IAddOrReplaceButtonsProps {
 	control: Control<IVirtualServiceForm>
 	setValue: UseFormSetValue<IVirtualServiceForm>
-	mode: 'virtualHostDomainsMode' | 'additionalHttpFilterMode' | 'additionalRouteMode' | 'accessLogConfigMode'
+	mode: 'virtualHostDomainsMode' | 'additionalHttpFilterMode' | 'additionalRouteMode' | 'additionalAccessLogConfigMode'
 }
 
 const modeLabels: Record<IAddOrReplaceButtonsProps['mode'], string> = {
 	virtualHostDomainsMode: 'Domains',
 	additionalHttpFilterMode: 'HTTP Filters',
 	additionalRouteMode: 'Routes',
-	accessLogConfigMode: 'Access Log Configs'
+	additionalAccessLogConfigMode: 'Access Log Configs'
 }
 
 export const AddOrReplaceButtons: React.FC<IAddOrReplaceButtonsProps> = ({ control, setValue, mode }) => {

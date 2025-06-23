@@ -40,12 +40,17 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 	isFetching,
 	isErrorFetch
 }) => {
-	const titleMessage = nameField === 'additionalHttpFilterUids' ? 'HTTP filter' : 'Route'
+	let titleMessage: 'HTTP filter' | 'Route' | 'Access Log Config' = 'Route'
+	if (nameField === 'additionalHttpFilterUids') {
+		titleMessage = 'HTTP filter'
+	} else if (nameField === 'accessLogConfigUids') {
+		titleMessage = 'Access Log Config'
+	}
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
 
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 	const [popoverOption, setPopoverOption] = useState<ItemDnd | null>(null)
-	let templateOptionMode:'virtualHostDomainsMode' | 'additionalHttpFilterMode' | 'additionalRouteMode' | 'accessLogConfigMode'
+	let templateOptionMode:'virtualHostDomainsMode' | 'additionalHttpFilterMode' | 'additionalRouteMode' | 'additionalAccessLogConfigMode'
 	switch (nameField) {
 		case 'additionalHttpFilterUids':
 			templateOptionMode = 'additionalHttpFilterMode'
@@ -54,7 +59,7 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 			templateOptionMode = 'additionalRouteMode'
 			break
 		case 'accessLogConfigUids':
-			templateOptionMode = 'accessLogConfigMode'
+			templateOptionMode = 'additionalAccessLogConfigMode'
 			break
 	}
 
