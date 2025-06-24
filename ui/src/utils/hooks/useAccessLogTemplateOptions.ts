@@ -1,64 +1,58 @@
 import { Control, UseFormSetValue, useWatch } from 'react-hook-form'
 import { useViewModeStore } from '../../store/viewModeVsStore.ts'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { IVirtualServiceForm } from '../../components/virtualServiceForm'
-import { FillTemplateResponse } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
 import { updateTemplateOptions } from '../helpers'
 
 interface UseAccessLogTemplateOptionsProps {
 	control: Control<IVirtualServiceForm>
 	setValue?: UseFormSetValue<IVirtualServiceForm>
-	fillTemplate?: FillTemplateResponse
 }
 
 export const useAccessLogTemplateOptions = ({
 	control,
-	setValue,
-	fillTemplate
+	setValue
 }: UseAccessLogTemplateOptionsProps): void => {
+	const optionKey = 'accessLogConfigs'
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
+
+	const isReplaceMode = useWatch({ control, name: 'additionalAccessLogConfigMode' })
 	const accessLogField = useWatch({ control, name: 'accessLogConfigUids' })
-	const currentOptions = useWatch({ control, name: 'templateOptions' })
-
-	const [initialRaw, setInitialRaw] = useState<string | undefined>(undefined)
-	const [wasAccessLogSet, setWasAccessLogSet] = useState(false)
+	const currentTemplateOptions = useWatch({ control, name: 'templateOptions' })
 
 	useEffect(() => {
-		if (!readMode && fillTemplate?.raw && !initialRaw) {
-			setInitialRaw(fillTemplate.raw)
+		if (readMode || !setValue || !accessLogField?.length) return
+
+		let updatedOptions = [...currentTemplateOptions]
+
+		// If we're in Add mode and there are existing access log fields in the template,
+		// add delete rules for them
+		if (!isReplaceMode) {
+			// TODO: hardcode
+			for (const field of ['accessLog', 'accessLogConfig', 'accessLogs']) {
+				updatedOptions = updateTemplateOptions({
+					currentTemplateOptions: updatedOptions,
+					optionKey: field,
+					isReplaceMode: true,
+					modifier: 3 // Delete
+				})
+			}
+		} else {
+			// Otherwise, just update the accessLogConfigs field as before
+			updatedOptions = updateTemplateOptions({
+				currentTemplateOptions,
+				optionKey,
+				isReplaceMode,
+				modifier: 2
+			})
 		}
-	}, [fillTemplate?.raw, readMode, initialRaw])
 
-	useEffect(() => {
-		if (!initialRaw || readMode || !setValue) return
-
-		let hasAccessLogInRaw = false
-		try {
-			const parsed = JSON.parse(initialRaw)
-			hasAccessLogInRaw = 'accessLog' in parsed
-		} catch (e) {
-			console.error('Error parsing fillTemplate.raw:', e)
-			return
-		}
-
-		const shouldHaveAccessLog = Boolean(accessLogField) && hasAccessLogInRaw
-
-		if (shouldHaveAccessLog === wasAccessLogSet) return
-		setWasAccessLogSet(shouldHaveAccessLog)
-
-		const updatedOptions = updateTemplateOptions({
-			currentTemplateOptions: currentOptions,
-			optionKey: 'accessLog',
-			isReplaceMode: shouldHaveAccessLog,
-			modifier: 3
-		})
-
-		if (JSON.stringify(updatedOptions) !== JSON.stringify(currentOptions)) {
+		if (JSON.stringify(updatedOptions) !== JSON.stringify(currentTemplateOptions)) {
 			setValue('templateOptions', updatedOptions, {
 				shouldValidate: true,
 				shouldDirty: true,
 				shouldTouch: true
 			})
 		}
-	}, [initialRaw, accessLogField, currentOptions, readMode, setValue, wasAccessLogSet])
+	}, [isReplaceMode, readMode, accessLogField, currentTemplateOptions, setValue])
 }

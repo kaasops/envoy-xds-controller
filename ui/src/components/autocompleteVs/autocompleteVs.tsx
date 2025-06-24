@@ -52,7 +52,7 @@ export const AutocompleteVs: React.FC<IAutocompleteVsProps> = ({
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 	const [popoverOption, setPopoverOption] = useState<ItemVs | null>(null)
 
-	useAccessLogTemplateOptions({ setValue, control, fillTemplate })
+	useAccessLogTemplateOptions({ setValue, control })
 
 	const SUPPORTED_TYPES = new Set([
 		'listener.v1.ListenerListItem',
