@@ -44,8 +44,7 @@ export const AutocompleteVs: React.FC<IAutocompleteVsProps> = ({
 	errors,
 	isErrorFetch,
 	isFetching,
-	setValue,
-	fillTemplate
+	setValue
 }) => {
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
 
