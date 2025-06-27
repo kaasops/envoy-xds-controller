@@ -57,7 +57,7 @@ func (s *VirtualServiceStore) CreateVirtualService(
 	if err := s.processVirtualHost(req.Msg.VirtualHost, vs); err != nil {
 		return nil, err
 	}
-	if err := s.processAccessLogConfig(ctx, accessGroup, req.Msg.GetAccessLogConfigUid(), vs, authorizer); err != nil {
+	if err := s.processAccessLogConfigs(ctx, accessGroup, req.Msg.GetAccessLogConfigUids(), vs, authorizer); err != nil {
 		return nil, err
 	}
 	if err := s.processAdditionalRoutes(ctx, accessGroup, req.Msg.AdditionalRouteUids, vs, authorizer); err != nil {
@@ -186,33 +186,34 @@ func (s *VirtualServiceStore) processVirtualHost(
 	return nil
 }
 
-func (s *VirtualServiceStore) processAccessLogConfig(
+func (s *VirtualServiceStore) processAccessLogConfigs(
 	_ context.Context,
 	accessGroup string,
-	alcUID string,
+	uids *commonv1.UIDS,
 	vs *v1alpha1.VirtualService,
 	authorizer grpcapi.IAuthorizer,
 ) error {
-	if alcUID == "" {
+	if uids == nil || len(uids.GetUids()) == 0 {
 		return nil
 	}
 
-	alc := s.store.GetAccessLogByUID(alcUID)
-	if alc == nil {
-		return fmt.Errorf("access log config uid '%s' not found", alcUID)
-	}
-
-	isAllowed, err := authorizer.AuthorizeCommonObjectWithAction(accessGroup, alc.Name, grpcapi.ActionListAccessLogConfigs)
-	if err != nil {
-		return err
-	}
-	if !isAllowed {
-		return fmt.Errorf("access log config '%s' not allowed", alcUID)
-	}
-
-	vs.Spec.AccessLogConfig = &v1alpha1.ResourceRef{
-		Name:      alc.Name,
-		Namespace: &alc.Namespace,
+	vs.Spec.AccessLogConfigs = make([]*v1alpha1.ResourceRef, 0, len(uids.GetUids()))
+	for _, uid := range uids.GetUids() {
+		alc := s.store.GetAccessLogByUID(uid)
+		if alc == nil {
+			return fmt.Errorf("access log config uid '%s' not found", uid)
+		}
+		isAllowed, err := authorizer.AuthorizeCommonObjectWithAction(accessGroup, alc.Name, grpcapi.ActionListAccessLogConfigs)
+		if err != nil {
+			return err
+		}
+		if !isAllowed {
+			return fmt.Errorf("access log config '%s' not allowed", uid)
+		}
+		vs.Spec.AccessLogConfigs = append(vs.Spec.AccessLogConfigs, &v1alpha1.ResourceRef{
+			Name:      alc.Name,
+			Namespace: &alc.Namespace,
+		})
 	}
 	return nil
 }

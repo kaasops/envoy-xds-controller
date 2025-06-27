@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv1";
 import type { Message } from "@bufbuild/protobuf";
-import type { VirtualHost } from "../../common/v1/common_pb";
+import type { UIDS, VirtualHost } from "../../common/v1/common_pb";
 
 /**
  * Describes the file virtual_service_template/v1/virtual_service_template.proto.
@@ -153,12 +153,12 @@ export declare type FillTemplateRequest = Message<"virtual_service_template.v1.F
    */
   accessLogConfig: {
     /**
-     * Unique identifier of the access log configuration.
+     * UIDs of the access log configurations.
      *
-     * @generated from field: string access_log_config_uid = 4;
+     * @generated from field: common.v1.UIDS access_log_config_uids = 4;
      */
-    value: string;
-    case: "accessLogConfigUid";
+    value: UIDS;
+    case: "accessLogConfigUids";
   } | { case: undefined; value?: undefined };
 
   /**

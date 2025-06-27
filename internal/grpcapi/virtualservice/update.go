@@ -48,7 +48,7 @@ func (s *VirtualServiceStore) UpdateVirtualService(ctx context.Context, req *con
 		return nil, err
 	}
 
-	if err := s.processAccessLogConfig(ctx, accessGroup, req.Msg.GetAccessLogConfigUid(), vs, authorizer); err != nil {
+	if err := s.processAccessLogConfigs(ctx, accessGroup, req.Msg.GetAccessLogConfigUids(), vs, authorizer); err != nil {
 		return nil, err
 	}
 

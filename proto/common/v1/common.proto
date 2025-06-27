@@ -18,3 +18,11 @@ message VirtualHost {
   // The list of domain names associated with the virtual host.
   repeated string domains = 1;
 }
+
+message UIDS {
+  repeated string uids = 1;
+}
+
+message ResourceRefs {
+  repeated ResourceRef refs = 2;
+}

@@ -29,6 +29,8 @@
 - [ListClustersRequest](#listclustersrequest)
 - [ListClustersResponse](#listclustersresponse)
 - [ResourceRef](#resourceref)
+- [ResourceRefs](#resourcerefs)
+- [UIDS](#uids)
 - [VirtualHost](#virtualhost)
 - [HTTPFilterListItem](#httpfilterlistitem)
 - [ListHTTPFiltersRequest](#listhttpfiltersrequest)
@@ -293,6 +295,26 @@ ResourceRef represents a reference to a resource with a UID and name.
 
 
 
+### ResourceRefs {#resourcerefs}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| refs | [repeated ResourceRef](#resourceref) | none |
+
+
+
+### UIDS {#uids}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| uids | [repeated string](#string) | none |
+
+
+
 ### VirtualHost {#virtualhost}
 VirtualHost represents a virtual host with a list of domain names.
 
@@ -541,7 +563,7 @@ Request message for filling a template with specific configurations.
 | template_uid | [ string](#string) | Unique identifier of the template to fill. |
 | listener_uid | [ string](#string) | Unique identifier of the listener to associate with the template. |
 | virtual_host | [ common.v1.VirtualHost](#commonv1virtualhost) | The virtual host configuration for the virtual service. |
-| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log_config.access_log_config_uid | [ string](#string) | Unique identifier of the access log configuration. |
+| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log_config.access_log_config_uids | [ common.v1.UIDS](#commonv1uids) | UIDs of the access log configurations. |
 | additional_http_filter_uids | [repeated string](#string) | Additional HTTP filter unique identifiers. |
 | additional_route_uids | [repeated string](#string) | Additional route unique identifiers. |
 | [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) _use_remote_address.use_remote_address | [optional bool](#bool) | Whether to use the remote address. |
@@ -618,7 +640,7 @@ CreateVirtualServiceRequest is the request message for creating a virtual servic
 | template_uid | [ string](#string) | The UID of the template used by the virtual service. |
 | listener_uid | [ string](#string) | The UID of the listener associated with the virtual service. |
 | virtual_host | [ common.v1.VirtualHost](#commonv1virtualhost) | The virtual host configuration for the virtual service. |
-| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log_config.access_log_config_uid | [ string](#string) | The UID of the access log configuration. |
+| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log_config.access_log_config_uids | [ common.v1.UIDS](#commonv1uids) | UIDs of the access log configurations. |
 | additional_http_filter_uids | [repeated string](#string) | UIDs of additional HTTP filters appended to the virtual service. |
 | additional_route_uids | [repeated string](#string) | UIDs of additional routes appended to the virtual service. |
 | [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) _use_remote_address.use_remote_address | [optional bool](#bool) | Whether to use the remote address for the virtual service. |
@@ -670,8 +692,8 @@ GetVirtualServiceResponse is the response message for retrieving a virtual servi
 | template | [ common.v1.ResourceRef](#commonv1resourceref) | A reference to the template used by the virtual service. |
 | listener | [ common.v1.ResourceRef](#commonv1resourceref) | A reference to the listener associated with the virtual service. |
 | virtual_host | [ common.v1.VirtualHost](#commonv1virtualhost) | The virtual host configuration for the virtual service. |
-| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log.access_log_config | [ common.v1.ResourceRef](#commonv1resourceref) | A reference to the access log configuration. |
-| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log.access_log_config_raw | [ bytes](#bytes) | Raw configuration for access logs. |
+| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log.access_log_configs | [ common.v1.ResourceRefs](#commonv1resourcerefs) | A reference to the access log configurations. |
+| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log.access_log_config_raw | [ string](#string) | Raw configuration for access logs. |
 | additional_http_filters | [repeated common.v1.ResourceRef](#commonv1resourceref) | Additional HTTP filters associated with the virtual service. |
 | additional_routes | [repeated common.v1.ResourceRef](#commonv1resourceref) | Additional routes associated with the virtual service. |
 | [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) _use_remote_address.use_remote_address | [optional bool](#bool) | Whether the virtual service uses the remote address. |
@@ -713,7 +735,7 @@ UpdateVirtualServiceRequest is the request message for updating a virtual servic
 | template_uid | [ string](#string) | The UID of the template used by the virtual service. |
 | listener_uid | [ string](#string) | The UID of the listener associated with the virtual service. |
 | virtual_host | [ common.v1.VirtualHost](#commonv1virtualhost) | The virtual host configuration for the virtual service. |
-| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log_config.access_log_config_uid | [ string](#string) | The UID of the access log configuration. |
+| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) access_log_config.access_log_config_uids | [ common.v1.UIDS](#commonv1uids) | UIDs of the access log configurations. |
 | additional_http_filter_uids | [repeated string](#string) | UIDs of additional HTTP filters appended to the virtual service. |
 | additional_route_uids | [repeated string](#string) | UIDs of additional routes appended to the virtual service. |
 | [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) _use_remote_address.use_remote_address | [optional bool](#bool) | Whether to use the remote address for the virtual service. |

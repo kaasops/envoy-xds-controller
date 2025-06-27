@@ -57,3 +57,35 @@ export declare type VirtualHost = Message<"common.v1.VirtualHost"> & {
  */
 export declare const VirtualHostSchema: GenMessage<VirtualHost>;
 
+/**
+ * @generated from message common.v1.UIDS
+ */
+export declare type UIDS = Message<"common.v1.UIDS"> & {
+  /**
+   * @generated from field: repeated string uids = 1;
+   */
+  uids: string[];
+};
+
+/**
+ * Describes the message common.v1.UIDS.
+ * Use `create(UIDSSchema)` to create a new message.
+ */
+export declare const UIDSSchema: GenMessage<UIDS>;
+
+/**
+ * @generated from message common.v1.ResourceRefs
+ */
+export declare type ResourceRefs = Message<"common.v1.ResourceRefs"> & {
+  /**
+   * @generated from field: repeated common.v1.ResourceRef refs = 2;
+   */
+  refs: ResourceRef[];
+};
+
+/**
+ * Describes the message common.v1.ResourceRefs.
+ * Use `create(ResourceRefsSchema)` to create a new message.
+ */
+export declare const ResourceRefsSchema: GenMessage<ResourceRefs>;
+

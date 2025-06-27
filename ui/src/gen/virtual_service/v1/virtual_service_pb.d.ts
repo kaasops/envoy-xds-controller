@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv1";
 import type { Message } from "@bufbuild/protobuf";
-import type { ResourceRef, VirtualHost } from "../../common/v1/common_pb";
+import type { ResourceRef, ResourceRefs, UIDS, VirtualHost } from "../../common/v1/common_pb";
 import type { TemplateOption } from "../../virtual_service_template/v1/virtual_service_template_pb";
 
 /**
@@ -67,12 +67,12 @@ export declare type CreateVirtualServiceRequest = Message<"virtual_service.v1.Cr
    */
   accessLogConfig: {
     /**
-     * The UID of the access log configuration.
+     * UIDs of the access log configurations.
      *
-     * @generated from field: string access_log_config_uid = 7;
+     * @generated from field: common.v1.UIDS access_log_config_uids = 7;
      */
-    value: string;
-    case: "accessLogConfigUid";
+    value: UIDS;
+    case: "accessLogConfigUids";
   } | { case: undefined; value?: undefined };
 
   /**
@@ -179,12 +179,12 @@ export declare type UpdateVirtualServiceRequest = Message<"virtual_service.v1.Up
    */
   accessLogConfig: {
     /**
-     * The UID of the access log configuration.
+     * UIDs of the access log configurations.
      *
-     * @generated from field: string access_log_config_uid = 6;
+     * @generated from field: common.v1.UIDS access_log_config_uids = 6;
      */
-    value: string;
-    case: "accessLogConfigUid";
+    value: UIDS;
+    case: "accessLogConfigUids";
   } | { case: undefined; value?: undefined };
 
   /**
@@ -359,19 +359,19 @@ export declare type GetVirtualServiceResponse = Message<"virtual_service.v1.GetV
    */
   accessLog: {
     /**
-     * A reference to the access log configuration.
+     * A reference to the access log configurations.
      *
-     * @generated from field: common.v1.ResourceRef access_log_config = 8;
+     * @generated from field: common.v1.ResourceRefs access_log_configs = 8;
      */
-    value: ResourceRef;
-    case: "accessLogConfig";
+    value: ResourceRefs;
+    case: "accessLogConfigs";
   } | {
     /**
      * Raw configuration for access logs.
      *
-     * @generated from field: bytes access_log_config_raw = 9;
+     * @generated from field: string access_log_config_raw = 9;
      */
-    value: Uint8Array;
+    value: string;
     case: "accessLogConfigRaw";
   } | { case: undefined; value?: undefined };
 

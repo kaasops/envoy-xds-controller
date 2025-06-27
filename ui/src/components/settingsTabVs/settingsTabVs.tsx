@@ -1,11 +1,10 @@
 import React from 'react'
 import { Control, FieldErrors, UseFormSetValue } from 'react-hook-form'
-import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
+import { IVirtualServiceForm } from '../virtualServiceForm'
 import { DNdSelectFormVs } from '../dNdSelectFormVs'
 import { RemoteAddrFormVs } from '../remoteAddrFormVS/remoteAddrFormVS.tsx'
 import { useAccessLogsVs, useHttpFilterVs, useRouteVs } from '../../api/grpc/hooks/useVirtualService.ts'
 import { useParams } from 'react-router-dom'
-import { AutocompleteVs } from '../autocompleteVs'
 import { FillTemplateResponse } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
 
 interface ISettingsTabVsProps {
@@ -23,8 +22,8 @@ export const SettingsTabVs: React.FC<ISettingsTabVsProps> = ({ control, setValue
 
 	return (
 		<>
-			<AutocompleteVs
-				nameField={'accessLogConfigUid'}
+			<DNdSelectFormVs
+				nameField={'accessLogConfigUids'}
 				data={accessLogs}
 				control={control}
 				errors={errors}

@@ -13,6 +13,16 @@ interface IErrorMessage {
 function ErrorMessage({ error }: IErrorMessage) {
 	const navigate = useNavigate()
 
+	const goBackAndReload = () => {
+		const onPopState = () => {
+			window.removeEventListener('popstate', onPopState)
+			window.location.reload()
+		}
+
+		window.addEventListener('popstate', onPopState)
+		window.history.back()
+	}
+
 	return (
 		<Box display='flex' alignItems='center' justifyContent='center' height='100vh' flexDirection='column' gap={2}>
 			<Typography variant='h4' gutterBottom>
@@ -41,7 +51,7 @@ function ErrorMessage({ error }: IErrorMessage) {
 
 			<Box display='flex' alignItems='center' gap={2}>
 				<Button
-					onClick={() => navigate(-1)}
+					onClick={goBackAndReload}
 					color='primary'
 					variant='contained'
 					startIcon={<ArrowBackIcon color='secondary' />}

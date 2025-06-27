@@ -3,12 +3,12 @@ import { useViewModeStore } from '../../store/viewModeVsStore.ts'
 import { useEffect, useState } from 'react'
 import { IVirtualServiceForm } from '../../components/virtualServiceForm'
 import { FillTemplateResponse } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
-import { updateTemplateOptions } from '../helpers'
+import { updateTemplateOptionsNew } from '../helpers/updateTemplateOptions.ts'
 
 interface UseAccessLogTemplateOptionsProps {
 	control: Control<IVirtualServiceForm>
-	setValue?: UseFormSetValue<IVirtualServiceForm>
-	fillTemplate?: FillTemplateResponse
+	setValue: UseFormSetValue<IVirtualServiceForm>
+	fillTemplate: FillTemplateResponse | undefined
 }
 
 export const useAccessLogTemplateOptions = ({
@@ -17,11 +17,12 @@ export const useAccessLogTemplateOptions = ({
 	fillTemplate
 }: UseAccessLogTemplateOptionsProps): void => {
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
-	const accessLogField = useWatch({ control, name: 'accessLogConfigUid' })
-	const currentOptions = useWatch({ control, name: 'templateOptions' })
+
+	const isReplaceMode = useWatch({ control, name: 'additionalAccessLogConfigMode' })
+	const accessLogField = useWatch({ control, name: 'accessLogConfigUids' })
+	const currentTemplateOptions = useWatch({ control, name: 'templateOptions' })
 
 	const [initialRaw, setInitialRaw] = useState<string | undefined>(undefined)
-	const [wasAccessLogSet, setWasAccessLogSet] = useState(false)
 
 	useEffect(() => {
 		if (!readMode && fillTemplate?.raw && !initialRaw) {
@@ -30,35 +31,35 @@ export const useAccessLogTemplateOptions = ({
 	}, [fillTemplate?.raw, readMode, initialRaw])
 
 	useEffect(() => {
-		if (!initialRaw || readMode || !setValue) return
+		if (!initialRaw || !accessLogField.length || readMode) return
 
-		let hasAccessLogInRaw = false
+		let parsedAccessLogVariation: string | false = false
+
 		try {
 			const parsed = JSON.parse(initialRaw)
-			hasAccessLogInRaw = 'accessLog' in parsed
+			const keysToCheck = ['accessLog', 'accessLogConfig', 'accessLogs', 'accessLogConfigs']
+			parsedAccessLogVariation = keysToCheck.find(key => key in parsed) || false
 		} catch (e) {
 			console.error('Error parsing fillTemplate.raw:', e)
 			return
 		}
 
-		const shouldHaveAccessLog = Boolean(accessLogField) && hasAccessLogInRaw
+		if (!parsedAccessLogVariation) return
 
-		if (shouldHaveAccessLog === wasAccessLogSet) return
-		setWasAccessLogSet(shouldHaveAccessLog)
-
-		const updatedOptions = updateTemplateOptions({
-			currentTemplateOptions: currentOptions,
-			optionKey: 'accessLog',
-			isReplaceMode: shouldHaveAccessLog,
-			modifier: 3
+		const updatedOptions = updateTemplateOptionsNew({
+			currentTemplateOptions,
+			optionKey: parsedAccessLogVariation,
+			isReplaceMode
 		})
 
-		if (JSON.stringify(updatedOptions) !== JSON.stringify(currentOptions)) {
+		const isChanged = JSON.stringify(updatedOptions) !== JSON.stringify(currentTemplateOptions)
+
+		if (isChanged) {
 			setValue('templateOptions', updatedOptions, {
 				shouldValidate: true,
 				shouldDirty: true,
 				shouldTouch: true
 			})
 		}
-	}, [initialRaw, accessLogField, currentOptions, readMode, setValue, wasAccessLogSet])
+	}, [initialRaw, readMode, accessLogField, currentTemplateOptions, isReplaceMode, setValue])
 }

@@ -114,15 +114,19 @@ func (s *VirtualServiceTemplateStore) FillTemplate(ctx context.Context, req *con
 		vs.Spec.VirtualHost = &runtime.RawExtension{Raw: vhData}
 	}
 
-	if req.Msg.AccessLogConfig != nil {
-		if alcUID := req.Msg.GetAccessLogConfigUid(); alcUID != "" {
-			alc := s.store.GetAccessLogByUID(alcUID)
-			if alc == nil {
-				return nil, fmt.Errorf("access log config uid '%s' not found", alcUID)
-			}
-			vs.Spec.AccessLogConfig = &v1alpha1.ResourceRef{
-				Name:      alc.Name,
-				Namespace: &alc.Namespace,
+	accessLogConfigUIDs := req.Msg.GetAccessLogConfigUids()
+	if accessLogConfigUIDs != nil && len(accessLogConfigUIDs.GetUids()) > 0 {
+		vs.Spec.AccessLogConfigs = make([]*v1alpha1.ResourceRef, 0, len(accessLogConfigUIDs.GetUids()))
+		for _, alcUID := range accessLogConfigUIDs.GetUids() {
+			if alcUID != "" {
+				alc := s.store.GetAccessLogByUID(alcUID)
+				if alc == nil {
+					return nil, fmt.Errorf("access log config uid '%s' not found", alcUID)
+				}
+				vs.Spec.AccessLogConfigs = append(vs.Spec.AccessLogConfigs, &v1alpha1.ResourceRef{
+					Name:      alc.Name,
+					Namespace: &alc.Namespace,
+				})
 			}
 		}
 	}

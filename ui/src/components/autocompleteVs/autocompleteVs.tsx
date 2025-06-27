@@ -1,40 +1,29 @@
 import React, { useEffect, useState } from 'react'
-import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
+import { IVirtualServiceForm } from '../virtualServiceForm'
 import { ListenerListItem, ListListenersResponse } from '../../gen/listener/v1/listener_pb.ts'
 import {
-	FillTemplateResponse,
 	ListVirtualServiceTemplatesResponse,
 	VirtualServiceTemplateListItem
 } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
-import {
-	AccessLogConfigListItem,
-	ListAccessLogConfigsResponse
-} from '../../gen/access_log_config/v1/access_log_config_pb.ts'
-import { Control, Controller, FieldErrors, UseFormSetValue } from 'react-hook-form'
+import { Control, Controller, FieldErrors } from 'react-hook-form'
 import { useViewModeStore } from '../../store/viewModeVsStore.ts'
-import { validationRulesVsForm } from '../../utils/helpers/validationRulesVsForm.ts'
+import { validationRulesVsForm } from '../../utils/helpers'
 import Autocomplete from '@mui/material/Autocomplete'
 import { RenderInputField } from './renderInputField.tsx'
 import { AutocompleteOption } from './autocompleteOption.tsx'
 import { PopoverOption } from './popoverOption.tsx'
-import { useAccessLogTemplateOptions } from '../../utils/hooks'
 
-export type nameFieldKeys = Extract<
-	keyof IVirtualServiceForm,
-	'templateUid' | 'listenerUid' | 'accessLogConfigUid' | 'additionalHttpFilterUids' | 'additionalRouteUids'
->
+export type nameFieldKeys = Extract<keyof IVirtualServiceForm, 'templateUid' | 'listenerUid'>
 
-export type ItemVs = ListenerListItem | VirtualServiceTemplateListItem | AccessLogConfigListItem
+export type ItemVs = ListenerListItem | VirtualServiceTemplateListItem
 
 interface IAutocompleteVsProps {
 	nameField: nameFieldKeys
 	control: Control<IVirtualServiceForm>
-	data: ListListenersResponse | ListVirtualServiceTemplatesResponse | ListAccessLogConfigsResponse | undefined
+	data: ListListenersResponse | ListVirtualServiceTemplatesResponse | undefined
 	errors: FieldErrors<IVirtualServiceForm>
 	isFetching: boolean
 	isErrorFetch: boolean
-	setValue?: UseFormSetValue<IVirtualServiceForm>
-	fillTemplate?: FillTemplateResponse | undefined
 }
 
 export const AutocompleteVs: React.FC<IAutocompleteVsProps> = ({
@@ -43,21 +32,16 @@ export const AutocompleteVs: React.FC<IAutocompleteVsProps> = ({
 	control,
 	errors,
 	isErrorFetch,
-	isFetching,
-	setValue,
-	fillTemplate
+	isFetching
 }) => {
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
 
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 	const [popoverOption, setPopoverOption] = useState<ItemVs | null>(null)
 
-	useAccessLogTemplateOptions({ setValue, control, fillTemplate })
-
 	const SUPPORTED_TYPES = new Set([
 		'listener.v1.ListenerListItem',
-		'virtual_service_template.v1.VirtualServiceTemplateListItem',
-		'access_log_config.v1.AccessLogConfigListItem'
+		'virtual_service_template.v1.VirtualServiceTemplateListItem'
 	])
 
 	const handleOpenPopover = (event: React.MouseEvent<HTMLButtonElement>, option: AutocompleteOption) => {
@@ -90,8 +74,6 @@ export const AutocompleteVs: React.FC<IAutocompleteVsProps> = ({
 						if (nameField === 'listenerUid') return item.$typeName === 'listener.v1.ListenerListItem'
 						if (nameField === 'templateUid')
 							return item.$typeName === 'virtual_service_template.v1.VirtualServiceTemplateListItem'
-						if (nameField === 'accessLogConfigUid')
-							return item.$typeName === 'access_log_config.v1.AccessLogConfigListItem'
 						return false
 					})
 
