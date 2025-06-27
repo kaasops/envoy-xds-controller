@@ -13,7 +13,7 @@ import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import IconButton from '@mui/material/IconButton'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { handleRemoveTemplateOption } from '../../utils/helpers'
+import { handleSetDefaultMode } from '../../utils/helpers'
 
 interface ITemplateOptionsFormVsRoProps {
 	register: UseFormRegister<IVirtualServiceForm>
@@ -30,7 +30,7 @@ export const TemplateOptionsFormVsRo: React.FC<ITemplateOptionsFormVsRoProps> = 
 		(field: FieldArrayWithId<IVirtualServiceForm, 'templateOptions'>, index: number) => {
 			remove(index)
 			if (setValue) {
-				handleRemoveTemplateOption({ field, setValue })
+				handleSetDefaultMode({ field, setValue })
 			}
 		},
 		[remove, setValue]

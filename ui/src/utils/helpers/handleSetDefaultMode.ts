@@ -6,12 +6,12 @@ interface HandleRemoveParams {
 	setValue: UseFormSetValue<IVirtualServiceForm>
 }
 
-export const handleRemoveTemplateOption = ({ field, setValue }: HandleRemoveParams) => {
+export const handleSetDefaultMode = ({ field, setValue }: HandleRemoveParams) => {
 	const fieldToStateMap: Record<string, { name: keyof IVirtualServiceForm; value: any }> = {
 		'virtualHost.domains': { name: 'virtualHostDomainsMode', value: false },
 		additionalHttpFilters: { name: 'additionalHttpFilterMode', value: false },
 		additionalRoutes: { name: 'additionalRouteMode', value: false },
-		accessLog: { name: 'accessLogConfigUids', value: false }
+		accessLog: { name: 'additionalAccessLogConfigMode', value: false }
 	}
 
 	const target = fieldToStateMap[field.field]
