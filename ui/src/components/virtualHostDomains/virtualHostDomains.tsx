@@ -8,14 +8,14 @@ import {
 	UseFormSetValue,
 	useWatch
 } from 'react-hook-form'
-import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
+import { IVirtualServiceForm } from '../virtualServiceForm'
 import Typography from '@mui/material/Typography'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import TextField from '@mui/material/TextField'
 
-import { validationRulesVsForm } from '../../utils/helpers/validationRulesVsForm.ts'
+import { validationRulesVsForm } from '../../utils/helpers'
 import Card from '@mui/material/Card'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { CustomCardContent, styleBox } from './style.ts'
@@ -26,6 +26,7 @@ import Checkbox from '@mui/material/Checkbox'
 import { useVerifyDomains } from '../../api/grpc/hooks/useVirtualService.ts'
 import { TooltipVhDomains } from './tooltipVhDomains.tsx'
 import { AddOrReplaceButtons } from './addOrReplaceButtons.tsx'
+import { useRemoveFieldFromTemplate } from '../../utils/hooks'
 
 interface IVirtualHostDomainsProps {
 	control: Control<IVirtualServiceForm>
@@ -140,6 +141,8 @@ export const VirtualHostDomains: React.FC<IVirtualHostDomainsProps> = ({
 		}
 		reader.readAsText(file)
 	}
+
+	useRemoveFieldFromTemplate({ fieldName: nameField, control, setValue })
 
 	return (
 		<Box sx={{ ...styleBox }}>

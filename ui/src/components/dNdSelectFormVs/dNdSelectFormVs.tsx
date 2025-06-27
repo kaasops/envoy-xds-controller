@@ -14,6 +14,7 @@ import { DNdElements } from './dNdElements.tsx'
 import { AutocompleteOption, PopoverOption, RenderInputField } from '../autocompleteVs'
 import { AddOrReplaceButtons } from '../virtualHostDomains'
 import { FillTemplateResponse } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
+import { useRemoveFieldFromTemplate } from '../../utils/hooks'
 
 export type nameFieldKeys = Extract<
 	keyof IVirtualServiceForm,
@@ -90,6 +91,8 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 		setAnchorEl(null)
 		setPopoverOption(null)
 	}
+
+	useRemoveFieldFromTemplate({ fieldName: nameField, control, setValue })
 
 	useEffect(() => {
 		if (anchorEl && !document.body.contains(anchorEl)) {

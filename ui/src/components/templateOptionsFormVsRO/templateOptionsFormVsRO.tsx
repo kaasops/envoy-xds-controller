@@ -92,14 +92,16 @@ export const TemplateOptionsFormVsRo: React.FC<ITemplateOptionsFormVsRoProps> = 
 								</FormControl>
 							)}
 						/>
-						<IconButton
-							size='large'
-							onClick={() => onRemoveTemplateOption(field, index)}
-							color='error'
-							disabled={readMode}
-						>
-							<DeleteIcon color={readMode ? 'disabled' : 'primary'} />
-						</IconButton>
+						{import.meta.env.MODE === 'development' && (
+							<IconButton
+								size='large'
+								onClick={() => onRemoveTemplateOption(field, index)}
+								color='error'
+								disabled={readMode}
+							>
+								<DeleteIcon color={readMode ? 'disabled' : 'primary'} />
+							</IconButton>
+						)}
 					</Box>
 				))}
 			</Box>
