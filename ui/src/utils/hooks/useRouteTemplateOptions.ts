@@ -19,7 +19,7 @@ export const useRouteTemplateOptions = ({ control, setValue }: IUseRouteTemplate
 	const currentTemplateOptions = useWatch({ control, name: 'templateOptions' })
 
 	useEffect(() => {
-		if (readMode || !routeField) return
+		if (readMode || !routeField.length) return
 
 		const updatedOptions = updateTemplateOptions({ currentTemplateOptions, optionKey, isReplaceMode })
 

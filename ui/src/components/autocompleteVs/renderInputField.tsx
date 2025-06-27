@@ -2,12 +2,16 @@ import React from 'react'
 import { AutocompleteRenderInputParams, TextField } from '@mui/material'
 import Typography from '@mui/material/Typography'
 import CircularProgress from '@mui/material/CircularProgress'
-import { nameFieldKeys } from './autocompleteVs'
 import { FieldErrors } from 'react-hook-form'
-import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
+import { IVirtualServiceForm } from '../virtualServiceForm'
 import { ListenerListItem } from '../../gen/listener/v1/listener_pb.ts'
 import { VirtualServiceTemplateListItem } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
 import { AccessLogConfigListItem } from '../../gen/access_log_config/v1/access_log_config_pb.ts'
+
+export type nameFieldKeys = Extract<
+	keyof IVirtualServiceForm,
+	'templateUid' | 'listenerUid' | 'accessLogConfigUids' | 'additionalHttpFilterUids' | 'additionalRouteUids'
+>
 
 interface IRenderInputFieldProps {
 	className: 'autocompleteVs' | 'dndAutocomplete'

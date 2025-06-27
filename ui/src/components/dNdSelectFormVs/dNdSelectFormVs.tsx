@@ -3,16 +3,17 @@ import { Control, Controller, FieldErrors, UseFormSetValue } from 'react-hook-fo
 import { HTTPFilterListItem, ListHTTPFiltersResponse } from '../../gen/http_filter/v1/http_filter_pb.ts'
 import { ListRoutesResponse, RouteListItem } from '../../gen/route/v1/route_pb.ts'
 import { ListAccessLogConfigsResponse } from '../../gen/access_log_config/v1/access_log_config_pb.ts'
-import { validationRulesVsForm } from '../../utils/helpers/validationRulesVsForm.ts'
+import { validationRulesVsForm } from '../../utils/helpers'
 import { dNdBox } from './style.ts'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
-import { IVirtualServiceForm } from '../virtualServiceForm/types.ts'
+import { IVirtualServiceForm } from '../virtualServiceForm'
 import { useViewModeStore } from '../../store/viewModeVsStore.ts'
 import { ToolTipVs } from '../toolTipVs/toolTipVs.tsx'
 import { DNdElements } from './dNdElements.tsx'
 import { AutocompleteOption, PopoverOption, RenderInputField } from '../autocompleteVs'
 import { AddOrReplaceButtons } from '../virtualHostDomains'
+import { FillTemplateResponse } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
 
 export type nameFieldKeys = Extract<
 	keyof IVirtualServiceForm,
@@ -29,6 +30,7 @@ interface IdNdSelectFormVsProps {
 	errors: FieldErrors<IVirtualServiceForm>
 	isErrorFetch: boolean
 	isFetching: boolean
+	fillTemplate?: FillTemplateResponse | undefined
 }
 
 export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
@@ -38,7 +40,8 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 	setValue,
 	errors,
 	isFetching,
-	isErrorFetch
+	isErrorFetch,
+	fillTemplate
 }) => {
 	let titleMessage: 'HTTP filter' | 'Route' | 'Access Log Config' = 'Route'
 	if (nameField === 'additionalHttpFilterUids') {
@@ -50,7 +53,13 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 	const [popoverOption, setPopoverOption] = useState<ItemDnd | null>(null)
-	let templateOptionMode:'virtualHostDomainsMode' | 'additionalHttpFilterMode' | 'additionalRouteMode' | 'additionalAccessLogConfigMode'
+
+	let templateOptionMode:
+		| 'virtualHostDomainsMode'
+		| 'additionalHttpFilterMode'
+		| 'additionalRouteMode'
+		| 'additionalAccessLogConfigMode'
+
 	switch (nameField) {
 		case 'additionalHttpFilterUids':
 			templateOptionMode = 'additionalHttpFilterMode'
@@ -92,7 +101,12 @@ export const DNdSelectFormVs: React.FC<IdNdSelectFormVsProps> = ({
 		<Box sx={{ ...dNdBox }}>
 			<Box display='flex' justifyContent='space-between' alignItems='center'>
 				<ToolTipVs titleMessage={titleMessage} delay={500} isDnD={true} />
-				<AddOrReplaceButtons control={control} setValue={setValue} mode={templateOptionMode} />
+				<AddOrReplaceButtons
+					control={control}
+					setValue={setValue}
+					mode={templateOptionMode}
+					fillTemplate={fillTemplate}
+				/>
 			</Box>
 			<Controller
 				name={nameField}

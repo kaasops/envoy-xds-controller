@@ -1,5 +1,5 @@
 import { Control, UseFormSetValue, useWatch } from 'react-hook-form'
-import { IVirtualServiceForm } from '../../components/virtualServiceForm/types.ts'
+import { IVirtualServiceForm } from '../../components/virtualServiceForm'
 import { useViewModeStore } from '../../store/viewModeVsStore.ts'
 import { useEffect } from 'react'
 import { updateTemplateOptions } from '../helpers'
@@ -18,7 +18,7 @@ export const useVHDomainsTemplateOptions = ({ control, setValue }: IUseVHDomains
 	const currentTemplateOptions = useWatch({ control, name: 'templateOptions' })
 
 	useEffect(() => {
-		if (readMode || !vhDomainsField) return
+		if (readMode || !vhDomainsField.length) return
 
 		const updatedOptions = updateTemplateOptions({ currentTemplateOptions, optionKey, isReplaceMode })
 

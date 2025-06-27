@@ -9,11 +9,17 @@ import {
 	useRouteTemplateOptions,
 	useVHDomainsTemplateOptions
 } from '../../utils/hooks'
+import { FillTemplateResponse } from '../../gen/virtual_service_template/v1/virtual_service_template_pb.ts'
 
 interface IAddOrReplaceButtonsProps {
 	control: Control<IVirtualServiceForm>
 	setValue: UseFormSetValue<IVirtualServiceForm>
-	mode: 'virtualHostDomainsMode' | 'additionalHttpFilterMode' | 'additionalRouteMode' | 'additionalAccessLogConfigMode'
+	mode:
+		| 'virtualHostDomainsMode'
+		| 'additionalHttpFilterMode'
+		| 'additionalRouteMode'
+		| 'additionalAccessLogConfigMode'
+	fillTemplate?: FillTemplateResponse | undefined
 }
 
 const modeLabels: Record<IAddOrReplaceButtonsProps['mode'], string> = {
@@ -23,7 +29,7 @@ const modeLabels: Record<IAddOrReplaceButtonsProps['mode'], string> = {
 	additionalAccessLogConfigMode: 'Access Log Configs'
 }
 
-export const AddOrReplaceButtons: React.FC<IAddOrReplaceButtonsProps> = ({ control, setValue, mode }) => {
+export const AddOrReplaceButtons: React.FC<IAddOrReplaceButtonsProps> = ({ control, setValue, mode, fillTemplate }) => {
 	const readMode = useViewModeStore(state => state.viewMode) === 'read'
 	const templateUid = useWatch({ control, name: 'templateUid' })
 	const isReplaceMode = useWatch({ control, name: mode as keyof IVirtualServiceForm })
@@ -31,7 +37,7 @@ export const AddOrReplaceButtons: React.FC<IAddOrReplaceButtonsProps> = ({ contr
 	useVHDomainsTemplateOptions({ control, setValue })
 	useHttpFilterTemplateOptions({ control, setValue })
 	useRouteTemplateOptions({ control, setValue })
-	useAccessLogTemplateOptions({ control, setValue })
+	useAccessLogTemplateOptions({ control, setValue, fillTemplate })
 
 	const label = modeLabels[mode]
 
