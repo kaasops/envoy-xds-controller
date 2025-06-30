@@ -2,6 +2,7 @@ package updater
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -17,10 +18,20 @@ func (c *CacheUpdater) ApplyVirtualService(ctx context.Context, vs *v1alpha1.Vir
 		return c.rebuildSnapshot(ctx)
 	}
 	if prevVS.IsEqual(vs) {
+		if prevVS.IsStatusInvalid() {
+			return fmt.Errorf("%s", prevVS.Status.Message)
+		}
 		return nil
 	}
 	c.store.SetVirtualService(vs)
-	return c.rebuildSnapshot(ctx)
+	err := c.rebuildSnapshot(ctx)
+	if err != nil {
+		return err
+	}
+	if vs.IsStatusInvalid() {
+		return fmt.Errorf("%s", vs.Status.Message)
+	}
+	return nil
 }
 
 func (c *CacheUpdater) DeleteVirtualService(ctx context.Context, nn types.NamespacedName) error {

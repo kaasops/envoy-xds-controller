@@ -269,9 +269,8 @@ func envoyContext() {
 				expectedErrText: "listener is not tls, virtual service has tls config",
 			},
 			{
-				manifest: "test/testdata/e2e/vs7/virtual-service-template-2.yaml",
-				expectedErrText: "failed to apply VirtualServiceTemplate: failed to build " +
-					"resources for vs 'virtual-service': multiple root routes found",
+				manifest:        "test/testdata/e2e/vs7/virtual-service-template-2.yaml",
+				expectedErrText: "failed to apply VirtualServiceTemplate: multiple root routes found",
 				applyBefore: []string{
 					"test/testdata/e2e/vs7/cert.yaml",
 					"test/testdata/e2e/vs7/listener.yaml",

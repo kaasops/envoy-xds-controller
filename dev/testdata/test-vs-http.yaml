@@ -18,6 +18,8 @@ spec:
     - name: envoy.filters.http.router
       typed_config:
         "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  accessLogConfig:
+    name: access-log-config
   virtualHost:
     name: vs-http-virtual-host
     domains:

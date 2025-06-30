@@ -57,9 +57,15 @@ func (c *CacheUpdater) rebuildSnapshot(ctx context.Context) error {
 	var commonVirtualServices []*v1alpha1.VirtualService
 
 	for _, vs := range c.store.MapVirtualServices() {
+		if vs.IsStatusInvalid() {
+			continue
+		}
+
 		vsNodeIDs := vs.GetNodeIDs()
 		if len(vsNodeIDs) == 0 {
-			errs = append(errs, fmt.Errorf("virtual service %s/%s has no node IDs", vs.Namespace, vs.Name))
+			err := fmt.Errorf("virtual service %s/%s has no node IDs", vs.Namespace, vs.Name)
+			vs.UpdateStatus(true, err.Error())
+			errs = append(errs, err)
 			continue
 		}
 
@@ -70,9 +76,11 @@ func (c *CacheUpdater) rebuildSnapshot(ctx context.Context) error {
 
 		vsRes, err := resbuilder.BuildResources(vs, c.store)
 		if err != nil {
+			vs.UpdateStatus(true, err.Error())
 			errs = append(errs, err)
 			continue
 		}
+		vs.UpdateStatus(false, "")
 
 		for _, secret := range vsRes.UsedSecrets {
 			usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}

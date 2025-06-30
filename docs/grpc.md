@@ -68,6 +68,7 @@
 - [GetVirtualServiceResponse](#getvirtualserviceresponse)
 - [ListVirtualServicesRequest](#listvirtualservicesrequest)
 - [ListVirtualServicesResponse](#listvirtualservicesresponse)
+- [Status](#status)
 - [UpdateVirtualServiceRequest](#updatevirtualservicerequest)
 - [UpdateVirtualServiceResponse](#updatevirtualserviceresponse)
 - [VirtualServiceListItem](#virtualservicelistitem)
@@ -701,6 +702,7 @@ GetVirtualServiceResponse is the response message for retrieving a virtual servi
 | is_editable | [ bool](#bool) | Indicates whether the virtual service is editable. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
 | raw | [ string](#string) | The raw string representation of the resource |
+| status | [ Status](#status) | Status |
 
 
 
@@ -721,6 +723,17 @@ ListVirtualServicesResponse is the response message for listing virtual services
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | items | [repeated VirtualServiceListItem](#virtualservicelistitem) | The list of virtual services. |
+
+
+
+### Status {#status}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| invalid | [ bool](#bool) | none |
+| message | [ string](#string) | none |
 
 
 
@@ -762,6 +775,7 @@ VirtualServiceListItem represents a single virtual service in a list response.
 | template | [ common.v1.ResourceRef](#commonv1resourceref) | A reference to the template used by the virtual service. |
 | is_editable | [ bool](#bool) | Indicates whether the virtual service is editable. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| status | [ Status](#status) | Statusq |
 
 
 

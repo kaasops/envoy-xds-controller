@@ -45,6 +45,10 @@ func (s *VirtualServiceStore) ListVirtualServices(ctx context.Context, r *connec
 			NodeIds:     v.GetNodeIDs(),
 			AccessGroup: vsAccessGroup,
 			Description: v.GetDescription(),
+			Status: &v1.Status{
+				Invalid: v.Status.Invalid,
+				Message: v.Status.Message,
+			},
 		}
 		if v.Spec.Template != nil {
 			template := s.store.GetVirtualServiceTemplate(helpers.NamespacedName{

@@ -61,8 +61,18 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, r.Updater.DeleteVirtualService(ctx, req.NamespacedName)
 	}
 
+	prevStatus := vs.Status.DeepCopy()
 	if err := r.Updater.ApplyVirtualService(ctx, &vs); err != nil {
-		return ctrl.Result{}, err
+		vs.UpdateStatus(true, err.Error())
+	} else {
+		vs.UpdateStatus(false, vs.Status.Message)
+	}
+
+	if prevStatus.Invalid != vs.Status.Invalid ||
+		prevStatus.Message != vs.Status.Message {
+		if err := r.Status().Update(ctx, &vs); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	rlog.Info("Finished Reconciling VirtualService")

@@ -110,6 +110,57 @@ export const useConfigTable = ({
 				minSize: 200
 			},
 			{
+				accessorKey: 'status',
+				header: 'Status',
+				minSize: 100,
+				size: 100,
+				Cell: ({ row }) => {
+					const status = row.original.status
+					const invalid = status?.invalid
+					const message = status?.message
+
+					// Determine the color based on status conditions
+					let color = 'green' // Default: invalid=false, no message
+					if (invalid) {
+						color = 'red' // invalid=true
+					} else if (message) {
+						color = 'orange' // invalid=false, has message
+					}
+
+					return (
+						<Box sx={{ display: 'flex', alignItems: 'center' }}>
+							{message ? (
+								<Tooltip title={message} arrow placement="top">
+									<Box sx={{ display: 'flex', alignItems: 'center' }}>
+										<Box
+											sx={{
+												width: '16px',
+												height: '16px',
+												borderRadius: '50%',
+												backgroundColor: color,
+												marginRight: '8px'
+											}}
+										/>
+									</Box>
+								</Tooltip>
+							) : (
+								<Box sx={{ display: 'flex', alignItems: 'center' }}>
+									<Box
+										sx={{
+											width: '16px',
+											height: '16px',
+											borderRadius: '50%',
+											backgroundColor: color,
+											marginRight: '8px'
+										}}
+									/>
+								</Box>
+							)}
+						</Box>
+					)
+				}
+			},
+			{
 				accessorKey: 'nodeIds',
 				header: 'Node IDs',
 				minSize: 250,

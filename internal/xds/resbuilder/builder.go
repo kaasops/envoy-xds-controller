@@ -88,7 +88,7 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	// Otherwise, build resources from virtual service configuration
 	resources, err := buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn, store)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build resources for vs '%s': %w", vs.Name, err)
+		return nil, err
 	}
 
 	return resources, nil
@@ -773,6 +773,7 @@ func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*
 
 	accessLogConfigs := make([]*accesslogv3.AccessLog, 0)
 	if vs.Spec.AccessLog != nil {
+		vs.UpdateStatus(false, "accessLog is deprecated, use accessLogs instead")
 		var accessLog accesslogv3.AccessLog
 		if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, &accessLog); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
@@ -785,6 +786,7 @@ func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*
 	}
 
 	if vs.Spec.AccessLogConfig != nil {
+		vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
 		accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
 		accessLogConfig := store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name})
 		if accessLogConfig == nil {

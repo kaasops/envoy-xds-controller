@@ -1,10 +1,11 @@
 package virtualservice
 
 import (
-	"connectrpc.com/connect"
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"connectrpc.com/connect"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/grpcapi"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -30,6 +31,10 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 		IsEditable:  vs.IsEditable(),
 		Description: vs.GetDescription(),
 		Raw:         string(vs.Raw()),
+		Status: &v1.Status{
+			Invalid: vs.Status.Invalid,
+			Message: vs.Status.Message,
+		},
 	}
 	if vs.Spec.Template != nil {
 		template := s.store.GetVirtualServiceTemplate(helpers.NamespacedName{

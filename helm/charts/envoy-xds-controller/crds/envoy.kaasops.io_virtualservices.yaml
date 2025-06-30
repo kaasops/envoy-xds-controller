@@ -22,8 +22,14 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.message
+      name: Message
+      type: string
+    - jsonPath: .status.invalid
+      name: Invalid
+      type: boolean
     - jsonPath: .metadata.labels['exc-access-group']
-      name: accessGroup
+      name: AccessGroup
       type: string
     name: v1alpha1
     schema:
@@ -179,6 +185,8 @@ spec:
           status:
             description: VirtualServiceStatus defines the observed state of VirtualService
             properties:
+              invalid:
+                type: boolean
               lastAppliedHash:
                 format: int32
                 type: integer
@@ -193,10 +201,8 @@ spec:
                       type: string
                   type: object
                 type: array
-              valid:
-                type: boolean
             required:
-            - valid
+            - invalid
             type: object
         type: object
     served: true

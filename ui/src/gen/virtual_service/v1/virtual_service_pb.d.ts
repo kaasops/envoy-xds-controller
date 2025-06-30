@@ -13,6 +13,27 @@ import type { TemplateOption } from "../../virtual_service_template/v1/virtual_s
 export declare const file_virtual_service_v1_virtual_service: GenFile;
 
 /**
+ * @generated from message virtual_service.v1.Status
+ */
+export declare type Status = Message<"virtual_service.v1.Status"> & {
+  /**
+   * @generated from field: bool invalid = 1;
+   */
+  invalid: boolean;
+
+  /**
+   * @generated from field: string message = 2;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message virtual_service.v1.Status.
+ * Use `create(StatusSchema)` to create a new message.
+ */
+export declare const StatusSchema: GenMessage<Status>;
+
+/**
  * CreateVirtualServiceRequest is the request message for creating a virtual service.
  *
  * @generated from message virtual_service.v1.CreateVirtualServiceRequest
@@ -423,6 +444,13 @@ export declare type GetVirtualServiceResponse = Message<"virtual_service.v1.GetV
    * @generated from field: string raw = 16;
    */
   raw: string;
+
+  /**
+   * Status
+   *
+   * @generated from field: virtual_service.v1.Status status = 17;
+   */
+  status?: Status;
 };
 
 /**
@@ -505,6 +533,13 @@ export declare type VirtualServiceListItem = Message<"virtual_service.v1.Virtual
    * @generated from field: string description = 7;
    */
   description: string;
+
+  /**
+   * Statusq
+   *
+   * @generated from field: virtual_service.v1.Status status = 8;
+   */
+  status?: Status;
 };
 
 /**

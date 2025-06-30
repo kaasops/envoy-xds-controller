@@ -1,9 +1,10 @@
 package virtualservice
 
 import (
-	"connectrpc.com/connect"
 	"context"
 	"fmt"
+
+	"connectrpc.com/connect"
 	"github.com/kaasops/envoy-xds-controller/internal/grpcapi"
 	v1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service/v1"
 )

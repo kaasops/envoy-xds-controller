@@ -614,10 +614,32 @@ func (in *VirtualServiceCommonSpec) DeepCopyInto(out *VirtualServiceCommonSpec) 
 		*out = new(runtime.RawExtension)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AccessLogs != nil {
+		in, out := &in.AccessLogs, &out.AccessLogs
+		*out = make([]*runtime.RawExtension, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(runtime.RawExtension)
+				(*in).DeepCopyInto(*out)
+			}
+		}
+	}
 	if in.AccessLogConfig != nil {
 		in, out := &in.AccessLogConfig, &out.AccessLogConfig
 		*out = new(ResourceRef)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.AccessLogConfigs != nil {
+		in, out := &in.AccessLogConfigs, &out.AccessLogConfigs
+		*out = make([]*ResourceRef, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(ResourceRef)
+				(*in).DeepCopyInto(*out)
+			}
+		}
 	}
 	if in.AdditionalHttpFilters != nil {
 		in, out := &in.AdditionalHttpFilters, &out.AdditionalHttpFilters

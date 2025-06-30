@@ -14,7 +14,29 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file virtual_service/v1/virtual_service.proto.
  */
 export const file_virtual_service_v1_virtual_service: GenFile = /*@__PURE__*/
-  fileDesc("Cih2aXJ0dWFsX3NlcnZpY2UvdjEvdmlydHVhbF9zZXJ2aWNlLnByb3RvEhJ2aXJ0dWFsX3NlcnZpY2UudjEizQMKG0NyZWF0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBIMCgRuYW1lGAEgASgJEhAKCG5vZGVfaWRzGAIgAygJEhQKDGFjY2Vzc19ncm91cBgDIAEoCRIUCgx0ZW1wbGF0ZV91aWQYBCABKAkSFAoMbGlzdGVuZXJfdWlkGAUgASgJEiwKDHZpcnR1YWxfaG9zdBgGIAEoCzIWLmNvbW1vbi52MS5WaXJ0dWFsSG9zdBIxChZhY2Nlc3NfbG9nX2NvbmZpZ191aWRzGAcgASgLMg8uY29tbW9uLnYxLlVJRFNIABIjChthZGRpdGlvbmFsX2h0dHBfZmlsdGVyX3VpZHMYCCADKAkSHQoVYWRkaXRpb25hbF9yb3V0ZV91aWRzGAkgAygJEh8KEnVzZV9yZW1vdGVfYWRkcmVzcxgKIAEoCEgBiAEBEkUKEHRlbXBsYXRlX29wdGlvbnMYCyADKAsyKy52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuVGVtcGxhdGVPcHRpb24SEwoLZGVzY3JpcHRpb24YDCABKAlCEwoRYWNjZXNzX2xvZ19jb25maWdCFQoTX3VzZV9yZW1vdGVfYWRkcmVzcyIeChxDcmVhdGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlIrYDChtVcGRhdGVWaXJ0dWFsU2VydmljZVJlcXVlc3QSCwoDdWlkGAEgASgJEhAKCG5vZGVfaWRzGAIgAygJEhQKDHRlbXBsYXRlX3VpZBgDIAEoCRIUCgxsaXN0ZW5lcl91aWQYBCABKAkSLAoMdmlydHVhbF9ob3N0GAUgASgLMhYuY29tbW9uLnYxLlZpcnR1YWxIb3N0EjEKFmFjY2Vzc19sb2dfY29uZmlnX3VpZHMYBiABKAsyDy5jb21tb24udjEuVUlEU0gAEiMKG2FkZGl0aW9uYWxfaHR0cF9maWx0ZXJfdWlkcxgHIAMoCRIdChVhZGRpdGlvbmFsX3JvdXRlX3VpZHMYCCADKAkSHwoSdXNlX3JlbW90ZV9hZGRyZXNzGAkgASgISAGIAQESRQoQdGVtcGxhdGVfb3B0aW9ucxgKIAMoCzIrLnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MS5UZW1wbGF0ZU9wdGlvbhITCgtkZXNjcmlwdGlvbhgLIAEoCUITChFhY2Nlc3NfbG9nX2NvbmZpZ0IVChNfdXNlX3JlbW90ZV9hZGRyZXNzIh4KHFVwZGF0ZVZpcnR1YWxTZXJ2aWNlUmVzcG9uc2UiKgobRGVsZXRlVmlydHVhbFNlcnZpY2VSZXF1ZXN0EgsKA3VpZBgBIAEoCSIeChxEZWxldGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlIicKGEdldFZpcnR1YWxTZXJ2aWNlUmVxdWVzdBILCgN1aWQYASABKAki6AQKGUdldFZpcnR1YWxTZXJ2aWNlUmVzcG9uc2USCwoDdWlkGAEgASgJEgwKBG5hbWUYAiABKAkSEAoIbm9kZV9pZHMYAyADKAkSFAoMYWNjZXNzX2dyb3VwGAQgASgJEigKCHRlbXBsYXRlGAUgASgLMhYuY29tbW9uLnYxLlJlc291cmNlUmVmEigKCGxpc3RlbmVyGAYgASgLMhYuY29tbW9uLnYxLlJlc291cmNlUmVmEiwKDHZpcnR1YWxfaG9zdBgHIAEoCzIWLmNvbW1vbi52MS5WaXJ0dWFsSG9zdBI1ChJhY2Nlc3NfbG9nX2NvbmZpZ3MYCCABKAsyFy5jb21tb24udjEuUmVzb3VyY2VSZWZzSAASHwoVYWNjZXNzX2xvZ19jb25maWdfcmF3GAkgASgJSAASNwoXYWRkaXRpb25hbF9odHRwX2ZpbHRlcnMYCiADKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWYSMQoRYWRkaXRpb25hbF9yb3V0ZXMYCyADKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWYSHwoSdXNlX3JlbW90ZV9hZGRyZXNzGAwgASgISAGIAQESRQoQdGVtcGxhdGVfb3B0aW9ucxgNIAMoCzIrLnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MS5UZW1wbGF0ZU9wdGlvbhITCgtpc19lZGl0YWJsZRgOIAEoCBITCgtkZXNjcmlwdGlvbhgPIAEoCRILCgNyYXcYECABKAlCDAoKYWNjZXNzX2xvZ0IVChNfdXNlX3JlbW90ZV9hZGRyZXNzIjIKGkxpc3RWaXJ0dWFsU2VydmljZXNSZXF1ZXN0EhQKDGFjY2Vzc19ncm91cBgBIAEoCSKvAQoWVmlydHVhbFNlcnZpY2VMaXN0SXRlbRILCgN1aWQYASABKAkSDAoEbmFtZRgCIAEoCRIQCghub2RlX2lkcxgDIAMoCRIUCgxhY2Nlc3NfZ3JvdXAYBCABKAkSKAoIdGVtcGxhdGUYBSABKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWYSEwoLaXNfZWRpdGFibGUYBiABKAgSEwoLZGVzY3JpcHRpb24YByABKAkiWAobTGlzdFZpcnR1YWxTZXJ2aWNlc1Jlc3BvbnNlEjkKBWl0ZW1zGAEgAygLMioudmlydHVhbF9zZXJ2aWNlLnYxLlZpcnR1YWxTZXJ2aWNlTGlzdEl0ZW0y9wQKGlZpcnR1YWxTZXJ2aWNlU3RvcmVTZXJ2aWNlEnkKFENyZWF0ZVZpcnR1YWxTZXJ2aWNlEi8udmlydHVhbF9zZXJ2aWNlLnYxLkNyZWF0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBowLnZpcnR1YWxfc2VydmljZS52MS5DcmVhdGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnkKFFVwZGF0ZVZpcnR1YWxTZXJ2aWNlEi8udmlydHVhbF9zZXJ2aWNlLnYxLlVwZGF0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBowLnZpcnR1YWxfc2VydmljZS52MS5VcGRhdGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnkKFERlbGV0ZVZpcnR1YWxTZXJ2aWNlEi8udmlydHVhbF9zZXJ2aWNlLnYxLkRlbGV0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBowLnZpcnR1YWxfc2VydmljZS52MS5EZWxldGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnAKEUdldFZpcnR1YWxTZXJ2aWNlEiwudmlydHVhbF9zZXJ2aWNlLnYxLkdldFZpcnR1YWxTZXJ2aWNlUmVxdWVzdBotLnZpcnR1YWxfc2VydmljZS52MS5HZXRWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnYKE0xpc3RWaXJ0dWFsU2VydmljZXMSLi52aXJ0dWFsX3NlcnZpY2UudjEuTGlzdFZpcnR1YWxTZXJ2aWNlc1JlcXVlc3QaLy52aXJ0dWFsX3NlcnZpY2UudjEuTGlzdFZpcnR1YWxTZXJ2aWNlc1Jlc3BvbnNlQu0BChZjb20udmlydHVhbF9zZXJ2aWNlLnYxQhNWaXJ0dWFsU2VydmljZVByb3RvUAFaWWdpdGh1Yi5jb20va2Fhc29wcy9lbnZveS14ZHMtY29udHJvbGxlci9wa2cvYXBpL2dycGMvdmlydHVhbF9zZXJ2aWNlL3YxO3ZpcnR1YWxfc2VydmljZXYxogIDVlhYqgIRVmlydHVhbFNlcnZpY2UuVjHKAhFWaXJ0dWFsU2VydmljZVxWMeICHVZpcnR1YWxTZXJ2aWNlXFYxXEdQQk1ldGFkYXRh6gISVmlydHVhbFNlcnZpY2U6OlYxYgZwcm90bzM", [file_common_v1_common, file_virtual_service_template_v1_virtual_service_template]);
+  fileDesc("Cih2aXJ0dWFsX3NlcnZpY2UvdjEvdmlydHVhbF9zZXJ2aWNlLnByb3RvEhJ2aXJ0dWFsX3NlcnZpY2UudjEiKgoGU3RhdHVzEg8KB2ludmFsaWQYASABKAgSDwoHbWVzc2FnZRgCIAEoCSLNAwobQ3JlYXRlVmlydHVhbFNlcnZpY2VSZXF1ZXN0EgwKBG5hbWUYASABKAkSEAoIbm9kZV9pZHMYAiADKAkSFAoMYWNjZXNzX2dyb3VwGAMgASgJEhQKDHRlbXBsYXRlX3VpZBgEIAEoCRIUCgxsaXN0ZW5lcl91aWQYBSABKAkSLAoMdmlydHVhbF9ob3N0GAYgASgLMhYuY29tbW9uLnYxLlZpcnR1YWxIb3N0EjEKFmFjY2Vzc19sb2dfY29uZmlnX3VpZHMYByABKAsyDy5jb21tb24udjEuVUlEU0gAEiMKG2FkZGl0aW9uYWxfaHR0cF9maWx0ZXJfdWlkcxgIIAMoCRIdChVhZGRpdGlvbmFsX3JvdXRlX3VpZHMYCSADKAkSHwoSdXNlX3JlbW90ZV9hZGRyZXNzGAogASgISAGIAQESRQoQdGVtcGxhdGVfb3B0aW9ucxgLIAMoCzIrLnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MS5UZW1wbGF0ZU9wdGlvbhITCgtkZXNjcmlwdGlvbhgMIAEoCUITChFhY2Nlc3NfbG9nX2NvbmZpZ0IVChNfdXNlX3JlbW90ZV9hZGRyZXNzIh4KHENyZWF0ZVZpcnR1YWxTZXJ2aWNlUmVzcG9uc2UitgMKG1VwZGF0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBILCgN1aWQYASABKAkSEAoIbm9kZV9pZHMYAiADKAkSFAoMdGVtcGxhdGVfdWlkGAMgASgJEhQKDGxpc3RlbmVyX3VpZBgEIAEoCRIsCgx2aXJ0dWFsX2hvc3QYBSABKAsyFi5jb21tb24udjEuVmlydHVhbEhvc3QSMQoWYWNjZXNzX2xvZ19jb25maWdfdWlkcxgGIAEoCzIPLmNvbW1vbi52MS5VSURTSAASIwobYWRkaXRpb25hbF9odHRwX2ZpbHRlcl91aWRzGAcgAygJEh0KFWFkZGl0aW9uYWxfcm91dGVfdWlkcxgIIAMoCRIfChJ1c2VfcmVtb3RlX2FkZHJlc3MYCSABKAhIAYgBARJFChB0ZW1wbGF0ZV9vcHRpb25zGAogAygLMisudmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlLnYxLlRlbXBsYXRlT3B0aW9uEhMKC2Rlc2NyaXB0aW9uGAsgASgJQhMKEWFjY2Vzc19sb2dfY29uZmlnQhUKE191c2VfcmVtb3RlX2FkZHJlc3MiHgocVXBkYXRlVmlydHVhbFNlcnZpY2VSZXNwb25zZSIqChtEZWxldGVWaXJ0dWFsU2VydmljZVJlcXVlc3QSCwoDdWlkGAEgASgJIh4KHERlbGV0ZVZpcnR1YWxTZXJ2aWNlUmVzcG9uc2UiJwoYR2V0VmlydHVhbFNlcnZpY2VSZXF1ZXN0EgsKA3VpZBgBIAEoCSKUBQoZR2V0VmlydHVhbFNlcnZpY2VSZXNwb25zZRILCgN1aWQYASABKAkSDAoEbmFtZRgCIAEoCRIQCghub2RlX2lkcxgDIAMoCRIUCgxhY2Nlc3NfZ3JvdXAYBCABKAkSKAoIdGVtcGxhdGUYBSABKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWYSKAoIbGlzdGVuZXIYBiABKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWYSLAoMdmlydHVhbF9ob3N0GAcgASgLMhYuY29tbW9uLnYxLlZpcnR1YWxIb3N0EjUKEmFjY2Vzc19sb2dfY29uZmlncxgIIAEoCzIXLmNvbW1vbi52MS5SZXNvdXJjZVJlZnNIABIfChVhY2Nlc3NfbG9nX2NvbmZpZ19yYXcYCSABKAlIABI3ChdhZGRpdGlvbmFsX2h0dHBfZmlsdGVycxgKIAMoCzIWLmNvbW1vbi52MS5SZXNvdXJjZVJlZhIxChFhZGRpdGlvbmFsX3JvdXRlcxgLIAMoCzIWLmNvbW1vbi52MS5SZXNvdXJjZVJlZhIfChJ1c2VfcmVtb3RlX2FkZHJlc3MYDCABKAhIAYgBARJFChB0ZW1wbGF0ZV9vcHRpb25zGA0gAygLMisudmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlLnYxLlRlbXBsYXRlT3B0aW9uEhMKC2lzX2VkaXRhYmxlGA4gASgIEhMKC2Rlc2NyaXB0aW9uGA8gASgJEgsKA3JhdxgQIAEoCRIqCgZzdGF0dXMYESABKAsyGi52aXJ0dWFsX3NlcnZpY2UudjEuU3RhdHVzQgwKCmFjY2Vzc19sb2dCFQoTX3VzZV9yZW1vdGVfYWRkcmVzcyIyChpMaXN0VmlydHVhbFNlcnZpY2VzUmVxdWVzdBIUCgxhY2Nlc3NfZ3JvdXAYASABKAki2wEKFlZpcnR1YWxTZXJ2aWNlTGlzdEl0ZW0SCwoDdWlkGAEgASgJEgwKBG5hbWUYAiABKAkSEAoIbm9kZV9pZHMYAyADKAkSFAoMYWNjZXNzX2dyb3VwGAQgASgJEigKCHRlbXBsYXRlGAUgASgLMhYuY29tbW9uLnYxLlJlc291cmNlUmVmEhMKC2lzX2VkaXRhYmxlGAYgASgIEhMKC2Rlc2NyaXB0aW9uGAcgASgJEioKBnN0YXR1cxgIIAEoCzIaLnZpcnR1YWxfc2VydmljZS52MS5TdGF0dXMiWAobTGlzdFZpcnR1YWxTZXJ2aWNlc1Jlc3BvbnNlEjkKBWl0ZW1zGAEgAygLMioudmlydHVhbF9zZXJ2aWNlLnYxLlZpcnR1YWxTZXJ2aWNlTGlzdEl0ZW0y9wQKGlZpcnR1YWxTZXJ2aWNlU3RvcmVTZXJ2aWNlEnkKFENyZWF0ZVZpcnR1YWxTZXJ2aWNlEi8udmlydHVhbF9zZXJ2aWNlLnYxLkNyZWF0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBowLnZpcnR1YWxfc2VydmljZS52MS5DcmVhdGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnkKFFVwZGF0ZVZpcnR1YWxTZXJ2aWNlEi8udmlydHVhbF9zZXJ2aWNlLnYxLlVwZGF0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBowLnZpcnR1YWxfc2VydmljZS52MS5VcGRhdGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnkKFERlbGV0ZVZpcnR1YWxTZXJ2aWNlEi8udmlydHVhbF9zZXJ2aWNlLnYxLkRlbGV0ZVZpcnR1YWxTZXJ2aWNlUmVxdWVzdBowLnZpcnR1YWxfc2VydmljZS52MS5EZWxldGVWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnAKEUdldFZpcnR1YWxTZXJ2aWNlEiwudmlydHVhbF9zZXJ2aWNlLnYxLkdldFZpcnR1YWxTZXJ2aWNlUmVxdWVzdBotLnZpcnR1YWxfc2VydmljZS52MS5HZXRWaXJ0dWFsU2VydmljZVJlc3BvbnNlEnYKE0xpc3RWaXJ0dWFsU2VydmljZXMSLi52aXJ0dWFsX3NlcnZpY2UudjEuTGlzdFZpcnR1YWxTZXJ2aWNlc1JlcXVlc3QaLy52aXJ0dWFsX3NlcnZpY2UudjEuTGlzdFZpcnR1YWxTZXJ2aWNlc1Jlc3BvbnNlQu0BChZjb20udmlydHVhbF9zZXJ2aWNlLnYxQhNWaXJ0dWFsU2VydmljZVByb3RvUAFaWWdpdGh1Yi5jb20va2Fhc29wcy9lbnZveS14ZHMtY29udHJvbGxlci9wa2cvYXBpL2dycGMvdmlydHVhbF9zZXJ2aWNlL3YxO3ZpcnR1YWxfc2VydmljZXYxogIDVlhYqgIRVmlydHVhbFNlcnZpY2UuVjHKAhFWaXJ0dWFsU2VydmljZVxWMeICHVZpcnR1YWxTZXJ2aWNlXFYxXEdQQk1ldGFkYXRh6gISVmlydHVhbFNlcnZpY2U6OlYxYgZwcm90bzM", [file_common_v1_common, file_virtual_service_template_v1_virtual_service_template]);
+
+/**
+ * @generated from message virtual_service.v1.Status
+ */
+export type Status = Message<"virtual_service.v1.Status"> & {
+  /**
+   * @generated from field: bool invalid = 1;
+   */
+  invalid: boolean;
+
+  /**
+   * @generated from field: string message = 2;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message virtual_service.v1.Status.
+ * Use `create(StatusSchema)` to create a new message.
+ */
+export const StatusSchema: GenMessage<Status> = /*@__PURE__*/
+  messageDesc(file_virtual_service_v1_virtual_service, 0);
 
 /**
  * CreateVirtualServiceRequest is the request message for creating a virtual service.
@@ -120,7 +142,7 @@ export type CreateVirtualServiceRequest = Message<"virtual_service.v1.CreateVirt
  * Use `create(CreateVirtualServiceRequestSchema)` to create a new message.
  */
 export const CreateVirtualServiceRequestSchema: GenMessage<CreateVirtualServiceRequest> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 0);
+  messageDesc(file_virtual_service_v1_virtual_service, 1);
 
 /**
  * CreateVirtualServiceResponse is the response message for creating a virtual service.
@@ -135,7 +157,7 @@ export type CreateVirtualServiceResponse = Message<"virtual_service.v1.CreateVir
  * Use `create(CreateVirtualServiceResponseSchema)` to create a new message.
  */
 export const CreateVirtualServiceResponseSchema: GenMessage<CreateVirtualServiceResponse> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 1);
+  messageDesc(file_virtual_service_v1_virtual_service, 2);
 
 /**
  * UpdateVirtualServiceRequest is the request message for updating a virtual service.
@@ -234,7 +256,7 @@ export type UpdateVirtualServiceRequest = Message<"virtual_service.v1.UpdateVirt
  * Use `create(UpdateVirtualServiceRequestSchema)` to create a new message.
  */
 export const UpdateVirtualServiceRequestSchema: GenMessage<UpdateVirtualServiceRequest> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 2);
+  messageDesc(file_virtual_service_v1_virtual_service, 3);
 
 /**
  * UpdateVirtualServiceResponse is the response message for updating a virtual service.
@@ -249,7 +271,7 @@ export type UpdateVirtualServiceResponse = Message<"virtual_service.v1.UpdateVir
  * Use `create(UpdateVirtualServiceResponseSchema)` to create a new message.
  */
 export const UpdateVirtualServiceResponseSchema: GenMessage<UpdateVirtualServiceResponse> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 3);
+  messageDesc(file_virtual_service_v1_virtual_service, 4);
 
 /**
  * DeleteVirtualServiceRequest is the request message for deleting a virtual service.
@@ -270,7 +292,7 @@ export type DeleteVirtualServiceRequest = Message<"virtual_service.v1.DeleteVirt
  * Use `create(DeleteVirtualServiceRequestSchema)` to create a new message.
  */
 export const DeleteVirtualServiceRequestSchema: GenMessage<DeleteVirtualServiceRequest> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 4);
+  messageDesc(file_virtual_service_v1_virtual_service, 5);
 
 /**
  * DeleteVirtualServiceResponse is the response message for deleting a virtual service.
@@ -285,7 +307,7 @@ export type DeleteVirtualServiceResponse = Message<"virtual_service.v1.DeleteVir
  * Use `create(DeleteVirtualServiceResponseSchema)` to create a new message.
  */
 export const DeleteVirtualServiceResponseSchema: GenMessage<DeleteVirtualServiceResponse> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 5);
+  messageDesc(file_virtual_service_v1_virtual_service, 6);
 
 /**
  * GetVirtualServiceRequest is the request message for retrieving a virtual service.
@@ -306,7 +328,7 @@ export type GetVirtualServiceRequest = Message<"virtual_service.v1.GetVirtualSer
  * Use `create(GetVirtualServiceRequestSchema)` to create a new message.
  */
 export const GetVirtualServiceRequestSchema: GenMessage<GetVirtualServiceRequest> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 6);
+  messageDesc(file_virtual_service_v1_virtual_service, 7);
 
 /**
  * GetVirtualServiceResponse is the response message for retrieving a virtual service.
@@ -434,6 +456,13 @@ export type GetVirtualServiceResponse = Message<"virtual_service.v1.GetVirtualSe
    * @generated from field: string raw = 16;
    */
   raw: string;
+
+  /**
+   * Status
+   *
+   * @generated from field: virtual_service.v1.Status status = 17;
+   */
+  status?: Status;
 };
 
 /**
@@ -441,7 +470,7 @@ export type GetVirtualServiceResponse = Message<"virtual_service.v1.GetVirtualSe
  * Use `create(GetVirtualServiceResponseSchema)` to create a new message.
  */
 export const GetVirtualServiceResponseSchema: GenMessage<GetVirtualServiceResponse> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 7);
+  messageDesc(file_virtual_service_v1_virtual_service, 8);
 
 /**
  * ListVirtualServicesRequest is the request message for listing virtual services.
@@ -462,7 +491,7 @@ export type ListVirtualServicesRequest = Message<"virtual_service.v1.ListVirtual
  * Use `create(ListVirtualServicesRequestSchema)` to create a new message.
  */
 export const ListVirtualServicesRequestSchema: GenMessage<ListVirtualServicesRequest> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 8);
+  messageDesc(file_virtual_service_v1_virtual_service, 9);
 
 /**
  * VirtualServiceListItem represents a single virtual service in a list response.
@@ -518,6 +547,13 @@ export type VirtualServiceListItem = Message<"virtual_service.v1.VirtualServiceL
    * @generated from field: string description = 7;
    */
   description: string;
+
+  /**
+   * Statusq
+   *
+   * @generated from field: virtual_service.v1.Status status = 8;
+   */
+  status?: Status;
 };
 
 /**
@@ -525,7 +561,7 @@ export type VirtualServiceListItem = Message<"virtual_service.v1.VirtualServiceL
  * Use `create(VirtualServiceListItemSchema)` to create a new message.
  */
 export const VirtualServiceListItemSchema: GenMessage<VirtualServiceListItem> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 9);
+  messageDesc(file_virtual_service_v1_virtual_service, 10);
 
 /**
  * ListVirtualServicesResponse is the response message for listing virtual services.
@@ -546,7 +582,7 @@ export type ListVirtualServicesResponse = Message<"virtual_service.v1.ListVirtua
  * Use `create(ListVirtualServicesResponseSchema)` to create a new message.
  */
 export const ListVirtualServicesResponseSchema: GenMessage<ListVirtualServicesResponse> = /*@__PURE__*/
-  messageDesc(file_virtual_service_v1_virtual_service, 10);
+  messageDesc(file_virtual_service_v1_virtual_service, 11);
 
 /**
  * The VirtualServiceStoreService defines operations for managing virtual services.

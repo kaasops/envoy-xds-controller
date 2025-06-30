@@ -25,6 +25,11 @@ service VirtualServiceStoreService {
   rpc ListVirtualServices(ListVirtualServicesRequest) returns (ListVirtualServicesResponse);
 }
 
+message Status {
+  bool invalid = 1;
+  string message = 2;
+}
+
 // CreateVirtualServiceRequest is the request message for creating a virtual service.
 message CreateVirtualServiceRequest {
   // The name of the virtual service.
@@ -179,6 +184,9 @@ message GetVirtualServiceResponse {
 
   // The raw string representation of the resource
   string raw = 16;
+
+  // Status
+  Status status = 17;
 }
 
 // ListVirtualServicesRequest is the request message for listing virtual services.
@@ -209,6 +217,9 @@ message VirtualServiceListItem {
 
   // Description is the human-readable description of the resource
   string description = 7;
+
+  // Statusq
+  Status status = 8;
 }
 
 // ListVirtualServicesResponse is the response message for listing virtual services.
