@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,9 +38,9 @@ import (
 var virtualservicetemplatelog = logf.Log.WithName("virtualservicetemplate-resource")
 
 // SetupVirtualServiceTemplateWebhookWithManager registers the webhook for VirtualServiceTemplate in the manager.
-func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager) error {
+func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.CacheUpdater) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&envoyv1alpha1.VirtualServiceTemplate{}).
-		WithValidator(&VirtualServiceTemplateCustomValidator{Client: mgr.GetClient()}).
+		WithValidator(&VirtualServiceTemplateCustomValidator{Client: mgr.GetClient(), cacheUpdater: cacheUpdater}).
 		Complete()
 }
 
@@ -58,7 +57,8 @@ func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type VirtualServiceTemplateCustomValidator struct {
-	Client client.Client
+	Client       client.Client
+	cacheUpdater *updater.CacheUpdater
 }
 
 var _ webhook.CustomValidator = &VirtualServiceTemplateCustomValidator{}
@@ -75,12 +75,7 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", newObj)
 	}
 	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update", "name", virtualservicetemplate.GetName())
-	resStore := store.New()
-	if err := resStore.FillFromKubernetes(ctx, v.Client); err != nil {
-		return nil, fmt.Errorf("failed to fill store for validation: %w", err)
-	}
-	snapshotCache := cache.NewSnapshotCache()
-	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
+	cacheUpdater := updater.NewCacheUpdater(cache.NewSnapshotCache(), v.cacheUpdater.CloneStore())
 	if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {
 		return nil, fmt.Errorf("failed build snapshot for validation: %w", err)
 	}

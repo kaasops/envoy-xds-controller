@@ -405,7 +405,7 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "HttpFilter")
 			os.Exit(1)
 		}
-		if err = webhookenvoyv1alpha1.SetupVirtualServiceWebhookWithManager(mgr); err != nil {
+		if err = webhookenvoyv1alpha1.SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualService")
 			os.Exit(1)
 		}
@@ -413,7 +413,7 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Secret")
 			os.Exit(1)
 		}
-		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr); err != nil {
+		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualServiceTemplate")
 			os.Exit(1)
 		}
@@ -494,6 +494,7 @@ func main() {
 					resStore,
 					mgr.GetClient(),
 					cfg.GetNamespaceForResourceCreation(),
+					cacheUpdater,
 				); err != nil {
 					setupServers.Error(err, "cannot run grpc xDS server")
 					os.Exit(1)

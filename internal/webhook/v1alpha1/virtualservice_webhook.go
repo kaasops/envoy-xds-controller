@@ -23,7 +23,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 
-	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,9 +39,9 @@ import (
 var virtualservicelog = logf.Log.WithName("virtualservice-resource")
 
 // SetupVirtualServiceWebhookWithManager registers the webhook for VirtualService in the manager.
-func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager) error {
+func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.CacheUpdater) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&envoyv1alpha1.VirtualService{}).
-		WithValidator(&VirtualServiceCustomValidator{Client: mgr.GetClient()}).
+		WithValidator(&VirtualServiceCustomValidator{Client: mgr.GetClient(), updater: cacheUpdater}).
 		Complete()
 }
 
@@ -59,7 +58,8 @@ func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type VirtualServiceCustomValidator struct {
-	Client client.Client
+	Client  client.Client
+	updater *updater.CacheUpdater
 }
 
 var _ webhook.CustomValidator = &VirtualServiceCustomValidator{}
@@ -103,10 +103,7 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 	if len(vs.GetNodeIDs()) == 0 {
 		return fmt.Errorf("nodeIDs is required")
 	}
-	resStore := store.New()
-	if err := resStore.FillFromKubernetes(ctx, v.Client); err != nil {
-		return fmt.Errorf("failed to fill store: %w", err)
-	}
+	resStore := v.updater.CloneStore()
 	snapshotCache := cache.NewSnapshotCache()
 	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
 	if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {

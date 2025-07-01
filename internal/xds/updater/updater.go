@@ -42,6 +42,12 @@ func (c *CacheUpdater) RebuildSnapshot(ctx context.Context) error {
 	return c.rebuildSnapshot(ctx)
 }
 
+func (c *CacheUpdater) CloneStore() *store.Store {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+	return c.store.Clone()
+}
+
 // nolint: gocyclo
 func (c *CacheUpdater) rebuildSnapshot(ctx context.Context) error {
 	errs := make([]error, 0)

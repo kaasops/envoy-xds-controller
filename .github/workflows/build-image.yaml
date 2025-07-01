@@ -9,7 +9,8 @@ on:
 jobs:
   build-and-push:
     name: Build and push Docker images
-    runs-on: ubuntu-latest
+#    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

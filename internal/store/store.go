@@ -56,6 +56,60 @@ func New() *Store {
 	return store
 }
 
+// Clone creates a deep copy of the Store
+func (s *Store) Clone() *Store {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	// Create a new store
+	clone := New()
+
+	// Copy all maps
+	for k, v := range s.virtualServices {
+		clone.virtualServices[k] = v.DeepCopy()
+	}
+	for k, v := range s.virtualServiceTemplates {
+		clone.virtualServiceTemplates[k] = v.DeepCopy()
+	}
+	for k, v := range s.routes {
+		clone.routes[k] = v.DeepCopy()
+	}
+	for k, v := range s.clusters {
+		clone.clusters[k] = v.DeepCopy()
+	}
+	for k, v := range s.httpFilters {
+		clone.httpFilters[k] = v.DeepCopy()
+	}
+	for k, v := range s.listeners {
+		clone.listeners[k] = v.DeepCopy()
+	}
+	for k, v := range s.accessLogs {
+		clone.accessLogs[k] = v.DeepCopy()
+	}
+	for k, v := range s.policies {
+		clone.policies[k] = v.DeepCopy()
+	}
+	for k, v := range s.secrets {
+		clone.secrets[k] = v.DeepCopy()
+	}
+
+	// The domainToSecretMap is handled by updateDomainSecretsMap, so we don't need to copy it manually
+	// Similarly, all the ByUID maps are handled by their respective update methods
+
+	// Update all the ByUID maps and other derived maps
+	clone.updateListenerByUIDMap()
+	clone.updateVirtualServiceByUIDMap()
+	clone.updateVirtualServiceTemplateByUIDMap()
+	clone.updateRouteByUIDMap()
+	clone.updateClusterByUIDMap()
+	clone.updateAccessLogByUIDMap()
+	clone.updateHTTPFilterByUIDMap()
+	clone.updateDomainSecretsMap()
+	clone.updateSpecClusters()
+
+	return clone
+}
+
 func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error {
 	var accessLogConfigs v1alpha1.AccessLogConfigList
 	if err := cl.List(ctx, &accessLogConfigs); err != nil {

@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
+
 	"github.com/kaasops/envoy-xds-controller/internal/filewatcher"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/permissions/v1/permissionsv1connect"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/util/v1/utilv1connect"
@@ -159,10 +161,10 @@ func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	return nil
 }
 
-func (c *Client) RunGRPC(port int, s *store.Store, mgrClient client.Client, targetNs string) error {
+func (c *Client) RunGRPC(port int, s *store.Store, mgrClient client.Client, targetNs string, updater *updater.CacheUpdater) error {
 	mux := http.NewServeMux()
 
-	path, handler := virtual_servicev1connect.NewVirtualServiceStoreServiceHandler(virtualservice.NewVirtualServiceStore(s, mgrClient, targetNs))
+	path, handler := virtual_servicev1connect.NewVirtualServiceStoreServiceHandler(virtualservice.NewVirtualServiceStore(s, mgrClient, targetNs, updater))
 	mux.Handle(path, handler)
 	path, handler = virtual_service_templatev1connect.NewVirtualServiceTemplateStoreServiceHandler(grpcapi.NewVirtualServiceTemplateStore(s))
 	mux.Handle(path, handler)

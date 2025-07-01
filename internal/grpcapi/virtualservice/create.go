@@ -15,7 +15,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/grpcapi"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
-	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
 	v1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -251,15 +250,10 @@ func (s *VirtualServiceStore) buildAndCreateVirtualService(
 	ctx context.Context,
 	vs *v1alpha1.VirtualService,
 ) error {
-	tmpStore := store.New()
-	if err := tmpStore.FillFromKubernetes(ctx, s.client); err != nil {
-		return err
-	}
-
+	tmpStore := s.cacheUpdater.CloneStore()
 	if _, err := resbuilder.BuildResources(vs, tmpStore); err != nil {
 		return err
 	}
-
 	return s.client.Create(ctx, vs)
 }
 
