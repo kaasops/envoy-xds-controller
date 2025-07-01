@@ -258,74 +258,85 @@ func main() {
 	}
 	defer fWatcher.Cancel()
 
+	cacheReadyCh := make(chan struct{})
+
 	if err = (&controller.ClusterReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
 	}
 	if err = (&controller.ListenerReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
 		os.Exit(1)
 	}
 	if err = (&controller.RouteReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Route")
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)
 	}
 	if err = (&controller.AccessLogConfigReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AccessLogConfig")
 		os.Exit(1)
 	}
 	if err = (&controller.HttpFilterReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HttpFilter")
 		os.Exit(1)
 	}
 	if err = (&controller.PolicyReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Policy")
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceTemplateReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualServiceTemplate")
 		os.Exit(1)
 	}
 	if err = (&controller.SecretReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)
@@ -428,8 +439,12 @@ func main() {
 		}
 
 		if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {
-			setupLog.Error(err, "rebuild snapshot with errors")
+			setupLog.Error(err, "cache was built with errors")
+		} else {
+			setupLog.Info("cache was successfully built")
 		}
+
+		close(cacheReadyCh)
 
 		connectedClients := xdsClients.NewRegistry()
 

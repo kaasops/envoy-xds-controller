@@ -32,8 +32,9 @@ import (
 // AccessLogConfigReconciler reconciles a AccessLogConfig object
 type AccessLogConfigReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=accesslogconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +51,7 @@ type AccessLogConfigReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *AccessLogConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
 	rlog := log.FromContext(ctx).WithName("accessLogConfig-reconciler").WithValues("accessLogConfig", req.NamespacedName)
 	rlog.Info("Reconciling AccessLogConfig")
 
