@@ -6,6 +6,7 @@ development: false
 
 metrics:
   address: "0" # set "0" for disabling
+  secure: true
 
 xds:
   port: 9000

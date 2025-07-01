@@ -49,6 +49,7 @@ spec:
           {{- if .Values.cacheAPI.enabled }}
           {{- if ne .Values.metrics.address "0" }}
           - --metrics-bind-address={{ .Values.metrics.address }}
+          - --metrics-secure={{ .Values.metrics.secure }}
           {{- end }}
           - --development={{ .Values.development }}
           - --enable-cache-api=true

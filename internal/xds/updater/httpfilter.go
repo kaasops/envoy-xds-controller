@@ -14,13 +14,13 @@ func (c *CacheUpdater) ApplyHTTPFilter(ctx context.Context, httpFilter *v1alpha1
 	prevHTTPFilter := c.store.GetHTTPFilter(helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name})
 	if prevHTTPFilter == nil {
 		c.store.SetHTTPFilter(httpFilter)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevHTTPFilter.IsEqual(httpFilter) {
 		return nil
 	}
 	c.store.SetHTTPFilter(httpFilter)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteHTTPFilter(ctx context.Context, nn types.NamespacedName) error {
@@ -30,5 +30,5 @@ func (c *CacheUpdater) DeleteHTTPFilter(ctx context.Context, nn types.Namespaced
 		return nil
 	}
 	c.store.DeleteHTTPFilter(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }

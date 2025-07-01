@@ -14,13 +14,13 @@ func (c *CacheUpdater) ApplyAccessLogConfig(ctx context.Context, alc *v1alpha1.A
 	prevALC := c.store.GetAccessLog(helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name})
 	if prevALC == nil {
 		c.store.SetAccessLog(alc)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevALC.IsEqual(alc) {
 		return nil
 	}
 	c.store.SetAccessLog(alc)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteAccessLogConfig(ctx context.Context, alc types.NamespacedName) error {
@@ -30,5 +30,5 @@ func (c *CacheUpdater) DeleteAccessLogConfig(ctx context.Context, alc types.Name
 		return nil
 	}
 	c.store.DeleteAccessLog(helpers.NamespacedName{Namespace: alc.Namespace, Name: alc.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }

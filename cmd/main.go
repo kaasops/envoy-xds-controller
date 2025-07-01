@@ -38,12 +38,13 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	_ "net/http/pprof"
 
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/kelseyhightower/envconfig"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/kaasops/envoy-xds-controller/internal/xds"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/api"
@@ -438,7 +439,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {
+		if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
 			setupLog.Error(err, "cache was built with errors")
 		} else {
 			setupLog.Info("cache was successfully built")

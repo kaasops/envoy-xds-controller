@@ -15,7 +15,7 @@ func (c *CacheUpdater) ApplyVirtualService(ctx context.Context, vs *v1alpha1.Vir
 	prevVS := c.store.GetVirtualService(helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name})
 	if prevVS == nil {
 		c.store.SetVirtualService(vs)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevVS.IsEqual(vs) {
 		if prevVS.IsStatusInvalid() {
@@ -24,7 +24,7 @@ func (c *CacheUpdater) ApplyVirtualService(ctx context.Context, vs *v1alpha1.Vir
 		return nil
 	}
 	c.store.SetVirtualService(vs)
-	err := c.rebuildSnapshot(ctx)
+	err := c.rebuildSnapshots(ctx)
 	if err != nil {
 		return err
 	}
@@ -41,5 +41,5 @@ func (c *CacheUpdater) DeleteVirtualService(ctx context.Context, nn types.Namesp
 		return nil
 	}
 	c.store.DeleteVirtualService(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }

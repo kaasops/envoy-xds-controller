@@ -272,7 +272,10 @@ helm-index:
 .PHONY: helm-deploy-local
 helm-deploy-local: manifests set-local## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)
-	helm install exc --set auth.enabled=$(AUTH_ENABLED) \
+	helm install exc --set metrics.address=:8443 \
+		--set metrics.secure=false \
+		--set development=true \
+		--set auth.enabled=$(AUTH_ENABLED) \
  		--set 'watchNamespaces={default}' \
  		--set image.repository=$(IMG_WITHOUT_TAG) \
  		--set image.tag=$(TAG) \
@@ -366,7 +369,7 @@ dev-auth:
 	bash scripts/dev-auth.sh
 
 .PHONY: dev-local-with-auth
-dev-local-with-auth: dev-auth set-auth-env dev-local
+dev-local-with-auth: dev-auth set-auth-env install-prometheus dev-local
 
 .PHONY: helm-template
 helm-template:

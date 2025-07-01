@@ -36,10 +36,10 @@ func NewCacheUpdater(wsc *wrapped.SnapshotCache, store *store.Store) *CacheUpdat
 	}
 }
 
-func (c *CacheUpdater) RebuildSnapshot(ctx context.Context) error {
+func (c *CacheUpdater) RebuildSnapshots(ctx context.Context) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) CloneStore() *store.Store {
@@ -49,7 +49,7 @@ func (c *CacheUpdater) CloneStore() *store.Store {
 }
 
 // nolint: gocyclo
-func (c *CacheUpdater) rebuildSnapshot(ctx context.Context) error {
+func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	errs := make([]error, 0)
 
 	mixer := NewMixer()

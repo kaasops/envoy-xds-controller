@@ -14,13 +14,13 @@ func (c *CacheUpdater) ApplyCluster(ctx context.Context, cl *v1alpha1.Cluster) e
 	prevCluster := c.store.GetCluster(helpers.NamespacedName{Namespace: cl.Namespace, Name: cl.Name})
 	if prevCluster == nil {
 		c.store.SetCluster(cl)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevCluster.IsEqual(cl) {
 		return nil
 	}
 	c.store.SetCluster(cl)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteCluster(ctx context.Context, cl types.NamespacedName) error {
@@ -30,7 +30,7 @@ func (c *CacheUpdater) DeleteCluster(ctx context.Context, cl types.NamespacedNam
 		return nil
 	}
 	c.store.DeleteCluster(helpers.NamespacedName{Namespace: cl.Namespace, Name: cl.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) GetSpecCluster(specCluster string) *v1alpha1.Cluster {

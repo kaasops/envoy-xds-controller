@@ -14,13 +14,13 @@ func (c *CacheUpdater) ApplyPolicy(ctx context.Context, policy *v1alpha1.Policy)
 	prevPolicy := c.store.GetPolicy(helpers.NamespacedName{Namespace: policy.Namespace, Name: policy.Name})
 	if prevPolicy == nil {
 		c.store.SetPolicy(policy)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevPolicy.IsEqual(policy) {
 		return nil
 	}
 	c.store.SetPolicy(policy)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeletePolicy(ctx context.Context, nn types.NamespacedName) error {
@@ -30,5 +30,5 @@ func (c *CacheUpdater) DeletePolicy(ctx context.Context, nn types.NamespacedName
 		return nil
 	}
 	c.store.DeletePolicy(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }

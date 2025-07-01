@@ -16,13 +16,13 @@ func (c *CacheUpdater) ApplySecret(ctx context.Context, secret *v1.Secret) error
 	prevSecret := c.store.GetSecret(helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name})
 	if prevSecret == nil {
 		c.store.SetSecret(secret)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if secretsEqual(prevSecret, secret) {
 		return nil
 	}
 	c.store.SetSecret(secret)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteSecret(ctx context.Context, nn types.NamespacedName) error {
@@ -32,7 +32,7 @@ func (c *CacheUpdater) DeleteSecret(ctx context.Context, nn types.NamespacedName
 		return nil
 	}
 	c.store.DeleteSecret(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func secretsEqual(a, b *v1.Secret) bool {

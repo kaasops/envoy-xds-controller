@@ -14,13 +14,13 @@ func (c *CacheUpdater) ApplyListener(ctx context.Context, listener *v1alpha1.Lis
 	prevListener := c.store.GetListener(helpers.NamespacedName{Namespace: listener.Namespace, Name: listener.Name})
 	if prevListener == nil {
 		c.store.SetListener(listener)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevListener.IsEqual(listener) {
 		return nil
 	}
 	c.store.SetListener(listener)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteListener(ctx context.Context, nn types.NamespacedName) error {
@@ -30,5 +30,5 @@ func (c *CacheUpdater) DeleteListener(ctx context.Context, nn types.NamespacedNa
 		return nil
 	}
 	c.store.DeleteListener(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }

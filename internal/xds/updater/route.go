@@ -14,13 +14,13 @@ func (c *CacheUpdater) ApplyRoute(ctx context.Context, route *v1alpha1.Route) er
 	prevRoute := c.store.GetRoute(helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name})
 	if prevRoute == nil {
 		c.store.SetRoute(route)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevRoute.IsEqual(route) {
 		return nil
 	}
 	c.store.SetRoute(route)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteRoute(ctx context.Context, nn types.NamespacedName) error {
@@ -30,5 +30,5 @@ func (c *CacheUpdater) DeleteRoute(ctx context.Context, nn types.NamespacedName)
 		return nil
 	}
 	c.store.DeleteRoute(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }

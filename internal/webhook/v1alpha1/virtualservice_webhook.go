@@ -106,7 +106,7 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 	resStore := v.updater.CloneStore()
 	snapshotCache := cache.NewSnapshotCache()
 	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
-	if err := cacheUpdater.RebuildSnapshot(ctx); err != nil {
+	if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
 		return fmt.Errorf("failed build snapshot for validation: %w", err)
 	}
 	return cacheUpdater.ApplyVirtualService(ctx, vs)

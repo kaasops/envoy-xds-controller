@@ -14,13 +14,13 @@ func (c *CacheUpdater) ApplyVirtualServiceTemplate(ctx context.Context, vst *v1a
 	prevVST := c.store.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name})
 	if prevVST == nil {
 		c.store.SetVirtualServiceTemplate(vst)
-		return c.rebuildSnapshot(ctx)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevVST.IsEqual(vst) {
 		return nil
 	}
 	c.store.SetVirtualServiceTemplate(vst)
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteVirtualServiceTemplate(ctx context.Context, nn types.NamespacedName) error {
@@ -30,5 +30,5 @@ func (c *CacheUpdater) DeleteVirtualServiceTemplate(ctx context.Context, nn type
 		return nil
 	}
 	c.store.DeleteVirtualServiceTemplate(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshot(ctx)
+	return c.rebuildSnapshots(ctx)
 }
