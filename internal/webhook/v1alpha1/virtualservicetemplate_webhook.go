@@ -75,7 +75,7 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", newObj)
 	}
 	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update", "name", virtualservicetemplate.GetName())
-	cacheUpdater := updater.NewCacheUpdater(cache.NewSnapshotCache(), v.cacheUpdater.CloneStore())
+	cacheUpdater := updater.NewCacheUpdater(cache.NewSnapshotCache(), v.cacheUpdater.CopyStore())
 	if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
 		return nil, fmt.Errorf("failed build snapshot for validation: %w", err)
 	}

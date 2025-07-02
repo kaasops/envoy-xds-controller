@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -103,11 +102,8 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 	if len(vs.GetNodeIDs()) == 0 {
 		return fmt.Errorf("nodeIDs is required")
 	}
-	resStore := v.updater.CloneStore()
-	snapshotCache := cache.NewSnapshotCache()
-	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
-	if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
-		return fmt.Errorf("failed build snapshot for validation: %w", err)
+	if err := v.updater.DryBuildSnapshotsWithVirtualService(ctx, vs); err != nil {
+		return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
 	}
-	return cacheUpdater.ApplyVirtualService(ctx, vs)
+	return nil
 }

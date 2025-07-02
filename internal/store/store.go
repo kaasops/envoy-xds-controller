@@ -56,47 +56,59 @@ func New() *Store {
 	return store
 }
 
-// Clone creates a deep copy of the Store
-func (s *Store) Clone() *Store {
+// Copy creates copy of the Store
+func (s *Store) Copy() *Store {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// Create a new store
-	clone := New()
+	clone := &Store{
+		accessLogs:                  make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig, len(s.accessLogs)),
+		accessLogByUID:              make(map[string]*v1alpha1.AccessLogConfig, len(s.accessLogByUID)),
+		virtualServices:             make(map[helpers.NamespacedName]*v1alpha1.VirtualService, len(s.virtualServices)),
+		virtualServiceTemplates:     make(map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate, len(s.virtualServiceTemplates)),
+		virtualServiceTemplateByUID: make(map[string]*v1alpha1.VirtualServiceTemplate, len(s.virtualServiceTemplateByUID)),
+		routes:                      make(map[helpers.NamespacedName]*v1alpha1.Route, len(s.routes)),
+		routeByUID:                  make(map[string]*v1alpha1.Route, len(s.routeByUID)),
+		clusters:                    make(map[helpers.NamespacedName]*v1alpha1.Cluster, len(s.clusters)),
+		clusterByUID:                make(map[string]*v1alpha1.Cluster, len(s.clusterByUID)),
+		httpFilters:                 make(map[helpers.NamespacedName]*v1alpha1.HttpFilter, len(s.httpFilters)),
+		httpFilterByUID:             make(map[string]*v1alpha1.HttpFilter, len(s.httpFilterByUID)),
+		listeners:                   make(map[helpers.NamespacedName]*v1alpha1.Listener, len(s.listeners)),
+		listenerByUID:               make(map[string]*v1alpha1.Listener, len(s.listenerByUID)),
+		policies:                    make(map[helpers.NamespacedName]*v1alpha1.Policy, len(s.policies)),
+		secrets:                     make(map[helpers.NamespacedName]*v1.Secret, len(s.secrets)),
+		domainToSecretMap:           make(map[string]v1.Secret, len(s.domainToSecretMap)),
+		specClusters:                make(map[string]*v1alpha1.Cluster, len(s.specClusters)),
+	}
 
-	// Copy all maps
 	for k, v := range s.virtualServices {
-		clone.virtualServices[k] = v.DeepCopy()
+		clone.virtualServices[k] = v
 	}
 	for k, v := range s.virtualServiceTemplates {
-		clone.virtualServiceTemplates[k] = v.DeepCopy()
+		clone.virtualServiceTemplates[k] = v
 	}
 	for k, v := range s.routes {
-		clone.routes[k] = v.DeepCopy()
+		clone.routes[k] = v
 	}
 	for k, v := range s.clusters {
-		clone.clusters[k] = v.DeepCopy()
+		clone.clusters[k] = v
 	}
 	for k, v := range s.httpFilters {
-		clone.httpFilters[k] = v.DeepCopy()
+		clone.httpFilters[k] = v
 	}
 	for k, v := range s.listeners {
-		clone.listeners[k] = v.DeepCopy()
+		clone.listeners[k] = v
 	}
 	for k, v := range s.accessLogs {
-		clone.accessLogs[k] = v.DeepCopy()
+		clone.accessLogs[k] = v
 	}
 	for k, v := range s.policies {
-		clone.policies[k] = v.DeepCopy()
+		clone.policies[k] = v
 	}
 	for k, v := range s.secrets {
-		clone.secrets[k] = v.DeepCopy()
+		clone.secrets[k] = v
 	}
 
-	// The domainToSecretMap is handled by updateDomainSecretsMap, so we don't need to copy it manually
-	// Similarly, all the ByUID maps are handled by their respective update methods
-
-	// Update all the ByUID maps and other derived maps
 	clone.updateListenerByUIDMap()
 	clone.updateVirtualServiceByUIDMap()
 	clone.updateVirtualServiceTemplateByUIDMap()

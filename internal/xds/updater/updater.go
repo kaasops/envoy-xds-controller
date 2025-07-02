@@ -42,14 +42,33 @@ func (c *CacheUpdater) RebuildSnapshots(ctx context.Context) error {
 	return c.rebuildSnapshots(ctx)
 }
 
-func (c *CacheUpdater) CloneStore() *store.Store {
+func (c *CacheUpdater) CopyStore() *store.Store {
 	c.mx.RLock()
 	defer c.mx.RUnlock()
-	return c.store.Clone()
+	return c.store.Copy()
+}
+
+func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, vs *v1alpha1.VirtualService) error {
+	c.mx.RLock()
+	storeCopy := c.store.Copy()
+	c.mx.RUnlock()
+	storeCopy.SetVirtualService(vs)
+	err, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	return err
+}
+
+func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
+	err, usedSecrets := buildSnapshots(ctx, c.snapshotCache, c.store)
+	c.usedSecrets = usedSecrets
+	return err
 }
 
 // nolint: gocyclo
-func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
+func buildSnapshots(
+	ctx context.Context,
+	snapshotCache *wrapped.SnapshotCache,
+	store *store.Store,
+) (error, map[helpers.NamespacedName]helpers.NamespacedName) {
 	errs := make([]error, 0)
 
 	mixer := NewMixer()
@@ -59,10 +78,10 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	usedSecrets := make(map[helpers.NamespacedName]helpers.NamespacedName)
 	nodeIDDomainsSet := make(map[string]struct{})
 
-	nodeIDsForCleanup := c.snapshotCache.GetNodeIDsAsMap()
+	nodeIDsForCleanup := snapshotCache.GetNodeIDsAsMap()
 	var commonVirtualServices []*v1alpha1.VirtualService
 
-	for _, vs := range c.store.MapVirtualServices() {
+	for _, vs := range store.MapVirtualServices() {
 		if vs.IsStatusInvalid() {
 			continue
 		}
@@ -80,7 +99,7 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 			continue
 		}
 
-		vsRes, err := resbuilder.BuildResources(vs, c.store)
+		vsRes, err := resbuilder.BuildResources(vs, store)
 		if err != nil {
 			vs.UpdateStatus(true, err.Error())
 			errs = append(errs, err)
@@ -97,7 +116,7 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 			for _, domain := range vsRes.Domains {
 				nodeDom := nodeIDDomain(nodeID, domain)
 				if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID)
+					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil
 				}
 				nodeIDDomainsSet[nodeDom] = struct{}{}
 			}
@@ -117,7 +136,7 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 
 	if len(commonVirtualServices) > 0 {
 		for _, vs := range commonVirtualServices {
-			vsRes, err := resbuilder.BuildResources(vs, c.store)
+			vsRes, err := resbuilder.BuildResources(vs, store)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -131,7 +150,7 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 				for _, domain := range vsRes.Domains {
 					nodeDom := nodeIDDomain(nodeID, domain)
 					if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID)
+						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil
 					}
 					nodeIDDomainsSet[nodeDom] = struct{}{}
 				}
@@ -150,19 +169,17 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 		}
 	}
 
-	c.usedSecrets = usedSecrets
-
-	tmp, err := mixer.Mix(c.store)
+	tmp, err := mixer.Mix(store)
 	if err != nil {
 		errs = append(errs, err)
-		return multierr.Combine(errs...)
+		return multierr.Combine(errs...), usedSecrets
 	}
 
 	for nodeID, resMap := range tmp {
 		var snapshot *cache.Snapshot
 		var err error
 		var hasChanges bool
-		prevSnapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
+		prevSnapshot, _ := snapshotCache.GetSnapshot(nodeID)
 		if prevSnapshot != nil {
 			snapshot, hasChanges, err = updateSnapshot(prevSnapshot, resMap)
 			if err != nil {
@@ -178,7 +195,7 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 			}
 		}
 		if hasChanges {
-			err = c.snapshotCache.SetSnapshot(ctx, nodeID, snapshot)
+			err = snapshotCache.SetSnapshot(ctx, nodeID, snapshot)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -188,14 +205,14 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	}
 
 	for nodeID := range nodeIDsForCleanup {
-		c.snapshotCache.ClearSnapshot(nodeID)
+		snapshotCache.ClearSnapshot(nodeID)
 	}
 
 	if len(errs) > 0 {
-		return multierr.Combine(errs...)
+		return multierr.Combine(errs...), usedSecrets
 	}
 
-	return nil
+	return nil, usedSecrets
 }
 
 func (c *CacheUpdater) GetUsedSecrets() map[helpers.NamespacedName]helpers.NamespacedName {

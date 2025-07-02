@@ -250,7 +250,7 @@ func (s *VirtualServiceStore) buildAndCreateVirtualService(
 	ctx context.Context,
 	vs *v1alpha1.VirtualService,
 ) error {
-	tmpStore := s.cacheUpdater.CloneStore()
+	tmpStore := s.cacheUpdater.CopyStore()
 	if _, err := resbuilder.BuildResources(vs, tmpStore); err != nil {
 		return err
 	}
