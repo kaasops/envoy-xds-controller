@@ -34,6 +34,13 @@ func (vst *VirtualServiceTemplate) NormalizeSpec() {
 	if vst.Spec.AccessLogConfig != nil && vst.Spec.AccessLogConfig.Namespace == nil {
 		vst.Spec.AccessLogConfig.Namespace = &vst.Namespace
 	}
+	if len(vst.Spec.AccessLogConfigs) > 0 {
+		for _, accessLogConfig := range vst.Spec.AccessLogConfigs {
+			if accessLogConfig.Namespace == nil {
+				accessLogConfig.Namespace = &vst.Namespace
+			}
+		}
+	}
 	if len(vst.Spec.AdditionalRoutes) > 0 {
 		for _, route := range vst.Spec.AdditionalRoutes {
 			if route.Namespace == nil {
