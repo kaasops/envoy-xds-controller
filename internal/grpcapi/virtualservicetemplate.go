@@ -243,6 +243,27 @@ func (s *VirtualServiceTemplateStore) expandReferences(vs *v1alpha1.VirtualServi
 		result["accessLogConfig"] = accessLogConfigMap
 	}
 
+	if len(vs.Spec.AccessLogConfigs) > 0 {
+		result["accessLogConfigs"] = make([]map[string]interface{}, 0, len(vs.Spec.AccessLogConfigs))
+		for _, alc := range vs.Spec.AccessLogConfigs {
+			if alc.Namespace == nil {
+				return nil, fmt.Errorf("access log config namespace is required")
+			}
+			accessLogConfig := s.store.GetAccessLog(helpers.NamespacedName{
+				Namespace: *alc.Namespace,
+				Name:      alc.Name,
+			})
+			if accessLogConfig == nil {
+				return nil, fmt.Errorf("accessLogConfig '%s' not found", alc.Name)
+			}
+			var accessLogConfigMap map[string]interface{}
+			if err := yaml.Unmarshal(accessLogConfig.Spec.Raw, &accessLogConfigMap); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal accessLogConfig spec: %w", err)
+			}
+			result["accessLogConfigs"] = append(result["accessLogConfigs"].([]map[string]interface{}), accessLogConfigMap)
+		}
+	}
+
 	if len(vs.Spec.AdditionalRoutes) > 0 {
 		routes := make([]map[string]interface{}, 0)
 		for _, route := range vs.Spec.AdditionalRoutes {
