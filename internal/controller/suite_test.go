@@ -52,6 +52,7 @@ var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
 var cacheUpdater *updater.CacheUpdater
+var cacheReadyChan = make(chan struct{})
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -83,6 +84,8 @@ var _ = BeforeSuite(func() {
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
+
+	close(cacheReadyChan)
 
 	err = envoyv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
