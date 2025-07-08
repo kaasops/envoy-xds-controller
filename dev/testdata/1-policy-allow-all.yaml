@@ -1,0 +1,11 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Policy
+metadata:
+  name: policy-allow-all
+  annotations:
+    envoy.kaasops.io/description: "Policy allowing all traffic with any permissions and principals"
+spec:
+  permissions:
+    - any: true
+  principals:
+    - any: true

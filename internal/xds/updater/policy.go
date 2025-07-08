@@ -8,27 +8,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) UpsertPolicy(ctx context.Context, policy *v1alpha1.Policy) error {
+func (c *CacheUpdater) ApplyPolicy(ctx context.Context, policy *v1alpha1.Policy) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	prevPolicy := c.store.Policies[helpers.NamespacedName{Namespace: policy.Namespace, Name: policy.Name}]
+	prevPolicy := c.store.GetPolicy(helpers.NamespacedName{Namespace: policy.Namespace, Name: policy.Name})
 	if prevPolicy == nil {
-		c.store.Policies[helpers.NamespacedName{Namespace: policy.Namespace, Name: policy.Name}] = policy
-		return c.buildCache(ctx)
+		c.store.SetPolicy(policy)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevPolicy.IsEqual(policy) {
 		return nil
 	}
-	c.store.Policies[helpers.NamespacedName{Namespace: policy.Namespace, Name: policy.Name}] = policy
-	return c.buildCache(ctx)
+	c.store.SetPolicy(policy)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeletePolicy(ctx context.Context, nn types.NamespacedName) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	if c.store.Policies[helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}] == nil {
+	if !c.store.IsExistingPolicy(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}) {
 		return nil
 	}
-	delete(c.store.Policies, helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.buildCache(ctx)
+	c.store.DeletePolicy(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
+	return c.rebuildSnapshots(ctx)
 }

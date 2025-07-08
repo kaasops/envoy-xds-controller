@@ -1,0 +1,19 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: HttpFilter
+metadata:
+  name: http-filter-geo-ip
+  annotations:
+    envoy.kaasops.io/description: "GeoIP HTTP filter using MaxMind for adding location headers"
+spec:
+  - name: envoy.filters.http.geoip
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.http.geoip.v3.Geoip
+      provider:
+        name: envoy.geoip_providers.maxmind
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.geoip_providers.maxmind.v3.MaxMindConfig
+          common_provider_config:
+            geo_headers_to_add:
+              country: "X-Location-Country"
+              city: "X-Location-City"
+          city_db_path: "/usr/share/GeoIP/GeoIP2-City.mmdb"

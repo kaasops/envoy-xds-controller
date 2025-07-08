@@ -8,27 +8,27 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) UpsertHTTPFilter(ctx context.Context, httpFilter *v1alpha1.HttpFilter) error {
+func (c *CacheUpdater) ApplyHTTPFilter(ctx context.Context, httpFilter *v1alpha1.HttpFilter) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	prevHTTPFilter := c.store.HTTPFilters[helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name}]
+	prevHTTPFilter := c.store.GetHTTPFilter(helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name})
 	if prevHTTPFilter == nil {
-		c.store.HTTPFilters[helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name}] = httpFilter
-		return c.buildCache(ctx)
+		c.store.SetHTTPFilter(httpFilter)
+		return c.rebuildSnapshots(ctx)
 	}
 	if prevHTTPFilter.IsEqual(httpFilter) {
 		return nil
 	}
-	c.store.HTTPFilters[helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name}] = httpFilter
-	return c.buildCache(ctx)
+	c.store.SetHTTPFilter(httpFilter)
+	return c.rebuildSnapshots(ctx)
 }
 
 func (c *CacheUpdater) DeleteHTTPFilter(ctx context.Context, nn types.NamespacedName) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	if c.store.HTTPFilters[helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}] == nil {
+	if !c.store.IsExistingHTTPFilter(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}) {
 		return nil
 	}
-	delete(c.store.HTTPFilters, helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.buildCache(ctx)
+	c.store.DeleteHTTPFilter(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
+	return c.rebuildSnapshots(ctx)
 }

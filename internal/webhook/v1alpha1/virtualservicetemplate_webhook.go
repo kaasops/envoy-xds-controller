@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kaasops/envoy-xds-controller/internal/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,9 +38,9 @@ import (
 var virtualservicetemplatelog = logf.Log.WithName("virtualservicetemplate-resource")
 
 // SetupVirtualServiceTemplateWebhookWithManager registers the webhook for VirtualServiceTemplate in the manager.
-func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager) error {
+func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.CacheUpdater) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&envoyv1alpha1.VirtualServiceTemplate{}).
-		WithValidator(&VirtualServiceTemplateCustomValidator{Client: mgr.GetClient()}).
+		WithValidator(&VirtualServiceTemplateCustomValidator{Client: mgr.GetClient(), cacheUpdater: cacheUpdater}).
 		Complete()
 }
 
@@ -55,7 +57,8 @@ func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type VirtualServiceTemplateCustomValidator struct {
-	Client client.Client
+	Client       client.Client
+	cacheUpdater *updater.CacheUpdater
 }
 
 var _ webhook.CustomValidator = &VirtualServiceTemplateCustomValidator{}
@@ -67,6 +70,18 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(ctx context.Conte
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type VirtualServiceTemplate.
 func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	virtualservicetemplate, ok := newObj.(*envoyv1alpha1.VirtualServiceTemplate)
+	if !ok {
+		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", newObj)
+	}
+	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update", "name", virtualservicetemplate.GetName())
+	cacheUpdater := updater.NewCacheUpdater(cache.NewSnapshotCache(), v.cacheUpdater.CopyStore())
+	if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
+		return nil, fmt.Errorf("failed build snapshot for validation: %w", err)
+	}
+	if err := cacheUpdater.ApplyVirtualServiceTemplate(ctx, virtualservicetemplate); err != nil {
+		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
+	}
 	return nil, nil
 }
 
@@ -87,7 +102,7 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateDelete(ctx context.Conte
 		var refVsNames []string
 		for _, vs := range virtualServiceList.Items {
 			if vs.Spec.Template != nil && vs.Spec.Template.Name == virtualservicetemplate.GetName() {
-				refVsNames = append(refVsNames, vs.GetName())
+				refVsNames = append(refVsNames, vs.GetLabelName())
 			}
 		}
 		if len(refVsNames) > 0 {

@@ -33,8 +33,9 @@ import (
 // SecretReconciler reconciles a Secret object
 type SecretReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -49,6 +50,7 @@ type SecretReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
 	rlog := log.FromContext(ctx).WithName("secret-reconciler").WithValues("secret", req.NamespacedName)
 	rlog.Info("Reconciling Secret")
 
@@ -60,7 +62,7 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, r.Updater.DeleteSecret(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertSecret(ctx, &secret); err != nil {
+	if err := r.Updater.ApplySecret(ctx, &secret); err != nil {
 		return ctrl.Result{}, err
 	}
 

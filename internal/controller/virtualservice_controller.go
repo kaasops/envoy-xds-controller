@@ -32,8 +32,9 @@ import (
 // VirtualServiceReconciler reconciles a VirtualService object
 type VirtualServiceReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +51,8 @@ type VirtualServiceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
+
 	rlog := log.FromContext(ctx).WithName("virtualService-reconciler").WithValues("virtualService", req.NamespacedName)
 	rlog.Info("Reconciling VirtualService")
 
@@ -61,8 +64,18 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, r.Updater.DeleteVirtualService(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertVirtualService(ctx, &vs); err != nil {
-		return ctrl.Result{}, err
+	prevStatus := vs.Status.DeepCopy()
+	if err := r.Updater.ApplyVirtualService(ctx, &vs); err != nil {
+		vs.UpdateStatus(true, err.Error())
+	} else {
+		vs.UpdateStatus(false, vs.Status.Message)
+	}
+
+	if prevStatus.Invalid != vs.Status.Invalid ||
+		prevStatus.Message != vs.Status.Message {
+		if err := r.Status().Update(ctx, &vs); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	rlog.Info("Finished Reconciling VirtualService")

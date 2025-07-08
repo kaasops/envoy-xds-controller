@@ -146,10 +146,10 @@ var _ = BeforeSuite(func() {
 	err = SetupHttpFilterWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = SetupVirtualServiceWebhookWithManager(mgr)
+	err = SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = SetupVirtualServiceTemplateWebhookWithManager(mgr)
+	err = SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:webhook

@@ -32,8 +32,9 @@ import (
 // ClusterReconciler reconciles a Cluster object
 type ClusterReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=clusters,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +51,8 @@ type ClusterReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
+
 	rlog := log.FromContext(ctx).WithName("cluster-reconciler").WithValues("cluster", req.NamespacedName)
 	rlog.Info("Reconciling Cluster")
 
@@ -60,7 +63,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, r.Updater.DeleteCluster(ctx, req.NamespacedName)
 	}
-	if err := r.Updater.UpsertCluster(ctx, &cluster); err != nil {
+	if err := r.Updater.ApplyCluster(ctx, &cluster); err != nil {
 		return ctrl.Result{}, err
 	}
 

@@ -54,3 +54,15 @@ func (p *Policy) IsEqual(other *Policy) bool {
 	}
 	return bytes.Equal(p.Spec.Raw, other.Spec.Raw)
 }
+
+func (p *Policy) GetAccessGroup() string {
+	accessGroup := p.GetLabels()[LabelAccessGroup]
+	if accessGroup == "" {
+		return GeneralAccessGroup
+	}
+	return accessGroup
+}
+
+func (p *Policy) GetDescription() string {
+	return p.Annotations[annotationDescription]
+}

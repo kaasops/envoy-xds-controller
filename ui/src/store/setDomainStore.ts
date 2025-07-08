@@ -2,15 +2,18 @@ import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 
 type IUseSetDomainStore = {
-    domain: string
-    setDomainValue: (domain: string) => void
+	domain: string
+	setDomainValue: (domain: string) => void
 }
 
 const useSetDomainStore = create<IUseSetDomainStore>()(
-    devtools((set) => ({
-        domain: '',
-        setDomainValue: (domain) => set({domain})
-    }), {name: 'domainStore'})
+	devtools(
+		set => ({
+			domain: '',
+			setDomainValue: domain => set({ domain })
+		}),
+		{ name: 'domainStore' }
+	)
 )
 
-export default useSetDomainStore;
+export default useSetDomainStore

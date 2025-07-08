@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+// Package policy.v1 contains the PolicyStoreService and related messages.
+package policy.v1;
+
+option go_package = "policyv1";
+
+// PolicyListItem represents an individual policy item with a unique identifier and name.
+message PolicyListItem  {
+  // uid is the unique identifier for the policy.
+  string uid = 1;
+  // name is the name of the policy.
+  string name = 2;
+  // Description is the human-readable description of the resource
+  string description = 3;
+}
+
+// PolicyStoreService provides operations related to policy management.
+service PolicyStoreService {
+  // ListPolicies retrieves a list of policies.
+  rpc ListPolicies(ListPoliciesRequest) returns (ListPoliciesResponse);
+}
+
+// ListPoliciesRequest is the request message for ListPolicies RPC.
+message ListPoliciesRequest {}
+
+// ListPoliciesResponse is the response message for ListPolicies RPC, containing a list of policy items.
+message ListPoliciesResponse {
+  // items is a list of PolicyListItem objects.
+  repeated PolicyListItem items = 1;
+}

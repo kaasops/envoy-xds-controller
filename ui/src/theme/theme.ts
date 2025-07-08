@@ -3,7 +3,7 @@ import darkScrollbar from '@mui/material/darkScrollbar'
 import { Context, createContext } from 'react'
 import tokens from './colors'
 
-const themeSettings: any = (mode: string) => {
+export const themeSettings: any = (mode: string) => {
 	const colors = tokens(mode)
 	const os = navigator.platform
 	const isWindows = os === 'Win32'
@@ -162,5 +162,3 @@ interface IColorModeContext {
 export const ColorModeContext: Context<IColorModeContext> = createContext({
 	toggleColorMode: () => {}
 })
-
-export default themeSettings

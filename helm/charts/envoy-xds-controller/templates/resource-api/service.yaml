@@ -1,0 +1,21 @@
+{{- if .Values.resourceAPI.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "chart.fullname" . }}-resource-api
+  labels:
+    {{- include "chart.labels" . | nindent 4 }}
+  {{- with .Values.extraLabels }}
+    {{ toYaml . | indent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.resourceAPI.port }}
+      targetPort: {{ .Values.resourceAPI.port }}
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "chart.selectorLabels" . | nindent 4 }}
+{{- end }}

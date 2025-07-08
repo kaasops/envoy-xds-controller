@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kaasops/envoy-xds-controller/internal/store"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,9 +38,9 @@ import (
 var virtualservicelog = logf.Log.WithName("virtualservice-resource")
 
 // SetupVirtualServiceWebhookWithManager registers the webhook for VirtualService in the manager.
-func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager) error {
+func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.CacheUpdater) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&envoyv1alpha1.VirtualService{}).
-		WithValidator(&VirtualServiceCustomValidator{Client: mgr.GetClient()}).
+		WithValidator(&VirtualServiceCustomValidator{Client: mgr.GetClient(), updater: cacheUpdater}).
 		Complete()
 }
 
@@ -57,7 +57,8 @@ func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type VirtualServiceCustomValidator struct {
-	Client client.Client
+	Client  client.Client
+	updater *updater.CacheUpdater
 }
 
 var _ webhook.CustomValidator = &VirtualServiceCustomValidator{}
@@ -68,7 +69,7 @@ func (v *VirtualServiceCustomValidator) ValidateCreate(ctx context.Context, obj 
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualService object but got %T", obj)
 	}
-	virtualservicelog.Info("Validation for VirtualService upon creation", "name", virtualservice.GetName())
+	virtualservicelog.Info("Validation for VirtualService upon creation", "name", virtualservice.GetLabelName())
 
 	if err := v.validateVirtualService(ctx, virtualservice); err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
@@ -83,7 +84,7 @@ func (v *VirtualServiceCustomValidator) ValidateUpdate(ctx context.Context, oldO
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualService object for the newObj but got %T", newObj)
 	}
-	virtualservicelog.Info("Validation for VirtualService upon update", "name", virtualservice.GetName())
+	virtualservicelog.Info("Validation for VirtualService upon update", "name", virtualservice.GetLabelName())
 
 	if err := v.validateVirtualService(ctx, virtualservice); err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
@@ -101,12 +102,8 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 	if len(vs.GetNodeIDs()) == 0 {
 		return fmt.Errorf("nodeIDs is required")
 	}
-	s := store.New()
-	if err := s.Fill(ctx, v.Client); err != nil {
-		return err
-	}
-	if _, _, err := resbuilder.BuildResources(vs, s); err != nil {
-		return err
+	if err := v.updater.DryBuildSnapshotsWithVirtualService(ctx, vs); err != nil {
+		return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
 	}
 	return nil
 }

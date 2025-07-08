@@ -6,6 +6,7 @@ import (
 
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
+	"sigs.k8s.io/yaml"
 )
 
 func (h *HttpFilter) UnmarshalV3() ([]*hcmv3.HttpFilter, error) {
@@ -73,4 +74,35 @@ func (h *HttpFilter) IsEqual(other *HttpFilter) bool {
 		}
 	}
 	return true
+}
+
+func (h *HttpFilter) GetAccessGroup() string {
+	accessGroup := h.GetLabels()[LabelAccessGroup]
+	if accessGroup == "" {
+		return GeneralAccessGroup
+	}
+	return accessGroup
+}
+
+func (h *HttpFilter) GetDescription() string {
+	return h.Annotations[annotationDescription]
+}
+
+func (h *HttpFilter) Raw() []byte {
+	if h == nil || len(h.Spec) == 0 {
+		return nil
+	}
+	items := make([]any, 0, len(h.Spec))
+	for _, spec := range h.Spec {
+		var httpFilterMap map[string]interface{}
+		if err := yaml.Unmarshal(spec.Raw, &httpFilterMap); err != nil {
+			return nil
+		}
+		items = append(items, httpFilterMap)
+	}
+	data, err := json.Marshal(items)
+	if err != nil {
+		return nil
+	}
+	return data
 }

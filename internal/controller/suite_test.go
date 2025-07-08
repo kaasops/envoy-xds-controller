@@ -23,7 +23,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	runtime2 "k8s.io/apimachinery/pkg/runtime"
 
@@ -53,6 +52,7 @@ var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
 var cacheUpdater *updater.CacheUpdater
+var cacheReadyChan = make(chan struct{})
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -84,6 +84,8 @@ var _ = BeforeSuite(func() {
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
+
+	close(cacheReadyChan)
 
 	err = envoyv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -130,6 +132,6 @@ func testStore() (*store.Store, error) {
 		return nil, err
 	}
 
-	cacheStore.Listeners[helpers.NamespacedName{Name: "http", Namespace: "default"}] = listener
+	cacheStore.SetListener(listener)
 	return cacheStore, nil
 }

@@ -1,0 +1,17 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: dev-vs-from-template
+  annotations:
+    envoy.kaasops.io/node-id: dev
+    envoy.kaasops.io/editable: "true"
+    envoy.kaasops.io/description: "Editable virtual service based on https-template for dev environment"
+  labels:
+    exc-name: vs-from-template
+    exc-access-group: dev
+spec:
+  template:
+    name: https-template
+  virtualHost:
+    domains:
+      - exc.kaasops.io

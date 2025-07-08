@@ -1,0 +1,13 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: vst
+spec:
+  listener:
+    name: https
+  httpFilters:
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  tlsConfig:
+    autoDiscovery: true

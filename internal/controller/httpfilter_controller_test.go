@@ -74,9 +74,10 @@ var _ = Describe("HttpFilter Controller", func() {
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &HttpFilterReconciler{
-				Client:  k8sClient,
-				Scheme:  k8sClient.Scheme(),
-				Updater: cacheUpdater,
+				Client:         k8sClient,
+				Scheme:         k8sClient.Scheme(),
+				Updater:        cacheUpdater,
+				CacheReadyChan: cacheReadyChan,
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

@@ -32,8 +32,9 @@ import (
 // VirtualServiceTemplateReconciler reconciles a VirtualServiceTemplate object
 type VirtualServiceTemplateReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -51,6 +52,7 @@ type VirtualServiceTemplateReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *VirtualServiceTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
 	rlog := log.FromContext(ctx).WithName("virtualServiceTemplate-reconciler").WithValues("virtualServiceTemplate", req.NamespacedName)
 	rlog.Info("Reconciling VirtualServiceTemplate")
 
@@ -62,7 +64,7 @@ func (r *VirtualServiceTemplateReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, r.Updater.DeleteVirtualServiceTemplate(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertVirtualServiceTemplate(ctx, &vst); err != nil {
+	if err := r.Updater.ApplyVirtualServiceTemplate(ctx, &vst); err != nil {
 		return ctrl.Result{}, err
 	}
 

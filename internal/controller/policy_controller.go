@@ -32,8 +32,9 @@ import (
 // PolicyReconciler reconciles a Policy object
 type PolicyReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=policies,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +51,7 @@ type PolicyReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
 	rlog := log.FromContext(ctx).WithName("policy-reconciler").WithValues("policy", req.NamespacedName)
 	rlog.Info("Reconciling Policy")
 
@@ -60,7 +62,7 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		return ctrl.Result{}, r.Updater.DeletePolicy(ctx, req.NamespacedName)
 	}
-	if err := r.Updater.UpsertPolicy(ctx, &policy); err != nil {
+	if err := r.Updater.ApplyPolicy(ctx, &policy); err != nil {
 		return ctrl.Result{}, err
 	}
 

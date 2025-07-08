@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package access_log_config.v1;
+
+option go_package = "accesslogconfigv1";
+
+// Service for storing and listing access log configurations.
+service AccessLogConfigStoreService {
+  // Lists all access log configurations based on the given request.
+  rpc ListAccessLogConfigs(ListAccessLogConfigsRequest) returns (ListAccessLogConfigsResponse);
+}
+
+// Represents an access log configuration item.
+message AccessLogConfigListItem {
+  // The unique identifier of the access log configuration.
+  string uid = 1;
+  // The name of the access log configuration.
+  string name = 2;
+  // Description is the human-readable description of the resource
+  string description = 3;
+  // The raw string representation of the resource
+  string raw = 4;
+}
+
+// Request message for listing access log configurations.
+message ListAccessLogConfigsRequest {
+  // The access group to filter the log configurations.
+  string access_group = 1;
+}
+
+// Response message containing a list of access log configuration items.
+message ListAccessLogConfigsResponse {
+  // The list of access log configuration items.
+  repeated AccessLogConfigListItem items = 1;
+}

@@ -1,0 +1,14 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Route
+metadata:
+  name: bar
+  annotations:
+    envoy.kaasops.io/description: "Route returning a JSON message for path /bar"
+spec:
+  - name: bar
+    match:
+      path: "/bar"
+    direct_response:
+      status: 200
+      body:
+        inline_string: "{\"message\":\"bar\"}"

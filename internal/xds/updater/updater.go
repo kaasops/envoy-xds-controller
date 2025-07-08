@@ -19,7 +19,6 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CacheUpdater struct {
@@ -30,31 +29,46 @@ type CacheUpdater struct {
 }
 
 func NewCacheUpdater(wsc *wrapped.SnapshotCache, store *store.Store) *CacheUpdater {
-	return &CacheUpdater{snapshotCache: wsc, usedSecrets: make(map[helpers.NamespacedName]helpers.NamespacedName), store: store}
+	return &CacheUpdater{
+		snapshotCache: wsc,
+		usedSecrets:   make(map[helpers.NamespacedName]helpers.NamespacedName),
+		store:         store,
+	}
 }
 
-func (c *CacheUpdater) Init(ctx context.Context, cl client.Client) error {
+func (c *CacheUpdater) RebuildSnapshots(ctx context.Context) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-
-	if err := c.store.Fill(ctx, cl); err != nil {
-		return fmt.Errorf("failed to fill store: %w", err)
-	}
-
-	return c.buildCache(ctx)
+	return c.rebuildSnapshots(ctx)
 }
 
-func (c *CacheUpdater) UpdateCache(ctx context.Context, cl client.Client) error {
-	c.mx.Lock()
-	defer c.mx.Unlock()
-
-	if err := c.store.Fill(ctx, cl); err != nil { // TODO: remove
-		return fmt.Errorf("failed to fill store: %w", err)
-	}
-	return c.buildCache(ctx)
+func (c *CacheUpdater) CopyStore() *store.Store {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+	return c.store.Copy()
 }
 
-func (c *CacheUpdater) buildCache(ctx context.Context) error {
+func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, vs *v1alpha1.VirtualService) error {
+	c.mx.RLock()
+	storeCopy := c.store.Copy()
+	c.mx.RUnlock()
+	storeCopy.SetVirtualService(vs)
+	err, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	return err
+}
+
+func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
+	err, usedSecrets := buildSnapshots(ctx, c.snapshotCache, c.store)
+	c.usedSecrets = usedSecrets
+	return err
+}
+
+// nolint: gocyclo
+func buildSnapshots(
+	ctx context.Context,
+	snapshotCache *wrapped.SnapshotCache,
+	store *store.Store,
+) (error, map[helpers.NamespacedName]helpers.NamespacedName) {
 	errs := make([]error, 0)
 
 	mixer := NewMixer()
@@ -62,14 +76,21 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 	// ---------------------------------------------
 
 	usedSecrets := make(map[helpers.NamespacedName]helpers.NamespacedName)
+	nodeIDDomainsSet := make(map[string]struct{})
 
-	nodeIDsForCleanup := c.snapshotCache.GetNodeIDsAsMap()
+	nodeIDsForCleanup := snapshotCache.GetNodeIDsAsMap()
 	var commonVirtualServices []*v1alpha1.VirtualService
 
-	for _, vs := range c.store.VirtualServices {
+	for _, vs := range store.MapVirtualServices() {
+		if vs.IsStatusInvalid() {
+			continue
+		}
+
 		vsNodeIDs := vs.GetNodeIDs()
 		if len(vsNodeIDs) == 0 {
-			errs = append(errs, fmt.Errorf("virtual service %s/%s has no node IDs", vs.Namespace, vs.Name))
+			err := fmt.Errorf("virtual service %s/%s has no node IDs", vs.Namespace, vs.Name)
+			vs.UpdateStatus(true, err.Error())
+			errs = append(errs, err)
 			continue
 		}
 
@@ -78,17 +99,28 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 			continue
 		}
 
-		vsRes, vsUsedSecrets, err := resbuilder.BuildResources(vs, c.store)
+		vsRes, err := resbuilder.BuildResources(vs, store)
 		if err != nil {
+			vs.UpdateStatus(true, err.Error())
 			errs = append(errs, err)
 			continue
 		}
+		vs.UpdateStatus(false, "")
 
-		for _, secret := range vsUsedSecrets {
+		for _, secret := range vsRes.UsedSecrets {
 			usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
 		}
 
 		for _, nodeID := range vsNodeIDs {
+
+			for _, domain := range vsRes.Domains {
+				nodeDom := nodeIDDomain(nodeID, domain)
+				if _, ok := nodeIDDomainsSet[nodeDom]; ok {
+					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil
+				}
+				nodeIDDomainsSet[nodeDom] = struct{}{}
+			}
+
 			if vsRes.RouteConfig != nil {
 				mixer.Add(nodeID, resource.RouteType, vsRes.RouteConfig)
 			}
@@ -104,16 +136,25 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 
 	if len(commonVirtualServices) > 0 {
 		for _, vs := range commonVirtualServices {
-			vsRes, vsUsedSecrets, err := resbuilder.BuildResources(vs, c.store)
+			vsRes, err := resbuilder.BuildResources(vs, store)
 			if err != nil {
 				errs = append(errs, err)
 				continue
 			}
-			for _, secret := range vsUsedSecrets {
+			for _, secret := range vsRes.UsedSecrets {
 				usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
 			}
 
 			for nodeID := range mixer.nodeIDs {
+
+				for _, domain := range vsRes.Domains {
+					nodeDom := nodeIDDomain(nodeID, domain)
+					if _, ok := nodeIDDomainsSet[nodeDom]; ok {
+						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil
+					}
+					nodeIDDomainsSet[nodeDom] = struct{}{}
+				}
+
 				if vsRes.RouteConfig != nil {
 					mixer.Add(nodeID, resource.RouteType, vsRes.RouteConfig)
 				}
@@ -128,19 +169,17 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 		}
 	}
 
-	c.usedSecrets = usedSecrets
-
-	tmp, err := mixer.Mix(c.store)
+	tmp, err := mixer.Mix(store)
 	if err != nil {
 		errs = append(errs, err)
-		return multierr.Combine(errs...)
+		return multierr.Combine(errs...), usedSecrets
 	}
 
 	for nodeID, resMap := range tmp {
 		var snapshot *cache.Snapshot
 		var err error
 		var hasChanges bool
-		prevSnapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
+		prevSnapshot, _ := snapshotCache.GetSnapshot(nodeID)
 		if prevSnapshot != nil {
 			snapshot, hasChanges, err = updateSnapshot(prevSnapshot, resMap)
 			if err != nil {
@@ -156,7 +195,7 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 			}
 		}
 		if hasChanges {
-			err = c.snapshotCache.SetSnapshot(ctx, nodeID, snapshot)
+			err = snapshotCache.SetSnapshot(ctx, nodeID, snapshot)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -166,14 +205,14 @@ func (c *CacheUpdater) buildCache(ctx context.Context) error {
 	}
 
 	for nodeID := range nodeIDsForCleanup {
-		c.snapshotCache.ClearSnapshot(nodeID)
+		snapshotCache.ClearSnapshot(nodeID)
 	}
 
 	if len(errs) > 0 {
-		return multierr.Combine(errs...)
+		return multierr.Combine(errs...), usedSecrets
 	}
 
-	return nil
+	return nil, usedSecrets
 }
 
 func (c *CacheUpdater) GetUsedSecrets() map[helpers.NamespacedName]helpers.NamespacedName {
@@ -198,37 +237,37 @@ func (c *CacheUpdater) GetMarshaledStore() ([]byte, error) {
 	data["policies"] = make(map[string]any)
 	data["domainToSecret"] = make(map[string]any)
 
-	for key, vs := range c.store.VirtualServices {
+	for key, vs := range c.store.MapVirtualServices() {
 		data["virtualServices"][key.String()] = vs
 	}
-	for key, cl := range c.store.Clusters {
+	for key, cl := range c.store.MapClusters() {
 		data["clusters"][key.String()] = cl
 	}
-	for key, secret := range c.store.Secrets {
+	for key, secret := range c.store.MapSecrets() {
 		data["secrets"][key.String()] = secret
 	}
-	for key, route := range c.store.Routes {
+	for key, route := range c.store.MapRoutes() {
 		data["routes"][key.String()] = route
 	}
-	for key, listener := range c.store.Listeners {
+	for key, listener := range c.store.MapListeners() {
 		data["listeners"][key.String()] = listener
 	}
-	for key, vst := range c.store.VirtualServiceTemplates {
+	for key, vst := range c.store.MapVirtualServiceTemplates() {
 		data["virtualServiceTemplates"][key.String()] = vst
 	}
-	for key, alc := range c.store.AccessLogs {
+	for key, alc := range c.store.MapAccessLogs() {
 		data["accessLogConfigs"][key.String()] = alc
 	}
-	for key, httpFilter := range c.store.HTTPFilters {
+	for key, httpFilter := range c.store.MapHTTPFilters() {
 		data["httpFilters"][key.String()] = httpFilter
 	}
-	for key, policy := range c.store.Policies {
+	for key, policy := range c.store.MapPolicies() {
 		data["policies"][key.String()] = policy
 	}
-	for ds, s := range c.store.DomainToSecretMap {
+	for ds, s := range c.store.MapDomainSecrets() {
 		data["domainToSecret"][ds] = s
 	}
-	for specCluster, cl := range c.store.SpecClusters {
+	for specCluster, cl := range c.store.MapSpecClusters() {
 		data["specClusters"][specCluster] = cl
 	}
 	return json.MarshalIndent(data, "", "\t")
@@ -293,4 +332,8 @@ func getName(msg proto.Message) string {
 
 func isCommonVirtualService(nodeIDs []string) bool {
 	return len(nodeIDs) == 1 && nodeIDs[0] == "*"
+}
+
+func nodeIDDomain(nodeID, domain string) string {
+	return nodeID + ":" + domain
 }

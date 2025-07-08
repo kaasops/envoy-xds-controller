@@ -101,11 +101,45 @@ func mergeMaps(a, b map[string]any, opts *parsedOpts, currentPath string) map[st
 	return result
 }
 
+// mergeArrays combines two arrays while preserving the uniqueness of elements.
+// It handles replacement based on the provided path in opting.
+// Any marshaling errors will result in skipping the problematic element.
 func mergeArrays(a, b []any, opts *parsedOpts, path string) []any {
+	// If a replacement flag is set for the current path, return array b as is
 	if _, ok := opts.replace[path]; ok {
 		return b
 	}
-	return append(a, b...)
+
+	// If one of the arrays is nil, return the other one
+	if a == nil {
+		return b
+	}
+	if b == nil {
+		return a
+	}
+
+	// Create a map for fast lookup of existing elements
+	exists := make(map[string]struct{}, len(a))
+	for _, itemA := range a {
+		if jsonA, err := json.Marshal(itemA); err == nil {
+			exists[string(jsonA)] = struct{}{}
+		}
+	}
+
+	// Initialize the result slice with optimal capacity
+	result := make([]any, len(a), len(a)+len(b))
+	copy(result, a)
+
+	// Add unique elements from array b
+	for _, itemB := range b {
+		if jsonB, err := json.Marshal(itemB); err == nil {
+			if _, found := exists[string(jsonB)]; !found {
+				result = append(result, itemB)
+			}
+		}
+	}
+
+	return result
 }
 
 func buildPath(currentPath, newSegment string) string {

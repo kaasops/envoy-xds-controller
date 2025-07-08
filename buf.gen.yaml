@@ -1,0 +1,27 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/kaasops/envoy-xds-controller/pkg/api/grpc
+plugins:
+  - local: protoc-gen-go
+    out: pkg/api/grpc
+    opt: paths=source_relative
+  - local: protoc-gen-connect-go
+    out: pkg/api/grpc
+    opt: paths=source_relative
+  - local: protoc-gen-es
+    include_imports: true
+    opt: target=ts
+    out: ui/src/gen
+  - local: protoc-gen-es
+    include_imports: true
+    opt: target=dts
+    out: ui/src/gen
+  - local: ["go", "run", "github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1"]
+    strategy: all
+    out: docs
+    opt: dev/docgen/grpc-md.tmpl,docs/api/grpc.md
+inputs:
+  - directory: proto

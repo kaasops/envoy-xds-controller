@@ -91,14 +91,8 @@ func (m *Auth) HandlerFunc(c *gin.Context) {
 			}
 		}
 
-		switch {
-		case fullAccess:
-		case len(availableNodeIds) > 0:
+		if !fullAccess {
 			c.Set(AvailableNodeIDs, availableNodeIds)
-		default:
-			c.JSON(401, respMessage("Unauthorized", "not available node ids", err))
-			c.Abort()
-			return
 		}
 	}
 

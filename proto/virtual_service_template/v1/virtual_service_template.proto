@@ -1,0 +1,113 @@
+syntax = "proto3";
+
+package virtual_service_template.v1;
+
+option go_package = "virtualservicetemplatev1";
+
+import "common/v1/common.proto";
+
+// Service to manage virtual service templates.
+service VirtualServiceTemplateStoreService {
+  // Lists all virtual service templates.
+  rpc ListVirtualServiceTemplates(ListVirtualServiceTemplatesRequest) returns (ListVirtualServiceTemplatesResponse);
+
+  // Fills a template with specific configurations and returns the result.
+  rpc FillTemplate(FillTemplateRequest) returns (FillTemplateResponse);
+}
+
+// Enum describing possible modifiers for template options.
+enum TemplateOptionModifier {
+  // Unspecified modifier.
+  TEMPLATE_OPTION_MODIFIER_UNSPECIFIED = 0;
+
+  // Merge modifier for combining with existing options.
+  TEMPLATE_OPTION_MODIFIER_MERGE = 1;
+
+  // Replace modifier to overwrite existing options.
+  TEMPLATE_OPTION_MODIFIER_REPLACE = 2;
+
+  // Delete modifier to remove existing options.
+  TEMPLATE_OPTION_MODIFIER_DELETE = 3;
+}
+
+// Represents a single option to be applied to a template.
+message TemplateOption {
+  // The field name of the option.
+  string field = 1;
+
+  // The modifier applied to the field.
+  TemplateOptionModifier modifier = 2;
+}
+
+// Request message for listing all virtual service templates.
+message ListVirtualServiceTemplatesRequest {
+  // The access group for filtering templates.
+  string access_group = 1;
+}
+
+// Details of a virtual service template.
+message VirtualServiceTemplateListItem {
+  // Unique identifier of the template.
+  string uid = 1;
+
+  // Name of the template.
+  string name = 2;
+
+  // Description is the human-readable description of the resource
+  string description = 3;
+
+  // The raw string representation of the resource
+  string raw = 5;
+}
+
+// Response message containing the list of virtual service templates.
+message ListVirtualServiceTemplatesResponse {
+  // The list of virtual service templates.
+  repeated VirtualServiceTemplateListItem items = 1;
+}
+
+// Request message for filling a template with specific configurations.
+message FillTemplateRequest {
+  // Unique identifier of the template to fill.
+  string template_uid = 1;
+
+  // Unique identifier of the listener to associate with the template.
+  string listener_uid = 2;
+
+  // The virtual host configuration for the virtual service.
+  common.v1.VirtualHost virtual_host = 3;
+
+  // Access log configuration.
+  oneof access_log_config {
+    // UIDs of the access log configurations.
+    common.v1.UIDS access_log_config_uids = 4;
+  }
+
+  // Additional HTTP filter unique identifiers.
+  repeated string additional_http_filter_uids = 5;
+
+  // Additional route unique identifiers.
+  repeated string additional_route_uids = 6;
+
+  // Whether to use the remote address.
+  optional bool use_remote_address = 7;
+
+  // Options to modify the template.
+  repeated virtual_service_template.v1.TemplateOption template_options = 8;
+
+  // Virtual service name
+  string name = 9;
+
+  // Description is the human-readable description of the resource
+  string description = 10;
+
+  // Expand references determines whether to replace reference links
+  // with their full expanded content in the returned structure.
+  bool expand_references = 11;
+}
+
+// Response message containing the filled template as a raw string.
+message FillTemplateResponse {
+  // The raw string representation of the filled template.
+  string raw = 1;
+}

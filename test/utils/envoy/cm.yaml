@@ -44,7 +44,7 @@ data:
                   - endpoint:
                       address:
                         socket_address:
-                          address: envoy-xds-controller-controller-manager-xds-service.envoy-xds-controller
+                          address: exc-e2e-envoy-xds-controller.envoy-xds-controller
                           port_value: 9000
           http2_protocol_options: {}
           name: xds_cluster

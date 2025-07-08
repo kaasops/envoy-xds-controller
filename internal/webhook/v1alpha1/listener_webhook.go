@@ -109,7 +109,7 @@ func (v *ListenerCustomValidator) ValidateDelete(ctx context.Context, obj runtim
 		var refVsNames []string
 		for _, vs := range virtualServiceList.Items {
 			if vs.Spec.Listener != nil && vs.Spec.Listener.Name == listener.GetName() {
-				refVsNames = append(refVsNames, vs.GetName())
+				refVsNames = append(refVsNames, vs.GetLabelName())
 			}
 		}
 		if len(refVsNames) > 0 {

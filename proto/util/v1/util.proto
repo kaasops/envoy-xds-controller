@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package util.v1;
+
+option go_package = "utilv1";
+
+import "google/protobuf/timestamp.proto";
+
+service UtilsService {
+  // Verifies the SSL certificates of the provided domains.
+  rpc VerifyDomains(VerifyDomainsRequest) returns (VerifyDomainsResponse);
+}
+
+message VerifyDomainsRequest {
+  // A list of domains to verify SSL certificates for.
+  repeated string domains = 1;
+}
+
+message DomainVerificationResult {
+  // The domain being verified.
+  string domain = 1;
+
+  // Indicates if the domain has a valid SSL certificate.
+  bool valid_certificate = 2;
+
+  // The issuer of the SSL certificate.
+  string issuer = 3;
+
+  // The expiration timestamp of the SSL certificate.
+  google.protobuf.Timestamp expires_at = 4;
+
+  // Indicates if the domain was matched using a wildcard certificate.
+  bool matched_by_wildcard = 5;
+
+  // Any error messages related to the domain's verification.
+  string error = 6;
+}
+
+message VerifyDomainsResponse {
+  // A list of the results for each domain verification.
+  repeated DomainVerificationResult results = 1;
+}

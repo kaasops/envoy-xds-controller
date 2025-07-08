@@ -50,6 +50,20 @@ spec:
                   namespace:
                     type: string
                 type: object
+              accessLogConfigs:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                type: array
+              accessLogs:
+                items:
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                type: array
               additionalHttpFilters:
                 items:
                   properties:

@@ -1,0 +1,14 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: AccessLogConfig
+metadata:
+  name: test-access-log-config
+spec:
+  name: envoy.access_loggers
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+    log_format:
+      json_format:
+        message: "%LOCAL_REPLY_BODY%"
+        status: "%RESPONSE_CODE%"
+        duration: "%DURATION%"
+        remote_address: "%DOWNSTREAM_REMOTE_ADDRESS%"

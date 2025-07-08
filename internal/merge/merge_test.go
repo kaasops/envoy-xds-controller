@@ -159,6 +159,16 @@ func TestMergeJSON(t *testing.T) {
 				},
 			},
 		},
+		{
+			A:        json.RawMessage(`{"array":[{"name":"test"}]}`),
+			B:        json.RawMessage(`{"array":[{"name":"test"}]}`),
+			Expected: json.RawMessage(`{"array":[{"name":"test"}]}`),
+		},
+		{
+			A:        json.RawMessage(`{"array":[{"name":"test","namespace":"default"}]}`),
+			B:        json.RawMessage(`{"array":[{"name":"test"}]}`),
+			Expected: json.RawMessage(`{"array":[{"name":"test","namespace":"default"},{"name":"test"}]}`),
+		},
 	}
 	for i, testCase := range testCases {
 		t.Run(fmt.Sprintf("test_%d", i+1), func(t *testing.T) {

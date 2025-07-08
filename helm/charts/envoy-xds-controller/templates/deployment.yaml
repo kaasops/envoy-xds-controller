@@ -47,6 +47,10 @@ spec:
           {{- toYaml .Values.args | nindent 10 }}
           {{- end }}
           {{- if .Values.cacheAPI.enabled }}
+          {{- if ne .Values.metrics.address "0" }}
+          - --metrics-bind-address={{ .Values.metrics.address }}
+          - --metrics-secure={{ .Values.metrics.secure }}
+          {{- end }}
           - --development={{ .Values.development }}
           - --enable-cache-api=true
           - --cache-api-port={{ .Values.cacheAPI.port }}
@@ -59,6 +63,8 @@ spec:
             value: "{{ .Values.xds.port }}"
           - name: INSTALLATION_NAMESPACE
             value: {{ .Release.Namespace }}
+          - name: TARGET_NAMESPACE
+            value: {{ .Values.resourceAPI.targetNamespace | default .Release.Namespace }}
         {{- if .Values.auth.enabled }}
           - name: OIDC_ENABLED
             valueFrom:
@@ -94,7 +100,7 @@ spec:
           {{- if .Values.webhook.port }}
           - name: WEBHOOK_PORT
             value: "{{ .Values.webhook.port }}"
-          {{- end }}
+        {{- end }}
         {{- end }}
         {{- if not .Values.webhook.enabled }}
           - name: WEBHOOK_DISABLE
@@ -107,6 +113,10 @@ spec:
         ports:
           - name: grpc
             containerPort: {{ .Values.xds.port }}
+            protocol: TCP
+            # TODO: hardcode
+          - name: webhook-server
+            containerPort: 9443
             protocol: TCP
         {{- with .Values.securityContext }}
         securityContext:
@@ -121,10 +131,10 @@ spec:
         {{- if $mounts }}
         volumeMounts:
           {{- $mounts | nindent 10 }}
-        {{- end }}
-      {{- /* Volumes */}}
-      {{- $volumes := include "chart.volumes" . }}
-      {{- if $volumes }}
+         {{- end }}
+       {{- /* Volumes */}}
+       {{- $volumes := include "chart.volumes" . }}
+       {{- if $volumes }}
       volumes:
         {{- $volumes | nindent 8 }}
       {{- end }}

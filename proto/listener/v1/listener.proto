@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package listener.v1;
+
+option go_package = "listenerv1";
+
+// Type of listener available.
+enum ListenerType {
+  LISTENER_TYPE_UNSPECIFIED = 0; // Default value, unspecified listener type.
+  LISTENER_TYPE_HTTP = 1;        // HTTP listener.
+  LISTENER_TYPE_HTTPS = 2;       // HTTPS listener.
+  LISTENER_TYPE_TCP = 3;         // TCP listener.
+}
+
+// Details of a listener.
+message ListenerListItem {
+  string uid = 1;         // Unique identifier for the listener.
+  string name = 2;        // Display name of the listener.
+  ListenerType type = 3;  // The type of listener.
+  // Description is the human-readable description of the resource
+  string description = 4;
+  // The raw string representation of the resource
+  string raw = 5;
+}
+
+// Service for managing listeners.
+service ListenerStoreService {
+  // Retrieves a list of listeners based on the request.
+  rpc ListListeners(ListListenersRequest) returns (ListListenersResponse);
+}
+
+// Request message to list listeners.
+message ListListenersRequest {
+  string access_group = 1; // The access group to filter the listeners.
+}
+
+// Response message containing a list of listeners.
+message ListListenersResponse {
+  repeated ListenerListItem items = 1; // A list of listener items.
+}

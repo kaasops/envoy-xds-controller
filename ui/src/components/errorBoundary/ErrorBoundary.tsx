@@ -1,33 +1,35 @@
-// предохранитель
-import { Component, ErrorInfo, ReactNode } from "react";
-import ErrorMessage from "../errorMessage/ErrorMessage";
+import { Component, ErrorInfo, ReactNode } from 'react'
+import ErrorMessage from '../errorMessage/ErrorMessage.tsx'
 
 interface Props {
-    children?: ReactNode;
+	children?: ReactNode
 }
 
 interface State {
-    error: boolean;
+	hasError: boolean
+	error: Error | null
 }
 
-export class ErrorBoundary extends Component<Props, State> {
-    state = {
-        error: false,
-    }
+class ErrorBoundary extends Component<Props, State> {
+	state: State = {
+		hasError: false,
+		error: null
+	}
 
-    componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-        console.log(error, errorInfo);
-        this.setState({ error: true })
-    }
+	componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+		console.error('Caught by ErrorBoundary:', error, errorInfo)
+		this.setState({ hasError: true, error })
+	}
 
-    render() {
-        if (this.state.error) {
-            return <ErrorMessage />
-        }
+	render() {
+		const { hasError, error } = this.state
 
-        // мы в предохранитель оборачиваем компонент и если нет ошибки показываем наш вложенный(дочерний) компонент
-        return this.props.children;
-    }
+		if (hasError && error) {
+			return <ErrorMessage error={error.message} />
+		}
+
+		return this.props.children
+	}
 }
 
-export default ErrorBoundary;
+export default ErrorBoundary

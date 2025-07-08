@@ -32,8 +32,9 @@ import (
 // ListenerReconciler reconciles a Listener object
 type ListenerReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=listeners,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +51,8 @@ type ListenerReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
+
 	rlog := log.FromContext(ctx).WithName("listener-reconciler").WithValues("listener", req.NamespacedName)
 	rlog.Info("Reconciling Listener")
 
@@ -61,7 +64,7 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, r.Updater.DeleteListener(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertListener(ctx, &listener); err != nil {
+	if err := r.Updater.ApplyListener(ctx, &listener); err != nil {
 		return ctrl.Result{}, err
 	}
 

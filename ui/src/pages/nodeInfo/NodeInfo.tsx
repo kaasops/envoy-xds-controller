@@ -1,4 +1,4 @@
-import { Box } from '@mui/material'
+import Box from '@mui/material/Box'
 import { useParams } from 'react-router-dom'
 import { useAllDomains } from '../../api/hooks/useAllDomains'
 import DomainSection from '../../components/domainSections/DomainSection'

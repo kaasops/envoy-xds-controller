@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package cluster.v1;
+
+option go_package = "clusterv1";
+
+// Represents a list item in the cluster.
+message ClusterListItem  {
+  // The unique identifier of the cluster.
+  string uid = 1;
+
+  // The name of the cluster.
+  string name = 2;
+}
+
+// Service for managing clusters in the store.
+service ClusterStoreService {
+  // Lists all the clusters in the store.
+  rpc ListCluster(ListClustersRequest) returns (ListClustersResponse);
+}
+
+// Request message for listing clusters.
+message ListClustersRequest {}
+
+// Response message containing a list of clusters.
+message ListClustersResponse {
+  // The list of cluster items.
+  repeated ClusterListItem items = 1;
+}

@@ -1,5 +1,5 @@
 import { Box, Button, Tab, Tabs, useTheme } from '@mui/material'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import CustomTabPanel from '../customTabPanel/CustomTabPanel'
 import { Editor } from '@monaco-editor/react'
 import copy from 'clipboard-copy'
@@ -74,7 +74,7 @@ function CodeBlockExtends({ jsonData, yamlData, heightCodeBox }: ICodeBLockExten
 		}
 	}
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		updateHeight() // Устанавливаем начальную высоту
 		window.addEventListener('resize', updateHeight) // Обновляем при изменении размера окна
 

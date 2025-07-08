@@ -65,7 +65,7 @@ var _ = Describe("VirtualService Controller", func() {
 
 		virtualservice := &envoyv1alpha1.VirtualService{}
 		virtualservice.Annotations = map[string]string{
-			envoyv1alpha1.AnnotationKeyEnvoyKaaSopsIoNodeID: "test",
+			envoyv1alpha1.AnnotationNodeIDs: "test",
 		}
 		virtualservice.Name = resourceName
 		virtualservice.Namespace = "default"
@@ -98,9 +98,10 @@ var _ = Describe("VirtualService Controller", func() {
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &VirtualServiceReconciler{
-				Client:  k8sClient,
-				Scheme:  k8sClient.Scheme(),
-				Updater: cacheUpdater,
+				Client:         k8sClient,
+				Scheme:         k8sClient.Scheme(),
+				Updater:        cacheUpdater,
+				CacheReadyChan: cacheReadyChan,
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

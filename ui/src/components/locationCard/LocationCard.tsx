@@ -1,16 +1,3 @@
-import ContentCopyTwoToneIcon from '@mui/icons-material/ContentCopyTwoTone'
-import {
-	Card,
-	CardContent,
-	Grid,
-	IconButton,
-	List,
-	ListItemButton,
-	Typography,
-	useMediaQuery,
-	useTheme
-} from '@mui/material'
-import copy from 'clipboard-copy'
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useGetFilterChain } from '../../api/hooks/useFilterChain'
@@ -19,17 +6,23 @@ import { useGetListenerApi } from '../../api/hooks/useListenersApi'
 import { useGetRouteConfigurations } from '../../api/hooks/useRouteConfigurations'
 import { IDomainLocationsResponse } from '../../common/types/getDomainLocationsApiTypes'
 import useSetDomainStore from '../../store/setDomainStore'
-import useSideBarState from '../../store/sideBarStore'
 import ModalEnvoyConfig from '../modalEnvoyConfig/ModalEnvoyConfig'
-import { styleListItemButton } from './style'
+import { styleBoxCard, styleListItemButton } from './style'
+import Box from '@mui/material/Box'
+import Divider from '@mui/material/Divider'
+import IconButton from '@mui/material/IconButton'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import Typography from '@mui/material/Typography'
+import ContentCopyTwoToneIcon from '@mui/icons-material/ContentCopyTwoTone'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+
+import copy from 'clipboard-copy'
 
 const LocationCard: React.FC<{ domain: IDomainLocationsResponse }> = ({ domain }) => {
 	const { nodeID } = useParams()
 	const currentDomain = useSetDomainStore(state => state.domain)
-	const theme = useTheme()
-	const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'))
-	const isExtraLargeScreen = useMediaQuery(theme.breakpoints.up('xl'))
-	const isOpenSideBar = useSideBarState(state => state.isOpenSideBar)
 
 	const [loadListener, setLoadListener] = useState(false)
 	const [loadFilterChain, setLoadFilterChain] = useState(false)
@@ -127,15 +120,6 @@ const LocationCard: React.FC<{ domain: IDomainLocationsResponse }> = ({ domain }
 		setModalData({ data: {}, isFetching: false })
 	}
 
-	let width
-	if (isExtraLargeScreen) {
-		width = isOpenSideBar ? '30.8vw' : '34.7vw'
-	} else if (isLargeScreen) {
-		width = isOpenSideBar ? '28.5vw' : '34vw'
-	} else {
-		width = isOpenSideBar ? '100%' : '30.7vw'
-	}
-
 	const getTitlesCard = (title: string) => {
 		return title
 			.split('_')
@@ -143,25 +127,26 @@ const LocationCard: React.FC<{ domain: IDomainLocationsResponse }> = ({ domain }
 			.join(' ')
 	}
 
-	const locationKeys = Object.keys(domain)
-
-	const renderLocationItems = locationKeys.map((key, index) => (
+	const renderLocationItems = Object.entries(domain).map(([key, value], index) => (
 		<ListItemButton sx={styleListItemButton} className='CardRow' key={index} onClick={() => handleClick(key)}>
-			<Grid container display='flex' alignItems='center'>
-				<Grid className='CardRowTitle' item xs={12} md={4.5} lg={4}>
-					<Typography sx={{ fontSize: 17, paddingLeft: 1 }} fontWeight='bold'>
-						{getTitlesCard(key)}
+			<Box display='flex' justifyContent='space-between' width='100%'>
+				<Box sx={{ width: '25%' }}>
+					<Typography variant='body2' fontWeight='bold'>
+						{key}
 					</Typography>
-				</Grid>
-				<Grid className='CardRowValue' item xs={12} md={7.5} lg={8}>
-					<Typography sx={{ wordWrap: 'break-word' }}>{domain[key]}</Typography>
-				</Grid>
-			</Grid>
+				</Box>
+				<Box sx={{ width: '75%' }}>
+					<Typography variant='body2' sx={{ wordWrap: 'break-word' }}>
+						{value}
+					</Typography>
+				</Box>
+			</Box>
+
 			<IconButton
 				className='CardRowCopy'
 				onClick={event => {
 					event.stopPropagation()
-					copy(domain[key])
+					copy(value)
 				}}
 			>
 				<ContentCopyTwoToneIcon />
@@ -171,30 +156,16 @@ const LocationCard: React.FC<{ domain: IDomainLocationsResponse }> = ({ domain }
 
 	return (
 		<>
-			<Card
-				sx={{
-					minHeight: '200px',
-					height: '100%',
-					minWidth: width,
-					maxWidth: width,
-					boxShadow: `0px 0px 8px 0px rgba(0,0,0,0.2),
-            0px 0px 0px 0px rgba(0,0,0,0.14),
-            0px 1px 3px 0px rgba(0,0,0,0.12)`
-				}}
-			>
-				<CardContent
-					sx={{
-						overflow: 'auto',
-						maxHeight: '100%',
-						width: '100%'
-					}}
-				>
+			<Card sx={{ ...styleBoxCard }} className='cardBox'>
+				<CardContent>
 					<Typography sx={{ fontSize: 14, paddingLeft: 1 }} color='text.secondary' gutterBottom>
 						{currentDomain}
 					</Typography>
+					<Divider />
 					<List>{renderLocationItems}</List>
 				</CardContent>
 			</Card>
+
 			<ModalEnvoyConfig
 				open={openModal}
 				onClose={handleCloseModal}

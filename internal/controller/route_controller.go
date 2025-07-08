@@ -32,8 +32,9 @@ import (
 // RouteReconciler reconciles a Route object
 type RouteReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Updater *updater.CacheUpdater
+	Scheme         *runtime.Scheme
+	Updater        *updater.CacheUpdater
+	CacheReadyChan chan struct{}
 }
 
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
@@ -50,6 +51,8 @@ type RouteReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	<-r.CacheReadyChan
+
 	rlog := log.FromContext(ctx).WithName("route-reconciler").WithValues("route", req.NamespacedName)
 	rlog.Info("Reconciling Route")
 
@@ -61,7 +64,7 @@ func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		return ctrl.Result{}, r.Updater.DeleteRoute(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.UpsertRoute(ctx, &route); err != nil {
+	if err := r.Updater.ApplyRoute(ctx, &route); err != nil {
 		return ctrl.Result{}, err
 	}
 

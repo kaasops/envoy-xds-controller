@@ -1,8 +1,18 @@
 # envoy-xds-controller
-// TODO(user): Add simple overview of use/purpose
+
+A Kubernetes-native control plane for Envoy proxies that provides dynamic configuration management through the xDS API.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+Envoy xDS Controller is a Kubernetes controller that manages Envoy proxy configurations through the xDS API. It allows defining Envoy configurations as Kubernetes Custom Resources (CRs) and automatically transforms them into Envoy configurations, which are delivered to proxies via the xDS protocol in real-time.
+
+Key features:
+- Full support for Envoy xDS v3 API (LDS, RDS, CDS, EDS)
+- Kubernetes-native integration with controller-runtime
+- Dynamic configuration updates without proxy restarts
+- Authentication and authorization with OIDC and RBAC
+- Templating system for configuration reuse
+- Web UI for configuration management
 
 ## Getting Started
 
@@ -90,7 +100,27 @@ kubectl apply -f https://raw.githubusercontent.com/<org>/envoy-xds-controller/<t
 ```
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
+
+We welcome contributions to the Envoy xDS Controller project! Here's how you can contribute:
+
+1. **Code Contributions**:
+   - Fork the repository
+   - Create a feature branch (`git checkout -b feature/amazing-feature`)
+   - Commit your changes (`git commit -m 'Add some amazing feature'`)
+   - Push to the branch (`git push origin feature/amazing-feature`)
+   - Open a Pull Request
+
+2. **Bug Reports and Feature Requests**:
+   - Use the GitHub issue tracker to report bugs or request features
+
+3. **Development Environment**:
+   - See the [development documentation](docs/development.md) for setting up your development environment
+   - Check [contributing guidelines](docs/contributing/development.md) for webhook setup
+
+4. **Testing**:
+   - Add tests for new features
+   - Run existing tests with `make test`
+   - Run end-to-end tests with `make test-e2e`
 
 **NOTE:** Run `make help` for more information on all potential `make` targets
 
@@ -111,4 +141,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-

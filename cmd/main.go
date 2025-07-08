@@ -21,10 +21,13 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+
+	xdsClients "github.com/kaasops/envoy-xds-controller/internal/xds/clients"
+
+	"github.com/kaasops/envoy-xds-controller/internal/filewatcher"
 
 	mgrCache "sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -35,13 +38,13 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	_ "net/http/pprof"
+
+	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
+	"github.com/kelseyhightower/envconfig"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/test/v3"
-	"github.com/kelseyhightower/envconfig"
 
 	"github.com/kaasops/envoy-xds-controller/internal/xds"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/api"
@@ -82,6 +85,7 @@ func init() {
 type Config struct {
 	WatchNamespaces       []string `default:""                     envconfig:"WATCH_NAMESPACES"`
 	InstallationNamespace string   `default:"envoy-xds-controller" envconfig:"INSTALLATION_NAMESPACE"`
+	TargetNamespace       string   `default:"envoy-xds-controller" envconfig:"TARGET_NAMESPACE"` // ns for creating cr
 	XDS                   struct {
 		Port int `default:"9000" envconfig:"XDS_PORT"`
 	}
@@ -94,6 +98,16 @@ type Config struct {
 	}
 }
 
+func (c *Config) GetNamespaceForResourceCreation() string {
+	if c.TargetNamespace != "" {
+		return c.TargetNamespace
+	}
+	if c.InstallationNamespace != "" {
+		return c.InstallationNamespace
+	}
+	return "default"
+}
+
 // nolint:gocyclo
 func main() {
 	var metricsAddr string
@@ -102,11 +116,15 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var tlsOpts []func(*tls.Config)
-	var enableCacheAPI bool
+	var enableAPI bool
 	var cacheAPIPort int
 	var cacheAPIScheme string
 	var cacheAPIAddr string
+	var grpcAPIPort int
 	var devMode bool
+	var accessControlModelPath string
+	var accessControlPolicyPath string
+	var configPath string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -117,17 +135,34 @@ func main() {
 		"If set, the metrics endpoint is served securely via HTTPS. Use --metrics-secure=false to use HTTP instead.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&enableCacheAPI, "enable-cache-api", false, "Enable Cache API, for debug")
+	flag.BoolVar(&enableAPI, "enable-cache-api", false, "Enable Cache API, for debug") // TODO: rename enable-api
 	flag.IntVar(&cacheAPIPort, "cache-api-port", 9999, "Cache API port")
 	flag.StringVar(&cacheAPIScheme, "cache-api-scheme", "http", "Cache API scheme")
 	flag.StringVar(&cacheAPIAddr, "cache-api-addr", "localhost:9999", "Cache API address")
+	flag.IntVar(&grpcAPIPort, "grpc-api-port", 10000, "GRPC API port")
 	flag.BoolVar(&devMode, "development", false, "Enable dev mode")
+	flag.StringVar(&accessControlModelPath,
+		"access-control-model-path",
+		"/etc/exc/access-control/model.conf",
+		"Access Control Model Path",
+	)
+	flag.StringVar(
+		&accessControlPolicyPath,
+		"access-control-policy-path",
+		"/etc/exc/access-control/policy.csv",
+		"Access Control Policy Path",
+	)
+	flag.StringVar(
+		&configPath,
+		"config",
+		"/etc/exc/config.json",
+		"Config Path",
+	)
 	opts := zap.Options{
 		Development: devMode,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
-
 	zapLevel := zap.Level(zapcore.InfoLevel)
 	if devMode {
 		zapLevel = zap.Level(zapcore.DebugLevel)
@@ -214,85 +249,104 @@ func main() {
 		os.Exit(1)
 	}
 
+	resStore := store.New()
 	snapshotCache := cache.NewSnapshotCache()
-	cacheUpdater := updater.NewCacheUpdater(snapshotCache, store.New())
+	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
+	fWatcher, err := filewatcher.NewFileWatcher()
+	if err != nil {
+		setupLog.Error(err, "unable to create file watcher")
+		os.Exit(1)
+	}
+	defer fWatcher.Cancel()
+
+	cacheReadyCh := make(chan struct{})
 
 	if err = (&controller.ClusterReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cluster")
 		os.Exit(1)
 	}
 	if err = (&controller.ListenerReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Listener")
 		os.Exit(1)
 	}
 	if err = (&controller.RouteReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Route")
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)
 	}
 	if err = (&controller.AccessLogConfigReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AccessLogConfig")
 		os.Exit(1)
 	}
 	if err = (&controller.HttpFilterReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "HttpFilter")
 		os.Exit(1)
 	}
 	if err = (&controller.PolicyReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Policy")
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceTemplateReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualServiceTemplate")
 		os.Exit(1)
 	}
 	if err = (&controller.SecretReconciler{
-		Client:  mgr.GetClient(),
-		Scheme:  mgr.GetScheme(),
-		Updater: cacheUpdater,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)
 	}
+
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 
-		// Init Kubernetes Client for Webhook
+		// InitFromKubernetes Kubernetes Client for Webhook
 		webhookClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{
 			Scheme: mgr.GetScheme(),
 			Mapper: mgr.GetRESTMapper(),
@@ -352,7 +406,7 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "HttpFilter")
 			os.Exit(1)
 		}
-		if err = webhookenvoyv1alpha1.SetupVirtualServiceWebhookWithManager(mgr); err != nil {
+		if err = webhookenvoyv1alpha1.SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualService")
 			os.Exit(1)
 		}
@@ -360,7 +414,7 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Secret")
 			os.Exit(1)
 		}
-		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr); err != nil {
+		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualServiceTemplate")
 			os.Exit(1)
 		}
@@ -380,33 +434,73 @@ func main() {
 		setupServers := log.FromContext(ctx)
 		setupServers.Info("Starting servers")
 
-		if err := cacheUpdater.Init(ctx, mgr.GetClient()); err != nil {
-			return fmt.Errorf("unable to init cache updater: %w", err)
+		if err := resStore.FillFromKubernetes(ctx, mgr.GetClient()); err != nil {
+			setupServers.Error(err, "unable to fill store")
+			os.Exit(1)
 		}
 
+		if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
+			setupLog.Error(err, "cache was built with errors")
+		} else {
+			setupLog.Info("cache was successfully built")
+		}
+
+		close(cacheReadyCh)
+
+		connectedClients := xdsClients.NewRegistry()
+
 		go func() {
-			srv := server.NewServer(ctx, snapshotCache, &test.Callbacks{Debug: true})
+			srv := server.NewServer(ctx, snapshotCache, xds.NewCallbacks(
+				ctrl.Log.WithName("xds.server.callbacks"),
+				connectedClients),
+			)
 			if err = xds.RunServer(srv, cfg.XDS.Port); err != nil {
 				setupServers.Error(err, "cannot run xDS server")
 				os.Exit(1)
 			}
 		}()
 
-		if enableCacheAPI {
+		if enableAPI {
 			go func() {
-				xdsServerCfg := &api.Config{}
-				xdsServerCfg.EnableDevMode = devMode
-				xdsServerCfg.Auth.Enabled, _ = strconv.ParseBool(os.Getenv("OIDC_ENABLED"))
-				xdsServerCfg.Auth.IssuerURL = os.Getenv("OIDC_ISSUER_URL")
-				xdsServerCfg.Auth.ClientID = os.Getenv("OIDC_CLIENT_ID")
+				apiServerCfg := &api.Config{}
+				apiServerCfg.EnableDevMode = devMode
+				apiServerCfg.Auth.Enabled, _ = strconv.ParseBool(os.Getenv("OIDC_ENABLED"))
+				apiServerCfg.Auth.IssuerURL = os.Getenv("OIDC_ISSUER_URL")
+				apiServerCfg.Auth.ClientID = os.Getenv("OIDC_CLIENT_ID")
+				apiServerCfg.Auth.AccessControlModel = accessControlModelPath
+				apiServerCfg.Auth.AccessControlPolicy = accessControlPolicyPath
 				if acl := os.Getenv("ACL_CONFIG"); acl != "" {
-					err = json.Unmarshal([]byte(acl), &xdsServerCfg.Auth.ACL)
+					err = json.Unmarshal([]byte(acl), &apiServerCfg.Auth.ACL)
 					if err != nil {
 						setupServers.Error(err, "failed to parse ACL config")
 						os.Exit(1)
 					}
 				}
-				if err := api.New(snapshotCache, xdsServerCfg, zapLogger, devMode).
+				data, err := os.ReadFile(configPath)
+				if err != nil {
+					setupServers.Error(err, "failed to read config")
+					os.Exit(1)
+				}
+				if err = json.Unmarshal(data, &apiServerCfg.StaticResources); err != nil {
+					setupServers.Error(err, "failed to parse static resources config")
+					os.Exit(1)
+				}
+				apiServer, err := api.New(snapshotCache, apiServerCfg, zapLogger, devMode, fWatcher, configPath)
+				if err != nil {
+					setupServers.Error(err, "failed to create api server")
+					os.Exit(1)
+				}
+				if err := apiServer.RunGRPC(
+					grpcAPIPort,
+					resStore,
+					mgr.GetClient(),
+					cfg.GetNamespaceForResourceCreation(),
+					cacheUpdater,
+				); err != nil {
+					setupServers.Error(err, "cannot run grpc xDS server")
+					os.Exit(1)
+				}
+				if err := apiServer.
 					Run(cacheAPIPort, cacheAPIScheme, cacheAPIAddr); err != nil {
 					setupServers.Error(err, "cannot run http xDS server")
 					os.Exit(1)
@@ -451,6 +545,15 @@ func main() {
 					data, err := json.MarshalIndent(m, "", "\t")
 					if err != nil {
 						dLog.Error(err, "failed to marshal used secrets")
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					_, _ = w.Write(data)
+				})
+				http.HandleFunc("/debug/connected-clients", func(w http.ResponseWriter, r *http.Request) {
+					data, err := json.MarshalIndent(connectedClients.List(), "", "\t")
+					if err != nil {
+						dLog.Error(err, "failed to marshal connected clients")
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}

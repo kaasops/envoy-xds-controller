@@ -42,3 +42,15 @@ func (l *Listener) IsEqual(other *Listener) bool {
 	}
 	return bytes.Equal(l.Spec.Raw, other.Spec.Raw)
 }
+
+func (l *Listener) GetAccessGroup() string {
+	accessGroup := l.GetLabels()[LabelAccessGroup]
+	if accessGroup == "" {
+		return GeneralAccessGroup
+	}
+	return accessGroup
+}
+
+func (l *Listener) GetDescription() string {
+	return l.Annotations[annotationDescription]
+}

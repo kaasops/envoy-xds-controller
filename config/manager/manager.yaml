@@ -74,6 +74,7 @@ spec:
         image: controller:latest
         name: manager
         ports:
+          - containerPort: 10000
           - containerPort: 9999
           - containerPort: 9000
           - containerPort: 4444
