@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,9 +27,15 @@ type ValidationResult struct {
 	Errors []string
 }
 
+// Track both manifest key and file path
+type ManifestInfo struct {
+	Key  string
+	Path string
+}
+
 func validate(path string, recursive bool) error {
-	// Initialize validation state
-	manifestTracker := make(map[string]map[string]map[string]bool)
+	// map[apiVersion/kind]map[namespace]map[name+nodeID]ManifestInfo
+	manifestTracker := make(map[string]map[string]map[string]ManifestInfo)
 	result := ValidationResult{Valid: true}
 
 	walkFunc := func(currentPath string, info os.FileInfo, err error) error {
@@ -45,18 +53,18 @@ func validate(path string, recursive bool) error {
 				return fmt.Errorf("error reading %s: %v", currentPath, err)
 			}
 
-			// Try parsing as single manifest first
-			var singleManifest Manifest
-			if err := yaml.Unmarshal(data, &singleManifest); err == nil && singleManifest.APIVersion != "" {
-				runValidations(singleManifest, currentPath, &result, manifestTracker)
-			} else {
-				// If single manifest fails, try parsing as list
-				var manifests []Manifest
-				if err := yaml.Unmarshal(data, &manifests); err != nil {
+			decoder := yaml.NewDecoder(bytes.NewReader(data))
+			for {
+				var manifest Manifest
+				if err := decoder.Decode(&manifest); err != nil {
+					if err == io.EOF {
+						break
+					}
 					return fmt.Errorf("error parsing %s: %v", currentPath, err)
 				}
-				for _, m := range manifests {
-					runValidations(m, currentPath, &result, manifestTracker)
+
+				if manifest.APIVersion != "" {
+					runValidations(manifest, currentPath, &result, manifestTracker)
 				}
 			}
 
@@ -83,18 +91,15 @@ func validate(path string, recursive bool) error {
 	return nil
 }
 
-func runValidations(m Manifest, path string, result *ValidationResult, tracker map[string]map[string]map[string]bool) {
-	// Skip invalid manifests
+func runValidations(m Manifest, path string, result *ValidationResult, tracker map[string]map[string]map[string]ManifestInfo) {
 	if m.APIVersion == "" || m.Kind == "" || m.Metadata.Name == "" {
 		return
 	}
 
-	// Run all validation checks
 	checkDuplicateManifests(m, path, result, tracker)
-	// Additional validation checks can be added here
 }
 
-func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, tracker map[string]map[string]map[string]bool) {
+func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, tracker map[string]map[string]map[string]ManifestInfo) {
 	ns := m.Metadata.Namespace
 	if ns == "" {
 		ns = "default"
@@ -107,10 +112,10 @@ func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, 
 
 	apiKind := fmt.Sprintf("%s/%s", m.APIVersion, m.Kind)
 	if _, exists := tracker[apiKind]; !exists {
-		tracker[apiKind] = make(map[string]map[string]bool)
+		tracker[apiKind] = make(map[string]map[string]ManifestInfo)
 	}
 	if _, exists := tracker[apiKind][ns]; !exists {
-		tracker[apiKind][ns] = make(map[string]bool)
+		tracker[apiKind][ns] = make(map[string]ManifestInfo)
 	}
 
 	key := m.Metadata.Name
@@ -118,12 +123,17 @@ func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, 
 		key = fmt.Sprintf("%s|%s", m.Metadata.Name, nodeID)
 	}
 
-	if tracker[apiKind][ns][key] {
+	if existing, exists := tracker[apiKind][ns][key]; exists {
 		result.Valid = false
 		result.Errors = append(result.Errors,
-			fmt.Sprintf("Error: duplicate manifest found: %s/%s/%s in %s", apiKind, ns, key, path))
+			fmt.Sprintf("Error: duplicate manifest found:\n- First occurrence: %s\n- Duplicate: %s\nFor: %s/%s/%s",
+				existing.Path, path, apiKind, ns, key))
+	} else {
+		tracker[apiKind][ns][key] = ManifestInfo{
+			Key:  key,
+			Path: path,
+		}
 	}
-	tracker[apiKind][ns][key] = true
 }
 
 func main() {
