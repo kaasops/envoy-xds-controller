@@ -75,6 +75,8 @@ func (v *VirtualServiceCustomValidator) ValidateCreate(ctx context.Context, obj 
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
 	}
 
+	virtualservicelog.Info("VirtualService is valid", "name", virtualservice.GetLabelName())
+
 	return nil, nil
 }
 
@@ -89,6 +91,8 @@ func (v *VirtualServiceCustomValidator) ValidateUpdate(ctx context.Context, oldO
 	if err := v.validateVirtualService(ctx, virtualservice); err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
 	}
+
+	virtualservicelog.Info("VirtualService is valid", "name", virtualservice.GetLabelName())
 
 	return nil, nil
 }

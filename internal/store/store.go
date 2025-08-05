@@ -123,6 +123,9 @@ func (s *Store) Copy() *Store {
 }
 
 func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	var accessLogConfigs v1alpha1.AccessLogConfigList
 	if err := cl.List(ctx, &accessLogConfigs); err != nil {
 		return err

@@ -78,6 +78,8 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(ctx context.Conte
 		return nil, err
 	}
 
+	virtualservicetemplatelog.Info("VirtualServiceTemplate is valid", "name", virtualservicetemplate.GetName())
+
 	return nil, nil
 }
 
@@ -164,6 +166,9 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctx, virtualservicetemplate); err != nil {
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
+
+	virtualservicetemplatelog.Info("VirtualServiceTemplate is valid", "name", virtualservicetemplate.GetName())
+
 	return nil, nil
 }
 
