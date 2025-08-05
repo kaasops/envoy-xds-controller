@@ -23,7 +23,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -162,12 +161,7 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
 		return nil, err
 	}
-
-	cacheUpdater := updater.NewCacheUpdater(cache.NewSnapshotCache(), v.cacheUpdater.CopyStore())
-	if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
-		return nil, fmt.Errorf("failed build snapshot for validation: %w", err)
-	}
-	if err := cacheUpdater.ApplyVirtualServiceTemplate(ctx, virtualservicetemplate); err != nil {
+	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctx, virtualservicetemplate); err != nil {
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
 	return nil, nil

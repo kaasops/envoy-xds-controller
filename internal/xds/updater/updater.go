@@ -57,6 +57,15 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, 
 	return err
 }
 
+func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) error {
+	c.mx.RLock()
+	storeCopy := c.store.Copy()
+	c.mx.RUnlock()
+	storeCopy.SetVirtualServiceTemplate(vst)
+	err, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	return err
+}
+
 func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	err, usedSecrets := buildSnapshots(ctx, c.snapshotCache, c.store)
 	c.usedSecrets = usedSecrets
