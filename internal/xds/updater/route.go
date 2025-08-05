@@ -8,27 +8,28 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) ApplyRoute(ctx context.Context, route *v1alpha1.Route) error {
+func (c *CacheUpdater) ApplyRoute(ctx context.Context, route *v1alpha1.Route) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	prevRoute := c.store.GetRoute(helpers.NamespacedName{Namespace: route.Namespace, Name: route.Name})
 	if prevRoute == nil {
 		c.store.SetRoute(route)
-		return c.rebuildSnapshots(ctx)
+		_ = c.rebuildSnapshots(ctx)
+		return
 	}
 	if prevRoute.IsEqual(route) {
-		return nil
+		return
 	}
 	c.store.SetRoute(route)
-	return c.rebuildSnapshots(ctx)
+	_ = c.rebuildSnapshots(ctx)
 }
 
-func (c *CacheUpdater) DeleteRoute(ctx context.Context, nn types.NamespacedName) error {
+func (c *CacheUpdater) DeleteRoute(ctx context.Context, nn types.NamespacedName) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	if !c.store.IsExistingRoute(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}) {
-		return nil
+		return
 	}
 	c.store.DeleteRoute(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshots(ctx)
+	_ = c.rebuildSnapshots(ctx)
 }

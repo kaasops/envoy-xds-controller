@@ -25,6 +25,8 @@ import (
 	"os"
 	"strconv"
 
+	"sigs.k8s.io/controller-runtime/pkg/event"
+
 	corev1 "k8s.io/api/core/v1"
 
 	xdsClients "github.com/kaasops/envoy-xds-controller/internal/xds/clients"
@@ -261,6 +263,7 @@ func main() {
 	defer fWatcher.Cancel()
 
 	cacheReadyCh := make(chan struct{})
+	vsReconcileChan := make(chan event.GenericEvent)
 
 	if err = (&controller.ClusterReconciler{
 		Client:         mgr.GetClient(),
@@ -290,10 +293,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceReconciler{
-		Client:         mgr.GetClient(),
-		Scheme:         mgr.GetScheme(),
-		Updater:        cacheUpdater,
-		CacheReadyChan: cacheReadyCh,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Updater:         cacheUpdater,
+		CacheReadyChan:  cacheReadyCh,
+		VSReconcileChan: vsReconcileChan,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)
@@ -326,10 +330,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceTemplateReconciler{
-		Client:         mgr.GetClient(),
-		Scheme:         mgr.GetScheme(),
-		Updater:        cacheUpdater,
-		CacheReadyChan: cacheReadyCh,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Updater:         cacheUpdater,
+		CacheReadyChan:  cacheReadyCh,
+		VSReconcileChan: vsReconcileChan,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualServiceTemplate")
 		os.Exit(1)

@@ -205,7 +205,7 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 	}
 	if vs.Spec.Template != nil && other.Spec.Template != nil {
 		if vs.Spec.Template.Name != other.Spec.Template.Name ||
-			vs.Spec.Template.Namespace != other.Spec.Template.Namespace {
+			*vs.Spec.Template.Namespace != *other.Spec.Template.Namespace { // TODO: check
 			return false
 		}
 	}
@@ -277,4 +277,10 @@ func (vs *VirtualService) IsStatusInvalid() bool {
 		return false
 	}
 	return vs.Status.Invalid
+}
+
+func (vs *VirtualService) NormalizeSpec() {
+	if vs.Spec.Template != nil && vs.Spec.Template.Namespace == nil {
+		vs.Spec.Template.Namespace = &vs.Namespace
+	}
 }

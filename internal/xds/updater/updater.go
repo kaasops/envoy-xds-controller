@@ -91,9 +91,6 @@ func buildSnapshots(
 	var commonVirtualServices []*v1alpha1.VirtualService
 
 	for _, vs := range store.MapVirtualServices() {
-		if vs.IsStatusInvalid() {
-			continue
-		}
 
 		vsNodeIDs := vs.GetNodeIDs()
 		if len(vsNodeIDs) == 0 {

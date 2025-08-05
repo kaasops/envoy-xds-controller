@@ -182,9 +182,11 @@ func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error 
 	s.specClusters = make(map[string]*v1alpha1.Cluster, len(clusters.Items))
 
 	for _, vs := range virtualServices.Items {
+		vs.NormalizeSpec()
 		s.virtualServices[helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = &vs
 	}
 	for _, vst := range virtualServiceTemplates.Items {
+		vst.NormalizeSpec()
 		s.virtualServiceTemplates[helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name}] = &vst
 	}
 	for _, route := range routes.Items {

@@ -62,3 +62,17 @@ func (s *Store) GetVirtualServiceByUID(uid string) *v1alpha1.VirtualService {
 	vs = vs.DeepCopy()
 	return vs
 }
+
+func (s *Store) GetVirtualServicesByTemplateNN(nn helpers.NamespacedName) []*v1alpha1.VirtualService {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var virtualServices []*v1alpha1.VirtualService
+	for _, vs := range s.virtualServices {
+		if vs.Spec.Template != nil &&
+			vs.Spec.Template.Name == nn.Name &&
+			(vs.Spec.Template.Namespace != nil && *vs.Spec.Template.Namespace == nn.Namespace) {
+			virtualServices = append(virtualServices, vs)
+		}
+	}
+	return virtualServices
+}

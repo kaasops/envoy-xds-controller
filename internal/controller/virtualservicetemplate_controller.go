@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,9 +33,10 @@ import (
 // VirtualServiceTemplateReconciler reconciles a VirtualServiceTemplate object
 type VirtualServiceTemplateReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	Updater        *updater.CacheUpdater
-	CacheReadyChan chan struct{}
+	Scheme          *runtime.Scheme
+	Updater         *updater.CacheUpdater
+	CacheReadyChan  chan struct{}
+	VSReconcileChan chan event.GenericEvent
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
@@ -64,8 +66,13 @@ func (r *VirtualServiceTemplateReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, r.Updater.DeleteVirtualServiceTemplate(ctx, req.NamespacedName)
 	}
 
-	if err := r.Updater.ApplyVirtualServiceTemplate(ctx, &vst); err != nil {
-		return ctrl.Result{}, err
+	r.Updater.ApplyVirtualServiceTemplate(ctx, &vst)
+
+	virtualServices := r.Updater.GetVirtualServicesByTemplate(&vst)
+	for _, virtualService := range virtualServices {
+		r.VSReconcileChan <- event.GenericEvent{
+			Object: virtualService,
+		}
 	}
 
 	rlog.Info("Finished Reconciling VirtualServiceTemplate")

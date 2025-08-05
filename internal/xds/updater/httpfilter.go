@@ -8,27 +8,28 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) ApplyHTTPFilter(ctx context.Context, httpFilter *v1alpha1.HttpFilter) error {
+func (c *CacheUpdater) ApplyHTTPFilter(ctx context.Context, httpFilter *v1alpha1.HttpFilter) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	prevHTTPFilter := c.store.GetHTTPFilter(helpers.NamespacedName{Namespace: httpFilter.Namespace, Name: httpFilter.Name})
 	if prevHTTPFilter == nil {
 		c.store.SetHTTPFilter(httpFilter)
-		return c.rebuildSnapshots(ctx)
+		_ = c.rebuildSnapshots(ctx)
+		return
 	}
 	if prevHTTPFilter.IsEqual(httpFilter) {
-		return nil
+		return
 	}
 	c.store.SetHTTPFilter(httpFilter)
-	return c.rebuildSnapshots(ctx)
+	_ = c.rebuildSnapshots(ctx)
 }
 
-func (c *CacheUpdater) DeleteHTTPFilter(ctx context.Context, nn types.NamespacedName) error {
+func (c *CacheUpdater) DeleteHTTPFilter(ctx context.Context, nn types.NamespacedName) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	if !c.store.IsExistingHTTPFilter(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}) {
-		return nil
+		return
 	}
 	c.store.DeleteHTTPFilter(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
-	return c.rebuildSnapshots(ctx)
+	_ = c.rebuildSnapshots(ctx)
 }
