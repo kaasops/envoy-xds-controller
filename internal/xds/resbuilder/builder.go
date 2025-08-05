@@ -283,7 +283,7 @@ func buildRouteConfiguration(
 	// Add fallback route for TLS listeners
 	// https://github.com/envoyproxy/envoy/issues/37810
 	listenerIsTLS := isTLSListener(xdsListener)
-	if listenerIsTLS && !(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") {
+	if listenerIsTLS && !(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") && listenerHasPort443(xdsListener) {
 		routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, &routev3.VirtualHost{
 			Name:    "421vh",
 			Domains: []string{"*"},
@@ -835,7 +835,7 @@ func getTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error) {
 		return "", fmt.Errorf("tls config is empty")
 	}
 	if vsTLSConfig.SecretRef != nil {
-		if vsTLSConfig.AutoDiscovery != nil {
+		if vsTLSConfig.AutoDiscovery != nil && *vsTLSConfig.AutoDiscovery == true {
 			return "", fmt.Errorf("can't use secretRef and autoDiscovery at the same time")
 		}
 		return SecretRefType, nil
@@ -1068,6 +1068,13 @@ func isTLSListener(xdsListener *listenerv3.Listener) bool {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+func listenerHasPort443(xdsListener *listenerv3.Listener) bool {
+	if xdsListener != nil && xdsListener.Address != nil && xdsListener.Address.GetSocketAddress() != nil {
+		return xdsListener.Address.GetSocketAddress().GetPortValue() == 443
 	}
 	return false
 }

@@ -45,7 +45,7 @@ func basicEnvoyContext() {
 			"configs.0.bootstrap.admin.address.socket_address.port_value":                                                                  "19000",
 			"configs.2.dynamic_listeners.0.name":                                                                                           "default/https",
 			"configs.2.dynamic_listeners.0.active_state.listener.name":                                                                     "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                                        "10443",
+			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                                        "443",
 			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.name":                                                  "envoy.filters.listener.tls_inspector",
 			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.typed_config.@type":                                    "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
 			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filter_chain_match.server_names.0":                        "exc.kaasops.io",
@@ -64,7 +64,7 @@ func basicEnvoyContext() {
 			"test/testdata/e2e/basic_https_service/virtual-service.yaml",
 		}
 		fixture.ApplyManifests(manifests...)
-		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:10443/")
+		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:443/")
 		Expect(strings.TrimSpace(response)).To(Equal("{\"message\":\"Hello\"}"))
 	})
 

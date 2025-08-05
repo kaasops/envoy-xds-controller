@@ -49,7 +49,7 @@ func templatesEnvoyContext() {
 			"configs.0.bootstrap.admin.address.socket_address.port_value":                                                                  "19000",
 			"configs.2.dynamic_listeners.0.name":                                                                                           "default/https",
 			"configs.2.dynamic_listeners.0.active_state.listener.name":                                                                     "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                                        "10443",
+			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                                        "443",
 			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.name":                                                  "envoy.filters.listener.tls_inspector",
 			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.typed_config.@type":                                    "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
 			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filter_chain_match.server_names.0":                        "exc.kaasops.io",
@@ -68,7 +68,7 @@ func templatesEnvoyContext() {
 		fixture.VerifyEnvoyConfig(expectations)
 
 		By("ensuring the envoy returns expected response")
-		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:10443/")
+		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:443/")
 		Expect(strings.TrimSpace(response)).To(Equal("{\"message\":\"Hello from template\"}"))
 	})
 
@@ -106,7 +106,7 @@ func templatesEnvoyContext() {
 			"configs.0.bootstrap.node.cluster":                                                                           "e2e",
 			"configs.2.dynamic_listeners.0.name":                                                                         "default/https",
 			"configs.2.dynamic_listeners.0.active_state.listener.name":                                                   "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                      "10443",
+			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                      "443",
 			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.name":                                "envoy.filters.listener.tls_inspector",
 			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filter_chain_match.server_names.0":      "exc.kaasops.io",
 			"configs.4.dynamic_route_configs.0.route_config.name":                                                        "default/virtual-service",
@@ -117,7 +117,7 @@ func templatesEnvoyContext() {
 		fixture.VerifyEnvoyConfig(expectations)
 
 		By("ensuring the envoy returns expected response with default extraField value")
-		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:10443/")
+		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:443/")
 		Expect(strings.TrimSpace(response)).To(Equal("{\"message\":\"Hi!\"}"))
 	})
 }
