@@ -66,12 +66,12 @@ func (r *VirtualServiceTemplateReconciler) Reconcile(ctx context.Context, req ct
 		return ctrl.Result{}, r.Updater.DeleteVirtualServiceTemplate(ctx, req.NamespacedName)
 	}
 
-	r.Updater.ApplyVirtualServiceTemplate(ctx, &vst)
-
-	virtualServices := r.Updater.GetVirtualServicesByTemplate(&vst)
-	for _, virtualService := range virtualServices {
-		r.VSReconcileChan <- event.GenericEvent{
-			Object: virtualService,
+	if isUpdate := r.Updater.ApplyVirtualServiceTemplate(ctx, &vst); isUpdate {
+		virtualServices := r.Updater.GetVirtualServicesByTemplate(&vst)
+		for _, virtualService := range virtualServices {
+			r.VSReconcileChan <- event.GenericEvent{
+				Object: virtualService,
+			}
 		}
 	}
 

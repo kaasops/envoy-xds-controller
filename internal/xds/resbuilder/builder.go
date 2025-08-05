@@ -63,6 +63,8 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
 
+	vsPtr := vs
+
 	// Apply template if specified
 	vs, err = applyVirtualServiceTemplate(vs, store)
 	if err != nil {
@@ -89,6 +91,10 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	resources, err := buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn, store)
 	if err != nil {
 		return nil, err
+	}
+
+	if vs.Status.Message != "" {
+		vsPtr.UpdateStatus(vs.Status.Invalid, vs.Status.Message)
 	}
 
 	return resources, nil

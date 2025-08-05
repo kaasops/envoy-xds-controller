@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
@@ -67,9 +69,17 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.C
 }
 
 func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
+	rlog := log.FromContext(ctx).WithName("cache-updater")
+	rlog.Info("rebuild snapshots started")
+	start := time.Now()
 	err, usedSecrets := buildSnapshots(ctx, c.snapshotCache, c.store)
 	c.usedSecrets = usedSecrets
-	return err
+	if err != nil {
+		rlog.Error(err, "rebuild snapshots with errors", "duration", time.Since(start).String())
+		return err
+	}
+	rlog.Info("rebuild snapshots done", "duration", time.Since(start).String())
+	return nil
 }
 
 // nolint: gocyclo
@@ -91,6 +101,7 @@ func buildSnapshots(
 	var commonVirtualServices []*v1alpha1.VirtualService
 
 	for _, vs := range store.MapVirtualServices() {
+		vs.UpdateStatus(false, "")
 
 		vsNodeIDs := vs.GetNodeIDs()
 		if len(vsNodeIDs) == 0 {
@@ -111,7 +122,6 @@ func buildSnapshots(
 			errs = append(errs, err)
 			continue
 		}
-		vs.UpdateStatus(false, "")
 
 		for _, secret := range vsRes.UsedSecrets {
 			usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
