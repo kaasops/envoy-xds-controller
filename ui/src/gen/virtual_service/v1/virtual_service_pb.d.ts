@@ -130,6 +130,13 @@ export declare type CreateVirtualServiceRequest = Message<"virtual_service.v1.Cr
    * @generated from field: string description = 12;
    */
   description: string;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: map<string, string> extra_fields = 13;
+   */
+  extraFields: { [key: string]: string };
 };
 
 /**
@@ -242,6 +249,13 @@ export declare type UpdateVirtualServiceRequest = Message<"virtual_service.v1.Up
    * @generated from field: string description = 11;
    */
   description: string;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: map<string, string> extra_fields = 12;
+   */
+  extraFields: { [key: string]: string };
 };
 
 /**
@@ -451,6 +465,13 @@ export declare type GetVirtualServiceResponse = Message<"virtual_service.v1.GetV
    * @generated from field: virtual_service.v1.Status status = 17;
    */
   status?: Status;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: map<string, string> extra_fields = 18;
+   */
+  extraFields: { [key: string]: string };
 };
 
 /**
@@ -540,6 +561,13 @@ export declare type VirtualServiceListItem = Message<"virtual_service.v1.Virtual
    * @generated from field: virtual_service.v1.Status status = 8;
    */
   status?: Status;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: map<string, string> extra_fields = 9;
+   */
+  extraFields: { [key: string]: string };
 };
 
 /**

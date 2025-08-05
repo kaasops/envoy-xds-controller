@@ -1,0 +1,131 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: auth-service-template
+spec:
+  listener:
+    name: https
+  accessLogConfig:
+    name: access-log-config
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    domains:
+      - "auth.{{ .Domain }}"
+      - "{{ .AuthSubdomain }}.{{ .Domain }}"
+    request_headers_to_add:
+      - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+        header:
+          key: X-Auth-Service
+          value: "{{ .ServiceName }}"
+      - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+        header:
+          key: X-Auth-Provider
+          value: "{{ .AuthProvider }}"
+    routes:
+      - match:
+          prefix: "/{{ .LoginPath }}"
+        route:
+          cluster: "{{ .AuthBackend }}-login"
+          timeout: "{{ .LoginTimeout }}"
+          retry_policy:
+            retry_on: "{{ .RetryConditions }}"
+            num_retries: "{{ .MaxRetries }}"
+      - match:
+          prefix: "/{{ .TokenPath }}"
+        route:
+          cluster: "{{ .AuthBackend }}-token"
+          timeout: "{{ .TokenTimeout }}"
+      - match:
+          prefix: "/{{ .LogoutPath }}"
+        route:
+          cluster: "{{ .AuthBackend }}-logout"
+          timeout: "{{ .LogoutTimeout }}"
+      - match:
+          prefix: "/{{ .CallbackPath }}"
+        route:
+          cluster: "{{ .AuthBackend }}-callback"
+          timeout: "{{ .CallbackTimeout }}"
+    rate_limits:
+      - actions:
+          - remote_address: {}
+          - generic_key:
+              descriptor_value: "{{ .RateLimitKey }}"
+  extraFields:
+    - name: Domain
+      type: string
+      description: "Primary domain for the auth service"
+      required: true
+    - name: AuthSubdomain
+      type: string
+      description: "Subdomain for the auth service"
+      required: false
+      default: "login"
+    - name: ServiceName
+      type: string
+      description: "Name of the auth service"
+      required: true
+    - name: AuthProvider
+      type: enum
+      enum: ["oauth2", "oidc", "saml", "ldap", "custom"]
+      description: "Authentication provider type"
+      required: true
+    - name: AuthBackend
+      type: string
+      description: "Backend service for authentication"
+      required: true
+    - name: LoginPath
+      type: string
+      description: "Path for login endpoint"
+      required: false
+      default: "login"
+    - name: TokenPath
+      type: string
+      description: "Path for token endpoint"
+      required: false
+      default: "token"
+    - name: LogoutPath
+      type: string
+      description: "Path for logout endpoint"
+      required: false
+      default: "logout"
+    - name: CallbackPath
+      type: string
+      description: "Path for callback endpoint"
+      required: false
+      default: "callback"
+    - name: LoginTimeout
+      type: string
+      description: "Timeout for login requests"
+      required: false
+      default: "10s"
+    - name: TokenTimeout
+      type: string
+      description: "Timeout for token requests"
+      required: false
+      default: "5s"
+    - name: LogoutTimeout
+      type: string
+      description: "Timeout for logout requests"
+      required: false
+      default: "3s"
+    - name: CallbackTimeout
+      type: string
+      description: "Timeout for callback requests"
+      required: false
+      default: "5s"
+    - name: RetryConditions
+      type: string
+      description: "Conditions to retry on"
+      required: false
+      default: "connect-failure,refused-stream,unavailable"
+    - name: MaxRetries
+      type: string
+      description: "Maximum number of retries"
+      required: false
+      default: "3"
+    - name: RateLimitKey
+      type: string
+      description: "Rate limit descriptor key"
+      required: false
+      default: "auth"

@@ -36,6 +36,16 @@ type TemplateOpts struct {
 // VirtualServiceTemplateSpec defines the desired state of VirtualServiceTemplate
 type VirtualServiceTemplateSpec struct {
 	VirtualServiceCommonSpec `json:",inline"`
+	ExtraFields              []*ExtraField `json:"extraFields,omitempty"`
+}
+
+type ExtraField struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Type        string   `json:"type"`
+	Required    bool     `json:"required"`
+	Enum        []string `json:"enum,omitempty"`
+	Default     string   `json:"default,omitempty"`
 }
 
 // VirtualServiceTemplateStatus defines the observed state of VirtualServiceTemplate.

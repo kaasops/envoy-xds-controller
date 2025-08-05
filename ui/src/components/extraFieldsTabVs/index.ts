@@ -1,0 +1,1 @@
+export { ExtraFieldsTabVs } from './extraFieldsTabVs'

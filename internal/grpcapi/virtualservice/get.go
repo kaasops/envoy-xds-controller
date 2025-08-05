@@ -35,6 +35,7 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 			Invalid: vs.Status.Invalid,
 			Message: vs.Status.Message,
 		},
+		ExtraFields: vs.Spec.ExtraFields,
 	}
 	if vs.Spec.Template != nil {
 		template := s.store.GetVirtualServiceTemplate(helpers.NamespacedName{

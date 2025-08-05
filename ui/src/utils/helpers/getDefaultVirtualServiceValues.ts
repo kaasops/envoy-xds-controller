@@ -12,5 +12,6 @@ export const getDefaultVirtualServiceValues = (isCreate: boolean, groupId?: stri
 	virtualHostDomainsMode: false,
 	additionalHttpFilterMode: false,
 	additionalRouteMode: false,
-	additionalAccessLogConfigMode: false
+	additionalAccessLogConfigMode: false,
+	extraFields: {}
 })

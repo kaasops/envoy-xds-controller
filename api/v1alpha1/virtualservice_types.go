@@ -23,8 +23,9 @@ import (
 // VirtualServiceSpec defines the desired state of VirtualService
 type VirtualServiceSpec struct {
 	VirtualServiceCommonSpec `json:",inline"`
-	Template                 *ResourceRef   `json:"template,omitempty"`
-	TemplateOptions          []TemplateOpts `json:"templateOptions,omitempty"`
+	Template                 *ResourceRef      `json:"template,omitempty"`
+	TemplateOptions          []TemplateOpts    `json:"templateOptions,omitempty"`
+	ExtraFields              map[string]string `json:"extraFields,omitempty"`
 }
 
 // VirtualServiceStatus defines the observed state of VirtualService

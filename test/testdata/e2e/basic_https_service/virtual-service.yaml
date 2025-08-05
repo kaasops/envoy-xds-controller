@@ -14,7 +14,6 @@ spec:
   tlsConfig:
     autoDiscovery: true
   virtualHost:
-    name: test-virtual-host
     domains:
       - exc.kaasops.io
     routes:

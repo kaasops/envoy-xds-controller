@@ -66,7 +66,10 @@ var _ = Describe("Manager", Ordered, func() {
 		cmd = exec.Command(
 			"make", "deploy-e2e",
 			fmt.Sprintf("IMG_WITHOUT_TAG=%s", projectImage),
-			fmt.Sprintf("TAG=%s", projectImageTag))
+			fmt.Sprintf("TAG=%s", projectImageTag),
+			fmt.Sprintf("INIT_CERT_IMG_WITHOUT_TAG=%s", initCertImage),
+			fmt.Sprintf("TAG=%s", projectImageTag),
+		)
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")
 	})
@@ -142,6 +145,14 @@ var _ = Describe("Manager", Ordered, func() {
 	SetDefaultEventuallyPollingInterval(time.Second)
 
 	Context("Manager", managerContext(controllerPodName))
-	Context("Envoy", envoyContext)
+
+	// Envoy tests split into multiple contexts for better organization
+	Context("Envoy", func() {
+		Context("Basic Functionality", basicEnvoyContext)
+		Context("Validation", validationEnvoyContext)
+		Context("TCP Proxy", tcpProxyEnvoyContext)
+		Context("Templates", templatesEnvoyContext)
+	})
+
 	Context("GRPC_API", grpcAPIContext)
 })

@@ -34,6 +34,10 @@ export const buildAccessLogConfig = (
 	} : { case: undefined }
 }
 
+const buildExtraFields = (extraFields?: Record<string, string>) => {
+	return extraFields || {}
+}
+
 export const buildBaseVSData = (data: IVirtualServiceForm) => {
 	const {
 		//unnecessary data
@@ -45,6 +49,7 @@ export const buildBaseVSData = (data: IVirtualServiceForm) => {
 		virtualHostDomains,
 		templateOptions,
 		accessLogConfigUids,
+		extraFields,
 		...rest
 	} = data
 
@@ -52,7 +57,8 @@ export const buildBaseVSData = (data: IVirtualServiceForm) => {
 		...rest,
 		virtualHost: buildVirtualHost(virtualHostDomains),
 		templateOptions: buildTemplateOptions(templateOptions),
-		accessLogConfig: buildAccessLogConfig(accessLogConfigUids)
+		accessLogConfig: buildAccessLogConfig(accessLogConfigUids),
+		extraFields: buildExtraFields(extraFields)
 	}
 }
 

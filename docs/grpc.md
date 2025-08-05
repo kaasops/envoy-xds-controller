@@ -54,24 +54,30 @@
 - [DomainVerificationResult](#domainverificationresult)
 - [VerifyDomainsRequest](#verifydomainsrequest)
 - [VerifyDomainsResponse](#verifydomainsresponse)
+- [ExtraField](#extrafield)
 - [FillTemplateRequest](#filltemplaterequest)
+- [FillTemplateRequest.ExtraFieldsEntry](#filltemplaterequestextrafieldsentry)
 - [FillTemplateResponse](#filltemplateresponse)
 - [ListVirtualServiceTemplatesRequest](#listvirtualservicetemplatesrequest)
 - [ListVirtualServiceTemplatesResponse](#listvirtualservicetemplatesresponse)
 - [TemplateOption](#templateoption)
 - [VirtualServiceTemplateListItem](#virtualservicetemplatelistitem)
 - [CreateVirtualServiceRequest](#createvirtualservicerequest)
+- [CreateVirtualServiceRequest.ExtraFieldsEntry](#createvirtualservicerequestextrafieldsentry)
 - [CreateVirtualServiceResponse](#createvirtualserviceresponse)
 - [DeleteVirtualServiceRequest](#deletevirtualservicerequest)
 - [DeleteVirtualServiceResponse](#deletevirtualserviceresponse)
 - [GetVirtualServiceRequest](#getvirtualservicerequest)
 - [GetVirtualServiceResponse](#getvirtualserviceresponse)
+- [GetVirtualServiceResponse.ExtraFieldsEntry](#getvirtualserviceresponseextrafieldsentry)
 - [ListVirtualServicesRequest](#listvirtualservicesrequest)
 - [ListVirtualServicesResponse](#listvirtualservicesresponse)
 - [Status](#status)
 - [UpdateVirtualServiceRequest](#updatevirtualservicerequest)
+- [UpdateVirtualServiceRequest.ExtraFieldsEntry](#updatevirtualservicerequestextrafieldsentry)
 - [UpdateVirtualServiceResponse](#updatevirtualserviceresponse)
 - [VirtualServiceListItem](#virtualservicelistitem)
+- [VirtualServiceListItem.ExtraFieldsEntry](#virtualservicelistitemextrafieldsentry)
 
 ### Enums
 
@@ -555,6 +561,21 @@ Represents a route in the route list.
 
 
 
+### ExtraField {#extrafield}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| name | [ string](#string) | none |
+| type | [ string](#string) | none |
+| description | [ string](#string) | none |
+| required | [ bool](#bool) | none |
+| enum | [repeated string](#string) | none |
+| default | [ string](#string) | none |
+
+
+
 ### FillTemplateRequest {#filltemplaterequest}
 Request message for filling a template with specific configurations.
 
@@ -572,6 +593,18 @@ Request message for filling a template with specific configurations.
 | name | [ string](#string) | Virtual service name |
 | description | [ string](#string) | Description is the human-readable description of the resource |
 | expand_references | [ bool](#bool) | Expand references determines whether to replace reference links with their full expanded content in the returned structure. |
+| extra_fields | [map FillTemplateRequest.ExtraFieldsEntry](#filltemplaterequestextrafieldsentry) | Extra fields |
+
+
+
+### FillTemplateRequest.ExtraFieldsEntry {#filltemplaterequestextrafieldsentry}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| key | [ string](#string) | none |
+| value | [ string](#string) | none |
 
 
 
@@ -626,6 +659,7 @@ Details of a virtual service template.
 | name | [ string](#string) | Name of the template. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
 | raw | [ string](#string) | The raw string representation of the resource |
+| extra_fields | [repeated ExtraField](#extrafield) | Extra fields |
 
 
 
@@ -647,6 +681,18 @@ CreateVirtualServiceRequest is the request message for creating a virtual servic
 | [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) _use_remote_address.use_remote_address | [optional bool](#bool) | Whether to use the remote address for the virtual service. |
 | template_options | [repeated virtual_service_template.v1.TemplateOption](#virtual_service_templatev1templateoption) | Template options for the virtual service. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| extra_fields | [map CreateVirtualServiceRequest.ExtraFieldsEntry](#createvirtualservicerequestextrafieldsentry) | Extra fields |
+
+
+
+### CreateVirtualServiceRequest.ExtraFieldsEntry {#createvirtualservicerequestextrafieldsentry}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| key | [ string](#string) | none |
+| value | [ string](#string) | none |
 
 
 
@@ -703,6 +749,18 @@ GetVirtualServiceResponse is the response message for retrieving a virtual servi
 | description | [ string](#string) | Description is the human-readable description of the resource |
 | raw | [ string](#string) | The raw string representation of the resource |
 | status | [ Status](#status) | Status |
+| extra_fields | [map GetVirtualServiceResponse.ExtraFieldsEntry](#getvirtualserviceresponseextrafieldsentry) | Extra fields |
+
+
+
+### GetVirtualServiceResponse.ExtraFieldsEntry {#getvirtualserviceresponseextrafieldsentry}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| key | [ string](#string) | none |
+| value | [ string](#string) | none |
 
 
 
@@ -754,6 +812,18 @@ UpdateVirtualServiceRequest is the request message for updating a virtual servic
 | [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) _use_remote_address.use_remote_address | [optional bool](#bool) | Whether to use the remote address for the virtual service. |
 | template_options | [repeated virtual_service_template.v1.TemplateOption](#virtual_service_templatev1templateoption) | Template options for the virtual service. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
+| extra_fields | [map UpdateVirtualServiceRequest.ExtraFieldsEntry](#updatevirtualservicerequestextrafieldsentry) | Extra fields |
+
+
+
+### UpdateVirtualServiceRequest.ExtraFieldsEntry {#updatevirtualservicerequestextrafieldsentry}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| key | [ string](#string) | none |
+| value | [ string](#string) | none |
 
 
 
@@ -776,6 +846,18 @@ VirtualServiceListItem represents a single virtual service in a list response.
 | is_editable | [ bool](#bool) | Indicates whether the virtual service is editable. |
 | description | [ string](#string) | Description is the human-readable description of the resource |
 | status | [ Status](#status) | Statusq |
+| extra_fields | [map VirtualServiceListItem.ExtraFieldsEntry](#virtualservicelistitemextrafieldsentry) | Extra fields |
+
+
+
+### VirtualServiceListItem.ExtraFieldsEntry {#virtualservicelistitemextrafieldsentry}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| key | [ string](#string) | none |
+| value | [ string](#string) | none |
 
 
 

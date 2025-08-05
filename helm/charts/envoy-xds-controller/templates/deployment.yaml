@@ -39,6 +39,27 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.webhook.enabled }}
+      initContainers:
+      - name: init-cert
+        image: {{ .Values.initCert.image.repository }}:{{ default .Chart.AppVersion .Values.initCert.image.tag }}
+        imagePullPolicy: {{ .Values.initCert.image.pullPolicy | default "IfNotPresent" }}
+        env:
+        - name: INSTALLATION_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: WEBHOOK_TLS_SECRET_NAME
+          value: {{ .Values.webhook.tls.name | default "envoy-xds-controller-webhook-cert" }}
+        - name: WEBHOOK_CFG_NAME
+          value: {{ .Values.webhook.configName | default "envoy-xds-controller-validating-webhook-configuration" }}
+        - name: WEBHOOK_SERVICE_NAME
+          value: {{ .Values.webhook.serviceName | default "envoy-xds-controller-webhook-service" }}
+        {{- with .Values.initCert.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      {{- end }}
       containers:
       - image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
         {{- if or .Values.args .Values.cacheAPI.enabled }}

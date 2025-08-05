@@ -186,6 +186,20 @@ webhook:
   tls:
     # -- Name of the Envoy xDS Controller TLS Secret name when externally managed.
     name: "envoy-xds-controller-webhook-cert"
+  serviceName: "envoy-xds-controller-webhook-service"
+  configName: "envoy-xds-controller-validating-webhook-configuration"
+
+# Init container for certificate initialization
+initCert:
+  image:
+    repository: kaasops/envoy-xds-controller-init-cert
+    tag: "" # rewrites Chart.AppVersion
+    pullPolicy: IfNotPresent
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
 
 auth:
   enabled: false

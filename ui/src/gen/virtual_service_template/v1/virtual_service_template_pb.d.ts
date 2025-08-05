@@ -91,6 +91,13 @@ export declare type VirtualServiceTemplateListItem = Message<"virtual_service_te
    * @generated from field: string raw = 5;
    */
   raw: string;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: repeated virtual_service_template.v1.ExtraField extra_fields = 6;
+   */
+  extraFields: ExtraField[];
 };
 
 /**
@@ -98,6 +105,47 @@ export declare type VirtualServiceTemplateListItem = Message<"virtual_service_te
  * Use `create(VirtualServiceTemplateListItemSchema)` to create a new message.
  */
 export declare const VirtualServiceTemplateListItemSchema: GenMessage<VirtualServiceTemplateListItem>;
+
+/**
+ * @generated from message virtual_service_template.v1.ExtraField
+ */
+export declare type ExtraField = Message<"virtual_service_template.v1.ExtraField"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string type = 2;
+   */
+  type: string;
+
+  /**
+   * @generated from field: string description = 3;
+   */
+  description: string;
+
+  /**
+   * @generated from field: bool required = 4;
+   */
+  required: boolean;
+
+  /**
+   * @generated from field: repeated string enum = 5;
+   */
+  enum: string[];
+
+  /**
+   * @generated from field: string default = 6;
+   */
+  default: string;
+};
+
+/**
+ * Describes the message virtual_service_template.v1.ExtraField.
+ * Use `create(ExtraFieldSchema)` to create a new message.
+ */
+export declare const ExtraFieldSchema: GenMessage<ExtraField>;
 
 /**
  * Response message containing the list of virtual service templates.
@@ -210,6 +258,13 @@ export declare type FillTemplateRequest = Message<"virtual_service_template.v1.F
    * @generated from field: bool expand_references = 11;
    */
   expandReferences: boolean;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: map<string, string> extra_fields = 12;
+   */
+  extraFields: { [key: string]: string };
 };
 
 /**

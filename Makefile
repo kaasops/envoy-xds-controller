@@ -4,9 +4,11 @@ TAG ?= $(REV)
 
 IMG_WITHOUT_TAG ?= $(REGISTRY)/envoy-xds-controller
 UI_IMG_WITHOUT_TAG ?= $(REGISTRY)/envoy-xds-controller-ui
+INIT_CERT_IMG_WITHOUT_TAG ?= $(REGISTRY)/envoy-xds-controller-init-cert
 
 IMG ?= $(IMG_WITHOUT_TAG):$(TAG)
 UI_IMG ?= $(UI_IMG_WITHOUT_TAG):$(TAG)
+INIT_CERT_IMG ?= $(INIT_CERT_IMG_WITHOUT_TAG):$(TAG)
 
 DEPLOY_TIMEOUT ?= 5m
 
@@ -113,6 +115,10 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
+.PHONY: build-init-cert
+build-init-cert: manifests generate fmt vet ## Build init-cert binary.
+	go build -o bin/init-cert cmd/init-cert/main.go
+
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
@@ -128,8 +134,12 @@ docker-build: ## Build docker image with the manager.
 docker-build-ui: ## Build docker image with the ui.
 	$(CONTAINER_TOOL) build -t ${UI_IMG} -f ui/Dockerfile ./ui
 
+.PHONY: docker-build-init-cert
+docker-build-init-cert: ## Build docker image with the init-cert.
+	$(CONTAINER_TOOL) build -t ${INIT_CERT_IMG} -f cmd/init-cert/Dockerfile .
+
 .PHONY: docker-build-all
-docker-build-all: docker-build docker-build-ui
+docker-build-all: docker-build docker-build-ui docker-build-init-cert
 
 .PHONY: docker-build-all-local
 docker-build-all-local: set-local docker-build-all
@@ -142,8 +152,12 @@ docker-push: ## Push docker image with the manager.
 docker-push-ui: ## Push docker image with the ui
 	$(CONTAINER_TOOL) push ${UI_IMG}
 
+.PHONY: docker-push-init-cert
+docker-push-init-cert: ## Push docker image with the init-cert
+	$(CONTAINER_TOOL) push ${INIT_CERT_IMG}
+
 .PHONY: docker-push-all
-docker-push-all: docker-push docker-push-ui
+docker-push-all: docker-push docker-push-ui docker-push-init-cert
 
 .PHONY: docker-push-all-local
 docker-push-all-local: set-local docker-push-all
@@ -283,6 +297,8 @@ helm-deploy-local: manifests set-local## Install Envoy xDS Controller into the l
  		--set cacheAPI.enabled=true \
  		--set ui.image.repository=$(UI_IMG_WITHOUT_TAG) \
  		--set ui.image.tag=$(TAG) \
+		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
+		--set initCert.image.tag=$(TAG) \
  		--set resourceAPI.enabled=true \
  		--namespace envoy-xds-controller \
  		--create-namespace ./helm/charts/envoy-xds-controller \
@@ -314,7 +330,7 @@ kd:
 
 .PHONY: dev-apply-resources
 dev-apply-resources:
-	kubectl -n envoy-xds-controller apply -f dev/testdata
+	kubectl -n envoy-xds-controller apply -f dev/testdata/common
 
 .PHONY: dev-delete-resources
 dev-delete-resources:
@@ -327,6 +343,8 @@ helm-deploy-backend-local: manifests set-local## Install Envoy xDS Controller in
  		--set 'watchNamespaces={default}' \
  		--set image.repository=$(IMG_WITHOUT_TAG) \
  		--set image.tag=$(TAG) \
+		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
+		--set initCert.image.tag=$(TAG) \
  		--set cacheAPI.enabled=true \
  		--set resourceAPI.enabled=true \
  		--namespace envoy-xds-controller \
@@ -342,6 +360,8 @@ deploy-e2e: manifests
  		--set 'watchNamespaces={default}' \
  		--set image.repository=$(IMG_WITHOUT_TAG) \
  		--set image.tag=$(TAG) \
+		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
+		--set initCert.image.tag=$(TAG) \
  		--set cacheAPI.enabled=true \
  		--set resourceAPI.enabled=true \
  		--namespace envoy-xds-controller \
@@ -378,3 +398,7 @@ helm-template:
 .PHONY: dev-envoy
 dev-envoy:
 	kubectl apply -f dev/envoy
+
+.PHONY: dev-frontend
+dev-frontend:
+	cd ui && npm run dev
