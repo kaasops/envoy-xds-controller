@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/kaasops/envoy-xds-controller/internal/buildinfo"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	corev1 "k8s.io/api/core/v1"
@@ -563,6 +564,16 @@ func main() {
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
+					_, _ = w.Write(data)
+				})
+				http.HandleFunc("/debug/buildinfo", func(w http.ResponseWriter, r *http.Request) {
+					data, err := json.MarshalIndent(buildinfo.GetInfo(), "", "\t")
+					if err != nil {
+						dLog.Error(err, "failed to marshal build information")
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
 					_, _ = w.Write(data)
 				})
 				_ = http.ListenAndServe(":4444", nil)

@@ -113,7 +113,11 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build -o bin/manager \
+		-ldflags "-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.Version=$(TAG) \
+		-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.CommitHash=$(REV) \
+		-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.BuildDate=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+		cmd/main.go
 
 .PHONY: build-init-cert
 build-init-cert: manifests generate fmt vet ## Build init-cert binary.
@@ -128,7 +132,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build \
+		--build-arg VERSION=$(TAG) \
+		--build-arg COMMIT_HASH=$(REV) \
+		--build-arg BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") \
+		-t ${IMG} .
 
 .PHONY: docker-build-ui
 docker-build-ui: ## Build docker image with the ui.
