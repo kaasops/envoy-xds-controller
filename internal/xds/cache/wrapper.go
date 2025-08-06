@@ -102,6 +102,25 @@ func (c *SnapshotCache) GetSecrets(nodeID string) ([]*tlsv3.Secret, error) {
 	return secrets, nil
 }
 
+func (c *SnapshotCache) GetVersions(nodeID string) (map[string]string, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	snapshot, err := c.SnapshotCache.GetSnapshot(nodeID)
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]string, 5)
+	for typ, typeURL := range map[string]resourcev3.Type{
+		"clusters":  resourcev3.ClusterType,
+		"routes":    resourcev3.RouteType,
+		"listeners": resourcev3.ListenerType,
+		"secrets":   resourcev3.SecretType,
+	} {
+		m[typ] = snapshot.GetVersion(typeURL)
+	}
+	return m, nil
+}
+
 func (c *SnapshotCache) GetRouteConfigurations(nodeID string) ([]*routev3.RouteConfiguration, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
