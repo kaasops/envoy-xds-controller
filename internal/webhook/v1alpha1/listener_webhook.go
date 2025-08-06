@@ -72,6 +72,8 @@ func (v *ListenerCustomValidator) ValidateCreate(ctx context.Context, obj runtim
 		return nil, err
 	}
 
+	listenerlog.Info("Listener is valid", "name", listener.GetName())
+
 	return nil, nil
 }
 
@@ -86,6 +88,8 @@ func (v *ListenerCustomValidator) ValidateUpdate(ctx context.Context, oldObj, ne
 	if _, err := listener.UnmarshalV3AndValidate(); err != nil {
 		return nil, err
 	}
+
+	listenerlog.Info("Listener is valid", "name", listener.GetName())
 
 	return nil, nil
 }

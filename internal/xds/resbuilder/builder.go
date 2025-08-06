@@ -838,18 +838,21 @@ func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*
 
 func getTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error) {
 	if vsTLSConfig == nil {
-		return "", fmt.Errorf("tls config is empty")
+		return "", fmt.Errorf("TLS configuration is missing: please provide TLS parameters")
 	}
 	if vsTLSConfig.SecretRef != nil {
 		if vsTLSConfig.AutoDiscovery != nil && *vsTLSConfig.AutoDiscovery {
-			return "", fmt.Errorf("can't use secretRef and autoDiscovery at the same time")
+			return "", fmt.Errorf("TLS configuration conflict: cannot use both secretRef and autoDiscovery simultaneously")
 		}
 		return SecretRefType, nil
 	}
 	if vsTLSConfig.AutoDiscovery != nil {
+		if *vsTLSConfig.AutoDiscovery == false {
+			return "", fmt.Errorf("invalid TLS configuration: cannot use autoDiscovery=false without specifying secretRef")
+		}
 		return AutoDiscoveryType, nil
 	}
-	return "", fmt.Errorf("tls config is empty")
+	return "", fmt.Errorf("empty TLS configuration: either secretRef or autoDiscovery must be specified")
 }
 
 func getSecretNameToDomainsViaSecretRef(secretRef *v1alpha1.ResourceRef, vsNamespace string, domains []string) map[helpers.NamespacedName][]string {
