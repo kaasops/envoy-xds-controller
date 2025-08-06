@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"sync"
 	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"

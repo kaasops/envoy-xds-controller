@@ -847,7 +847,7 @@ func getTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error) {
 		return SecretRefType, nil
 	}
 	if vsTLSConfig.AutoDiscovery != nil {
-		if *vsTLSConfig.AutoDiscovery == false {
+		if !*vsTLSConfig.AutoDiscovery {
 			return "", fmt.Errorf("invalid TLS configuration: cannot use autoDiscovery=false without specifying secretRef")
 		}
 		return AutoDiscoveryType, nil
