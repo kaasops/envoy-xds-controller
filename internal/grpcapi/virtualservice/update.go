@@ -26,6 +26,7 @@ func (s *VirtualServiceStore) UpdateVirtualService(ctx context.Context, req *con
 
 	vs.SetNodeIDs(req.Msg.NodeIds)
 	vs.Namespace = s.targetNs
+	vs.Spec.ExtraFields = req.Msg.ExtraFields
 
 	accessGroup := vs.GetAccessGroup()
 

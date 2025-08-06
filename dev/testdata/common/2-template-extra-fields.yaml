@@ -1,0 +1,51 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: api-service-template
+spec:
+  listener:
+    name: https
+  accessLogConfig:
+    name: access-log-config
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    request_headers_to_add:
+      - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+        header:
+          key: X-API-Version
+          value: "{{ .ApiVersion }}"
+      - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+        header:
+          key: X-Service-Tier
+          value: "{{ .ServiceTier }}"
+    routes:
+      - match:
+          prefix: "/{{ .ApiVersion }}/{{ .ServicePath }}"
+        route:
+          cluster: "{{ .ServiceName }}"
+          timeout: "{{ .Timeout }}"
+  extraFields:
+    - name: ServiceName
+      type: string
+      description: "The name of the service cluster"
+      required: true
+    - name: ServicePath
+      type: string
+      description: "The path segment for the service"
+      required: true
+    - name: ApiVersion
+      type: string
+      description: "API version (v1, v2, etc.)"
+      required: true
+      default: "v1"
+    - name: ServiceTier
+      type: enum
+      enum: ["frontend", "backend", "data"]
+      description: "Service tier"
+      required: true
+    - name: Timeout
+      type: string
+      description: "Request timeout"
+      required: false
+      default: "30s"

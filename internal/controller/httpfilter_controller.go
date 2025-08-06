@@ -60,12 +60,11 @@ func (r *HttpFilterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, r.Updater.DeleteHTTPFilter(ctx, req.NamespacedName)
+		r.Updater.DeleteHTTPFilter(ctx, req.NamespacedName)
+		return ctrl.Result{}, nil
 	}
 
-	if err := r.Updater.ApplyHTTPFilter(ctx, &httpFilter); err != nil {
-		return ctrl.Result{}, err
-	}
+	r.Updater.ApplyHTTPFilter(ctx, &httpFilter)
 
 	rlog.Info("Finished Reconciling HttpFilter")
 

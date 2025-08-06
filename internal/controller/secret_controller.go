@@ -59,12 +59,11 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, r.Updater.DeleteSecret(ctx, req.NamespacedName)
+		r.Updater.DeleteSecret(ctx, req.NamespacedName)
+		return ctrl.Result{}, nil
 	}
 
-	if err := r.Updater.ApplySecret(ctx, &secret); err != nil {
-		return ctrl.Result{}, err
-	}
+	r.Updater.ApplySecret(ctx, &secret)
 
 	rlog.Info("Finished Reconciling Secret")
 

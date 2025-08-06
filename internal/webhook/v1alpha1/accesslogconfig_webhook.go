@@ -70,6 +70,7 @@ func (v *AccessLogConfigCustomValidator) ValidateCreate(ctx context.Context, obj
 	if _, err := accesslogconfig.UnmarshalAndValidateV3(); err != nil {
 		return nil, err
 	}
+	accesslogconfiglog.Info("AccessLogConfig is valid", "name", accesslogconfig.GetName())
 	return nil, nil
 }
 
@@ -83,6 +84,7 @@ func (v *AccessLogConfigCustomValidator) ValidateUpdate(ctx context.Context, old
 	if _, err := accesslogconfig.UnmarshalAndValidateV3(); err != nil {
 		return nil, err
 	}
+	accesslogconfiglog.Info("AccessLogConfig is valid", "name", accesslogconfig.GetName())
 	return nil, nil
 }
 

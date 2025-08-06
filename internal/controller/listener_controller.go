@@ -61,12 +61,11 @@ func (r *ListenerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, r.Updater.DeleteListener(ctx, req.NamespacedName)
+		r.Updater.DeleteListener(ctx, req.NamespacedName)
+		return ctrl.Result{}, nil
 	}
 
-	if err := r.Updater.ApplyListener(ctx, &listener); err != nil {
-		return ctrl.Result{}, err
-	}
+	r.Updater.ApplyListener(ctx, &listener)
 
 	rlog.Info("Finished Reconciling Listener")
 

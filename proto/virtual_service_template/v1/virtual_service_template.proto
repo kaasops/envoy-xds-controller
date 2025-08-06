@@ -58,6 +58,18 @@ message VirtualServiceTemplateListItem {
 
   // The raw string representation of the resource
   string raw = 5;
+
+  // Extra fields
+  repeated ExtraField extra_fields = 6;
+}
+
+message ExtraField {
+  string name = 1;
+  string type = 2;
+  string description = 3;
+  bool required = 4;
+  repeated string enum = 5;
+  string default = 6;
 }
 
 // Response message containing the list of virtual service templates.
@@ -104,6 +116,9 @@ message FillTemplateRequest {
   // Expand references determines whether to replace reference links
   // with their full expanded content in the returned structure.
   bool expand_references = 11;
+
+  // Extra fields
+  map<string, string> extra_fields = 12;
 }
 
 // Response message containing the filled template as a raw string.

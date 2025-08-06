@@ -72,6 +72,8 @@ func (v *RouteCustomValidator) ValidateCreate(ctx context.Context, obj runtime.O
 		return nil, err
 	}
 
+	routelog.Info("Route is valid", "name", route.GetName())
+
 	return nil, nil
 }
 
@@ -86,6 +88,8 @@ func (v *RouteCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newOb
 	if _, err := route.UnmarshalV3AndValidate(); err != nil {
 		return nil, err
 	}
+
+	routelog.Info("Route is valid", "name", route.GetName())
 
 	return nil, nil
 }

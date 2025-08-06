@@ -70,6 +70,9 @@ message CreateVirtualServiceRequest {
 
   // Description is the human-readable description of the resource
   string description = 12;
+
+  // Extra fields
+  map<string, string> extra_fields = 13;
 }
 
 // CreateVirtualServiceResponse is the response message for creating a virtual service.
@@ -112,6 +115,9 @@ message UpdateVirtualServiceRequest {
 
   // Description is the human-readable description of the resource
   string description = 11;
+
+  // Extra fields
+  map<string, string> extra_fields = 12;
 }
 
 // UpdateVirtualServiceResponse is the response message for updating a virtual service.
@@ -187,6 +193,9 @@ message GetVirtualServiceResponse {
 
   // Status
   Status status = 17;
+
+  // Extra fields
+  map<string, string> extra_fields = 18;
 }
 
 // ListVirtualServicesRequest is the request message for listing virtual services.
@@ -220,6 +229,9 @@ message VirtualServiceListItem {
 
   // Statusq
   Status status = 8;
+
+  // Extra fields
+  map<string, string> extra_fields = 9;
 }
 
 // ListVirtualServicesResponse is the response message for listing virtual services.

@@ -72,6 +72,8 @@ func (v *HttpFilterCustomValidator) ValidateCreate(ctx context.Context, obj runt
 		return nil, err
 	}
 
+	httpfilterlog.Info("HttpFilter is valid", "name", httpfilter.GetName())
+
 	return nil, nil
 }
 
@@ -86,6 +88,8 @@ func (v *HttpFilterCustomValidator) ValidateUpdate(ctx context.Context, oldObj, 
 	if _, err := httpfilter.UnmarshalV3AndValidate(); err != nil {
 		return nil, err
 	}
+
+	httpfilterlog.Info("HttpFilter is valid", "name", httpfilter.GetName())
 
 	return nil, nil
 }

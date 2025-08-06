@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file virtual_service_template/v1/virtual_service_template.proto.
  */
 export const file_virtual_service_template_v1_virtual_service_template: GenFile = /*@__PURE__*/
-  fileDesc("Cjp2aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUvdjEvdmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlLnByb3RvEht2aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEiZgoOVGVtcGxhdGVPcHRpb24SDQoFZmllbGQYASABKAkSRQoIbW9kaWZpZXIYAiABKA4yMy52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuVGVtcGxhdGVPcHRpb25Nb2RpZmllciI6CiJMaXN0VmlydHVhbFNlcnZpY2VUZW1wbGF0ZXNSZXF1ZXN0EhQKDGFjY2Vzc19ncm91cBgBIAEoCSJdCh5WaXJ0dWFsU2VydmljZVRlbXBsYXRlTGlzdEl0ZW0SCwoDdWlkGAEgASgJEgwKBG5hbWUYAiABKAkSEwoLZGVzY3JpcHRpb24YAyABKAkSCwoDcmF3GAUgASgJInEKI0xpc3RWaXJ0dWFsU2VydmljZVRlbXBsYXRlc1Jlc3BvbnNlEkoKBWl0ZW1zGAEgAygLMjsudmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlLnYxLlZpcnR1YWxTZXJ2aWNlVGVtcGxhdGVMaXN0SXRlbSK4AwoTRmlsbFRlbXBsYXRlUmVxdWVzdBIUCgx0ZW1wbGF0ZV91aWQYASABKAkSFAoMbGlzdGVuZXJfdWlkGAIgASgJEiwKDHZpcnR1YWxfaG9zdBgDIAEoCzIWLmNvbW1vbi52MS5WaXJ0dWFsSG9zdBIxChZhY2Nlc3NfbG9nX2NvbmZpZ191aWRzGAQgASgLMg8uY29tbW9uLnYxLlVJRFNIABIjChthZGRpdGlvbmFsX2h0dHBfZmlsdGVyX3VpZHMYBSADKAkSHQoVYWRkaXRpb25hbF9yb3V0ZV91aWRzGAYgAygJEh8KEnVzZV9yZW1vdGVfYWRkcmVzcxgHIAEoCEgBiAEBEkUKEHRlbXBsYXRlX29wdGlvbnMYCCADKAsyKy52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuVGVtcGxhdGVPcHRpb24SDAoEbmFtZRgJIAEoCRITCgtkZXNjcmlwdGlvbhgKIAEoCRIZChFleHBhbmRfcmVmZXJlbmNlcxgLIAEoCEITChFhY2Nlc3NfbG9nX2NvbmZpZ0IVChNfdXNlX3JlbW90ZV9hZGRyZXNzIiMKFEZpbGxUZW1wbGF0ZVJlc3BvbnNlEgsKA3JhdxgBIAEoCSqxAQoWVGVtcGxhdGVPcHRpb25Nb2RpZmllchIoCiRURU1QTEFURV9PUFRJT05fTU9ESUZJRVJfVU5TUEVDSUZJRUQQABIiCh5URU1QTEFURV9PUFRJT05fTU9ESUZJRVJfTUVSR0UQARIkCiBURU1QTEFURV9PUFRJT05fTU9ESUZJRVJfUkVQTEFDRRACEiMKH1RFTVBMQVRFX09QVElPTl9NT0RJRklFUl9ERUxFVEUQAzK8AgoiVmlydHVhbFNlcnZpY2VUZW1wbGF0ZVN0b3JlU2VydmljZRKgAQobTGlzdFZpcnR1YWxTZXJ2aWNlVGVtcGxhdGVzEj8udmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlLnYxLkxpc3RWaXJ0dWFsU2VydmljZVRlbXBsYXRlc1JlcXVlc3QaQC52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuTGlzdFZpcnR1YWxTZXJ2aWNlVGVtcGxhdGVzUmVzcG9uc2UScwoMRmlsbFRlbXBsYXRlEjAudmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlLnYxLkZpbGxUZW1wbGF0ZVJlcXVlc3QaMS52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuRmlsbFRlbXBsYXRlUmVzcG9uc2VCsAIKH2NvbS52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjFCG1ZpcnR1YWxTZXJ2aWNlVGVtcGxhdGVQcm90b1ABWmtnaXRodWIuY29tL2thYXNvcHMvZW52b3kteGRzLWNvbnRyb2xsZXIvcGtnL2FwaS9ncnBjL3ZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS92MTt2aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGV2MaICA1ZYWKoCGVZpcnR1YWxTZXJ2aWNlVGVtcGxhdGUuVjHKAhlWaXJ0dWFsU2VydmljZVRlbXBsYXRlXFYx4gIlVmlydHVhbFNlcnZpY2VUZW1wbGF0ZVxWMVxHUEJNZXRhZGF0YeoCGlZpcnR1YWxTZXJ2aWNlVGVtcGxhdGU6OlYxYgZwcm90bzM", [file_common_v1_common]);
+  fileDesc("Cjp2aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUvdjEvdmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlLnByb3RvEht2aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEiZgoOVGVtcGxhdGVPcHRpb24SDQoFZmllbGQYASABKAkSRQoIbW9kaWZpZXIYAiABKA4yMy52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuVGVtcGxhdGVPcHRpb25Nb2RpZmllciI6CiJMaXN0VmlydHVhbFNlcnZpY2VUZW1wbGF0ZXNSZXF1ZXN0EhQKDGFjY2Vzc19ncm91cBgBIAEoCSKcAQoeVmlydHVhbFNlcnZpY2VUZW1wbGF0ZUxpc3RJdGVtEgsKA3VpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhMKC2Rlc2NyaXB0aW9uGAMgASgJEgsKA3JhdxgFIAEoCRI9CgxleHRyYV9maWVsZHMYBiADKAsyJy52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuRXh0cmFGaWVsZCJuCgpFeHRyYUZpZWxkEgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCRITCgtkZXNjcmlwdGlvbhgDIAEoCRIQCghyZXF1aXJlZBgEIAEoCBIMCgRlbnVtGAUgAygJEg8KB2RlZmF1bHQYBiABKAkicQojTGlzdFZpcnR1YWxTZXJ2aWNlVGVtcGxhdGVzUmVzcG9uc2USSgoFaXRlbXMYASADKAsyOy52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuVmlydHVhbFNlcnZpY2VUZW1wbGF0ZUxpc3RJdGVtIsUEChNGaWxsVGVtcGxhdGVSZXF1ZXN0EhQKDHRlbXBsYXRlX3VpZBgBIAEoCRIUCgxsaXN0ZW5lcl91aWQYAiABKAkSLAoMdmlydHVhbF9ob3N0GAMgASgLMhYuY29tbW9uLnYxLlZpcnR1YWxIb3N0EjEKFmFjY2Vzc19sb2dfY29uZmlnX3VpZHMYBCABKAsyDy5jb21tb24udjEuVUlEU0gAEiMKG2FkZGl0aW9uYWxfaHR0cF9maWx0ZXJfdWlkcxgFIAMoCRIdChVhZGRpdGlvbmFsX3JvdXRlX3VpZHMYBiADKAkSHwoSdXNlX3JlbW90ZV9hZGRyZXNzGAcgASgISAGIAQESRQoQdGVtcGxhdGVfb3B0aW9ucxgIIAMoCzIrLnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MS5UZW1wbGF0ZU9wdGlvbhIMCgRuYW1lGAkgASgJEhMKC2Rlc2NyaXB0aW9uGAogASgJEhkKEWV4cGFuZF9yZWZlcmVuY2VzGAsgASgIElcKDGV4dHJhX2ZpZWxkcxgMIAMoCzJBLnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MS5GaWxsVGVtcGxhdGVSZXF1ZXN0LkV4dHJhRmllbGRzRW50cnkaMgoQRXh0cmFGaWVsZHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAk6AjgBQhMKEWFjY2Vzc19sb2dfY29uZmlnQhUKE191c2VfcmVtb3RlX2FkZHJlc3MiIwoURmlsbFRlbXBsYXRlUmVzcG9uc2USCwoDcmF3GAEgASgJKrEBChZUZW1wbGF0ZU9wdGlvbk1vZGlmaWVyEigKJFRFTVBMQVRFX09QVElPTl9NT0RJRklFUl9VTlNQRUNJRklFRBAAEiIKHlRFTVBMQVRFX09QVElPTl9NT0RJRklFUl9NRVJHRRABEiQKIFRFTVBMQVRFX09QVElPTl9NT0RJRklFUl9SRVBMQUNFEAISIwofVEVNUExBVEVfT1BUSU9OX01PRElGSUVSX0RFTEVURRADMrwCCiJWaXJ0dWFsU2VydmljZVRlbXBsYXRlU3RvcmVTZXJ2aWNlEqABChtMaXN0VmlydHVhbFNlcnZpY2VUZW1wbGF0ZXMSPy52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuTGlzdFZpcnR1YWxTZXJ2aWNlVGVtcGxhdGVzUmVxdWVzdBpALnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MS5MaXN0VmlydHVhbFNlcnZpY2VUZW1wbGF0ZXNSZXNwb25zZRJzCgxGaWxsVGVtcGxhdGUSMC52aXJ0dWFsX3NlcnZpY2VfdGVtcGxhdGUudjEuRmlsbFRlbXBsYXRlUmVxdWVzdBoxLnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MS5GaWxsVGVtcGxhdGVSZXNwb25zZUKwAgofY29tLnZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZS52MUIbVmlydHVhbFNlcnZpY2VUZW1wbGF0ZVByb3RvUAFaa2dpdGh1Yi5jb20va2Fhc29wcy9lbnZveS14ZHMtY29udHJvbGxlci9wa2cvYXBpL2dycGMvdmlydHVhbF9zZXJ2aWNlX3RlbXBsYXRlL3YxO3ZpcnR1YWxfc2VydmljZV90ZW1wbGF0ZXYxogIDVlhYqgIZVmlydHVhbFNlcnZpY2VUZW1wbGF0ZS5WMcoCGVZpcnR1YWxTZXJ2aWNlVGVtcGxhdGVcVjHiAiVWaXJ0dWFsU2VydmljZVRlbXBsYXRlXFYxXEdQQk1ldGFkYXRh6gIaVmlydHVhbFNlcnZpY2VUZW1wbGF0ZTo6VjFiBnByb3RvMw", [file_common_v1_common]);
 
 /**
  * Represents a single option to be applied to a template.
@@ -96,6 +96,13 @@ export type VirtualServiceTemplateListItem = Message<"virtual_service_template.v
    * @generated from field: string raw = 5;
    */
   raw: string;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: repeated virtual_service_template.v1.ExtraField extra_fields = 6;
+   */
+  extraFields: ExtraField[];
 };
 
 /**
@@ -104,6 +111,48 @@ export type VirtualServiceTemplateListItem = Message<"virtual_service_template.v
  */
 export const VirtualServiceTemplateListItemSchema: GenMessage<VirtualServiceTemplateListItem> = /*@__PURE__*/
   messageDesc(file_virtual_service_template_v1_virtual_service_template, 2);
+
+/**
+ * @generated from message virtual_service_template.v1.ExtraField
+ */
+export type ExtraField = Message<"virtual_service_template.v1.ExtraField"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string type = 2;
+   */
+  type: string;
+
+  /**
+   * @generated from field: string description = 3;
+   */
+  description: string;
+
+  /**
+   * @generated from field: bool required = 4;
+   */
+  required: boolean;
+
+  /**
+   * @generated from field: repeated string enum = 5;
+   */
+  enum: string[];
+
+  /**
+   * @generated from field: string default = 6;
+   */
+  default: string;
+};
+
+/**
+ * Describes the message virtual_service_template.v1.ExtraField.
+ * Use `create(ExtraFieldSchema)` to create a new message.
+ */
+export const ExtraFieldSchema: GenMessage<ExtraField> = /*@__PURE__*/
+  messageDesc(file_virtual_service_template_v1_virtual_service_template, 3);
 
 /**
  * Response message containing the list of virtual service templates.
@@ -124,7 +173,7 @@ export type ListVirtualServiceTemplatesResponse = Message<"virtual_service_templ
  * Use `create(ListVirtualServiceTemplatesResponseSchema)` to create a new message.
  */
 export const ListVirtualServiceTemplatesResponseSchema: GenMessage<ListVirtualServiceTemplatesResponse> = /*@__PURE__*/
-  messageDesc(file_virtual_service_template_v1_virtual_service_template, 3);
+  messageDesc(file_virtual_service_template_v1_virtual_service_template, 4);
 
 /**
  * Request message for filling a template with specific configurations.
@@ -217,6 +266,13 @@ export type FillTemplateRequest = Message<"virtual_service_template.v1.FillTempl
    * @generated from field: bool expand_references = 11;
    */
   expandReferences: boolean;
+
+  /**
+   * Extra fields
+   *
+   * @generated from field: map<string, string> extra_fields = 12;
+   */
+  extraFields: { [key: string]: string };
 };
 
 /**
@@ -224,7 +280,7 @@ export type FillTemplateRequest = Message<"virtual_service_template.v1.FillTempl
  * Use `create(FillTemplateRequestSchema)` to create a new message.
  */
 export const FillTemplateRequestSchema: GenMessage<FillTemplateRequest> = /*@__PURE__*/
-  messageDesc(file_virtual_service_template_v1_virtual_service_template, 4);
+  messageDesc(file_virtual_service_template_v1_virtual_service_template, 5);
 
 /**
  * Response message containing the filled template as a raw string.
@@ -245,7 +301,7 @@ export type FillTemplateResponse = Message<"virtual_service_template.v1.FillTemp
  * Use `create(FillTemplateResponseSchema)` to create a new message.
  */
 export const FillTemplateResponseSchema: GenMessage<FillTemplateResponse> = /*@__PURE__*/
-  messageDesc(file_virtual_service_template_v1_virtual_service_template, 5);
+  messageDesc(file_virtual_service_template_v1_virtual_service_template, 6);
 
 /**
  * Enum describing possible modifiers for template options.

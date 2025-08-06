@@ -1,0 +1,99 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: microservice-gateway-template
+spec:
+  listener:
+    name: https
+  accessLogConfig:
+    name: access-log-config
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    domains:
+      - "{{ .ServiceName }}.{{ .Environment }}.example.com"
+    cors:
+      allow_origin_string_match:
+        - prefix: "{{ .CorsOrigin }}"
+      allow_methods: "GET, POST, PUT, DELETE, OPTIONS"
+      allow_headers: "Origin, Content-Type, Accept, Authorization"
+      max_age: "{{ .CorsMaxAge }}"
+    routes:
+      - match:
+          prefix: "/api/{{ .ServiceVersion }}/{{ .ServicePath }}"
+        route:
+          cluster: "{{ .ServiceName }}-{{ .Environment }}"
+          timeout: "{{ .RequestTimeout }}"
+          retry_policy:
+            retry_on: "{{ .RetryOn }}"
+            num_retries: "{{ .RetryCount }}"
+            per_try_timeout: "{{ .RetryTimeout }}"
+      - match:
+          prefix: "/health"
+        route:
+          cluster: "{{ .ServiceName }}-{{ .Environment }}-health"
+          timeout: "1s"
+    rate_limits:
+      - actions:
+          - request_headers:
+              header_name: "{{ .RateLimitHeader }}"
+              descriptor_key: "{{ .RateLimitKey }}"
+  extraFields:
+    - name: ServiceName
+      type: string
+      description: "The name of the microservice"
+      required: true
+    - name: ServicePath
+      type: string
+      description: "The API path segment for the service"
+      required: true
+    - name: ServiceVersion
+      type: string
+      description: "API version (v1, v2, etc.)"
+      required: true
+      default: "v1"
+    - name: Environment
+      type: enum
+      enum: ["dev", "staging", "prod"]
+      description: "Deployment environment"
+      required: true
+    - name: RequestTimeout
+      type: string
+      description: "Request timeout"
+      required: false
+      default: "30s"
+    - name: RetryOn
+      type: string
+      description: "Conditions to retry on (e.g., 'connect-failure,refused-stream')"
+      required: false
+      default: "connect-failure,refused-stream,unavailable,gateway-error,reset"
+    - name: RetryCount
+      type: string
+      description: "Number of retry attempts"
+      required: false
+      default: "3"
+    - name: RetryTimeout
+      type: string
+      description: "Timeout per retry attempt"
+      required: false
+      default: "2s"
+    - name: CorsOrigin
+      type: string
+      description: "CORS allowed origin prefix"
+      required: false
+      default: "https://"
+    - name: CorsMaxAge
+      type: string
+      description: "CORS max age in seconds"
+      required: false
+      default: "86400"
+    - name: RateLimitHeader
+      type: string
+      description: "Header name for rate limiting"
+      required: false
+      default: "x-user-id"
+    - name: RateLimitKey
+      type: string
+      description: "Descriptor key for rate limiting"
+      required: false
+      default: "user_id"

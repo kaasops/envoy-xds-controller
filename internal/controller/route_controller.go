@@ -61,12 +61,11 @@ func (r *RouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, r.Updater.DeleteRoute(ctx, req.NamespacedName)
+		r.Updater.DeleteRoute(ctx, req.NamespacedName)
+		return ctrl.Result{}, nil
 	}
 
-	if err := r.Updater.ApplyRoute(ctx, &route); err != nil {
-		return ctrl.Result{}, err
-	}
+	r.Updater.ApplyRoute(ctx, &route)
 
 	rlog.Info("Finished Reconciling Route")
 	return ctrl.Result{}, nil

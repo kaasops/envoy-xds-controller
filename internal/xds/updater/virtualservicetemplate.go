@@ -8,19 +8,21 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (c *CacheUpdater) ApplyVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) error {
+func (c *CacheUpdater) ApplyVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) (isUpdate bool) {
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	prevVST := c.store.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name})
 	if prevVST == nil {
 		c.store.SetVirtualServiceTemplate(vst)
-		return c.rebuildSnapshots(ctx)
+		_ = c.rebuildSnapshots(ctx)
+		return false
 	}
 	if prevVST.IsEqual(vst) {
-		return nil
+		return false
 	}
 	c.store.SetVirtualServiceTemplate(vst)
-	return c.rebuildSnapshots(ctx)
+	_ = c.rebuildSnapshots(ctx)
+	return true
 }
 
 func (c *CacheUpdater) DeleteVirtualServiceTemplate(ctx context.Context, nn types.NamespacedName) error {

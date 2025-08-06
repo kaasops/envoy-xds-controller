@@ -63,6 +63,8 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
 
+	vsPtr := vs
+
 	// Apply template if specified
 	vs, err = applyVirtualServiceTemplate(vs, store)
 	if err != nil {
@@ -89,6 +91,10 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	resources, err := buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn, store)
 	if err != nil {
 		return nil, err
+	}
+
+	if vs.Status.Message != "" {
+		vsPtr.UpdateStatus(vs.Status.Invalid, vs.Status.Message)
 	}
 
 	return resources, nil
@@ -283,7 +289,7 @@ func buildRouteConfiguration(
 	// Add fallback route for TLS listeners
 	// https://github.com/envoyproxy/envoy/issues/37810
 	listenerIsTLS := isTLSListener(xdsListener)
-	if listenerIsTLS && !(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") {
+	if listenerIsTLS && !(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") && listenerHasPort443(xdsListener) {
 		routeConfiguration.VirtualHosts = append(routeConfiguration.VirtualHosts, &routev3.VirtualHost{
 			Name:    "421vh",
 			Domains: []string{"*"},
@@ -832,18 +838,21 @@ func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*
 
 func getTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error) {
 	if vsTLSConfig == nil {
-		return "", fmt.Errorf("tls config is empty")
+		return "", fmt.Errorf("TLS configuration is missing: please provide TLS parameters")
 	}
 	if vsTLSConfig.SecretRef != nil {
-		if vsTLSConfig.AutoDiscovery != nil {
-			return "", fmt.Errorf("can't use secretRef and autoDiscovery at the same time")
+		if vsTLSConfig.AutoDiscovery != nil && *vsTLSConfig.AutoDiscovery {
+			return "", fmt.Errorf("TLS configuration conflict: cannot use both secretRef and autoDiscovery simultaneously")
 		}
 		return SecretRefType, nil
 	}
 	if vsTLSConfig.AutoDiscovery != nil {
+		if !*vsTLSConfig.AutoDiscovery {
+			return "", fmt.Errorf("invalid TLS configuration: cannot use autoDiscovery=false without specifying secretRef")
+		}
 		return AutoDiscoveryType, nil
 	}
-	return "", fmt.Errorf("tls config is empty")
+	return "", fmt.Errorf("empty TLS configuration: either secretRef or autoDiscovery must be specified")
 }
 
 func getSecretNameToDomainsViaSecretRef(secretRef *v1alpha1.ResourceRef, vsNamespace string, domains []string) map[helpers.NamespacedName][]string {
@@ -1068,6 +1077,13 @@ func isTLSListener(xdsListener *listenerv3.Listener) bool {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+func listenerHasPort443(xdsListener *listenerv3.Listener) bool {
+	if xdsListener != nil && xdsListener.Address != nil && xdsListener.Address.GetSocketAddress() != nil {
+		return xdsListener.Address.GetSocketAddress().GetPortValue() == 443
 	}
 	return false
 }

@@ -19,6 +19,10 @@ package controller
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,9 +36,10 @@ import (
 // VirtualServiceReconciler reconciles a VirtualService object
 type VirtualServiceReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	Updater        *updater.CacheUpdater
-	CacheReadyChan chan struct{}
+	Scheme          *runtime.Scheme
+	Updater         *updater.CacheUpdater
+	CacheReadyChan  chan struct{}
+	VSReconcileChan chan event.GenericEvent
 }
 
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservices,verbs=get;list;watch;create;update;patch;delete
@@ -65,11 +70,7 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	prevStatus := vs.Status.DeepCopy()
-	if err := r.Updater.ApplyVirtualService(ctx, &vs); err != nil {
-		vs.UpdateStatus(true, err.Error())
-	} else {
-		vs.UpdateStatus(false, vs.Status.Message)
-	}
+	r.Updater.ApplyVirtualService(ctx, &vs)
 
 	if prevStatus.Invalid != vs.Status.Invalid ||
 		prevStatus.Message != vs.Status.Message {
@@ -88,5 +89,6 @@ func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&envoyv1alpha1.VirtualService{}).
 		Named("virtualservice").
+		WatchesRawSource(source.Channel(r.VSReconcileChan, &handler.EnqueueRequestForObject{})).
 		Complete(r)
 }

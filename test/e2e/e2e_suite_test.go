@@ -42,6 +42,7 @@ var (
 	// projectImage is the name of the image which will be build and loaded
 	// with the code source changes to be tested.
 	projectImage    = "example.com/envoy-xds-controller"
+	initCertImage   = "example.com/envoy-xds-controller-init-cert"
 	projectImageTag = "v0.0.1"
 )
 
@@ -74,11 +75,20 @@ var _ = BeforeSuite(func() {
 	_, err = utils.Run(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager(Operator) image")
 
+	By("building the init-cert image")
+	// nolint: lll
+	cmd = exec.Command("make", "docker-build-init-cert", fmt.Sprintf("INIT_CERT_IMG=%s:%s", initCertImage, projectImageTag))
+	_, err = utils.Run(cmd)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the init-cert image")
+
 	// TODO(user): If you want to change the e2e test vendor from Kind, ensure the image is
 	// built and available before running the tests. Also, remove the following block.
 	By("loading the manager(Operator) image on Kind")
 	err = utils.LoadImageToKindClusterWithName(fmt.Sprintf("%s:%s", projectImage, projectImageTag))
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager(Operator) image into Kind")
+	By("loading the init-cert image on Kind")
+	err = utils.LoadImageToKindClusterWithName(fmt.Sprintf("%s:%s", initCertImage, projectImageTag))
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the init-cert image into Kind")
 
 	// Install envoy proxy
 	By("installing envoy proxy")

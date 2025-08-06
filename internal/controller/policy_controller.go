@@ -60,11 +60,10 @@ func (r *PolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, r.Updater.DeletePolicy(ctx, req.NamespacedName)
+		r.Updater.DeletePolicy(ctx, req.NamespacedName)
+		return ctrl.Result{}, nil
 	}
-	if err := r.Updater.ApplyPolicy(ctx, &policy); err != nil {
-		return ctrl.Result{}, err
-	}
+	r.Updater.ApplyPolicy(ctx, &policy)
 
 	rlog.Info("Finished Reconciling Policy")
 

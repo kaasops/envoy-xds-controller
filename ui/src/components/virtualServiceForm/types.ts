@@ -29,4 +29,5 @@ export interface IVirtualServiceForm {
 	additionalHttpFilterMode: boolean
 	additionalRouteMode: boolean
 	additionalAccessLogConfigMode: boolean
+	extraFields: Record<string, string>
 }

@@ -61,11 +61,11 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, r.Updater.DeleteCluster(ctx, req.NamespacedName)
+		r.Updater.DeleteCluster(ctx, req.NamespacedName)
+		return ctrl.Result{}, nil
 	}
-	if err := r.Updater.ApplyCluster(ctx, &cluster); err != nil {
-		return ctrl.Result{}, err
-	}
+
+	r.Updater.ApplyCluster(ctx, &cluster)
 
 	rlog.Info("Finished Reconciling Cluster")
 

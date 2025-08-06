@@ -6,6 +6,7 @@ interface ICustomTabPanelProps {
 	index: number
 	value: number
 	variant?: string
+	style?: React.CSSProperties
 }
 
 function CustomTabPanel(props: ICustomTabPanelProps) {

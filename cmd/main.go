@@ -25,6 +25,11 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/kaasops/envoy-xds-controller/internal/buildinfo"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+
+	corev1 "k8s.io/api/core/v1"
+
 	xdsClients "github.com/kaasops/envoy-xds-controller/internal/xds/clients"
 
 	"github.com/kaasops/envoy-xds-controller/internal/filewatcher"
@@ -42,7 +47,6 @@ import (
 
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/kelseyhightower/envconfig"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -260,6 +264,7 @@ func main() {
 	defer fWatcher.Cancel()
 
 	cacheReadyCh := make(chan struct{})
+	vsReconcileChan := make(chan event.GenericEvent)
 
 	if err = (&controller.ClusterReconciler{
 		Client:         mgr.GetClient(),
@@ -289,10 +294,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceReconciler{
-		Client:         mgr.GetClient(),
-		Scheme:         mgr.GetScheme(),
-		Updater:        cacheUpdater,
-		CacheReadyChan: cacheReadyCh,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Updater:         cacheUpdater,
+		CacheReadyChan:  cacheReadyCh,
+		VSReconcileChan: vsReconcileChan,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualService")
 		os.Exit(1)
@@ -325,10 +331,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controller.VirtualServiceTemplateReconciler{
-		Client:         mgr.GetClient(),
-		Scheme:         mgr.GetScheme(),
-		Updater:        cacheUpdater,
-		CacheReadyChan: cacheReadyCh,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Updater:         cacheUpdater,
+		CacheReadyChan:  cacheReadyCh,
+		VSReconcileChan: vsReconcileChan,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "VirtualServiceTemplate")
 		os.Exit(1)
@@ -557,6 +564,16 @@ func main() {
 						w.WriteHeader(http.StatusInternalServerError)
 						return
 					}
+					_, _ = w.Write(data)
+				})
+				http.HandleFunc("/debug/buildinfo", func(w http.ResponseWriter, r *http.Request) {
+					data, err := json.MarshalIndent(buildinfo.GetInfo(), "", "\t")
+					if err != nil {
+						dLog.Error(err, "failed to marshal build information")
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					w.Header().Set("Content-Type", "application/json")
 					_, _ = w.Write(data)
 				})
 				_ = http.ListenAndServe(":4444", nil)

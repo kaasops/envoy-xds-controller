@@ -98,6 +98,10 @@ spec:
                       type: string
                   type: object
                 type: array
+              extraFields:
+                additionalProperties:
+                  type: string
+                type: object
               httpFilters:
                 description: HTTPFilters for use custom HTTP filters
                 items:

@@ -1,0 +1,128 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: content-delivery-template
+spec:
+  listener:
+    name: https
+  accessLogConfig:
+    name: access-log-config
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    domains:
+      - "{{ .ContentDomain }}"
+      - "{{ .ContentSubdomain }}.{{ .BaseDomain }}"
+    cors:
+      allow_origin_string_match:
+        - exact: "{{ .AllowedOrigin }}"
+      allow_methods: "GET, OPTIONS"
+      allow_headers: "Origin, Content-Type, Accept, Cache-Control"
+      max_age: "{{ .CorsMaxAge }}"
+    response_headers_to_add:
+      - header:
+          key: "Cache-Control"
+          value: "{{ .CacheControl }}"
+        append_action: OVERWRITE_IF_EXISTS_OR_ADD
+      - header:
+          key: "Content-Type"
+          value: "{{ .ContentType }}"
+        append_action: OVERWRITE_IF_EXISTS_OR_ADD
+      - header:
+          key: "X-Content-Source"
+          value: "{{ .ContentSource }}"
+        append_action: OVERWRITE_IF_EXISTS_OR_ADD
+    routes:
+      - match:
+          prefix: "/{{ .ContentPath }}"
+        route:
+          cluster: "{{ .ContentBackend }}"
+          timeout: "{{ .RequestTimeout }}"
+          host_rewrite_literal: "{{ .OriginHost }}"
+          retry_policy:
+            retry_on: "connect-failure,gateway-error"
+            num_retries: 2
+      - match:
+          prefix: "/static/{{ .AssetPath }}"
+        route:
+          cluster: "{{ .StaticBackend }}"
+          timeout: "{{ .StaticTimeout }}"
+          host_rewrite_literal: "{{ .StaticHost }}"
+  extraFields:
+    - name: ContentDomain
+      type: string
+      description: "Primary domain for content delivery"
+      required: true
+    - name: ContentSubdomain
+      type: string
+      description: "Subdomain for content delivery"
+      required: true
+      default: "cdn"
+    - name: BaseDomain
+      type: string
+      description: "Base domain for the CDN"
+      required: true
+    - name: ContentPath
+      type: string
+      description: "Path prefix for dynamic content"
+      required: true
+      default: "content"
+    - name: AssetPath
+      type: string
+      description: "Path prefix for static assets"
+      required: true
+      default: "assets"
+    - name: ContentBackend
+      type: string
+      description: "Backend service for dynamic content"
+      required: true
+    - name: StaticBackend
+      type: string
+      description: "Backend service for static assets"
+      required: true
+    - name: OriginHost
+      type: string
+      description: "Origin host for content backend"
+      required: true
+    - name: StaticHost
+      type: string
+      description: "Origin host for static backend"
+      required: true
+    - name: CacheControl
+      type: enum
+      enum: ["no-cache", "max-age=3600", "max-age=86400", "max-age=604800"]
+      description: "Cache control header value"
+      required: true
+      default: "max-age=3600"
+    - name: ContentType
+      type: enum
+      enum: ["application/json", "text/html", "text/plain", "application/xml"]
+      description: "Default content type"
+      required: false
+      default: "application/json"
+    - name: ContentSource
+      type: enum
+      enum: ["primary", "fallback", "cache"]
+      description: "Content source identifier"
+      required: false
+      default: "primary"
+    - name: AllowedOrigin
+      type: string
+      description: "Allowed CORS origin"
+      required: false
+      default: "https://www.example.com"
+    - name: CorsMaxAge
+      type: string
+      description: "CORS max age in seconds"
+      required: false
+      default: "86400"
+    - name: RequestTimeout
+      type: string
+      description: "Request timeout for content"
+      required: false
+      default: "15s"
+    - name: StaticTimeout
+      type: string
+      description: "Request timeout for static assets"
+      required: false
+      default: "5s"

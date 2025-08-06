@@ -1,10 +1,12 @@
 package v1alpha1
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/merge"
@@ -88,9 +90,62 @@ func (vs *VirtualService) SetEditable(editable bool) {
 
 func (vs *VirtualService) FillFromTemplate(vst *VirtualServiceTemplate, templateOpts ...TemplateOpts) error {
 	vst.NormalizeSpec()
+
+	// Validate extraFields
+	if len(vst.Spec.ExtraFields) > 0 {
+		// Create a map of valid extraFields from the template
+		validExtraFields := make(map[string]bool)
+		for _, field := range vst.Spec.ExtraFields {
+			validExtraFields[field.Name] = true
+
+			// Validate required fields
+			if field.Required {
+				value, exists := vs.Spec.ExtraFields[field.Name]
+				if !exists || value == "" {
+					return fmt.Errorf("required extra field '%s' is missing or empty", field.Name)
+				}
+			}
+
+			// Validate enum fields
+			if field.Type == "enum" {
+				value, exists := vs.Spec.ExtraFields[field.Name]
+				if exists {
+					notFound := true
+					for _, enum := range field.Enum {
+						if enum == value {
+							notFound = false
+							break
+						}
+					}
+					if notFound {
+						return fmt.Errorf("extra field '%s' has invalid value '%s'", field.Name, value)
+					}
+				}
+			}
+		}
+
+		// Validate that only extraFields defined in the template are present
+		for fieldName := range vs.Spec.ExtraFields {
+			if !validExtraFields[fieldName] {
+				return fmt.Errorf("extra field '%s' is not defined in the template", fieldName)
+			}
+		}
+	}
+
 	baseData, err := json.Marshal(vst.Spec.VirtualServiceCommonSpec)
 	if err != nil {
 		return err
+	}
+	if len(vs.Spec.ExtraFields) > 0 && len(vst.Spec.ExtraFields) > 0 {
+		tmpl, err := template.New("template").Funcs(template.FuncMap{}).Parse(string(baseData))
+		if err != nil {
+			return fmt.Errorf("failed to parse template: %w", err)
+		}
+		var buf bytes.Buffer
+		if err := tmpl.Execute(&buf, vs.Spec.ExtraFields); err != nil {
+			return fmt.Errorf("failed to execute template: %w", err)
+		}
+		baseData = buf.Bytes()
 	}
 	svcData, err := json.Marshal(vs.Spec.VirtualServiceCommonSpec)
 	if err != nil {
@@ -120,8 +175,9 @@ func (vs *VirtualService) FillFromTemplate(vst *VirtualServiceTemplate, template
 			})
 		}
 	}
-	mergedDate := merge.JSONRawMessages(baseData, svcData, tOpts)
-	err = json.Unmarshal(mergedDate, &vs.Spec.VirtualServiceCommonSpec)
+	mergedData := merge.JSONRawMessages(baseData, svcData, tOpts)
+
+	err = json.Unmarshal(mergedData, &vs.Spec.VirtualServiceCommonSpec)
 	if err != nil {
 		return err
 	}
@@ -149,7 +205,7 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 	}
 	if vs.Spec.Template != nil && other.Spec.Template != nil {
 		if vs.Spec.Template.Name != other.Spec.Template.Name ||
-			vs.Spec.Template.Namespace != other.Spec.Template.Namespace {
+			*vs.Spec.Template.Namespace != *other.Spec.Template.Namespace { // TODO: check
 			return false
 		}
 	}
@@ -221,4 +277,10 @@ func (vs *VirtualService) IsStatusInvalid() bool {
 		return false
 	}
 	return vs.Status.Invalid
+}
+
+func (vs *VirtualService) NormalizeSpec() {
+	if vs.Spec.Template != nil && vs.Spec.Template.Namespace == nil {
+		vs.Spec.Template.Namespace = &vs.Namespace
+	}
 }

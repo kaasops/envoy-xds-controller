@@ -81,6 +81,8 @@ func (v *ClusterCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 		return nil, fmt.Errorf("cluster %s already exists", clusterV3.Name)
 	}
 
+	clusterlog.Info("Cluster is valid", "name", cluster.GetName())
+
 	return nil, nil
 }
 
@@ -95,6 +97,8 @@ func (v *ClusterCustomValidator) ValidateUpdate(ctx context.Context, oldObj, new
 	if _, err := cluster.UnmarshalV3AndValidate(); err != nil {
 		return nil, err
 	}
+
+	clusterlog.Info("Cluster is valid", "name", cluster.GetName())
 
 	return nil, nil
 }

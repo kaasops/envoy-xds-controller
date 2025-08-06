@@ -1,0 +1,47 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: simple-static-template
+spec:
+  listener:
+    name: https
+  accessLogConfig:
+    name: access-log-config
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    domains:
+      - "{{ .ServiceDomain }}"
+    routes:
+      - match:
+          prefix: "/{{ .ContentPath }}"
+        route:
+          cluster: "{{ .BackendService }}"
+          timeout: "{{ .Timeout }}"
+          retry_policy:
+            retry_on: "connect-failure,gateway-error"
+            num_retries: "{{ .RetryCount }}"
+  extraFields:
+    - name: ServiceDomain
+      type: string
+      description: "Domain name for the service"
+      required: true
+    - name: ContentPath
+      type: string
+      description: "Path prefix for content"
+      required: true
+      default: "content"
+    - name: BackendService
+      type: string
+      description: "Backend service name"
+      required: true
+    - name: Timeout
+      type: string
+      description: "Request timeout"
+      required: false
+      default: "10s"
+    - name: RetryCount
+      type: string
+      description: "Number of retry attempts"
+      required: false
+      default: "3"

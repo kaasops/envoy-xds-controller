@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
@@ -57,10 +60,27 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, 
 	return err
 }
 
+func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) error {
+	c.mx.RLock()
+	storeCopy := c.store.Copy()
+	c.mx.RUnlock()
+	storeCopy.SetVirtualServiceTemplate(vst)
+	err, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	return err
+}
+
 func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
+	rlog := log.FromContext(ctx).WithName("cache-updater")
+	rlog.Info("rebuild snapshots started")
+	start := time.Now()
 	err, usedSecrets := buildSnapshots(ctx, c.snapshotCache, c.store)
 	c.usedSecrets = usedSecrets
-	return err
+	if err != nil {
+		rlog.Error(err, "rebuild snapshots with errors", "duration", time.Since(start).String())
+		return err
+	}
+	rlog.Info("rebuild snapshots done", "duration", time.Since(start).String())
+	return nil
 }
 
 // nolint: gocyclo
@@ -82,9 +102,7 @@ func buildSnapshots(
 	var commonVirtualServices []*v1alpha1.VirtualService
 
 	for _, vs := range store.MapVirtualServices() {
-		if vs.IsStatusInvalid() {
-			continue
-		}
+		vs.UpdateStatus(false, "")
 
 		vsNodeIDs := vs.GetNodeIDs()
 		if len(vsNodeIDs) == 0 {
@@ -105,7 +123,6 @@ func buildSnapshots(
 			errs = append(errs, err)
 			continue
 		}
-		vs.UpdateStatus(false, "")
 
 		for _, secret := range vsRes.UsedSecrets {
 			usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
@@ -195,6 +212,10 @@ func buildSnapshots(
 			}
 		}
 		if hasChanges {
+			if err := snapshot.Consistent(); err != nil {
+				errs = append(errs, err)
+				continue
+			}
 			err = snapshotCache.SetSnapshot(ctx, nodeID, snapshot)
 			if err != nil {
 				errs = append(errs, err)
@@ -205,7 +226,11 @@ func buildSnapshots(
 	}
 
 	for nodeID := range nodeIDsForCleanup {
-		snapshotCache.ClearSnapshot(nodeID)
+		err = snapshotCache.SetSnapshot(ctx, nodeID, &cache.Snapshot{})
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
 	}
 
 	if len(errs) > 0 {

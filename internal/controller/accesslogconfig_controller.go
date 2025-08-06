@@ -60,11 +60,11 @@ func (r *AccessLogConfigReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, r.Updater.DeleteAccessLogConfig(ctx, req.NamespacedName)
+		r.Updater.DeleteAccessLogConfig(ctx, req.NamespacedName)
+		return ctrl.Result{}, nil
 	}
-	if err := r.Updater.ApplyAccessLogConfig(ctx, &accessLogConfig); err != nil {
-		return ctrl.Result{}, err
-	}
+
+	r.Updater.ApplyAccessLogConfig(ctx, &accessLogConfig)
 
 	rlog.Info("Finished Reconciling AccessLogConfig")
 

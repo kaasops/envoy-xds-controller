@@ -48,6 +48,21 @@ func (s *VirtualServiceTemplateStore) ListVirtualServiceTemplates(ctx context.Co
 			Description: v.GetDescription(),
 			Raw:         string(v.Raw()),
 		}
+
+		if len(v.Spec.ExtraFields) > 0 {
+			item.ExtraFields = make([]*v1.ExtraField, 0, len(v.Spec.ExtraFields))
+			for _, field := range v.Spec.ExtraFields {
+				item.ExtraFields = append(item.ExtraFields, &v1.ExtraField{
+					Name:        field.Name,
+					Type:        field.Type,
+					Description: field.Description,
+					Default:     field.Default,
+					Enum:        field.Enum,
+					Required:    field.Required,
+				})
+			}
+		}
+
 		isAllowed, err := authorizer.Authorize(accessGroup, item.Name)
 		if err != nil {
 			return nil, err
@@ -170,6 +185,11 @@ func (s *VirtualServiceTemplateStore) FillTemplate(ctx context.Context, req *con
 			})
 		}
 		vs.Spec.TemplateOptions = tOpts
+	}
+
+	// Handle extra fields from the request
+	if len(req.Msg.ExtraFields) > 0 {
+		vs.Spec.ExtraFields = req.Msg.ExtraFields
 	}
 
 	if err := vs.FillFromTemplate(template, vs.Spec.TemplateOptions...); err != nil {

@@ -82,6 +82,29 @@ spec:
                       type: string
                   type: object
                 type: array
+              extraFields:
+                items:
+                  properties:
+                    default:
+                      type: string
+                    description:
+                      type: string
+                    enum:
+                      items:
+                        type: string
+                      type: array
+                    name:
+                      type: string
+                    required:
+                      type: boolean
+                    type:
+                      type: string
+                  required:
+                  - name
+                  - required
+                  - type
+                  type: object
+                type: array
               httpFilters:
                 description: HTTPFilters for use custom HTTP filters
                 items:

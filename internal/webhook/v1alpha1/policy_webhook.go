@@ -72,6 +72,8 @@ func (v *PolicyCustomValidator) ValidateCreate(ctx context.Context, obj runtime.
 		return nil, err
 	}
 
+	policylog.Info("Policy is valid", "name", policy.GetName())
+
 	return nil, nil
 }
 
@@ -86,6 +88,8 @@ func (v *PolicyCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 	if _, err := policy.UnmarshalV3AndValidate(); err != nil {
 		return nil, err
 	}
+
+	policylog.Info("Policy is valid", "name", policy.GetName())
 
 	return nil, nil
 }

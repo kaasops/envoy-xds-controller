@@ -54,7 +54,8 @@ export const useFillTemplateHook = ({ formValues }: IUseFillTemplate) => {
 			},
 			templateOptions: cleanedTemplateOptions,
 			expandReferences: viewTemplateMode,
-			useRemoteAddress
+			useRemoteAddress,
+			extraFields: formValues.extraFields || {}
 		}
 	}, [formValues])
 

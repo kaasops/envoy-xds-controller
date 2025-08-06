@@ -5,6 +5,7 @@ import { useLocation } from 'react-router-dom'
 import useSideBarState from '../../store/sideBarStore'
 import RouterBreadcrumbs from '../routerBreadcrumbs/RouterBreadcrumbs'
 import ThemeSwitcher from '../themeSwitcher/ThemeSwitcher'
+import HelpMenu from '../helpMenu/HelpMenu'
 import { CustomToolBar } from './style'
 
 function TopBar() {
@@ -41,7 +42,8 @@ function TopBar() {
 						<RouterBreadcrumbs location={location} />
 					</Box>
 
-					<Box display='flex' justifyContent='flex-end' alignItems='center' marginRight={4}>
+					<Box display='flex' justifyContent='flex-end' alignItems='center' marginRight={4} gap={1}>
+						<HelpMenu />
 						<ThemeSwitcher />
 					</Box>
 				</Box>

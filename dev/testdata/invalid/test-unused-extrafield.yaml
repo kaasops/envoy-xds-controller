@@ -1,0 +1,41 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualServiceTemplate
+metadata:
+  name: test-unused-extrafield
+spec:
+  listener:
+    name: https
+  accessLogConfig:
+    name: access-log-config
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    request_headers_to_add:
+      - append_action: OVERWRITE_IF_EXISTS_OR_ADD
+        header:
+          key: X-API-Version
+          value: "{{ .ApiVersion }}"
+    routes:
+      - match:
+          prefix: "/{{ .ApiVersion }}/{{ .ServicePath }}"
+        route:
+          cluster: "{{ .ServiceName }}"
+  extraFields:
+    - name: ServiceName
+      type: string
+      description: "The name of the service cluster"
+      required: true
+    - name: ServicePath
+      type: string
+      description: "The path segment for the service"
+      required: true
+    - name: ApiVersion
+      type: string
+      description: "API version (v1, v2, etc.)"
+      required: true
+      default: "v1"
+    - name: UnusedField
+      type: string
+      description: "This field is not used in the template"
+      required: false
+      default: "unused"

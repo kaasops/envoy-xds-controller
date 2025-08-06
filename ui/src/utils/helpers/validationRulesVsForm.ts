@@ -111,5 +111,8 @@ export const validationRulesVsForm: Record<
 	},
 	additionalAccessLogConfigMode: () => {
 		return true
+	},
+	extraFields: () => {
+		return true
 	}
 }

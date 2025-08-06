@@ -6,7 +6,7 @@ import Divider from '@mui/material/Divider'
 import Tabs from '@mui/material/Tabs'
 import { Tab } from '@mui/material'
 
-import { useCreateVs, useListVs, useUpdateVs } from '../../api/grpc/hooks/useVirtualService.ts'
+import { useCreateVs, useListVs, useTemplatesVs, useUpdateVs } from '../../api/grpc/hooks/useVirtualService.ts'
 import CustomTabPanel from '../customTabPanel/CustomTabPanel.tsx'
 import { a11yProps } from '../customTabPanel/style.ts'
 import { ErrorSnackBarVs } from '../errorSnackBarVs/errorSnackBarVs.tsx'
@@ -38,6 +38,7 @@ export const VirtualServiceForm: React.FC<IVirtualServiceFormProps> = ({ virtual
 	const { refetch } = useListVs(false, groupId)
 	const { createVirtualService, isFetchingCreateVs, errorCreateVs } = useCreateVs()
 	const { updateVS, isFetchingUpdateVs, errorUpdateVs, resetQueryUpdateVs } = useUpdateVs()
+	useTemplatesVs(groupId) // Fetch templates data for the form
 
 	const {
 		register,
@@ -56,6 +57,7 @@ export const VirtualServiceForm: React.FC<IVirtualServiceFormProps> = ({ virtual
 	})
 
 	const [name, nodeIds, templateUid] = useWatch({ control, name: ['name', 'nodeIds', 'templateUid'] })
+	
 
 	const isFormReady =
 		isValid && Boolean(name?.length) && Array.isArray(nodeIds) && nodeIds.length > 0 && Boolean(templateUid)
@@ -78,7 +80,9 @@ export const VirtualServiceForm: React.FC<IVirtualServiceFormProps> = ({ virtual
 		}
 	}
 
-	const handleChangeTabIndex = (_e: React.SyntheticEvent, newTabIndex: number) => {
+	const handleChangeTabIndex = async (_e: React.SyntheticEvent, newTabIndex: number) => {
+		// Extra fields validation is now handled in the General tab (index 0)
+		// We don't need special validation when switching tabs anymore
 		setTabIndex(newTabIndex)
 	}
 
@@ -93,7 +97,9 @@ export const VirtualServiceForm: React.FC<IVirtualServiceFormProps> = ({ virtual
 	})
 
 	const onSubmit: SubmitHandler<IVirtualServiceForm> = async data => {
-		if (!isFormReady) return
+		// Trigger validation for all fields before submission
+		const isAllValid = await trigger();
+		if (!isAllValid || !isFormReady) return;
 		await submitVSService(data)
 	}
 
@@ -122,6 +128,7 @@ export const VirtualServiceForm: React.FC<IVirtualServiceFormProps> = ({ virtual
 										control={control}
 										errors={errors}
 										isEdit={!isCreate}
+										setValue={setValue}
 									/>
 								</CustomTabPanel>
 
