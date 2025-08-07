@@ -26,3 +26,8 @@ message UIDS {
 message ResourceRefs {
   repeated ResourceRef refs = 2;
 }
+
+message TLSConfig {
+  common.v1.ResourceRef secret_ref = 1;
+  optional bool auto_discovery = 2;
+}

@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv1";
 import type { Message } from "@bufbuild/protobuf";
-import type { UIDS, VirtualHost } from "../../common/v1/common_pb";
+import type { TLSConfig, UIDS, VirtualHost } from "../../common/v1/common_pb";
 
 /**
  * Describes the file virtual_service_template/v1/virtual_service_template.proto.
@@ -265,6 +265,13 @@ export declare type FillTemplateRequest = Message<"virtual_service_template.v1.F
    * @generated from field: map<string, string> extra_fields = 12;
    */
   extraFields: { [key: string]: string };
+
+  /**
+   * TLS config
+   *
+   * @generated from field: common.v1.TLSConfig tls_config = 13;
+   */
+  tlsConfig?: TLSConfig;
 };
 
 /**

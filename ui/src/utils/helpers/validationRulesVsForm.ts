@@ -114,5 +114,8 @@ export const validationRulesVsForm: Record<
 	},
 	extraFields: () => {
 		return true
+	},
+	tlsConfig: () => {
+		return true
 	}
 }

@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv1";
 import type { Message } from "@bufbuild/protobuf";
-import type { ResourceRef, ResourceRefs, UIDS, VirtualHost } from "../../common/v1/common_pb";
+import type { ResourceRef, ResourceRefs, TLSConfig, UIDS, VirtualHost } from "../../common/v1/common_pb";
 import type { TemplateOption } from "../../virtual_service_template/v1/virtual_service_template_pb";
 
 /**
@@ -472,6 +472,13 @@ export declare type GetVirtualServiceResponse = Message<"virtual_service.v1.GetV
    * @generated from field: map<string, string> extra_fields = 18;
    */
   extraFields: { [key: string]: string };
+
+  /**
+   * TLS config
+   *
+   * @generated from field: common.v1.TLSConfig tls_config = 19;
+   */
+  tlsConfig?: TLSConfig;
 };
 
 /**

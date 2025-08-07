@@ -48,7 +48,8 @@ export const useSetDefaultValuesVSForm = ({ reset, isCreate, virtualServiceInfo 
 			virtualHostDomainsMode: hasReplaceModifierForVHDomains,
 			additionalHttpFilterMode: hasReplaceHttpFilters,
 			additionalRouteMode: hasReplaceRoutes,
-			extraFields: virtualServiceInfo.extraFields || {}
+			extraFields: virtualServiceInfo.extraFields || {},
+			tlsConfig: virtualServiceInfo.tlsConfig
 		})
 	}, [reset, isCreate, virtualServiceInfo])
 

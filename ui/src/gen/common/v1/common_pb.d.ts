@@ -89,3 +89,24 @@ export declare type ResourceRefs = Message<"common.v1.ResourceRefs"> & {
  */
 export declare const ResourceRefsSchema: GenMessage<ResourceRefs>;
 
+/**
+ * @generated from message common.v1.TLSConfig
+ */
+export declare type TLSConfig = Message<"common.v1.TLSConfig"> & {
+  /**
+   * @generated from field: common.v1.ResourceRef secret_ref = 1;
+   */
+  secretRef?: ResourceRef;
+
+  /**
+   * @generated from field: optional bool auto_discovery = 2;
+   */
+  autoDiscovery?: boolean;
+};
+
+/**
+ * Describes the message common.v1.TLSConfig.
+ * Use `create(TLSConfigSchema)` to create a new message.
+ */
+export declare const TLSConfigSchema: GenMessage<TLSConfig>;
+

@@ -196,6 +196,9 @@ message GetVirtualServiceResponse {
 
   // Extra fields
   map<string, string> extra_fields = 18;
+
+  // TLS config
+  common.v1.TLSConfig tls_config = 19;
 }
 
 // ListVirtualServicesRequest is the request message for listing virtual services.
