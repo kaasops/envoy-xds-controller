@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file common/v1/common.proto.
  */
 export const file_common_v1_common: GenFile = /*@__PURE__*/
-  fileDesc("ChZjb21tb24vdjEvY29tbW9uLnByb3RvEgljb21tb24udjEiKAoLUmVzb3VyY2VSZWYSCwoDdWlkGAEgASgJEgwKBG5hbWUYAiABKAkiHgoLVmlydHVhbEhvc3QSDwoHZG9tYWlucxgBIAMoCSIUCgRVSURTEgwKBHVpZHMYASADKAkiNAoMUmVzb3VyY2VSZWZzEiQKBHJlZnMYAiADKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWZCqgEKDWNvbS5jb21tb24udjFCC0NvbW1vblByb3RvUAFaR2dpdGh1Yi5jb20va2Fhc29wcy9lbnZveS14ZHMtY29udHJvbGxlci9wa2cvYXBpL2dycGMvY29tbW9uL3YxO2NvbW1vbnYxogIDQ1hYqgIJQ29tbW9uLlYxygIJQ29tbW9uXFYx4gIVQ29tbW9uXFYxXEdQQk1ldGFkYXRh6gIKQ29tbW9uOjpWMWIGcHJvdG8z");
+  fileDesc("ChZjb21tb24vdjEvY29tbW9uLnByb3RvEgljb21tb24udjEiKAoLUmVzb3VyY2VSZWYSCwoDdWlkGAEgASgJEgwKBG5hbWUYAiABKAkiHgoLVmlydHVhbEhvc3QSDwoHZG9tYWlucxgBIAMoCSIUCgRVSURTEgwKBHVpZHMYASADKAkiNAoMUmVzb3VyY2VSZWZzEiQKBHJlZnMYAiADKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWYiZwoJVExTQ29uZmlnEioKCnNlY3JldF9yZWYYASABKAsyFi5jb21tb24udjEuUmVzb3VyY2VSZWYSGwoOYXV0b19kaXNjb3ZlcnkYAiABKAhIAIgBAUIRCg9fYXV0b19kaXNjb3ZlcnlCqgEKDWNvbS5jb21tb24udjFCC0NvbW1vblByb3RvUAFaR2dpdGh1Yi5jb20va2Fhc29wcy9lbnZveS14ZHMtY29udHJvbGxlci9wa2cvYXBpL2dycGMvY29tbW9uL3YxO2NvbW1vbnYxogIDQ1hYqgIJQ29tbW9uLlYxygIJQ29tbW9uXFYx4gIVQ29tbW9uXFYxXEdQQk1ldGFkYXRh6gIKQ29tbW9uOjpWMWIGcHJvdG8z");
 
 /**
  * ResourceRef represents a reference to a resource with a UID and name.
@@ -94,4 +94,26 @@ export type ResourceRefs = Message<"common.v1.ResourceRefs"> & {
  */
 export const ResourceRefsSchema: GenMessage<ResourceRefs> = /*@__PURE__*/
   messageDesc(file_common_v1_common, 3);
+
+/**
+ * @generated from message common.v1.TLSConfig
+ */
+export type TLSConfig = Message<"common.v1.TLSConfig"> & {
+  /**
+   * @generated from field: common.v1.ResourceRef secret_ref = 1;
+   */
+  secretRef?: ResourceRef;
+
+  /**
+   * @generated from field: optional bool auto_discovery = 2;
+   */
+  autoDiscovery?: boolean;
+};
+
+/**
+ * Describes the message common.v1.TLSConfig.
+ * Use `create(TLSConfigSchema)` to create a new message.
+ */
+export const TLSConfigSchema: GenMessage<TLSConfig> = /*@__PURE__*/
+  messageDesc(file_common_v1_common, 4);
 

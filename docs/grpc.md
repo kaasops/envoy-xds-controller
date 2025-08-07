@@ -30,6 +30,7 @@
 - [ListClustersResponse](#listclustersresponse)
 - [ResourceRef](#resourceref)
 - [ResourceRefs](#resourcerefs)
+- [TLSConfig](#tlsconfig)
 - [UIDS](#uids)
 - [VirtualHost](#virtualhost)
 - [HTTPFilterListItem](#httpfilterlistitem)
@@ -73,7 +74,6 @@
 - [ListVirtualServicesRequest](#listvirtualservicesrequest)
 - [ListVirtualServicesResponse](#listvirtualservicesresponse)
 - [Status](#status)
-- [TLSConfig](#tlsconfig)
 - [UpdateVirtualServiceRequest](#updatevirtualservicerequest)
 - [UpdateVirtualServiceRequest.ExtraFieldsEntry](#updatevirtualservicerequestextrafieldsentry)
 - [UpdateVirtualServiceResponse](#updatevirtualserviceresponse)
@@ -310,6 +310,17 @@ ResourceRef represents a reference to a resource with a UID and name.
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | refs | [repeated ResourceRef](#resourceref) | none |
+
+
+
+### TLSConfig {#tlsconfig}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| secret_ref | [ ResourceRef](#resourceref) | none |
+| [**oneof**](https://developers.google.com/protocol-buffers/docs/proto3#oneof) _auto_discovery.auto_discovery | [optional bool](#bool) | none |
 
 
 
@@ -595,6 +606,7 @@ Request message for filling a template with specific configurations.
 | description | [ string](#string) | Description is the human-readable description of the resource |
 | expand_references | [ bool](#bool) | Expand references determines whether to replace reference links with their full expanded content in the returned structure. |
 | extra_fields | [map FillTemplateRequest.ExtraFieldsEntry](#filltemplaterequestextrafieldsentry) | Extra fields |
+| tls_config | [ common.v1.TLSConfig](#commonv1tlsconfig) | TLS config |
 
 
 
@@ -751,7 +763,7 @@ GetVirtualServiceResponse is the response message for retrieving a virtual servi
 | raw | [ string](#string) | The raw string representation of the resource |
 | status | [ Status](#status) | Status |
 | extra_fields | [map GetVirtualServiceResponse.ExtraFieldsEntry](#getvirtualserviceresponseextrafieldsentry) | Extra fields |
-| tls_config | [ TLSConfig](#tlsconfig) | none |
+| tls_config | [ common.v1.TLSConfig](#commonv1tlsconfig) | TLS config |
 
 
 
@@ -794,17 +806,6 @@ ListVirtualServicesResponse is the response message for listing virtual services
 | ----- | ---- | ----------- |
 | invalid | [ bool](#bool) | none |
 | message | [ string](#string) | none |
-
-
-
-### TLSConfig {#tlsconfig}
-
-
-
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| secret_ref | [ common.v1.ResourceRef](#commonv1resourceref) | none |
-| auto_discovery | [ bool](#bool) | none |
 
 
 

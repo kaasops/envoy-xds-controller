@@ -192,6 +192,18 @@ func (s *VirtualServiceTemplateStore) FillTemplate(ctx context.Context, req *con
 		vs.Spec.ExtraFields = req.Msg.ExtraFields
 	}
 
+	if req.Msg.TlsConfig != nil {
+		tlsCfg := &v1alpha1.TlsConfig{}
+		if req.Msg.TlsConfig.SecretRef != nil {
+			tlsCfg.SecretRef = &v1alpha1.ResourceRef{
+				Name: req.Msg.TlsConfig.SecretRef.Name,
+				// TODO: Namespace
+			}
+		}
+		tlsCfg.AutoDiscovery = req.Msg.TlsConfig.AutoDiscovery
+		vs.Spec.TlsConfig = tlsCfg
+	}
+
 	if err := vs.FillFromTemplate(template, vs.Spec.TemplateOptions...); err != nil {
 		return nil, err
 	}

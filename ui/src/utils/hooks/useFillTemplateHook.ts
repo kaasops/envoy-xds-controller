@@ -38,25 +38,26 @@ export const useFillTemplateHook = ({ formValues }: IUseFillTemplate) => {
 						$typeName: 'virtual_service_template.v1.TemplateOption'
 					}))
 
-		return {
-			$typeName: 'virtual_service_template.v1.FillTemplateRequest',
-			...rest,
-			virtualHost: {
-				$typeName: 'common.v1.VirtualHost',
-				domains: virtualHostDomains || []
-			},
-			accessLogConfig: {
-				value: {
-					$typeName: 'common.v1.UIDS',
-					uids: accessLogConfigUids || []
-				} as UIDS,
-				case: 'accessLogConfigUids'
-			},
-			templateOptions: cleanedTemplateOptions,
-			expandReferences: viewTemplateMode,
-			useRemoteAddress,
-			extraFields: formValues.extraFields || {}
-		}
+ 	return {
+ 		$typeName: 'virtual_service_template.v1.FillTemplateRequest',
+ 		...rest,
+ 		virtualHost: {
+ 			$typeName: 'common.v1.VirtualHost',
+ 			domains: virtualHostDomains || []
+ 		},
+ 		accessLogConfig: {
+ 			value: {
+ 				$typeName: 'common.v1.UIDS',
+ 				uids: accessLogConfigUids || []
+ 			} as UIDS,
+ 			case: 'accessLogConfigUids'
+ 		},
+ 		templateOptions: cleanedTemplateOptions,
+ 		expandReferences: viewTemplateMode,
+ 		useRemoteAddress,
+ 		extraFields: formValues.extraFields || {},
+ 		tlsConfig: formValues.tlsConfig
+ 	}
 	}, [formValues])
 
 	const debouncedGetFillTemplate = useMemo(

@@ -30,4 +30,5 @@ export interface IVirtualServiceForm {
 	additionalRouteMode: boolean
 	additionalAccessLogConfigMode: boolean
 	extraFields: Record<string, string>
+	tlsConfig?: any
 }

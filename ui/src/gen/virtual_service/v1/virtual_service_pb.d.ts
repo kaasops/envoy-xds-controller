@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv1";
 import type { Message } from "@bufbuild/protobuf";
-import type { ResourceRef, ResourceRefs, UIDS, VirtualHost } from "../../common/v1/common_pb";
+import type { ResourceRef, ResourceRefs, TLSConfig, UIDS, VirtualHost } from "../../common/v1/common_pb";
 import type { TemplateOption } from "../../virtual_service_template/v1/virtual_service_template_pb";
 
 /**
@@ -333,27 +333,6 @@ export declare type GetVirtualServiceRequest = Message<"virtual_service.v1.GetVi
 export declare const GetVirtualServiceRequestSchema: GenMessage<GetVirtualServiceRequest>;
 
 /**
- * @generated from message virtual_service.v1.TLSConfig
- */
-export declare type TLSConfig = Message<"virtual_service.v1.TLSConfig"> & {
-  /**
-   * @generated from field: common.v1.ResourceRef secret_ref = 1;
-   */
-  secretRef?: ResourceRef;
-
-  /**
-   * @generated from field: bool auto_discovery = 2;
-   */
-  autoDiscovery: boolean;
-};
-
-/**
- * Describes the message virtual_service.v1.TLSConfig.
- * Use `create(TLSConfigSchema)` to create a new message.
- */
-export declare const TLSConfigSchema: GenMessage<TLSConfig>;
-
-/**
  * GetVirtualServiceResponse is the response message for retrieving a virtual service.
  *
  * @generated from message virtual_service.v1.GetVirtualServiceResponse
@@ -495,7 +474,9 @@ export declare type GetVirtualServiceResponse = Message<"virtual_service.v1.GetV
   extraFields: { [key: string]: string };
 
   /**
-   * @generated from field: virtual_service.v1.TLSConfig tls_config = 19;
+   * TLS config
+   *
+   * @generated from field: common.v1.TLSConfig tls_config = 19;
    */
   tlsConfig?: TLSConfig;
 };

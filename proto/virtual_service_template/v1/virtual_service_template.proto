@@ -119,6 +119,9 @@ message FillTemplateRequest {
 
   // Extra fields
   map<string, string> extra_fields = 12;
+
+  // TLS config
+  common.v1.TLSConfig tls_config = 13;
 }
 
 // Response message containing the filled template as a raw string.
