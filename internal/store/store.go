@@ -82,10 +82,10 @@ func (s *Store) Copy() *Store {
 	}
 
 	for k, v := range s.virtualServices {
-		clone.virtualServices[k] = v
+		clone.virtualServices[k] = v.DeepCopy()
 	}
 	for k, v := range s.virtualServiceTemplates {
-		clone.virtualServiceTemplates[k] = v
+		clone.virtualServiceTemplates[k] = v.DeepCopy()
 	}
 	for k, v := range s.routes {
 		clone.routes[k] = v

@@ -143,6 +143,18 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 	if vs.Spec.UseRemoteAddress != nil {
 		resp.UseRemoteAddress = vs.Spec.UseRemoteAddress
 	}
+	if vs.Spec.TlsConfig != nil {
+		tlsConfig := &v1.TLSConfig{}
+		if vs.Spec.TlsConfig.SecretRef != nil {
+			tlsConfig.SecretRef = &commonv1.ResourceRef{
+				Name: vs.Spec.TlsConfig.SecretRef.Name,
+			}
+		}
+		if vs.Spec.TlsConfig.AutoDiscovery != nil {
+			tlsConfig.AutoDiscovery = *vs.Spec.TlsConfig.AutoDiscovery
+		}
+		resp.TlsConfig = tlsConfig
+	}
 	return connect.NewResponse(resp), nil
 }
 

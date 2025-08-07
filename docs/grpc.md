@@ -73,6 +73,7 @@
 - [ListVirtualServicesRequest](#listvirtualservicesrequest)
 - [ListVirtualServicesResponse](#listvirtualservicesresponse)
 - [Status](#status)
+- [TLSConfig](#tlsconfig)
 - [UpdateVirtualServiceRequest](#updatevirtualservicerequest)
 - [UpdateVirtualServiceRequest.ExtraFieldsEntry](#updatevirtualservicerequestextrafieldsentry)
 - [UpdateVirtualServiceResponse](#updatevirtualserviceresponse)
@@ -750,6 +751,7 @@ GetVirtualServiceResponse is the response message for retrieving a virtual servi
 | raw | [ string](#string) | The raw string representation of the resource |
 | status | [ Status](#status) | Status |
 | extra_fields | [map GetVirtualServiceResponse.ExtraFieldsEntry](#getvirtualserviceresponseextrafieldsentry) | Extra fields |
+| tls_config | [ TLSConfig](#tlsconfig) | none |
 
 
 
@@ -792,6 +794,17 @@ ListVirtualServicesResponse is the response message for listing virtual services
 | ----- | ---- | ----------- |
 | invalid | [ bool](#bool) | none |
 | message | [ string](#string) | none |
+
+
+
+### TLSConfig {#tlsconfig}
+
+
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| secret_ref | [ common.v1.ResourceRef](#commonv1resourceref) | none |
+| auto_discovery | [ bool](#bool) | none |
 
 
 

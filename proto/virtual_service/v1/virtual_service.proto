@@ -138,6 +138,11 @@ message GetVirtualServiceRequest {
   string uid = 1;
 }
 
+message TLSConfig {
+  common.v1.ResourceRef secret_ref = 1;
+  bool auto_discovery = 2;
+}
+
 // GetVirtualServiceResponse is the response message for retrieving a virtual service.
 message GetVirtualServiceResponse {
   // The UID of the virtual service.
@@ -196,6 +201,10 @@ message GetVirtualServiceResponse {
 
   // Extra fields
   map<string, string> extra_fields = 18;
+
+  // TLS config
+
+  TLSConfig tls_config = 19;
 }
 
 // ListVirtualServicesRequest is the request message for listing virtual services.

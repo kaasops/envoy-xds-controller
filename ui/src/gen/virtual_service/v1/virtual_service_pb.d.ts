@@ -333,6 +333,27 @@ export declare type GetVirtualServiceRequest = Message<"virtual_service.v1.GetVi
 export declare const GetVirtualServiceRequestSchema: GenMessage<GetVirtualServiceRequest>;
 
 /**
+ * @generated from message virtual_service.v1.TLSConfig
+ */
+export declare type TLSConfig = Message<"virtual_service.v1.TLSConfig"> & {
+  /**
+   * @generated from field: common.v1.ResourceRef secret_ref = 1;
+   */
+  secretRef?: ResourceRef;
+
+  /**
+   * @generated from field: bool auto_discovery = 2;
+   */
+  autoDiscovery: boolean;
+};
+
+/**
+ * Describes the message virtual_service.v1.TLSConfig.
+ * Use `create(TLSConfigSchema)` to create a new message.
+ */
+export declare const TLSConfigSchema: GenMessage<TLSConfig>;
+
+/**
  * GetVirtualServiceResponse is the response message for retrieving a virtual service.
  *
  * @generated from message virtual_service.v1.GetVirtualServiceResponse
@@ -472,6 +493,11 @@ export declare type GetVirtualServiceResponse = Message<"virtual_service.v1.GetV
    * @generated from field: map<string, string> extra_fields = 18;
    */
   extraFields: { [key: string]: string };
+
+  /**
+   * @generated from field: virtual_service.v1.TLSConfig tls_config = 19;
+   */
+  tlsConfig?: TLSConfig;
 };
 
 /**
