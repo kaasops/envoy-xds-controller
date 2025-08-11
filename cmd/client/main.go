@@ -38,7 +38,10 @@ func main() {
 
 	validateCmd.Flags().StringVarP(&path, "path", "p", "", "Path to directory to validate")
 	validateCmd.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively validate directory")
-	validateCmd.MarkFlagRequired("path")
+	if err := validateCmd.MarkFlagRequired("path"); err != nil {
+		fmt.Printf("Error marking path flag as required: %v\n", err)
+		os.Exit(1)
+	}
 
 	rootCmd.AddCommand(validateCmd)
 
