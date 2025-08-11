@@ -86,7 +86,8 @@ func Validate(path string, recursive bool, validators []Validator) error {
 		for _, err := range result.Errors {
 			fmt.Println(err)
 		}
-		os.Exit(1)
+		// Return an error instead of calling os.Exit(1)
+		return fmt.Errorf("validation failed: %s", strings.Join(result.Errors, "; "))
 	}
 
 	return nil
@@ -128,7 +129,8 @@ func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, 
 	}
 
 	nodeID := ""
-	if m.Metadata.Annotations != nil {
+	// Only consider node-id annotation for VirtualService resources
+	if m.Metadata.Annotations != nil && m.Kind == "VirtualService" {
 		nodeID = m.Metadata.Annotations["envoy.kaasops.io/node-id"]
 	}
 
