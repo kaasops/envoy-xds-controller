@@ -34,7 +34,7 @@ type Validator struct {
 	Data interface{}
 }
 
-func ValidatePath(path string, recursive bool, validators []Validator) error {
+func Validate(path string, recursive bool, validators []Validator) error {
 	result := ValidationResult{Valid: true}
 
 	walkFunc := func(currentPath string, info os.FileInfo, err error) error {
@@ -92,6 +92,12 @@ func ValidatePath(path string, recursive bool, validators []Validator) error {
 	return nil
 }
 
+// NewDuplicateValidator creates a validator that checks for duplicate Kubernetes manifests.
+// It tracks manifests using a three-level map structure:
+// 1. apiVersion/kind (string)
+// 2. namespace (string)
+// 3. resource name (string) or name+nodeID for Envoy resources
+// Returns a Validator instance initialized with empty tracking data.
 func NewDuplicateValidator() Validator {
 	return Validator{
 		Name: "duplicate-checker",
@@ -100,11 +106,19 @@ func NewDuplicateValidator() Validator {
 	}
 }
 
+// manifestInfo tracks the first occurrence of a manifest for duplicate detection
 type manifestInfo struct {
-	Key  string
-	Path string
+	Key  string // Composite key (name or name|nodeID)
+	Path string // File path where manifest was first found
 }
 
+// checkDuplicateManifests validates that a manifest is unique within its apiVersion/kind, namespace, and name.
+// Special handling for Envoy resources includes node-id from annotations in the uniqueness check.
+// Parameters:
+//   - m: Parsed manifest to validate
+//   - path: File path where manifest was found
+//   - result: ValidationResult to update with errors
+//   - data: Tracking data map[apiVersion/kind]map[namespace]map[name]manifestInfo
 func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, data interface{}) {
 	tracker := data.(map[string]map[string]map[string]manifestInfo)
 
