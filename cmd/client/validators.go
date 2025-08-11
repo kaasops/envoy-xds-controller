@@ -15,9 +15,8 @@ type Manifest struct {
 	APIVersion string `yaml:"apiVersion"`
 	Kind       string `yaml:"kind"`
 	Metadata   struct {
-		Name        string            `yaml:"name"`
-		Namespace   string            `yaml:"namespace"`
-		Annotations map[string]string `yaml:"annotations"`
+		Name      string `yaml:"name"`
+		Namespace string `yaml:"namespace"`
 	} `yaml:"metadata"`
 }
 
@@ -114,7 +113,6 @@ type manifestInfo struct {
 }
 
 // checkDuplicateManifests validates that a manifest is unique within its apiVersion/kind, namespace, and name.
-// Special handling for Envoy resources includes node-id from annotations in the uniqueness check.
 // Parameters:
 //   - m: Parsed manifest to validate
 //   - path: File path where manifest was found
@@ -128,12 +126,6 @@ func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, 
 		ns = "default"
 	}
 
-	nodeID := ""
-	// Only consider node-id annotation for VirtualService resources
-	if m.Metadata.Annotations != nil && m.Kind == "VirtualService" {
-		nodeID = m.Metadata.Annotations["envoy.kaasops.io/node-id"]
-	}
-
 	apiKind := fmt.Sprintf("%s/%s", m.APIVersion, m.Kind)
 	if _, exists := tracker[apiKind]; !exists {
 		tracker[apiKind] = make(map[string]map[string]manifestInfo)
@@ -143,9 +135,6 @@ func checkDuplicateManifests(m Manifest, path string, result *ValidationResult, 
 	}
 
 	key := m.Metadata.Name
-	if nodeID != "" {
-		key = fmt.Sprintf("%s|%s", m.Metadata.Name, nodeID)
-	}
 
 	if existing, exists := tracker[apiKind][ns][key]; exists {
 		result.Valid = false
