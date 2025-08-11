@@ -29,7 +29,7 @@ func main() {
 				// Additional validators can be added here
 			}
 
-			if err := ValidatePath(path, recursive, validators); err != nil {
+			if err := Validate(path, recursive, validators); err != nil {
 				fmt.Printf("Validation error: %v\n", err)
 				os.Exit(1)
 			}
