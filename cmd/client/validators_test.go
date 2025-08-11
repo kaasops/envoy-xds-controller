@@ -304,9 +304,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-deployment-1",
 						Namespace: "default",
@@ -316,9 +315,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-deployment-2",
 						Namespace: "default",
@@ -334,9 +332,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-deployment",
 						Namespace: "default",
@@ -346,9 +343,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-deployment",
 						Namespace: "default",
@@ -364,9 +360,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-deployment",
 						Namespace: "default",
@@ -376,9 +371,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-deployment",
 						Namespace: "test",
@@ -394,9 +388,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-resource",
 						Namespace: "default",
@@ -406,9 +399,8 @@ func TestDuplicateValidator(t *testing.T) {
 					APIVersion: "v1",
 					Kind:       "Service",
 					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
+						Name      string `yaml:"name"`
+						Namespace string `yaml:"namespace"`
 					}{
 						Name:      "test-resource",
 						Namespace: "default",
@@ -416,78 +408,6 @@ func TestDuplicateValidator(t *testing.T) {
 				},
 			},
 			expectDupe: false,
-		},
-		{
-			name: "Same name, same kind (Listener), different node-id - should be duplicate after change",
-			manifests: []Manifest{
-				{
-					APIVersion: "envoy.kaasops.io/v1alpha1",
-					Kind:       "Listener",
-					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
-					}{
-						Name:      "test-listener",
-						Namespace: "default",
-						Annotations: map[string]string{
-							"envoy.kaasops.io/node-id": "node1",
-						},
-					},
-				},
-				{
-					APIVersion: "envoy.kaasops.io/v1alpha1",
-					Kind:       "Listener",
-					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
-					}{
-						Name:      "test-listener",
-						Namespace: "default",
-						Annotations: map[string]string{
-							"envoy.kaasops.io/node-id": "node2",
-						},
-					},
-				},
-			},
-			expectDupe: true, // Now we expect a duplicate because node-id is ignored for non-VirtualService resources
-		},
-		{
-			name: "Same name, same kind (VirtualService), different node-id - should NOT be duplicate",
-			manifests: []Manifest{
-				{
-					APIVersion: "envoy.kaasops.io/v1alpha1",
-					Kind:       "VirtualService",
-					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
-					}{
-						Name:      "test-vs",
-						Namespace: "default",
-						Annotations: map[string]string{
-							"envoy.kaasops.io/node-id": "node1",
-						},
-					},
-				},
-				{
-					APIVersion: "envoy.kaasops.io/v1alpha1",
-					Kind:       "VirtualService",
-					Metadata: struct {
-						Name        string            `yaml:"name"`
-						Namespace   string            `yaml:"namespace"`
-						Annotations map[string]string `yaml:"annotations"`
-					}{
-						Name:      "test-vs",
-						Namespace: "default",
-						Annotations: map[string]string{
-							"envoy.kaasops.io/node-id": "node2",
-						},
-					},
-				},
-			},
-			expectDupe: false, // Not a duplicate because node-id is considered for VirtualService resources
 		},
 	}
 
