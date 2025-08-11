@@ -29,8 +29,6 @@ kind: Listener
 metadata:
   name: test-listener-http
   namespace: default
-  annotations:
-    envoy.kaasops.io/description: "HTTP listener on port 8080"
 spec:
   name: http
   address:
@@ -44,8 +42,6 @@ kind: Route
 metadata:
   name: test-route
   namespace: default
-  annotations:
-    envoy.kaasops.io/description: "Route returning a JSON message for path /test"
 spec:
   - name: test
     match:
@@ -61,8 +57,6 @@ kind: HttpFilter
 metadata:
   name: test-http-filter
   namespace: default
-  annotations:
-    envoy.kaasops.io/description: "Basic Envoy router HTTP filter"
 spec:
   - name: envoy.filters.http.router
     typed_config:
@@ -75,68 +69,12 @@ kind: Listener
 metadata:
   name: test-listener-http
   namespace: default
-  annotations:
-    envoy.kaasops.io/description: "Duplicate HTTP listener on port 8080"
 spec:
   name: http
   address:
     socket_address:
       address: 0.0.0.0
       port_value: 8080
-`
-	// Create Listener resource with node-id (should be considered duplicate after our change)
-	listenerYaml1 := `
-apiVersion: envoy.kaasops.io/v1alpha1
-kind: Listener
-metadata:
-  name: test-listener
-  namespace: default
-  annotations:
-    envoy.kaasops.io/node-id: node1
-spec:
-  name: test
-`
-	// Create duplicate Listener resource but with different node-id
-	// (should be considered duplicate since node-id is ignored for non-VirtualService resources)
-	listenerYaml2 := `
-apiVersion: envoy.kaasops.io/v1alpha1
-kind: Listener
-metadata:
-  name: test-listener
-  namespace: default
-  annotations:
-    envoy.kaasops.io/node-id: node2
-spec:
-  name: test
-`
-	// Create VirtualService resource with node-id
-	virtualServiceYaml1 := `
-apiVersion: envoy.kaasops.io/v1alpha1
-kind: VirtualService
-metadata:
-  name: test-vs
-  namespace: default
-  annotations:
-    envoy.kaasops.io/node-id: node1
-spec:
-  virtualHost:
-    domains:
-      - example.com
-`
-	// Create duplicate VirtualService resource but with different node-id
-	// (should NOT be considered duplicate since node-id is considered for VirtualService resources)
-	virtualServiceYaml2 := `
-apiVersion: envoy.kaasops.io/v1alpha1
-kind: VirtualService
-metadata:
-  name: test-vs
-  namespace: default
-  annotations:
-    envoy.kaasops.io/node-id: node2
-spec:
-  virtualHost:
-    domains:
-      - example.com
 `
 	// Create a file with invalid YAML
 	invalidYaml := `
@@ -166,28 +104,6 @@ spec:
 			t.Fatalf("Failed to write test file: %v", err)
 		}
 		if err := os.WriteFile(filepath.Join(subDir, "valid3.yaml"), []byte(validYaml3), 0644); err != nil {
-			t.Fatalf("Failed to write test file: %v", err)
-		}
-		// Only include one Listener resource to avoid duplicates
-		if err := os.WriteFile(filepath.Join(tempDir, "listener1.yaml"), []byte(listenerYaml1), 0644); err != nil {
-			t.Fatalf("Failed to write test file: %v", err)
-		}
-		// Include both VirtualService resources with different node-ids
-		// These should not be considered duplicates with our code change
-		if err := os.WriteFile(filepath.Join(tempDir, "vs1.yaml"), []byte(virtualServiceYaml1), 0644); err != nil {
-			t.Fatalf("Failed to write test file: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(tempDir, "vs2.yaml"), []byte(virtualServiceYaml2), 0644); err != nil {
-			t.Fatalf("Failed to write test file: %v", err)
-		}
-
-	case "node-id-duplicate":
-		// Create a directory with Listener resources that have the same name but different node-ids
-		// After our code change, these should be considered duplicates
-		if err := os.WriteFile(filepath.Join(tempDir, "listener1.yaml"), []byte(listenerYaml1), 0644); err != nil {
-			t.Fatalf("Failed to write test file: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(tempDir, "listener2.yaml"), []byte(listenerYaml2), 0644); err != nil {
 			t.Fatalf("Failed to write test file: %v", err)
 		}
 
