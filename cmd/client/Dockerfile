@@ -14,9 +14,7 @@ COPY cmd/client/ client/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -C client/ -a -o client .
 
-# Use distroless as minimal base image to package the client binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM alpine:3.22.1
 WORKDIR /
 COPY --from=builder /workspace/client .
 USER 65532:65532
