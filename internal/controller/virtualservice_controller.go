@@ -74,6 +74,13 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if prevStatus.Invalid != vs.Status.Invalid ||
 		prevStatus.Message != vs.Status.Message {
+		if vs.Status.Message != "" {
+			if vs.Status.Invalid {
+				rlog.Info("[WARN] VirtualService is invalid", "message", vs.Status.Message)
+			} else {
+				rlog.Info("[WARN] VirtualService updated with message", "message", vs.Status.Message)
+			}
+		}
 		if err := r.Status().Update(ctx, &vs); err != nil {
 			return ctrl.Result{}, err
 		}
