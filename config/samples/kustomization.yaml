@@ -11,4 +11,5 @@ resources:
 - envoy_v1alpha1_httpfilter.yaml
 - envoy_v1alpha1_policy.yaml
 - envoy_v1alpha1_virtualservicetemplate.yaml
+- envoy_v1alpha1_tracing.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

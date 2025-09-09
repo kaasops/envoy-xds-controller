@@ -283,4 +283,7 @@ func (vs *VirtualService) NormalizeSpec() {
 	if vs.Spec.Template != nil && vs.Spec.Template.Namespace == nil {
 		vs.Spec.Template.Namespace = &vs.Namespace
 	}
+	if vs.Spec.TracingRef != nil && vs.Spec.TracingRef.Namespace == nil {
+		vs.Spec.TracingRef.Namespace = &vs.Namespace
+	}
 }

@@ -47,6 +47,7 @@ type FilterChainsParams struct {
 	DownstreamTLSContext *tlsv3.DownstreamTlsContext
 	SecretNameToDomains  map[helpers.NamespacedName][]string
 	IsTLS                bool
+	Tracing              *hcmv3.HttpConnectionManager_Tracing
 }
 
 type Resources struct {
@@ -247,7 +248,7 @@ func buildResourcesFromVirtualService(vs *v1alpha1.VirtualService, xdsListener *
 	}
 
 	// Build clusters
-	clusters, err := buildClusters(virtualHost, httpFilters, store)
+	clusters, err := buildClusters(vs, virtualHost, httpFilters, store)
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +324,25 @@ func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedNa
 		HTTPFilters:       httpFilters,
 		IsTLS:             listenerIsTLS,
 		XFFNumTrustedHops: vs.Spec.XFFNumTrustedHops,
+	}
+	if vs.Spec.Tracing != nil {
+		tracing := &hcmv3.HttpConnectionManager_Tracing{}
+		if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.Tracing.Raw, tracing); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
+		}
+		filterChainParams.Tracing = tracing
+	}
+	if vs.Spec.TracingRef != nil {
+		tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
+		tracing := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
+		if tracing == nil {
+			return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
+		}
+		trv3, err := tracing.UnmarshalV3()
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
+		}
+		filterChainParams.Tracing = trv3
 	}
 
 	// Build upgrade configs
@@ -518,7 +538,7 @@ func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3
 	return httpFilters, nil
 }
 
-func buildClusters(virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
+func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
 	var clusters []*cluster.Cluster
 
 	for _, route := range virtualHost.Routes {
@@ -578,6 +598,59 @@ func buildClusters(virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFi
 					clusters = append(clusters, xdsCluster)
 				}
 			}
+		}
+	}
+
+	if vs.Spec.Tracing != nil {
+		jsonData, err := json.Marshal(vs.Spec.Tracing)
+		if err != nil {
+			return nil, err
+		}
+
+		var data any
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			return nil, err
+		}
+
+		clusterNames := findClusterNames(data, "cluster_name")
+		for _, clusterName := range clusterNames {
+			cl := store.GetSpecCluster(clusterName)
+			if cl == nil {
+				return nil, fmt.Errorf("cluster %s not found", clusterName)
+			}
+			xdsCluster, err := cl.UnmarshalV3AndValidate()
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+			}
+			clusters = append(clusters, xdsCluster)
+		}
+	}
+
+	if vs.Spec.TracingRef != nil {
+		tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
+		tracing := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
+		if tracing == nil {
+			return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
+		}
+		jsonData, err := json.Marshal(tracing.Spec)
+		if err != nil {
+			return nil, err
+		}
+		var data any
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			return nil, err
+		}
+		clusterNames := findClusterNames(data, "cluster_name")
+		for _, clusterName := range clusterNames {
+			cl := store.GetSpecCluster(clusterName)
+			if cl == nil {
+				return nil, fmt.Errorf("cluster %s not found", clusterName)
+			}
+			xdsCluster, err := cl.UnmarshalV3AndValidate()
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+			}
+			clusters = append(clusters, xdsCluster)
 		}
 	}
 
@@ -689,6 +762,9 @@ func buildFilterChain(params *FilterChainsParams) (*listenerv3.FilterChain, erro
 		UseRemoteAddress: &wrapperspb.BoolValue{Value: params.UseRemoteAddress},
 		UpgradeConfigs:   params.UpgradeConfigs,
 		HttpFilters:      params.HTTPFilters,
+	}
+	if params.Tracing != nil {
+		httpConnectionManager.Tracing = params.Tracing
 	}
 	if params.XFFNumTrustedHops != nil {
 		httpConnectionManager.XffNumTrustedHops = *params.XFFNumTrustedHops

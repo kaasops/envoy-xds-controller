@@ -55,6 +55,9 @@ func (vst *VirtualServiceTemplate) NormalizeSpec() {
 			}
 		}
 	}
+	if vst.Spec.TracingRef != nil && vst.Spec.TracingRef.Namespace == nil {
+		vst.Spec.TracingRef.Namespace = &vst.Namespace
+	}
 }
 
 func (vst *VirtualServiceTemplate) Raw() []byte {

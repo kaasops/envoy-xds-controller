@@ -32,7 +32,9 @@ type VirtualServiceCommonSpec struct {
 	// when determining the origin client’s IP address. The default is zero if this option is not specified.
 	// See the documentation for x-forwarded-for for more information.
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto
-	XFFNumTrustedHops *uint32 `json:"xffNumTrustedHops,omitempty"`
+	XFFNumTrustedHops *uint32               `json:"xffNumTrustedHops,omitempty"`
+	TracingRef        *ResourceRef          `json:"tracingRef,omitempty"`
+	Tracing           *runtime.RawExtension `json:"tracing,omitempty"`
 }
 
 type TlsConfig struct {

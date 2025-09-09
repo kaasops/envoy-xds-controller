@@ -35,6 +35,7 @@ rules:
   - listeners
   - policies
   - routes
+  - tracings
   - virtualservices
   - virtualservicetemplates
   verbs:
@@ -54,6 +55,7 @@ rules:
   - listeners/finalizers
   - policies/finalizers
   - routes/finalizers
+  - tracings/finalizers
   - virtualservices/finalizers
   - virtualservicetemplates/finalizers
   verbs:
@@ -67,6 +69,7 @@ rules:
   - listeners/status
   - policies/status
   - routes/status
+  - tracings/status
   - virtualservices/status
   - virtualservicetemplates/status
   verbs:

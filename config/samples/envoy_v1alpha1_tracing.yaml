@@ -1,0 +1,9 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Tracing
+metadata:
+  labels:
+    app.kubernetes.io/name: envoy-xds-controller
+    app.kubernetes.io/managed-by: kustomize
+  name: tracing-sample
+spec:
+  # TODO(user): Add fields here
