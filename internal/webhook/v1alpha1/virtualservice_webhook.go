@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -106,8 +108,41 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 	if len(vs.GetNodeIDs()) == 0 {
 		return fmt.Errorf("nodeIDs is required")
 	}
+
+	// Validate tracing fields using a pure helper (XOR + existence check)
+	if err := validateVSTracing(ctx, v.Client, vs); err != nil {
+		return err
+	}
+
 	if err := v.updater.DryBuildSnapshotsWithVirtualService(ctx, vs); err != nil {
 		return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
 	}
+	return nil
+}
+
+// validateVSTracing applies XOR rule between inline spec.tracing and spec.tracingRef
+// and if tracingRef is provided, verifies that the referenced Tracing exists.
+func validateVSTracing(ctx context.Context, cl client.Client, vs *envoyv1alpha1.VirtualService) error {
+	if vs == nil {
+		return nil
+	}
+
+	// Tracing XOR rule: only one of spec.tracing or spec.tracingRef is allowed
+	if vs.Spec.Tracing != nil && vs.Spec.TracingRef != nil {
+		return fmt.Errorf("only one of spec.tracing or spec.tracingRef may be set")
+	}
+
+	// If tracingRef is set, ensure referenced Tracing exists (namespace defaults to VS namespace)
+	if vs.Spec.TracingRef != nil {
+		if vs.Spec.TracingRef.Name == "" {
+			return fmt.Errorf("spec.tracingRef.name must not be empty when spec.tracingRef is set")
+		}
+		ns := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
+		var tracing envoyv1alpha1.Tracing
+		if err := cl.Get(ctx, types.NamespacedName{Namespace: ns, Name: vs.Spec.TracingRef.Name}, &tracing); err != nil {
+			return fmt.Errorf("referenced Tracing %s/%s not found or not accessible: %w", ns, vs.Spec.TracingRef.Name, err)
+		}
+	}
+
 	return nil
 }

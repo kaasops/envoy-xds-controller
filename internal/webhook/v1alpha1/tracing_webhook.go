@@ -86,7 +86,7 @@ func (v *TracingCustomValidator) ValidateUpdate(ctx context.Context, oldObj, new
 	if _, err := tracing.UnmarshalV3AndValidate(); err != nil {
 		return nil, err
 	}
-	
+
 	tracinglog.Info("Tracing is valid", "name", tracing.GetName())
 
 	return nil, nil

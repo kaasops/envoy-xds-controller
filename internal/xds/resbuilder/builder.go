@@ -325,20 +325,26 @@ func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedNa
 		IsTLS:             listenerIsTLS,
 		XFFNumTrustedHops: vs.Spec.XFFNumTrustedHops,
 	}
+	// Tracing config: enforce XOR between inline and ref; priority inline > ref
+	if vs.Spec.Tracing != nil && vs.Spec.TracingRef != nil {
+		return nil, fmt.Errorf("only one of spec.tracing or spec.tracingRef may be set")
+	}
 	if vs.Spec.Tracing != nil {
 		tracing := &hcmv3.HttpConnectionManager_Tracing{}
 		if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.Tracing.Raw, tracing); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
 		}
+		if err := tracing.ValidateAll(); err != nil {
+			return nil, fmt.Errorf("failed to validate tracing: %w", err)
+		}
 		filterChainParams.Tracing = tracing
-	}
-	if vs.Spec.TracingRef != nil {
+	} else if vs.Spec.TracingRef != nil {
 		tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
-		tracing := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
-		if tracing == nil {
+		tr := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
+		if tr == nil {
 			return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
 		}
-		trv3, err := tracing.UnmarshalV3()
+		trv3, err := tr.UnmarshalV3AndValidate()
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
 		}

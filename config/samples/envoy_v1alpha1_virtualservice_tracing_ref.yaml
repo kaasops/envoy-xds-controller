@@ -1,0 +1,20 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vs-tracing-ref
+  annotations:
+    envoy.kaasops.io/node-id: "node1"
+spec:
+  listener:
+    name: listener-sample
+  virtualHost:
+    name: ref-tracing-vh
+    domains:
+      - "*"
+    routes:
+      - match:
+          prefix: "/"
+        route:
+          cluster: example
+  tracingRef:
+    name: tracing-zipkin
