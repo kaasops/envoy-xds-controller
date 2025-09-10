@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zipkin-config
+  namespace: observability
+data:
+  # Increase server log verbosity to help debug incoming traces
+  ZIPKIN_LOG_LEVEL: "DEBUG"
+  # Enable detailed logging from Zipkin packages (collector, reporter, storage)
+  JAVA_TOOL_OPTIONS: "-Dlogging.level.root=INFO -Dlogging.level.zipkin2=DEBUG -Dlogging.level.zipkin2.collector=DEBUG -Dlogging.level.zipkin2.reporter=DEBUG -Dlogging.level.zipkin2.storage=INFO"
+  # Optional: emit Zipkin's own spans to help correlate server-side behavior
+  SELF_TRACING_ENABLED: "true"
+  SELF_TRACING_SAMPLE_RATE: "1.0"

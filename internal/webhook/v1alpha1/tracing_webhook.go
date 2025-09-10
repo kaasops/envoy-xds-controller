@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -36,7 +37,7 @@ var tracinglog = logf.Log.WithName("tracing-resource")
 // SetupTracingWebhookWithManager registers the webhook for Tracing in the manager.
 func SetupTracingWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&envoyv1alpha1.Tracing{}).
-		WithValidator(&TracingCustomValidator{}).
+		WithValidator(&TracingCustomValidator{Client: mgr.GetClient()}).
 		Complete()
 }
 
@@ -45,7 +46,7 @@ func SetupTracingWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
-// +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-tracing,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=tracings,verbs=create;update,versions=v1alpha1,name=vtracing-v1alpha1.kb.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-tracing,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=tracings,verbs=create;update;delete,versions=v1alpha1,name=vtracing-v1alpha1.kb.io,admissionReviewVersions=v1
 
 // TracingCustomValidator struct is responsible for validating the Tracing resource
 // when it is created, updated, or deleted.
@@ -53,7 +54,7 @@ func SetupTracingWebhookWithManager(mgr ctrl.Manager) error {
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type TracingCustomValidator struct {
-	//TODO(user): Add more fields as needed for validation
+	Client client.Client
 }
 
 var _ webhook.CustomValidator = &TracingCustomValidator{}
@@ -100,7 +101,39 @@ func (v *TracingCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 	}
 	tracinglog.Info("Validation for Tracing upon deletion", "name", tracing.GetName())
 
-	// TODO(user): fill in your validation logic upon object deletion.
+	// check references in VirtualService
+	var virtualServiceList envoyv1alpha1.VirtualServiceList
+	if err := v.Client.List(ctx, &virtualServiceList, client.InNamespace(tracing.Namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list VirtualService resources: %w", err)
+	}
+	if len(virtualServiceList.Items) > 0 {
+		var refVsNames []string
+		for _, vs := range virtualServiceList.Items {
+			if vs.Spec.TracingRef != nil && vs.Spec.TracingRef.Name == tracing.GetName() {
+				refVsNames = append(refVsNames, vs.GetLabelName())
+			}
+		}
+		if len(refVsNames) > 0 {
+			return nil, fmt.Errorf("cannot delete Tracing %s because it is still referenced by VirtualService(s) %s", tracing.GetName(), refVsNames)
+		}
+	}
+
+	// check references in VirtualServiceTemplate
+	var virtualServiceTemplateList envoyv1alpha1.VirtualServiceTemplateList
+	if err := v.Client.List(ctx, &virtualServiceTemplateList, client.InNamespace(tracing.Namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list VirtualServiceTemplate resources: %w", err)
+	}
+	if len(virtualServiceTemplateList.Items) > 0 {
+		var refVstNames []string
+		for _, vst := range virtualServiceTemplateList.Items {
+			if vst.Spec.TracingRef != nil && vst.Spec.TracingRef.Name == tracing.GetName() {
+				refVstNames = append(refVstNames, vst.GetName())
+			}
+		}
+		if len(refVstNames) > 0 {
+			return nil, fmt.Errorf("cannot delete Tracing %s because it is still referenced by VirtualServiceTemplate(s) %s", tracing.GetName(), refVstNames)
+		}
+	}
 
 	return nil, nil
 }

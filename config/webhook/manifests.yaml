@@ -166,6 +166,7 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
+    - DELETE
     resources:
     - tracings
   sideEffects: None

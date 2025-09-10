@@ -32,6 +32,7 @@ spec:
       "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
       collector_cluster: zipkin
       collector_endpoint: /api/v2/spans
+      collector_endpoint_version: HTTP_JSON
 ```
 
 OpenTelemetry (OTLP):
@@ -77,6 +78,7 @@ spec:
         "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
         collector_cluster: zipkin
         collector_endpoint: /api/v2/spans
+        collector_endpoint_version: HTTP_JSON
 ```
 
 Reference to Tracing CR:

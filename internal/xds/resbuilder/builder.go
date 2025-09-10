@@ -630,6 +630,19 @@ func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost
 			}
 			clusters = append(clusters, xdsCluster)
 		}
+
+		clusterNames = findClusterNames(data, "collector_cluster") // zipkin
+		for _, clusterName := range clusterNames {
+			cl := store.GetSpecCluster(clusterName)
+			if cl == nil {
+				return nil, fmt.Errorf("cluster %s not found", clusterName)
+			}
+			xdsCluster, err := cl.UnmarshalV3AndValidate()
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+			}
+			clusters = append(clusters, xdsCluster)
+		}
 	}
 
 	if vs.Spec.TracingRef != nil {
@@ -647,6 +660,18 @@ func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost
 			return nil, err
 		}
 		clusterNames := findClusterNames(data, "cluster_name")
+		for _, clusterName := range clusterNames {
+			cl := store.GetSpecCluster(clusterName)
+			if cl == nil {
+				return nil, fmt.Errorf("cluster %s not found", clusterName)
+			}
+			xdsCluster, err := cl.UnmarshalV3AndValidate()
+			if err != nil {
+				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+			}
+			clusters = append(clusters, xdsCluster)
+		}
+		clusterNames = findClusterNames(data, "collector_cluster") // zipkin
 		for _, clusterName := range clusterNames {
 			cl := store.GetSpecCluster(clusterName)
 			if cl == nil {

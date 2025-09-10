@@ -1,0 +1,12 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Listener
+metadata:
+  name: http
+  annotations:
+    envoy.kaasops.io/description: "HTTP listener on port 10080"
+spec:
+  name: http
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 10080
