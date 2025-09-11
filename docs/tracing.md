@@ -16,24 +16,7 @@ Priority rule: inline spec.tracing takes precedence over spec.tracingRef. Settin
 Only one of spec.tracing or spec.tracingRef may be set. If spec.tracingRef is set and namespace is omitted, the VirtualService namespace is used. Webhooks validate the XOR rule and the existence of the referenced Tracing.
 
 ## Tracing CR Examples
-Two common providers are shown below. Ensure referenced clusters exist (zipkin, otel-collector).
-
-Zipkin:
-
-```yaml
-apiVersion: envoy.kaasops.io/v1alpha1
-kind: Tracing
-metadata:
-  name: tracing-zipkin
-spec:
-  provider:
-    name: envoy.tracers.zipkin
-    typed_config:
-      "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
-      collector_cluster: zipkin
-      collector_endpoint: /api/v2/spans
-      collector_endpoint_version: HTTP_JSON
-```
+Two common providers are shown below. Ensure referenced clusters exist (otel-collector, zipkin).
 
 OpenTelemetry (OTLP):
 
@@ -50,6 +33,23 @@ spec:
       grpc_service:
         envoy_grpc:
           cluster_name: otel-collector
+```
+
+Zipkin:
+
+```yaml
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Tracing
+metadata:
+  name: tracing-zipkin
+spec:
+  provider:
+    name: envoy.tracers.zipkin
+    typed_config:
+      "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
+      collector_cluster: zipkin
+      collector_endpoint: /api/v2/spans
+      collector_endpoint_version: HTTP_JSON
 ```
 
 ## VirtualService Examples
@@ -104,7 +104,7 @@ spec:
 ```
 
 ## Cluster Requirements
-If your tracing config references a cluster (e.g., `zipkin`, `otel-collector`), the cluster must exist as an Envoy Cluster resource and be valid. The controller resolves and validates these references during snapshot build. Missing clusters will result in status.invalid=true on affected VirtualServices and corresponding error messages.
+If your tracing config references a cluster (e.g., `otel-collector`, `zipkin`), the cluster must exist as an Envoy Cluster resource and be valid. The controller resolves and validates these references during snapshot build. Missing clusters will result in status.invalid=true on affected VirtualServices and corresponding error messages.
 
 ## Validation Rules
 - XOR: only one of spec.tracing or spec.tracingRef may be set (enforced by webhooks for VirtualService and VirtualServiceTemplate).
