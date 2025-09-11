@@ -52,25 +52,81 @@ spec:
       collector_endpoint_version: HTTP_JSON
 ```
 
+## Cluster Examples
+When using tracing providers, you must also define the upstream Cluster that Envoy will send spans to. Names must match those referenced in the Tracing configuration (e.g., otel-collector, zipkin).
+
+OpenTelemetry (OTLP, gRPC):
+
+```yaml
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: otel-collector
+spec:
+  name: otel-collector
+  connect_timeout: 1s
+  type: STRICT_DNS
+  lb_policy: ROUND_ROBIN
+  http2_protocol_options: {}
+  load_assignment:
+    cluster_name: otel-collector
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: otel-collector.observability
+                  port_value: 4317
+```
+
+Zipkin:
+
+```yaml
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: zipkin
+spec:
+  name: zipkin
+  connect_timeout: 1s
+  type: STRICT_DNS
+  lb_policy: ROUND_ROBIN
+  load_assignment:
+    cluster_name: zipkin
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: zipkin.observability
+                  port_value: 9411
+```
+
 ## VirtualService Examples
-Inline tracing:
+Inline tracing (Zipkin):
 
 ```yaml
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
 metadata:
-  name: vs-tracing-inline
+  name: vs-tracing-inline-zipkin
   annotations:
     envoy.kaasops.io/node-id: "node1"
 spec:
   listener:
     name: listener-sample
+  httpFilters:
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   virtualHost:
-    name: inline-tracing-vh
     domains: ["*"]
     routes:
       - match: { prefix: "/" }
-        route: { cluster: example }
+        direct_response:
+          status: 200
+          body:
+            inline_string: "{\"message\":\"Hello\"}"
   tracing:
     provider:
       name: envoy.tracers.zipkin
@@ -81,26 +137,94 @@ spec:
         collector_endpoint_version: HTTP_JSON
 ```
 
-Reference to Tracing CR:
+Reference to Tracing CR (Zipkin):
 
 ```yaml
 apiVersion: envoy.kaasops.io/v1alpha1
 kind: VirtualService
 metadata:
-  name: vs-tracing-ref
+  name: vs-tracing-ref-zipkin
   annotations:
     envoy.kaasops.io/node-id: "node1"
 spec:
   listener:
     name: listener-sample
+  httpFilters:
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
   virtualHost:
-    name: ref-tracing-vh
     domains: ["*"]
     routes:
       - match: { prefix: "/" }
-        route: { cluster: example }
+        direct_response:
+          status: 200
+          body:
+            inline_string: "{\"message\":\"Hello\"}"
   tracingRef:
     name: tracing-zipkin
+```
+
+Inline tracing (OpenTelemetry / OTLP over gRPC):
+
+```yaml
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vs-tracing-inline-otlp
+  annotations:
+    envoy.kaasops.io/node-id: "node1"
+spec:
+  listener:
+    name: listener-sample
+  httpFilters:
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  virtualHost:
+    domains: ["*"]
+    routes:
+      - match: { prefix: "/" }
+        direct_response:
+          status: 200
+          body:
+            inline_string: "{\"message\":\"Hello\"}"
+  tracing:
+    provider:
+      name: envoy.tracers.opentelemetry
+      typed_config:
+        "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+        grpc_service:
+          envoy_grpc:
+            cluster_name: otel-collector
+```
+
+Reference to Tracing CR (OpenTelemetry):
+
+```yaml
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vs-tracing-ref-otlp
+  annotations:
+    envoy.kaasops.io/node-id: "node1"
+spec:
+  listener:
+    name: listener-sample
+  httpFilters:
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  virtualHost:
+    domains: ["*"]
+    routes:
+      - match: { prefix: "/" }
+        direct_response:
+          status: 200
+          body:
+            inline_string: "{\"message\":\"Hello\"}"
+  tracingRef:
+    name: tracing-otlp
 ```
 
 ## Cluster Requirements
