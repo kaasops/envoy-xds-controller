@@ -547,111 +547,75 @@ func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3
 func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
 	var clusters []*cluster.Cluster
 
+	// 1. Clusters referenced in routes
+	routeClusters, err := clustersFromVirtualHostRoutes(virtualHost, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, routeClusters...)
+
+	// 2. Clusters referenced in OAuth2 HTTP filters
+	filterClusters, err := clustersFromOAuth2HTTPFilters(httpFilters, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, filterClusters...)
+
+	// 3. Clusters referenced by inline tracing config
+	tracingClusters, err := clustersFromTracingRaw(vs.Spec.Tracing, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, tracingClusters...)
+
+	// 4. Clusters referenced by tracing ref
+	tracingRefClusters, err := clustersFromTracingRef(vs, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, tracingRefClusters...)
+
+	return clusters, nil
+}
+
+// clustersFromVirtualHostRoutes extracts clusters referenced by routes inside the given VirtualHost.
+func clustersFromVirtualHostRoutes(virtualHost *routev3.VirtualHost, store *store.Store) ([]*cluster.Cluster, error) {
+	var clusters []*cluster.Cluster
 	for _, route := range virtualHost.Routes {
 		jsonData, err := json.Marshal(route)
 		if err != nil {
 			return nil, err
 		}
-
 		var data any
 		if err := json.Unmarshal(jsonData, &data); err != nil {
 			return nil, err
 		}
-
-		clusterNames := findClusterNames(data, "Cluster")
-
-		for _, clusterName := range clusterNames {
-			cl := store.GetSpecCluster(clusterName)
-			if cl == nil {
-				return nil, fmt.Errorf("cluster %s not found", clusterName)
-			}
-			xdsCluster, err := cl.UnmarshalV3AndValidate()
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-			}
-			clusters = append(clusters, xdsCluster)
+		names := findClusterNames(data, "Cluster")
+		if len(names) == 0 {
+			continue
 		}
+		cl, err := getClustersByNames(names, store)
+		if err != nil {
+			return nil, err
+		}
+		clusters = append(clusters, cl...)
 	}
+	return clusters, nil
+}
 
+// clustersFromOAuth2HTTPFilters extracts clusters referenced by OAuth2 HTTP filters (token/authorize/etc).
+func clustersFromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
+	var clusters []*cluster.Cluster
 	for _, httpFilter := range httpFilters {
-		if tc := httpFilter.GetTypedConfig(); tc != nil {
-			if tc.TypeUrl == "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2" {
-				var oauthCfg oauth2v3.OAuth2
-				if err := tc.UnmarshalTo(&oauthCfg); err != nil {
-					return nil, fmt.Errorf("failed to unmarshal oauth2 config: %w", err)
-				}
-				jsonData, err := json.Marshal(oauthCfg.Config)
-				if err != nil {
-					return nil, err
-				}
-
-				var data any
-				if err := json.Unmarshal(jsonData, &data); err != nil {
-					return nil, err
-				}
-
-				clusterNames := findClusterNames(data, "Cluster")
-
-				for _, clusterName := range clusterNames {
-					cl := store.GetSpecCluster(clusterName)
-					if cl == nil {
-						return nil, fmt.Errorf("cluster %s not found", clusterName)
-					}
-					xdsCluster, err := cl.UnmarshalV3AndValidate()
-					if err != nil {
-						return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-					}
-					clusters = append(clusters, xdsCluster)
-				}
-			}
+		tc := httpFilter.GetTypedConfig()
+		if tc == nil || tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2" {
+			continue
 		}
-	}
-
-	if vs.Spec.Tracing != nil {
-		jsonData, err := json.Marshal(vs.Spec.Tracing)
-		if err != nil {
-			return nil, err
+		var oauthCfg oauth2v3.OAuth2
+		if err := tc.UnmarshalTo(&oauthCfg); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal oauth2 config: %w", err)
 		}
-
-		var data any
-		if err := json.Unmarshal(jsonData, &data); err != nil {
-			return nil, err
-		}
-
-		clusterNames := findClusterNames(data, "cluster_name")
-		for _, clusterName := range clusterNames {
-			cl := store.GetSpecCluster(clusterName)
-			if cl == nil {
-				return nil, fmt.Errorf("cluster %s not found", clusterName)
-			}
-			xdsCluster, err := cl.UnmarshalV3AndValidate()
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-			}
-			clusters = append(clusters, xdsCluster)
-		}
-
-		clusterNames = findClusterNames(data, "collector_cluster") // zipkin
-		for _, clusterName := range clusterNames {
-			cl := store.GetSpecCluster(clusterName)
-			if cl == nil {
-				return nil, fmt.Errorf("cluster %s not found", clusterName)
-			}
-			xdsCluster, err := cl.UnmarshalV3AndValidate()
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-			}
-			clusters = append(clusters, xdsCluster)
-		}
-	}
-
-	if vs.Spec.TracingRef != nil {
-		tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
-		tracing := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
-		if tracing == nil {
-			return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
-		}
-		jsonData, err := json.Marshal(tracing.Spec)
+		jsonData, err := json.Marshal(oauthCfg.Config)
 		if err != nil {
 			return nil, err
 		}
@@ -659,32 +623,98 @@ func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost
 		if err := json.Unmarshal(jsonData, &data); err != nil {
 			return nil, err
 		}
-		clusterNames := findClusterNames(data, "cluster_name")
-		for _, clusterName := range clusterNames {
-			cl := store.GetSpecCluster(clusterName)
-			if cl == nil {
-				return nil, fmt.Errorf("cluster %s not found", clusterName)
-			}
-			xdsCluster, err := cl.UnmarshalV3AndValidate()
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-			}
-			clusters = append(clusters, xdsCluster)
+		names := findClusterNames(data, "Cluster")
+		cl, err := getClustersByNames(names, store)
+		if err != nil {
+			return nil, err
 		}
-		clusterNames = findClusterNames(data, "collector_cluster") // zipkin
-		for _, clusterName := range clusterNames {
-			cl := store.GetSpecCluster(clusterName)
-			if cl == nil {
-				return nil, fmt.Errorf("cluster %s not found", clusterName)
-			}
-			xdsCluster, err := cl.UnmarshalV3AndValidate()
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-			}
-			clusters = append(clusters, xdsCluster)
-		}
+		clusters = append(clusters, cl...)
 	}
+	return clusters, nil
+}
 
+// clustersFromTracingRaw extracts clusters referenced by inline tracing configuration.
+func clustersFromTracingRaw(tr *runtime.RawExtension, store *store.Store) ([]*cluster.Cluster, error) {
+	if tr == nil {
+		return nil, nil
+	}
+	var clusters []*cluster.Cluster
+	jsonData, err := json.Marshal(tr)
+	if err != nil {
+		return nil, err
+	}
+	var data any
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		return nil, err
+	}
+	// opentelemetry/zipkin use different field names
+	names := findClusterNames(data, "cluster_name")
+	cl, err := getClustersByNames(names, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, cl...)
+
+	names = findClusterNames(data, "collector_cluster") // zipkin
+	cl, err = getClustersByNames(names, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, cl...)
+
+	return clusters, nil
+}
+
+// clustersFromTracingRef extracts clusters referenced by a Tracing resource referenced from VS.
+func clustersFromTracingRef(vs *v1alpha1.VirtualService, store *store.Store) ([]*cluster.Cluster, error) {
+	if vs.Spec.TracingRef == nil {
+		return nil, nil
+	}
+	tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
+	tracing := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
+	if tracing == nil {
+		return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
+	}
+	jsonData, err := json.Marshal(tracing.Spec)
+	if err != nil {
+		return nil, err
+	}
+	var data any
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		return nil, err
+	}
+	var clusters []*cluster.Cluster
+	names := findClusterNames(data, "cluster_name")
+	cl, err := getClustersByNames(names, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, cl...)
+
+	names = findClusterNames(data, "collector_cluster") // zipkin
+	cl, err = getClustersByNames(names, store)
+	if err != nil {
+		return nil, err
+	}
+	clusters = append(clusters, cl...)
+
+	return clusters, nil
+}
+
+// getClustersByNames resolves cluster specs by names and validates them.
+func getClustersByNames(names []string, store *store.Store) ([]*cluster.Cluster, error) {
+	var clusters []*cluster.Cluster
+	for _, clusterName := range names {
+		cl := store.GetSpecCluster(clusterName)
+		if cl == nil {
+			return nil, fmt.Errorf("cluster %s not found", clusterName)
+		}
+		xdsCluster, err := cl.UnmarshalV3AndValidate()
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+		}
+		clusters = append(clusters, xdsCluster)
+	}
 	return clusters, nil
 }
 

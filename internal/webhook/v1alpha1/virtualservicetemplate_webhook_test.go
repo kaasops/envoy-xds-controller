@@ -27,7 +27,7 @@ func TestValidateTemplateTracing_XOR(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	vst := &envoyv1alpha1.VirtualServiceTemplate{}
-	vst.Namespace = "ns1"
+	vst.Namespace = namespace
 	// Both inline and ref set -> error
 	vst.Spec.VirtualServiceCommonSpec.Tracing = &runtime.RawExtension{Raw: []byte(`{"foo":"bar"}`)}
 	vst.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "tr", Namespace: nil}
@@ -42,7 +42,7 @@ func TestValidateTemplateTracing_RefNotFound(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	vst := &envoyv1alpha1.VirtualServiceTemplate{}
-	vst.Namespace = "ns1"
+	vst.Namespace = namespace
 	vst.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "missing"}
 
 	if err := validateTemplateTracing(context.Background(), cl, vst); err == nil {
@@ -53,14 +53,14 @@ func TestValidateTemplateTracing_RefNotFound(t *testing.T) {
 func TestValidateTemplateTracing_RefExists(t *testing.T) {
 	scheme := makeScheme(t)
 	tr := &envoyv1alpha1.Tracing{}
-	tr.Namespace = "ns1"
+	tr.Namespace = namespace
 	tr.Name = "exists"
 	// Minimal spec (may be nil); existence check should pass without validating Tracing content here
 	objs := []ctrlclient.Object{tr}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 
 	vst := &envoyv1alpha1.VirtualServiceTemplate{}
-	vst.Namespace = "ns1"
+	vst.Namespace = namespace
 	vst.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "exists"}
 
 	if err := validateTemplateTracing(context.Background(), cl, vst); err != nil {

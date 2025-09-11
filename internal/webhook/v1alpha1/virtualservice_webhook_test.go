@@ -11,6 +11,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+const namespace = "ns1"
+
 func makeSchemeVS(t *testing.T) *runtime.Scheme {
 	s := runtime.NewScheme()
 	if err := clientgoscheme.AddToScheme(s); err != nil {
@@ -27,7 +29,7 @@ func TestValidateVSTracing_XOR(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	vs := &envoyv1alpha1.VirtualService{}
-	vs.Namespace = "ns1"
+	vs.Namespace = namespace
 	// Both inline and ref set -> error
 	vs.Spec.VirtualServiceCommonSpec.Tracing = &runtime.RawExtension{Raw: []byte(`{"foo":"bar"}`)}
 	vs.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "tr", Namespace: nil}
@@ -42,7 +44,7 @@ func TestValidateVSTracing_RefNotFound(t *testing.T) {
 	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
 	vs := &envoyv1alpha1.VirtualService{}
-	vs.Namespace = "ns1"
+	vs.Namespace = namespace
 	vs.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "missing"}
 
 	if err := validateVSTracing(context.Background(), cl, vs); err == nil {
@@ -53,13 +55,13 @@ func TestValidateVSTracing_RefNotFound(t *testing.T) {
 func TestValidateVSTracing_RefExists(t *testing.T) {
 	scheme := makeSchemeVS(t)
 	tr := &envoyv1alpha1.Tracing{}
-	tr.Namespace = "ns1"
+	tr.Namespace = namespace
 	tr.Name = "exists"
 	objs := []ctrlclient.Object{tr}
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
 
 	vs := &envoyv1alpha1.VirtualService{}
-	vs.Namespace = "ns1"
+	vs.Namespace = namespace
 	vs.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "exists"}
 
 	if err := validateVSTracing(context.Background(), cl, vs); err != nil {

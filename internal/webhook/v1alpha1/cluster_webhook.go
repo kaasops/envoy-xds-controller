@@ -169,7 +169,6 @@ func (v *ClusterCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 	return nil, nil
 }
 
-
 // findClusterNames traverses arbitrary JSON-like data to extract values for a given field name.
 // This mirrors the logic used in resbuilder to detect cluster references inside nested tracing configs.
 func findClusterNames(data interface{}, fieldName string) []string {
