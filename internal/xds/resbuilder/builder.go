@@ -703,7 +703,7 @@ func clustersFromTracingRef(vs *v1alpha1.VirtualService, store *store.Store) ([]
 
 // getClustersByNames resolves cluster specs by names and validates them.
 func getClustersByNames(names []string, store *store.Store) ([]*cluster.Cluster, error) {
-	var clusters []*cluster.Cluster
+	clusters := make([]*cluster.Cluster, 0, len(names))
 	for _, clusterName := range names {
 		cl := store.GetSpecCluster(clusterName)
 		if cl == nil {
