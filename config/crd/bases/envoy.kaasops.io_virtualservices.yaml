@@ -164,9 +164,18 @@ spec:
                     type: object
                 type: object
               tracing:
+                description: |-
+                  Tracing provides inline Envoy HttpConnectionManager.Tracing configuration.
+                  This field is schemaless and its contents are preserved as-is.
+                  Only one of spec.tracing or spec.tracingRef may be set.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
               tracingRef:
+                description: |-
+                  TracingRef is a reference to a Tracing custom resource to be applied to this
+                  VirtualService's HttpConnectionManager.Tracing configuration.
+                  If namespace is omitted, it defaults to the VirtualService namespace.
+                  Only one of spec.tracing or spec.tracingRef may be set.
                 properties:
                   name:
                     type: string
