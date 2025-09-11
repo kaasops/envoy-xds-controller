@@ -33,6 +33,18 @@ type VirtualServiceCommonSpec struct {
 	// See the documentation for x-forwarded-for for more information.
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto
 	XFFNumTrustedHops *uint32 `json:"xffNumTrustedHops,omitempty"`
+
+	// TracingRef is a reference to a Tracing custom resource to be applied to this
+	// VirtualService's HttpConnectionManager.Tracing configuration.
+	// If namespace is omitted, it defaults to the VirtualService namespace.
+	// Only one of spec.tracing or spec.tracingRef may be set.
+	TracingRef *ResourceRef `json:"tracingRef,omitempty"`
+
+	// Tracing provides inline Envoy HttpConnectionManager.Tracing configuration.
+	// This field is schemaless and its contents are preserved as-is.
+	// Only one of spec.tracing or spec.tracingRef may be set.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Tracing *runtime.RawExtension `json:"tracing,omitempty"`
 }
 
 type TlsConfig struct {

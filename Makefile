@@ -360,7 +360,7 @@ helm-deploy-backend-local: manifests set-local## Install Envoy xDS Controller in
  		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
 
 .PHONY: dev-backend
-dev-backend: set-local docker-build docker-push install-prometheus helm-deploy-backend-local
+dev-backend: set-local docker-build docker-push docker-build-init-cert docker-push-init-cert install-prometheus helm-deploy-backend-local
 
 .PHONY: deploy-e2e
 deploy-e2e: manifests

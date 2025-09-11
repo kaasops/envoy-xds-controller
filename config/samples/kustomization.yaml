@@ -3,12 +3,12 @@ resources:
 - envoy_v1alpha1_cluster.yaml
 - envoy_v1alpha1_listener.yaml
 - envoy_v1alpha1_route.yaml
-- envoy_v1alpha1_endpoint.yaml
-- envoy_v1alpha1_virtualhost.yaml
-- envoy_v1alpha1_secret.yaml
 - envoy_v1alpha1_virtualservice.yaml
 - envoy_v1alpha1_accesslogconfig.yaml
 - envoy_v1alpha1_httpfilter.yaml
 - envoy_v1alpha1_policy.yaml
 - envoy_v1alpha1_virtualservicetemplate.yaml
+- envoy_v1alpha1_tracing.yaml
+- envoy_v1alpha1_virtualservice_tracing_inline.yaml
+- envoy_v1alpha1_virtualservice_tracing_ref.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -25,8 +25,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/kaasops/envoy-xds-controller/internal/buildinfo"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+
+	"github.com/kaasops/envoy-xds-controller/internal/buildinfo"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -349,6 +350,15 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Secret")
 		os.Exit(1)
 	}
+	if err = (&controller.TracingReconciler{
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		Updater:        cacheUpdater,
+		CacheReadyChan: cacheReadyCh,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Tracing")
+		os.Exit(1)
+	}
 
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
@@ -423,6 +433,10 @@ func main() {
 		}
 		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualServiceTemplate")
+			os.Exit(1)
+		}
+		if err = webhookenvoyv1alpha1.SetupTracingWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "Tracing")
 			os.Exit(1)
 		}
 	}

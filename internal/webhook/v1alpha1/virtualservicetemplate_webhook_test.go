@@ -1,71 +1,69 @@
-/*
-Copyright 2024.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package v1alpha1
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"context"
+	"testing"
 
 	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	// TODO (user): Add any additional imports if needed
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-var _ = Describe("VirtualServiceTemplate Webhook", func() {
-	var (
-		obj       *envoyv1alpha1.VirtualServiceTemplate
-		oldObj    *envoyv1alpha1.VirtualServiceTemplate
-		validator VirtualServiceTemplateCustomValidator
-	)
+func makeScheme(t *testing.T) *runtime.Scheme {
+	s := runtime.NewScheme()
+	if err := clientgoscheme.AddToScheme(s); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	if err := envoyv1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("add envoy scheme: %v", err)
+	}
+	return s
+}
 
-	BeforeEach(func() {
-		obj = &envoyv1alpha1.VirtualServiceTemplate{}
-		oldObj = &envoyv1alpha1.VirtualServiceTemplate{}
-		validator = VirtualServiceTemplateCustomValidator{}
-		Expect(validator).NotTo(BeNil(), "Expected validator to be initialized")
-		Expect(oldObj).NotTo(BeNil(), "Expected oldObj to be initialized")
-		Expect(obj).NotTo(BeNil(), "Expected obj to be initialized")
-		// TODO (user): Add any setup logic common to all tests
-	})
+func TestValidateTemplateTracing_XOR(t *testing.T) {
+	scheme := makeScheme(t)
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
 
-	AfterEach(func() {
-		// TODO (user): Add any teardown logic common to all tests
-	})
+	vst := &envoyv1alpha1.VirtualServiceTemplate{}
+	vst.Namespace = namespace
+	// Both inline and ref set -> error
+	vst.Spec.VirtualServiceCommonSpec.Tracing = &runtime.RawExtension{Raw: []byte(`{"foo":"bar"}`)}
+	vst.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "tr", Namespace: nil}
 
-	Context("When creating or updating VirtualServiceTemplate under Validating Webhook", func() {
-		// TODO (user): Add logic for validating webhooks
-		// Example:
-		// It("Should deny creation if a required field is missing", func() {
-		//     By("simulating an invalid creation scenario")
-		//     obj.SomeRequiredField = ""
-		//     Expect(validator.ValidateCreate(ctx, obj)).Error().To(HaveOccurred())
-		// })
-		//
-		// It("Should admit creation if all required fields are present", func() {
-		//     By("simulating an invalid creation scenario")
-		//     obj.SomeRequiredField = "valid_value"
-		//     Expect(validator.ValidateCreate(ctx, obj)).To(BeNil())
-		// })
-		//
-		// It("Should validate updates correctly", func() {
-		//     By("simulating a valid update scenario")
-		//     oldObj.SomeRequiredField = "updated_value"
-		//     obj.SomeRequiredField = "updated_value"
-		//     Expect(validator.ValidateUpdate(ctx, oldObj, obj)).To(BeNil())
-		// })
-	})
+	if err := validateTemplateTracing(context.Background(), cl, vst); err == nil {
+		t.Fatalf("expected XOR validation error, got nil")
+	}
+}
 
-})
+func TestValidateTemplateTracing_RefNotFound(t *testing.T) {
+	scheme := makeScheme(t)
+	cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	vst := &envoyv1alpha1.VirtualServiceTemplate{}
+	vst.Namespace = namespace
+	vst.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "missing"}
+
+	if err := validateTemplateTracing(context.Background(), cl, vst); err == nil {
+		t.Fatalf("expected not found error for tracingRef, got nil")
+	}
+}
+
+func TestValidateTemplateTracing_RefExists(t *testing.T) {
+	scheme := makeScheme(t)
+	tr := &envoyv1alpha1.Tracing{}
+	tr.Namespace = namespace
+	tr.Name = "exists"
+	// Minimal spec (may be nil); existence check should pass without validating Tracing content here
+	objs := []ctrlclient.Object{tr}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+
+	vst := &envoyv1alpha1.VirtualServiceTemplate{}
+	vst.Namespace = namespace
+	vst.Spec.VirtualServiceCommonSpec.TracingRef = &envoyv1alpha1.ResourceRef{Name: "exists"}
+
+	if err := validateTemplateTracing(context.Background(), cl, vst); err != nil {
+		t.Fatalf("expected no error for existing tracingRef, got: %v", err)
+	}
+}

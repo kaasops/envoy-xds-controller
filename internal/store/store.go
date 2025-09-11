@@ -30,6 +30,7 @@ type Store struct {
 	accessLogByUID              map[string]*v1alpha1.AccessLogConfig
 	policies                    map[helpers.NamespacedName]*v1alpha1.Policy
 	secrets                     map[helpers.NamespacedName]*v1.Secret
+	tracings                    map[helpers.NamespacedName]*v1alpha1.Tracing
 	domainToSecretMap           map[string]v1.Secret
 }
 
@@ -52,6 +53,7 @@ func New() *Store {
 		secrets:                     make(map[helpers.NamespacedName]*v1.Secret),
 		domainToSecretMap:           make(map[string]v1.Secret),
 		specClusters:                make(map[string]*v1alpha1.Cluster),
+		tracings:                    make(map[helpers.NamespacedName]*v1alpha1.Tracing),
 	}
 	return store
 }
@@ -79,6 +81,7 @@ func (s *Store) Copy() *Store {
 		secrets:                     make(map[helpers.NamespacedName]*v1.Secret, len(s.secrets)),
 		domainToSecretMap:           make(map[string]v1.Secret, len(s.domainToSecretMap)),
 		specClusters:                make(map[string]*v1alpha1.Cluster, len(s.specClusters)),
+		tracings:                    make(map[helpers.NamespacedName]*v1alpha1.Tracing, len(s.tracings)),
 	}
 
 	for k, v := range s.virtualServices {
@@ -107,6 +110,9 @@ func (s *Store) Copy() *Store {
 	}
 	for k, v := range s.secrets {
 		clone.secrets[k] = v
+	}
+	for k, v := range s.tracings {
+		clone.tracings[k] = v
 	}
 
 	clone.updateListenerByUIDMap()
@@ -158,6 +164,10 @@ func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error 
 	if err := cl.List(ctx, &policies); err != nil {
 		return err
 	}
+	var tracings v1alpha1.TracingList
+	if err := cl.List(ctx, &tracings); err != nil {
+		return err
+	}
 
 	var secrets v1.SecretList
 	requirement, err := labels.NewRequirement("envoy.kaasops.io/secret-type", "==", []string{"sds-cached"})
@@ -180,6 +190,7 @@ func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error 
 	s.secrets = make(map[helpers.NamespacedName]*v1.Secret, len(secrets.Items))
 	s.domainToSecretMap = make(map[string]v1.Secret, len(secrets.Items))
 	s.specClusters = make(map[string]*v1alpha1.Cluster, len(clusters.Items))
+	s.tracings = make(map[helpers.NamespacedName]*v1alpha1.Tracing, len(tracings.Items))
 
 	for _, vs := range virtualServices.Items {
 		vs.NormalizeSpec()
@@ -209,6 +220,9 @@ func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error 
 	}
 	for _, secret := range secrets.Items {
 		s.secrets[helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}] = &secret
+	}
+	for _, tracing := range tracings.Items {
+		s.tracings[helpers.NamespacedName{Namespace: tracing.Namespace, Name: tracing.Name}] = &tracing
 	}
 	s.updateListenerByUIDMap()
 	s.updateVirtualServiceByUIDMap()

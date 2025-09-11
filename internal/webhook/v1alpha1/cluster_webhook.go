@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
@@ -103,7 +104,6 @@ func (v *ClusterCustomValidator) ValidateUpdate(ctx context.Context, oldObj, new
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type Cluster.
 func (v *ClusterCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	cluster, ok := obj.(*envoyv1alpha1.Cluster)
 	if !ok {
@@ -116,6 +116,7 @@ func (v *ClusterCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 		return nil, err
 	}
 
+	// Check that no Route directly references this cluster
 	var routes envoyv1alpha1.RouteList
 	if err := v.Client.List(ctx, &routes, client.InNamespace(cluster.Namespace)); err != nil {
 		return nil, fmt.Errorf("failed to list routes for cluster %s/%s: %v", cluster.Namespace, cluster.Name, err)
@@ -134,5 +135,58 @@ func (v *ClusterCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 		}
 	}
 
+	// Check that no Tracing references this cluster (e.g., via cluster_name or collector_cluster)
+	var tracingList envoyv1alpha1.TracingList
+	if err := v.Client.List(ctx, &tracingList, client.InNamespace(cluster.Namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list Tracing resources: %w", err)
+	}
+	var refTracingNames []string
+	for _, t := range tracingList.Items {
+		if t.Spec == nil || t.Spec.Raw == nil {
+			continue
+		}
+		// Convert to generic JSON map for easy lookup (mirrors resbuilder logic)
+		jsonData, err := json.Marshal(t.Spec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal Tracing %s spec: %w", t.GetName(), err)
+		}
+		var data any
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal Tracing %s spec: %w", t.GetName(), err)
+		}
+		clusterNames := append(findClusterNames(data, "cluster_name"), findClusterNames(data, "collector_cluster")...)
+		for _, cn := range clusterNames {
+			if cn == clusterV3.Name {
+				refTracingNames = append(refTracingNames, t.GetName())
+				break
+			}
+		}
+	}
+	if len(refTracingNames) > 0 {
+		return nil, fmt.Errorf("cannot delete Cluster %s/%s because it is still referenced by Tracing(s) %v", cluster.Namespace, cluster.Name, refTracingNames)
+	}
+
 	return nil, nil
+}
+
+// findClusterNames traverses arbitrary JSON-like data to extract values for a given field name.
+// This mirrors the logic used in resbuilder to detect cluster references inside nested tracing configs.
+func findClusterNames(data interface{}, fieldName string) []string {
+	var results []string
+
+	switch value := data.(type) {
+	case map[string]interface{}:
+		for k, v := range value {
+			if k == fieldName {
+				results = append(results, fmt.Sprintf("%v", v))
+			}
+			results = append(results, findClusterNames(v, fieldName)...)
+		}
+	case []interface{}:
+		for _, item := range value {
+			results = append(results, findClusterNames(item, fieldName)...)
+		}
+	}
+
+	return results
 }

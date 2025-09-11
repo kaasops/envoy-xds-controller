@@ -152,6 +152,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("Validation", validationEnvoyContext)
 		Context("TCP Proxy", tcpProxyEnvoyContext)
 		Context("Templates", templatesEnvoyContext)
+		Context("Tracing", tracingEnvoyContext)
 	})
 
 	Context("GRPC_API", grpcAPIContext)

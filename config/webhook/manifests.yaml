@@ -155,6 +155,27 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-envoy-kaasops-io-v1alpha1-tracing
+  failurePolicy: Fail
+  name: vtracing-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - envoy.kaasops.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - tracings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-envoy-kaasops-io-v1alpha1-virtualservice
   failurePolicy: Fail
   name: vvirtualservice-v1alpha1.envoy.kaasops.io

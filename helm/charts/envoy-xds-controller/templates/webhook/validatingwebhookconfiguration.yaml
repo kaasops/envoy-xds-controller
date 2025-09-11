@@ -163,6 +163,42 @@ webhooks:
       service:
         name: envoy-xds-controller-webhook-service
         namespace: {{ .Release.Namespace }}
+        path: /validate-envoy-kaasops-io-v1alpha1-tracing
+        port: 443
+    failurePolicy: Fail
+    name: vtracing-v1alpha1.envoy.kaasops.io
+    rules:
+      - apiGroups:
+          - envoy.kaasops.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - tracings
+        scope: "Namespaced"
+          {{- if .Values.watchNamespaces }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+          {{- range .Values.watchNamespaces }}
+            - {{ . }}
+          {{- end }}
+            - {{ .Release.Namespace }}
+        {{- end }}
+    sideEffects: None
+
+  - admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: Cg==
+      service:
+        name: envoy-xds-controller-webhook-service
+        namespace: {{ .Release.Namespace }}
         path: /validate-envoy-kaasops-io-v1alpha1-policy
         port: 443
     failurePolicy: Fail

@@ -150,6 +150,25 @@ spec:
                         type: string
                     type: object
                 type: object
+              tracing:
+                description: |-
+                  Tracing provides inline Envoy HttpConnectionManager.Tracing configuration.
+                  This field is schemaless and its contents are preserved as-is.
+                  Only one of spec.tracing or spec.tracingRef may be set.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+              tracingRef:
+                description: |-
+                  TracingRef is a reference to a Tracing custom resource to be applied to this
+                  VirtualService's HttpConnectionManager.Tracing configuration.
+                  If namespace is omitted, it defaults to the VirtualService namespace.
+                  Only one of spec.tracing or spec.tracingRef may be set.
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
               upgradeConfigs:
                 description: UpgradeConfigs - https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto#envoy-v3-api-msg-extensions-filters-network-http-connection-manager-v3-httpconnectionmanager-upgradeconfig
                 items:

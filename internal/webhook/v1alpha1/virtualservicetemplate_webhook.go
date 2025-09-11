@@ -23,10 +23,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -75,6 +77,11 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(ctx context.Conte
 
 	// Validate that all extraFields are used in the template
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
+		return nil, err
+	}
+
+	// Tracing XOR validation + existence check
+	if err := validateTemplateTracing(ctx, v.Client, virtualservicetemplate); err != nil {
 		return nil, err
 	}
 
@@ -163,6 +170,12 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
 		return nil, err
 	}
+
+	// Tracing XOR validation + existence check
+	if err := validateTemplateTracing(ctx, v.Client, virtualservicetemplate); err != nil {
+		return nil, err
+	}
+
 	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctx, virtualservicetemplate); err != nil {
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
@@ -200,4 +213,32 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateDelete(ctx context.Conte
 		}
 	}
 	return nil, nil
+}
+
+// validateTemplateTracing applies XOR rule between inline spec.tracing and spec.tracingRef
+// and if tracingRef is provided, verifies that the referenced Tracing exists.
+func validateTemplateTracing(ctx context.Context, cl client.Client, vst *envoyv1alpha1.VirtualServiceTemplate) error {
+	if vst == nil {
+		return nil
+	}
+	spec := &vst.Spec.VirtualServiceCommonSpec
+
+	// XOR: only one of tracing or tracingRef is allowed
+	if spec.Tracing != nil && spec.TracingRef != nil {
+		return fmt.Errorf("only one of spec.tracing or spec.tracingRef may be set")
+	}
+
+	// If tracingRef is set, ensure it references an existing Tracing
+	if spec.TracingRef != nil {
+		if spec.TracingRef.Name == "" {
+			return fmt.Errorf("spec.tracingRef.name must not be empty when spec.tracingRef is set")
+		}
+		ns := helpers.GetNamespace(spec.TracingRef.Namespace, vst.Namespace)
+		var tracing envoyv1alpha1.Tracing
+		if err := cl.Get(ctx, types.NamespacedName{Namespace: ns, Name: spec.TracingRef.Name}, &tracing); err != nil {
+			return fmt.Errorf("referenced Tracing %s/%s not found or not accessible: %w", ns, spec.TracingRef.Name, err)
+		}
+	}
+
+	return nil
 }

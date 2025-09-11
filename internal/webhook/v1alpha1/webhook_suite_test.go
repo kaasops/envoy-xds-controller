@@ -152,6 +152,9 @@ var _ = BeforeSuite(func() {
 	err = SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = SetupTracingWebhookWithManager(mgr)
+	Expect(err).NotTo(HaveOccurred())
+
 	// +kubebuilder:scaffold:webhook
 
 	go func() {

@@ -1,0 +1,19 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: otel-collector
+spec:
+  name: otel-collector
+  connect_timeout: 5s
+  type: LOGICAL_DNS
+  dns_lookup_family: V4_ONLY
+  lb_policy: ROUND_ROBIN
+  load_assignment:
+    cluster_name: otel-collector
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: otel-collector
+                  port_value: 4317

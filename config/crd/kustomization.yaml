@@ -13,6 +13,7 @@ resources:
 - bases/envoy.kaasops.io_httpfilters.yaml
 - bases/envoy.kaasops.io_policies.yaml
 - bases/envoy.kaasops.io_virtualservicetemplates.yaml
+- bases/envoy.kaasops.io_tracings.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

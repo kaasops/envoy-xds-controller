@@ -1,0 +1,15 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Tracing
+metadata:
+  name: tracing
+spec:
+  provider:
+    name: oltp
+    typed_config:
+      "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+      grpc_service:
+        envoy_grpc:
+          cluster_name: opentelemetry_collector
+          max_receive_message_length: 0
+          skip_envoy_headers: true # default = false
+      service_name: "envoy_proxy"

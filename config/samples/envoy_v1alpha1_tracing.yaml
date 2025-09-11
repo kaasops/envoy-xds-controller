@@ -1,0 +1,24 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Tracing
+metadata:
+  name: tracing-zipkin
+spec:
+  provider:
+    name: envoy.tracers.zipkin
+    typed_config:
+      "@type": type.googleapis.com/envoy.config.trace.v3.ZipkinConfig
+      collector_cluster: zipkin
+      collector_endpoint: /api/v2/spans
+---
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Tracing
+metadata:
+  name: tracing-otlp
+spec:
+  provider:
+    name: envoy.tracers.opentelemetry
+    typed_config:
+      "@type": type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+      grpc_service:
+        envoy_grpc:
+          cluster_name: otel-collector
