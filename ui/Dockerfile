@@ -1,58 +1,37 @@
-FROM node:22.11.0-alpine as build
-
-RUN npm install -g vite
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
+FROM nginx:1.25.3-alpine AS runtime
 
+ENV API_PROXY_PASS=http://exc-envoy-xds-controller-cache-api:9999 \
+    GRPC_API_PROXY_PASS=http://exc-envoy-xds-controller-grpc-api:10000
 
-
-FROM nginx:1.25.3
-
-ENV API_PROXY_PASS=http://exc-envoy-xds-controller-cache-api:9999
-ENV GRPC_API_PROXY_PASS=http://exc-envoy-xds-controller-grpc-api:10000
-
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.cfg/template.conf /etc/nginx/conf.d/template.conf
-
-COPY entrypoint.sh /entrypoint.sh
-
-RUN apt-get update && \
-    apt-get install -yq --no-install-recommends \
-    curl \
-    wget \
-    git \
-    gnupg
-
-RUN curl -fsSL https://deb.nodesource.com/setup_current.x | bash - && \
-    apt-get install -y nodejs \
-    build-essential && \
-    node --version && \
-    npm --version
+RUN apk add --no-cache nodejs npm gettext \
+ && npm i -g vite-inject-env@latest \
+ && rm -rf /root/.npm/_cacache
 
 WORKDIR /usr/share/nginx/html
 
-RUN npm install vite-inject-env
+COPY --from=build --chown=65532:65532 /app/dist /usr/share/nginx/html
+COPY --chown=65532:65532 nginx.cfg/template.conf /etc/nginx/conf.d/template.conf
 
-RUN set -ex \
-    && usermod -u 1000 nginx \
-    && groupmod -g 1000 nginx \
-    && chown -R nginx:nginx /var/cache/nginx \
-    && chown -R nginx:nginx /var/log/nginx \
-    && chown -R nginx:nginx /etc/nginx/conf.d \
-    && chmod -R 755 /var/log/nginx \
-    && chmod -R 755 /etc/nginx/conf.d \
-    && touch /var/run/nginx.pid \
-    && chown -R nginx:nginx /var/run/nginx.pid \
-    && chown -R nginx:nginx /usr/share/nginx\
-    && chmod -R 777 /var/run/nginx.pid \
-    && mkdir /nonexistent \
-    && chown -R nginx:nginx /nonexistent
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+ && chown 65532:65532 /entrypoint.sh
+
+RUN mkdir -p /var/run /var/log/nginx /var/cache/nginx /var/lib/nginx \
+ && touch /var/run/nginx.pid \
+ && chown -R 65532:65532 /var/run /var/log/nginx /var/cache/nginx /var/lib/nginx \
+ && chown -R 65532:65532 /etc/nginx/conf.d /usr/share/nginx/html \
+ && chmod -R u+rwX,g+rX,o+rX /usr/share/nginx/html /etc/nginx/conf.d \
+ && chmod -R u+rwX /var/run /var/log/nginx /var/cache/nginx /var/lib/nginx
+
+RUN sed -ri '/^\s*pid\s+/d; s/^\s*user\s+\S+;/# &/' /etc/nginx/nginx.conf
 
 EXPOSE 8080
-
-USER nginx
-ENTRYPOINT [ "/entrypoint.sh" ]
+USER 65532:65532
+ENTRYPOINT ["/entrypoint.sh"]

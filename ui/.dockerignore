@@ -1,1 +1,32 @@
+# Dependencies
+node_modules
+.pnpm-store
+.cache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Production builds
+/dist
+/build
+
+# Testing
+coverage
+*.lcov
+
+# Environment files
 .env
+.env.*
+!.env.example
+
+# IDE/editor
+.vscode
+.idea
+
+# VCS and misc
+.git
+.gitignore
+.DS_Store
+*.swp
+*~
