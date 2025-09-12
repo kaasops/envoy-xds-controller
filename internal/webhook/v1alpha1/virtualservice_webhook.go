@@ -18,7 +18,12 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
@@ -58,9 +63,15 @@ func SetupVirtualServiceWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updat
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
+// vsUpdater abstracts updater methods used by the webhook for easier testing.
+type vsUpdater interface {
+	DryValidateVirtualServiceLight(ctx context.Context, vs *envoyv1alpha1.VirtualService, prevVS *envoyv1alpha1.VirtualService) error
+	DryBuildSnapshotsWithVirtualService(ctx context.Context, vs *envoyv1alpha1.VirtualService) error
+}
+
 type VirtualServiceCustomValidator struct {
 	Client  client.Client
-	updater *updater.CacheUpdater
+	updater vsUpdater
 }
 
 var _ webhook.CustomValidator = &VirtualServiceCustomValidator{}
@@ -73,7 +84,7 @@ func (v *VirtualServiceCustomValidator) ValidateCreate(ctx context.Context, obj 
 	}
 	virtualservicelog.Info("Validation for VirtualService upon creation", "name", virtualservice.GetLabelName())
 
-	if err := v.validateVirtualService(ctx, virtualservice); err != nil {
+	if err := v.validateVirtualService(ctx, virtualservice, nil); err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
 	}
 
@@ -88,9 +99,20 @@ func (v *VirtualServiceCustomValidator) ValidateUpdate(ctx context.Context, oldO
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualService object for the newObj but got %T", newObj)
 	}
+	var prevVS *envoyv1alpha1.VirtualService
+	// Try to short-circuit heavy validation if spec hasn't changed
+	if oldVS, ok := oldObj.(*envoyv1alpha1.VirtualService); ok {
+		prevVS = oldVS
+		if oldVS.IsEqual(virtualservice) {
+			virtualservicelog.Info("Skip validation on update: spec unchanged", "name", virtualservice.GetLabelName())
+			observeVSValidation("skipped", "ok", time.Now())
+			return nil, nil
+		}
+	}
+
 	virtualservicelog.Info("Validation for VirtualService upon update", "name", virtualservice.GetLabelName())
 
-	if err := v.validateVirtualService(ctx, virtualservice); err != nil {
+	if err := v.validateVirtualService(ctx, virtualservice, prevVS); err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
 	}
 
@@ -104,7 +126,7 @@ func (v *VirtualServiceCustomValidator) ValidateDelete(ctx context.Context, obj 
 	return nil, nil
 }
 
-func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Context, vs *envoyv1alpha1.VirtualService) error {
+func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Context, vs *envoyv1alpha1.VirtualService, prevVS *envoyv1alpha1.VirtualService) error {
 	if len(vs.GetNodeIDs()) == 0 {
 		return fmt.Errorf("nodeIDs is required")
 	}
@@ -114,9 +136,53 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 		return err
 	}
 
-	if err := v.updater.DryBuildSnapshotsWithVirtualService(ctx, vs); err != nil {
+	// Apply timeout for dry-run path (light or heavy)
+	ctxTO, cancel := context.WithTimeout(ctx, getDryRunTimeout())
+	defer cancel()
+
+	// Prefer lightweight validation if enabled
+	if getLightDryRunEnabled() {
+		startLight := time.Now()
+		if err := v.updater.DryValidateVirtualServiceLight(ctxTO, vs, prevVS); err != nil {
+			if errors.Is(err, updater.ErrLightValidationInsufficientCoverage) {
+				observeVSValidation("light", "coverage_miss", startLight)
+				incVSValidationFallback()
+				virtualservicelog.Info("Light validation insufficient; falling back to heavy dry-run", "name", vs.GetLabelName())
+				// Heavy fallback path
+				startHeavy := time.Now()
+				if err := v.updater.DryBuildSnapshotsWithVirtualService(ctxTO, vs); err != nil {
+					if errors.Is(err, context.DeadlineExceeded) {
+						observeVSValidation("heavy_fallback", "timeout", startHeavy)
+						return fmt.Errorf("validation timed out after %s; please retry or increase EXC_WEBHOOK_DRYRUN_TIMEOUT_MS", getDryRunTimeout())
+					}
+					observeVSValidation("heavy_fallback", "error", startHeavy)
+					return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
+				}
+				observeVSValidation("heavy_fallback", "ok", startHeavy)
+				return nil
+			} else if errors.Is(err, context.DeadlineExceeded) {
+				observeVSValidation("light", "timeout", startLight)
+				return fmt.Errorf("validation timed out after %s; please retry or increase EXC_WEBHOOK_DRYRUN_TIMEOUT_MS", getDryRunTimeout())
+			} else {
+				observeVSValidation("light", "error", startLight)
+				return fmt.Errorf("light validation failed: %w", err)
+			}
+		}
+		observeVSValidation("light", "ok", startLight)
+		return nil
+	}
+
+	// Heavy-only validation (light disabled)
+	startHeavy := time.Now()
+	if err := v.updater.DryBuildSnapshotsWithVirtualService(ctxTO, vs); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			observeVSValidation("heavy", "timeout", startHeavy)
+			return fmt.Errorf("validation timed out after %s; please retry or increase EXC_WEBHOOK_DRYRUN_TIMEOUT_MS", getDryRunTimeout())
+		}
+		observeVSValidation("heavy", "error", startHeavy)
 		return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
 	}
+	observeVSValidation("heavy", "ok", startHeavy)
 	return nil
 }
 
@@ -127,7 +193,7 @@ func validateVSTracing(ctx context.Context, cl client.Client, vs *envoyv1alpha1.
 		return nil
 	}
 
-	// Tracing XOR rule: only one of spec.tracing or spec.tracingRef is allowed
+	// Tracing XOR rule: only one of spec.tracing or spec.tracingRef may be set
 	if vs.Spec.Tracing != nil && vs.Spec.TracingRef != nil {
 		return fmt.Errorf("only one of spec.tracing or spec.tracingRef may be set")
 	}
@@ -145,4 +211,28 @@ func validateVSTracing(ctx context.Context, cl client.Client, vs *envoyv1alpha1.
 	}
 
 	return nil
+}
+
+// getDryRunTimeout returns the timeout for dry-run validations.
+// It reads EXC_WEBHOOK_DRYRUN_TIMEOUT_MS from the environment (milliseconds) and falls back to 800ms.
+func getDryRunTimeout() time.Duration {
+	const def = 800 // ms
+	if v := os.Getenv("EXC_WEBHOOK_DRYRUN_TIMEOUT_MS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return time.Duration(n) * time.Millisecond
+		}
+	}
+	return time.Duration(def) * time.Millisecond
+}
+
+// getLightDryRunEnabled returns true if lightweight validation mode is enabled for VirtualService webhook.
+// Controlled by EXC_WEBHOOK_LIGHT_DRYRUN env var (true/1/yes/on).
+func getLightDryRunEnabled() bool {
+	v := strings.ToLower(os.Getenv("EXC_WEBHOOK_LIGHT_DRYRUN"))
+	switch v {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }

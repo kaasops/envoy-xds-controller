@@ -32,6 +32,11 @@ type Store struct {
 	secrets                     map[helpers.NamespacedName]*v1.Secret
 	tracings                    map[helpers.NamespacedName]*v1alpha1.Tracing
 	domainToSecretMap           map[string]v1.Secret
+
+	// Indices (optional, used by light validators when enabled)
+	listenerAddrIndex map[string]string              // host:port -> listener namespaced name string
+	listenerAddrDup   *listenerAddrDup               // first detected duplicate, if any
+	nodeDomainsIndex  map[string]map[string]struct{} // nodeID -> set(domains)
 }
 
 func New() *Store {
@@ -115,6 +120,18 @@ func (s *Store) Copy() *Store {
 		clone.tracings[k] = v
 	}
 
+	// Deep copy nodeDomainsIndex (if present)
+	if s.nodeDomainsIndex != nil {
+		clone.nodeDomainsIndex = make(map[string]map[string]struct{}, len(s.nodeDomainsIndex))
+		for node, set := range s.nodeDomainsIndex {
+			inner := make(map[string]struct{}, len(set))
+			for d := range set {
+				inner[d] = struct{}{}
+			}
+			clone.nodeDomainsIndex[node] = inner
+		}
+	}
+
 	clone.updateListenerByUIDMap()
 	clone.updateVirtualServiceByUIDMap()
 	clone.updateVirtualServiceTemplateByUIDMap()
@@ -124,6 +141,7 @@ func (s *Store) Copy() *Store {
 	clone.updateHTTPFilterByUIDMap()
 	clone.updateDomainSecretsMap()
 	clone.updateSpecClusters()
+	clone.updateListenerAddressIndex()
 
 	return clone
 }
@@ -233,5 +251,6 @@ func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error 
 	s.updateHTTPFilterByUIDMap()
 	s.updateDomainSecretsMap()
 	s.updateSpecClusters()
+	s.updateListenerAddressIndex()
 	return nil
 }

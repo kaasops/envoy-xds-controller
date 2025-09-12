@@ -176,7 +176,13 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 		return nil, err
 	}
 
-	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctx, virtualservicetemplate); err != nil {
+	// Apply timeout for heavy dry-run path when updating template
+	ctxTO, cancel := context.WithTimeout(ctx, getDryRunTimeout())
+	defer cancel()
+	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctxTO, virtualservicetemplate); err != nil {
+		if ctxTO.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("validation timed out after %s; please retry or increase EXC_WEBHOOK_DRYRUN_TIMEOUT_MS", getDryRunTimeout())
+		}
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
 
