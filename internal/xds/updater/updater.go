@@ -77,7 +77,7 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, 
 // do not collide with existing domains present in the current snapshot cache for the relevant nodeIDs.
 // Note: For updates of an existing VS, comparing to the current cache may lead to false positives if
 // the same VS already contributes the same domains. Prefer using this on Create, or fall back to heavy dry-run on Update.
-func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v1alpha1.VirtualService, prevVS *v1alpha1.VirtualService) error {
+func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v1alpha1.VirtualService, prevVS *v1alpha1.VirtualService, validationIndices bool) error {
 	// Honor cancellation upfront
 	if err := ctx.Err(); err != nil {
 		return err
@@ -97,22 +97,12 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v
 	}
 
 	// Quick self-duplication check inside the same VS
-	seen := make(map[string]struct{}, len(vsRes.Domains))
-	for _, d := range vsRes.Domains {
-		if _, ok := seen[d]; ok {
-			return fmt.Errorf("duplicate domain '%s' within VirtualService", d)
-		}
-		seen[d] = struct{}{}
+	if err := validateDomainsWithinVS(vsRes.Domains); err != nil {
+		return err
 	}
 
 	// Validate that listener addresses are unique across all listeners
-	if getValidationIndicesEnabled() {
-		if addr, first, second, ok := storeCopy.GetListenerAddressDuplicate(); ok {
-			return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s'", second, addr, first)
-		}
-	}
-	// Always run the thorough check to catch structural issues (missing address, etc.)
-	if err := validateListenerAddressesUniqueInStore(storeCopy); err != nil {
+	if err := validateListenerAddresses(storeCopy, validationIndices); err != nil {
 		return err
 	}
 
@@ -124,87 +114,21 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v
 	}
 
 	// Build a map of existing domains per node
-	existingByNode := make(map[string]map[string]struct{})
-	if getValidationIndicesEnabled() {
-		// Prefer Store-backed index when available; ensures O(1) lookup
-		idx, missing := storeCopy.GetNodeDomainsForNodes(targetNodeIDs)
-		if len(missing) > 0 {
-			return ErrLightValidationInsufficientCoverage
-		}
-		existingByNode = idx
-	} else {
-		missing := 0
-		for _, nodeID := range targetNodeIDs {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			rcs, err := c.snapshotCache.GetRouteConfigurations(nodeID)
-			if err != nil {
-				// If snapshot for nodeID not found yet, we cannot reliably validate against existing domains
-				missing++
-				continue
-			}
-			set := make(map[string]struct{})
-			for _, rc := range rcs {
-				for _, vh := range rc.GetVirtualHosts() {
-					for _, dom := range vh.GetDomains() {
-						set[dom] = struct{}{}
-					}
-				}
-			}
-			existingByNode[nodeID] = set
-		}
-		// If any target node lacks snapshot coverage, ask caller to fallback to heavy dry-run
-		if missing > 0 {
-			return ErrLightValidationInsufficientCoverage
-		}
+	existingByNode, err := c.buildExistingDomainsMap(ctx, targetNodeIDs, storeCopy, validationIndices)
+	if err != nil {
+		return err
 	}
 
 	// If prevVS is provided (update case), subtract its domains from existing sets on intersecting nodeIDs
 	if prevVS != nil {
-		// Build resources for previous VS using the original store state
-		c.mx.RLock()
-		origStoreCopy := c.store.Copy()
-		c.mx.RUnlock()
-		prevRes, err := buildVSResources(prevVS, origStoreCopy)
-		if err != nil {
-			log.FromContext(ctx).Error(err, "buildVSResources failed for previous VS", "prevVS", prevVS.GetLabelName())
-			return fmt.Errorf("failed to build resources for previous VS: %w", err)
-		}
-		prevNodeIDs := resolveTargetNodeIDs(prevVS.GetNodeIDs(), c.snapshotCache)
-		// Build a quick set of prev domains for faster deletion
-		prevDomains := make(map[string]struct{}, len(prevRes.Domains))
-		for _, d := range prevRes.Domains {
-			prevDomains[d] = struct{}{}
-		}
-		// Build a set for prev nodeIDs for O(1) membership checks
-		prevSet := make(map[string]struct{}, len(prevNodeIDs))
-		for _, p := range prevNodeIDs {
-			prevSet[p] = struct{}{}
-		}
-		// Delete prev domains only from nodes that are both in targetNodeIDs and prevNodeIDs
-		for _, nodeID := range targetNodeIDs {
-			if set, ok := existingByNode[nodeID]; ok {
-				if _, had := prevSet[nodeID]; had {
-					for d := range prevDomains {
-						delete(set, d)
-					}
-				}
-			}
+		if err := c.excludePreviousVSDomains(ctx, prevVS, targetNodeIDs, existingByNode); err != nil {
+			return err
 		}
 	}
 
 	// Compare candidate domains with existing ones per node
-	for _, nodeID := range targetNodeIDs {
-		set := existingByNode[nodeID]
-		if len(set) == 0 {
-			continue
-		}
-		for _, d := range vsRes.Domains {
-			if _, ok := set[d]; ok {
-				return fmt.Errorf("duplicate domain '%s' for node %s", d, nodeID)
-			}
-		}
+	if err := checkDomainCollisions(vsRes.Domains, targetNodeIDs, existingByNode); err != nil {
+		return err
 	}
 
 	return nil
@@ -649,13 +573,130 @@ func nodeIDDomain(nodeID, domain string) string {
 }
 
 // getValidationIndicesEnabled returns true if Store-backed indices should be used for validation shortcuts.
-// Controlled by EXC_VALIDATION_INDICES env var (true/1/yes/on).
+// Controlled by WEBHOOK_VALIDATION_INDICES env var (true/1/yes/on).
 func getValidationIndicesEnabled() bool {
-	v := strings.ToLower(os.Getenv("EXC_VALIDATION_INDICES"))
+	v := strings.ToLower(os.Getenv("WEBHOOK_VALIDATION_INDICES"))
 	switch v {
 	case "1", "true", "yes", "on":
 		return true
 	default:
 		return false
 	}
+}
+
+// validateDomainsWithinVS checks for duplicate domains within the same VirtualService.
+func validateDomainsWithinVS(domains []string) error {
+	seen := make(map[string]struct{}, len(domains))
+	for _, d := range domains {
+		if _, ok := seen[d]; ok {
+			return fmt.Errorf("duplicate domain '%s' within VirtualService", d)
+		}
+		seen[d] = struct{}{}
+	}
+	return nil
+}
+
+// validateListenerAddresses validates that listener addresses are unique across all listeners.
+func validateListenerAddresses(storeCopy *store.Store, validationIndices bool) error {
+	if validationIndices {
+		if addr, first, second, ok := storeCopy.GetListenerAddressDuplicate(); ok {
+			return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s'", second, addr, first)
+		}
+	}
+	// Always run the thorough check to catch structural issues (missing address, etc.)
+	if err := validateListenerAddressesUniqueInStore(storeCopy); err != nil {
+		return err
+	}
+	return nil
+}
+
+// buildExistingDomainsMap builds a map of existing domains per node from either indices or snapshot cache.
+func (c *CacheUpdater) buildExistingDomainsMap(ctx context.Context, targetNodeIDs []string, storeCopy *store.Store, validationIndices bool) (map[string]map[string]struct{}, error) {
+	existingByNode := make(map[string]map[string]struct{})
+	if validationIndices {
+		// Prefer Store-backed index when available; ensures O(1) lookup
+		idx, missing := storeCopy.GetNodeDomainsForNodes(targetNodeIDs)
+		if len(missing) > 0 {
+			return nil, ErrLightValidationInsufficientCoverage
+		}
+		existingByNode = idx
+	} else {
+		missing := 0
+		for _, nodeID := range targetNodeIDs {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			rcs, err := c.snapshotCache.GetRouteConfigurations(nodeID)
+			if err != nil {
+				// If snapshot for nodeID not found yet, we cannot reliably validate against existing domains
+				missing++
+				continue
+			}
+			set := make(map[string]struct{})
+			for _, rc := range rcs {
+				for _, vh := range rc.GetVirtualHosts() {
+					for _, dom := range vh.GetDomains() {
+						set[dom] = struct{}{}
+					}
+				}
+			}
+			existingByNode[nodeID] = set
+		}
+		// If any target node lacks snapshot coverage, ask caller to fallback to heavy dry-run
+		if missing > 0 {
+			return nil, ErrLightValidationInsufficientCoverage
+		}
+	}
+	return existingByNode, nil
+}
+
+// excludePreviousVSDomains removes previous VirtualService domains from the existing domains map.
+func (c *CacheUpdater) excludePreviousVSDomains(ctx context.Context, prevVS *v1alpha1.VirtualService, targetNodeIDs []string, existingByNode map[string]map[string]struct{}) error {
+	// Build resources for previous VS using the original store state
+	c.mx.RLock()
+	origStoreCopy := c.store.Copy()
+	c.mx.RUnlock()
+	prevRes, err := buildVSResources(prevVS, origStoreCopy)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "buildVSResources failed for previous VS", "prevVS", prevVS.GetLabelName())
+		return fmt.Errorf("failed to build resources for previous VS: %w", err)
+	}
+	prevNodeIDs := resolveTargetNodeIDs(prevVS.GetNodeIDs(), c.snapshotCache)
+	// Build a quick set of prev domains for faster deletion
+	prevDomains := make(map[string]struct{}, len(prevRes.Domains))
+	for _, d := range prevRes.Domains {
+		prevDomains[d] = struct{}{}
+	}
+	// Build a set for prev nodeIDs for O(1) membership checks
+	prevSet := make(map[string]struct{}, len(prevNodeIDs))
+	for _, p := range prevNodeIDs {
+		prevSet[p] = struct{}{}
+	}
+	// Delete prev domains only from nodes that are both in targetNodeIDs and prevNodeIDs
+	for _, nodeID := range targetNodeIDs {
+		if set, ok := existingByNode[nodeID]; ok {
+			if _, had := prevSet[nodeID]; had {
+				for d := range prevDomains {
+					delete(set, d)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// checkDomainCollisions validates that candidate domains don't collide with existing ones per node.
+func checkDomainCollisions(candidateDomains []string, targetNodeIDs []string, existingByNode map[string]map[string]struct{}) error {
+	for _, nodeID := range targetNodeIDs {
+		set := existingByNode[nodeID]
+		if len(set) == 0 {
+			continue
+		}
+		for _, d := range candidateDomains {
+			if _, ok := set[d]; ok {
+				return fmt.Errorf("duplicate domain '%s' for node %s", d, nodeID)
+			}
+		}
+	}
+	return nil
 }

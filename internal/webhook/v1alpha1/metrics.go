@@ -54,8 +54,8 @@ var (
 func init() {
 	ctrmetrics.Registry.MustRegister(vsValidateDuration, vsValidateTotal, vsLightFallbacks, featureFlagsGauge)
 	// Set gauges once at process start (env vars are static for pod lifetime)
-	setFeatureFlagGauge("light_dryrun_enabled", envBool("EXC_WEBHOOK_LIGHT_DRYRUN"))
-	setFeatureFlagGauge("validation_indices_enabled", envBool("EXC_VALIDATION_INDICES"))
+	setFeatureFlagGauge("light_dryrun_enabled", envBool("WEBHOOK_LIGHT_DRYRUN"))
+	setFeatureFlagGauge("validation_indices_enabled", envBool("WEBHOOK_VALIDATION_INDICES"))
 }
 
 func envBool(name string) bool {

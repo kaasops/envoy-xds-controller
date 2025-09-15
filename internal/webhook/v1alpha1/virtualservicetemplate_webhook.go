@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
@@ -42,9 +43,9 @@ import (
 var virtualservicetemplatelog = logf.Log.WithName("virtualservicetemplate-resource")
 
 // SetupVirtualServiceTemplateWebhookWithManager registers the webhook for VirtualServiceTemplate in the manager.
-func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.CacheUpdater) error {
+func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.CacheUpdater, config WebhookConfig) error {
 	return ctrl.NewWebhookManagedBy(mgr).For(&envoyv1alpha1.VirtualServiceTemplate{}).
-		WithValidator(&VirtualServiceTemplateCustomValidator{Client: mgr.GetClient(), cacheUpdater: cacheUpdater}).
+		WithValidator(&VirtualServiceTemplateCustomValidator{Client: mgr.GetClient(), cacheUpdater: cacheUpdater, Config: config}).
 		Complete()
 }
 
@@ -63,6 +64,7 @@ func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdate
 type VirtualServiceTemplateCustomValidator struct {
 	Client       client.Client
 	cacheUpdater *updater.CacheUpdater
+	Config       WebhookConfig
 }
 
 var _ webhook.CustomValidator = &VirtualServiceTemplateCustomValidator{}
@@ -177,11 +179,11 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	}
 
 	// Apply timeout for heavy dry-run path when updating template
-	ctxTO, cancel := context.WithTimeout(ctx, getDryRunTimeout())
+	ctxTO, cancel := context.WithTimeout(ctx, v.getDryRunTimeout())
 	defer cancel()
 	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctxTO, virtualservicetemplate); err != nil {
 		if ctxTO.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("validation timed out after %s; please retry or increase EXC_WEBHOOK_DRYRUN_TIMEOUT_MS", getDryRunTimeout())
+			return nil, fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
 		}
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
@@ -247,4 +249,12 @@ func validateTemplateTracing(ctx context.Context, cl client.Client, vst *envoyv1
 	}
 
 	return nil
+}
+
+// getDryRunTimeout returns the timeout for dry-run validations from Config.
+func (v *VirtualServiceTemplateCustomValidator) getDryRunTimeout() time.Duration {
+	if v.Config.DryRunTimeoutMS > 0 {
+		return time.Duration(v.Config.DryRunTimeoutMS) * time.Millisecond
+	}
+	return time.Duration(800) * time.Millisecond // default fallback
 }

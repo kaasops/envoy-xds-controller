@@ -18,8 +18,8 @@ import (
 )
 
 // helper to create minimal VS with ns/name and nodeIDs via annotation
-func makeVS(ns, name string, nodeIDs []string) *v1alpha1.VirtualService {
-	vs := &v1alpha1.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name}}
+func makeVS(name string, nodeIDs []string) *v1alpha1.VirtualService {
+	vs := &v1alpha1.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: "ns", Name: name}}
 	// ensure annotations map is non-nil for SetNodeIDs
 	vs.SetAnnotations(map[string]string{})
 	vs.SetNodeIDs(nodeIDs)
@@ -47,7 +47,7 @@ func withStubbedBuilder(t *testing.T, f func(vs *v1alpha1.VirtualService, st *st
 }
 
 func TestLightValidator_CoverageMiss_WithIndices(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
@@ -57,14 +57,14 @@ func TestLightValidator_CoverageMiss_WithIndices(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("ns", "vs1", []string{"nodeA"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil); !errors.Is(err, ErrLightValidationInsufficientCoverage) {
+	vs := makeVS("vs1", []string{"nodeA"})
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); !errors.Is(err, ErrLightValidationInsufficientCoverage) {
 		t.Fatalf("expected ErrLightValidationInsufficientCoverage, got %v", err)
 	}
 }
 
 func TestLightValidator_DuplicateWithinVS(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	// Provide coverage for nodeA with empty set to avoid coverage miss
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"nodeA": {}})
@@ -75,14 +75,14 @@ func TestLightValidator_DuplicateWithinVS(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("ns", "vs1", []string{"nodeA"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil); err == nil || err.Error() != "duplicate domain 'a.com' within VirtualService" {
+	vs := makeVS("vs1", []string{"nodeA"})
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err == nil || err.Error() != "duplicate domain 'a.com' within VirtualService" {
 		t.Fatalf("expected duplicate within VS error, got %v", err)
 	}
 }
 
 func TestLightValidator_DomainCollisionAcrossNodes(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"nodeA": {"b.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -92,15 +92,15 @@ func TestLightValidator_DomainCollisionAcrossNodes(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("ns", "vs1", []string{"nodeA"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil)
+	vs := makeVS("vs1", []string{"nodeA"})
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
 	if err == nil || err.Error() != "duplicate domain 'b.com' for node nodeA" {
 		t.Fatalf("expected duplicate domain across nodes error, got %v", err)
 	}
 }
 
 func TestLightValidator_UpdatePrevVSExcluded(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	// Index includes domain that belongs to previous version of the same VS
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"node1": {"b.com": {}}})
@@ -117,15 +117,15 @@ func TestLightValidator_UpdatePrevVSExcluded(t *testing.T) {
 	})
 	defer restore()
 
-	prev := makeVS("ns", "prev", []string{"node1"})
-	vs := makeVS("ns", "vs1", []string{"node1"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev); err != nil {
+	prev := makeVS("prev", []string{"node1"})
+	vs := makeVS("vs1", []string{"node1"})
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev, true); err != nil {
 		t.Fatalf("expected no error because prevVS domains should be excluded, got %v", err)
 	}
 }
 
 func TestLightValidator_ListenerDuplicateDetected(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	// Two listeners with the same host:port
 	st.SetListener(makeListenerCR("ns", "l1", "127.0.0.1", 9090))
@@ -140,8 +140,8 @@ func TestLightValidator_ListenerDuplicateDetected(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("ns", "vs1", []string{"n"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil)
+	vs := makeVS("vs1", []string{"n"})
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
 	if err == nil || err.Error() == "" {
 		t.Fatalf("expected listener duplicate error, got %v", err)
 	}
@@ -187,7 +187,7 @@ func index(s, sub string) int {
 }
 
 func TestLightValidator_CommonVS_NoCollision_OK(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	// Provide index entries for both nodes with empty sets (coverage present)
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n1": {}, "n2": {}})
@@ -202,14 +202,14 @@ func TestLightValidator_CommonVS_NoCollision_OK(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("ns", "vs-common", []string{"*"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil); err != nil {
+	vs := makeVS("vs-common", []string{"*"})
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err != nil {
 		t.Fatalf("expected no error for common VS with empty domain sets, got %v", err)
 	}
 }
 
 func TestLightValidator_CommonVS_DomainCollisionDetected(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n1": {}, "n2": {"a.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -221,15 +221,15 @@ func TestLightValidator_CommonVS_DomainCollisionDetected(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("ns", "vs-common", []string{"*"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil)
+	vs := makeVS("vs-common", []string{"*"})
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
 	if err == nil || err.Error() != "duplicate domain 'a.com' for node n2" {
 		t.Fatalf("expected collision on n2 for 'a.com', got %v", err)
 	}
 }
 
 func TestLightValidator_MultiNode_UpdatePrevExclusionPerNode(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	// Both nodes have x.com currently
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n1": {"x.com": {}}, "n2": {"x.com": {}}})
@@ -240,16 +240,16 @@ func TestLightValidator_MultiNode_UpdatePrevExclusionPerNode(t *testing.T) {
 	})
 	defer restore()
 
-	prev := makeVS("ns", "prev", []string{"n1"}) // prevVS affected only n1
-	vs := makeVS("ns", "new", []string{"n1", "n2"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev)
+	prev := makeVS("prev", []string{"n1"}) // prevVS affected only n1
+	vs := makeVS("new", []string{"n1", "n2"})
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev, true)
 	if err == nil || err.Error() != "duplicate domain 'x.com' for node n2" {
 		t.Fatalf("expected duplicate only on n2 (no exclusion there), got %v", err)
 	}
 }
 
 func TestLightValidator_NoFalseFallback_WithEmptyNodes(t *testing.T) {
-	t.Setenv("EXC_VALIDATION_INDICES", "1")
+	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"a": {}, "b": {}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -259,8 +259,8 @@ func TestLightValidator_NoFalseFallback_WithEmptyNodes(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("ns", "vs1", []string{"a", "b"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil); err != nil {
+	vs := makeVS("vs1", []string{"a", "b"})
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err != nil {
 		t.Fatalf("expected success with empty domain sets for nodes a,b, got %v", err)
 	}
 }
