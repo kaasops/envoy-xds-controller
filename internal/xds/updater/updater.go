@@ -102,7 +102,7 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v
 	}
 
 	// Validate that listener addresses are unique across all listeners
-	if err := validateListenerAddresses(storeCopy, validationIndices); err != nil {
+	if err := validateListenerAddresses(storeCopy, c.snapshotCache, validationIndices); err != nil {
 		return err
 	}
 
@@ -596,17 +596,166 @@ func validateDomainsWithinVS(domains []string) error {
 	return nil
 }
 
-// validateListenerAddresses validates that listener addresses are unique across all listeners.
-func validateListenerAddresses(storeCopy *store.Store, validationIndices bool) error {
+// validateListenerAddresses validates that listener addresses are unique within each nodeID (snapshot).
+// This replaces the previous global validation approach which incorrectly prevented
+// the same address:port from being used across different nodeIDs (different snapshots).
+func validateListenerAddresses(storeCopy *store.Store, snapshotCache *wrapped.SnapshotCache, validationIndices bool) error {
+	// Build mapping of listeners to nodeIDs
+	listenerToNodeIDs, err := buildListenerToNodeIDsMapping(storeCopy, snapshotCache)
+	if err != nil {
+		return fmt.Errorf("failed to build listener to nodeIDs mapping: %w", err)
+	}
+
 	if validationIndices {
-		if addr, first, second, ok := storeCopy.GetListenerAddressDuplicate(); ok {
-			return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s'", second, addr, first)
+		// Use the fast index-based approach but check per nodeID
+		if err := validateListenerAddressesPerNodeID(storeCopy, listenerToNodeIDs); err != nil {
+			return err
 		}
 	}
 	// Always run the thorough check to catch structural issues (missing address, etc.)
-	if err := validateListenerAddressesUniqueInStore(storeCopy); err != nil {
+	if err := validateListenerAddressesUniquePerNodeID(storeCopy, listenerToNodeIDs); err != nil {
 		return err
 	}
+	return nil
+}
+
+// buildListenerToNodeIDsMapping creates a mapping of listener names to the nodeIDs that use them.
+// This is determined by analyzing which VirtualServices reference each listener and what nodeIDs
+// those VirtualServices target. For common VirtualServices (nodeID = "*"), expands to all actual nodeIDs.
+func buildListenerToNodeIDsMapping(storeCopy *store.Store, snapshotCache *wrapped.SnapshotCache) (map[helpers.NamespacedName][]string, error) {
+	mapping := make(map[helpers.NamespacedName][]string)
+
+	// Iterate through all VirtualServices to find which listeners they use
+	for _, vs := range storeCopy.MapVirtualServices() {
+		vsNodeIDs := vs.GetNodeIDs()
+		if len(vsNodeIDs) == 0 {
+			continue // Skip VirtualServices without nodeIDs
+		}
+
+		// Get the listener referenced by this VirtualService
+		if vs.Spec.Listener != nil && vs.Spec.Listener.Name != "" {
+			listenerNN := helpers.NamespacedName{
+				Namespace: vs.Namespace, // Listener is in the same namespace as VirtualService
+				Name:      vs.Spec.Listener.Name,
+			}
+
+			// Resolve nodeIDs, expanding "*" to actual nodeIDs for common VirtualServices
+			resolvedNodeIDs := resolveTargetNodeIDs(vsNodeIDs, snapshotCache)
+
+			// Add nodeIDs to this listener's mapping
+			existing := mapping[listenerNN]
+			for _, nodeID := range resolvedNodeIDs {
+				// Check if nodeID is already in the list to avoid duplicates
+				found := false
+				for _, existingNodeID := range existing {
+					if existingNodeID == nodeID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					existing = append(existing, nodeID)
+				}
+			}
+			mapping[listenerNN] = existing
+		}
+	}
+
+	return mapping, nil
+}
+
+// validateListenerAddressesPerNodeID validates listener addresses using indices, but per nodeID.
+func validateListenerAddressesPerNodeID(storeCopy *store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
+	// Group listeners by nodeID
+	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
+	for listenerNN, nodeIDs := range listenerToNodeIDs {
+		for _, nodeID := range nodeIDs {
+			nodeIDToListeners[nodeID] = append(nodeIDToListeners[nodeID], listenerNN)
+		}
+	}
+
+	// Check for duplicates within each nodeID
+	for nodeID, listeners := range nodeIDToListeners {
+		addrToListener := make(map[string]helpers.NamespacedName)
+
+		for _, listenerNN := range listeners {
+			listener := storeCopy.MapListeners()[listenerNN]
+			if listener == nil {
+				continue // Listener not found, skip
+			}
+
+			lv3, err := listener.UnmarshalV3()
+			if err != nil {
+				continue // Skip malformed listeners, validation will catch this later
+			}
+
+			addr := lv3.GetAddress()
+			if addr == nil || addr.GetSocketAddress() == nil {
+				continue // Skip incomplete addresses
+			}
+
+			host := addr.GetSocketAddress().GetAddress()
+			port := addr.GetSocketAddress().GetPortValue()
+			hostPort := fmt.Sprintf("%s:%d", host, port)
+
+			if existingListener, exists := addrToListener[hostPort]; exists {
+				return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s' within nodeID '%s'",
+					listenerNN.String(), hostPort, existingListener.String(), nodeID)
+			}
+			addrToListener[hostPort] = listenerNN
+		}
+	}
+
+	return nil
+}
+
+// validateListenerAddressesUniquePerNodeID performs thorough validation of listener addresses per nodeID.
+func validateListenerAddressesUniquePerNodeID(storeCopy *store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
+	// Group listeners by nodeID
+	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
+	for listenerNN, nodeIDs := range listenerToNodeIDs {
+		for _, nodeID := range nodeIDs {
+			nodeIDToListeners[nodeID] = append(nodeIDToListeners[nodeID], listenerNN)
+		}
+	}
+
+	// Check for duplicates within each nodeID with thorough validation
+	for nodeID, listeners := range nodeIDToListeners {
+		addrToListener := make(map[string]helpers.NamespacedName)
+
+		for _, listenerNN := range listeners {
+			listener := storeCopy.MapListeners()[listenerNN]
+			if listener == nil {
+				return fmt.Errorf("listener %s referenced by nodeID %s not found", listenerNN.String(), nodeID)
+			}
+
+			lv3, err := listener.UnmarshalV3()
+			if err != nil {
+				return fmt.Errorf("failed to unmarshal listener %s to v3: %w", listenerNN.String(), err)
+			}
+
+			addr := lv3.GetAddress()
+			if addr == nil {
+				return fmt.Errorf("listener %s has no address configured", listenerNN.String())
+			}
+
+			sa := addr.GetSocketAddress()
+			if sa == nil {
+				return fmt.Errorf("listener %s has no socket address configured", listenerNN.String())
+			}
+
+			host := sa.GetAddress()
+			port := sa.GetPortValue()
+			hostPort := fmt.Sprintf("%s:%d", host, port)
+
+			if existingListener, exists := addrToListener[hostPort]; exists {
+				return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s' within nodeID '%s'",
+					listenerNN.String(), hostPort, existingListener.String(), nodeID)
+			}
+			addrToListener[hostPort] = listenerNN
+		}
+	}
+
 	return nil
 }
 

@@ -39,6 +39,26 @@ func makeListenerCR(ns, name, host string, port uint32) *v1alpha1.Listener {
 	}
 }
 
+// helper to create VirtualService with listener reference
+func makeVSWithListener(name string, nodeIDs []string, listenerName string) *v1alpha1.VirtualService {
+	vs := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   "ns",
+			Name:        name,
+			Annotations: make(map[string]string),
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			VirtualServiceCommonSpec: v1alpha1.VirtualServiceCommonSpec{
+				Listener: &v1alpha1.ResourceRef{
+					Name: listenerName,
+				},
+			},
+		},
+	}
+	vs.SetNodeIDs(nodeIDs)
+	return vs
+}
+
 func withStubbedBuilder(t *testing.T, f func(vs *v1alpha1.VirtualService, st *store.Store) (*resbuilder.Resources, error)) func() {
 	t.Helper()
 	prev := buildVSResources
@@ -130,6 +150,14 @@ func TestLightValidator_ListenerDuplicateDetected(t *testing.T) {
 	// Two listeners with the same host:port
 	st.SetListener(makeListenerCR("ns", "l1", "127.0.0.1", 9090))
 	st.SetListener(makeListenerCR("ns", "l2", "127.0.0.1", 9090))
+
+	// Create VirtualServices that use these listeners for the SAME nodeID
+	// This should trigger a duplicate detection within the nodeID
+	vs1 := makeVSWithListener("vs1", []string{"n"}, "l1")
+	vs2 := makeVSWithListener("vs2", []string{"n"}, "l2")
+	st.SetVirtualService(vs1)
+	st.SetVirtualService(vs2)
+
 	// Provide node coverage to not trip coverage miss
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n": {}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -140,17 +168,18 @@ func TestLightValidator_ListenerDuplicateDetected(t *testing.T) {
 	})
 	defer restore()
 
-	vs := makeVS("vs1", []string{"n"})
+	// Test with either of the VirtualServices - both should detect the conflict
+	vs := makeVSWithListener("new-vs", []string{"n"}, "l1")
 	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
 	if err == nil || err.Error() == "" {
 		t.Fatalf("expected listener duplicate error, got %v", err)
 	}
 	// Ensure error message format follows the documented pattern when index is enabled
 	e := err.Error()
-	want := "listener '"
-	if !(len(e) >= len(want) && e[:len(want)] == want) {
-		// Try to be resilient in case of different listener names order; just ensure it mentions duplicate address
-		if !containsAll(e, []string{"duplicate address", "127.0.0.1:9090"}) {
+	want := "within nodeID 'n'"
+	if !contains(e, want) {
+		// Try to be resilient in case of different listener names order; just ensure it mentions duplicate address and nodeID
+		if !containsAll(e, []string{"duplicate address", "127.0.0.1:9090", "nodeID"}) {
 			t.Fatalf("unexpected error message: %v", err)
 		}
 	}

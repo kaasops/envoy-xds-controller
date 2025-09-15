@@ -18,7 +18,10 @@ func (s *Store) updateListenerAddressIndex() {
 	if s == nil {
 		return
 	}
-	// Build address -> first listener mapping and capture the first duplicate (if any)
+	// Build address -> first listener mapping for diagnostics
+	// Note: Primary duplicate detection is handled per nodeID in the updater's validateListenerAddresses
+	// to ensure duplicates are only detected within the same snapshot (nodeID).
+	// This function provides basic duplicate detection for testing and diagnostics.
 	addr2name := make(map[string]string, len(s.listeners))
 	var dup *listenerAddrDup
 	for nn, l := range s.listeners {
@@ -35,15 +38,19 @@ func (s *Store) updateListenerAddressIndex() {
 		host := addr.GetSocketAddress().GetAddress()
 		port := addr.GetSocketAddress().GetPortValue()
 		hostPort := fmt.Sprintf("%s:%d", host, port)
-		if exist, ok := addr2name[hostPort]; ok && dup == nil {
-			// record the first duplicate encountered
-			dup = &listenerAddrDup{
-				Address: hostPort,
-				First:   exist,
-				Second:  nn.String(),
+
+		if existing, exists := addr2name[hostPort]; exists {
+			// Found a duplicate - record it
+			if dup == nil {
+				dup = &listenerAddrDup{
+					Address: hostPort,
+					First:   existing,
+					Second:  nn.String(),
+				}
 			}
+		} else {
+			addr2name[hostPort] = nn.String()
 		}
-		addr2name[hostPort] = nn.String()
 	}
 	s.listenerAddrIndex = addr2name
 	s.listenerAddrDup = dup
