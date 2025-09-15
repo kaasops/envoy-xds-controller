@@ -145,50 +145,53 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(ctx context.Conte
 	ctxTO, cancel := context.WithTimeout(ctx, v.getDryRunTimeout())
 	defer cancel()
 
-	// Prefer lightweight validation if enabled
-	if v.getLightDryRunEnabled() {
-		startLight := time.Now()
-		if err := v.updater.DryValidateVirtualServiceLight(ctxTO, vs, prevVS, v.Config.ValidationIndices); err != nil {
-			if errors.Is(err, updater.ErrLightValidationInsufficientCoverage) {
-				observeVSValidation("light", "coverage_miss", startLight)
-				incVSValidationFallback()
-				virtualservicelog.Info("Light validation insufficient; falling back to heavy dry-run", "name", vs.GetLabelName())
-				// Heavy fallback path
-				startHeavy := time.Now()
-				if err := v.updater.DryBuildSnapshotsWithVirtualService(ctxTO, vs); err != nil {
-					if errors.Is(err, context.DeadlineExceeded) {
-						observeVSValidation("heavy_fallback", "timeout", startHeavy)
-						return fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
-					}
-					observeVSValidation("heavy_fallback", "error", startHeavy)
-					return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
-				}
-				observeVSValidation("heavy_fallback", "ok", startHeavy)
-				return nil
-			} else if errors.Is(err, context.DeadlineExceeded) {
-				observeVSValidation("light", "timeout", startLight)
-				return fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
-			} else {
-				observeVSValidation("light", "error", startLight)
-				return fmt.Errorf("light validation failed: %w", err)
+	// Common timeout error factory to keep message consistent
+	timeoutError := func() error {
+		return fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
+	}
+
+	// Heavy validation runner with unified metrics/logging
+	heavy := func(phase string) error {
+		start := time.Now()
+		if err := v.updater.DryBuildSnapshotsWithVirtualService(ctxTO, vs); err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				observeVSValidation(phase, "timeout", start)
+				return timeoutError()
 			}
+			observeVSValidation(phase, "error", start)
+			return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
 		}
-		observeVSValidation("light", "ok", startLight)
+		observeVSValidation(phase, "ok", start)
 		return nil
 	}
 
-	// Heavy-only validation (light disabled)
-	startHeavy := time.Now()
-	if err := v.updater.DryBuildSnapshotsWithVirtualService(ctxTO, vs); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			observeVSValidation("heavy", "timeout", startHeavy)
-			return fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
+	// Light validation runner that may fallback to heavy
+	light := func() error {
+		start := time.Now()
+		if err := v.updater.DryValidateVirtualServiceLight(ctxTO, vs, prevVS, v.Config.ValidationIndices); err != nil {
+			switch {
+			case errors.Is(err, updater.ErrLightValidationInsufficientCoverage):
+				observeVSValidation("light", "coverage_miss", start)
+				incVSValidationFallback()
+				virtualservicelog.Info("Light validation insufficient; falling back to heavy dry-run", "name", vs.GetLabelName())
+				return heavy("heavy_fallback")
+			case errors.Is(err, context.DeadlineExceeded):
+				observeVSValidation("light", "timeout", start)
+				return timeoutError()
+			default:
+				observeVSValidation("light", "error", start)
+				return fmt.Errorf("light validation failed: %w", err)
+			}
 		}
-		observeVSValidation("heavy", "error", startHeavy)
-		return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
+		observeVSValidation("light", "ok", start)
+		return nil
 	}
-	observeVSValidation("heavy", "ok", startHeavy)
-	return nil
+
+	// Prefer lightweight validation if enabled, otherwise heavy-only
+	if v.getLightDryRunEnabled() {
+		return light()
+	}
+	return heavy("heavy")
 }
 
 // validateVSTracing applies XOR rule between inline spec.tracing and spec.tracingRef
