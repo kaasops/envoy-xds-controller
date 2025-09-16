@@ -87,8 +87,9 @@ func TestApplyVirtualServiceTemplate(t *testing.T) {
 				mockStore.SetVirtualServiceTemplate(template)
 			}
 
-			// Call the function
-			result, err := applyVirtualServiceTemplate(tc.vs, mockStore)
+			// Create ResourceBuilder and call the method
+			builder := NewResourceBuilder(mockStore)
+			result, err := builder.applyVirtualServiceTemplate(tc.vs)
 
 			// Check the result
 			if tc.expectError {

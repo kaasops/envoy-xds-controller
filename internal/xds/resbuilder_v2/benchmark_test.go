@@ -16,6 +16,28 @@ import (
 
 // createTestVirtualService creates a basic VirtualService for benchmarking
 func createTestVirtualService() *v1alpha1.VirtualService {
+	// Create a basic virtual host configuration
+	virtualHost := &routev3.VirtualHost{
+		Name:    "test-host",
+		Domains: []string{"example.com"},
+		Routes: []*routev3.Route{
+			{
+				Match: &routev3.RouteMatch{
+					PathSpecifier: &routev3.RouteMatch_Prefix{Prefix: "/"},
+				},
+				Action: &routev3.Route_Route{
+					Route: &routev3.RouteAction{
+						ClusterSpecifier: &routev3.RouteAction_Cluster{
+							Cluster: "test-cluster",
+						},
+					},
+				},
+			},
+		},
+	}
+	
+	virtualHostRaw, _ := protoutil.Marshaler.Marshal(virtualHost)
+	
 	return &v1alpha1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-vs",
@@ -25,6 +47,9 @@ func createTestVirtualService() *v1alpha1.VirtualService {
 			VirtualServiceCommonSpec: v1alpha1.VirtualServiceCommonSpec{
 				Listener: &v1alpha1.ResourceRef{
 					Name: "test-listener",
+				},
+				VirtualHost: &runtime.RawExtension{
+					Raw: virtualHostRaw,
 				},
 			},
 		},
@@ -50,6 +75,19 @@ func createTestStore() *store.Store {
 	// Add test listener required by the VirtualService
 	listener := makeListenerCR("default", "test-listener", "127.0.0.1", 8080)
 	store.SetListener(listener)
+	
+	// Add test cluster required by the VirtualHost routes
+	testCluster := &v1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: "default",
+		},
+		Spec: &runtime.RawExtension{
+			Raw: []byte(`{"name":"test-cluster","connect_timeout":"5s","type":"STATIC","load_assignment":{"cluster_name":"test-cluster","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"127.0.0.1","port_value":8080}}}}]}]}}`),
+		},
+	}
+	store.SetCluster(testCluster)
+	
 	return store
 }
 

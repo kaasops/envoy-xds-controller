@@ -25,6 +25,11 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/clusters"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/filters"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/routes"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/secrets"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
@@ -185,24 +190,22 @@ func generateHTTPFiltersCacheKey(vs *v1alpha1.VirtualService, store *store.Store
 
 // getStringSlice returns a string slice from the pool
 func getStringSlice() []string {
-	return stringSlicePool.Get().([]string)
+	return utils.GetStringSlice()
 }
 
 // putStringSlice returns a string slice to the pool after clearing it
 func putStringSlice(s []string) {
-	s = s[:0] // Clear the slice but keep capacity
-	stringSlicePool.Put(s)
+	utils.PutStringSlice(s)
 }
 
 // getClusterSlice returns a cluster slice from the pool
 func getClusterSlice() []*cluster.Cluster {
-	return clusterSlicePool.Get().([]*cluster.Cluster)
+	return utils.GetClusterSlice()
 }
 
 // putClusterSlice returns a cluster slice to the pool after clearing it
 func putClusterSlice(s []*cluster.Cluster) {
-	s = s[:0] // Clear the slice but keep capacity
-	clusterSlicePool.Put(s)
+	utils.PutClusterSlice(s)
 }
 
 type FilterChainsParams struct {
@@ -221,24 +224,35 @@ type FilterChainsParams struct {
 	Tracing              *hcmv3.HttpConnectionManager_Tracing
 }
 
-type Resources struct {
-	Listener    helpers.NamespacedName
-	FilterChain []*listenerv3.FilterChain
-	RouteConfig *routev3.RouteConfiguration
-	Clusters    []*cluster.Cluster
-	Secrets     []*tlsv3.Secret
-	UsedSecrets []helpers.NamespacedName
-	Domains     []string
+// ResourceBuilder provides a modular approach to building Envoy resources
+type ResourceBuilder struct {
+	store           *store.Store
+	clustersBuilder *clusters.Builder
+	filtersBuilder  *filters.Builder
+	routesBuilder   *routes.Builder
+	secretsBuilder  *secrets.Builder
 }
 
-func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources, error) {
+// NewResourceBuilder creates a new ResourceBuilder with all modular components
+func NewResourceBuilder(store *store.Store) *ResourceBuilder {
+	return &ResourceBuilder{
+		store:           store,
+		clustersBuilder: clusters.NewBuilder(store),
+		filtersBuilder:  filters.NewBuilder(store),
+		routesBuilder:   routes.NewBuilder(store),
+		secretsBuilder:  secrets.NewBuilder(store),
+	}
+}
+
+// BuildResources builds all Envoy resources using modular builders
+func (rb *ResourceBuilder) BuildResources(vs *v1alpha1.VirtualService) (*Resources, error) {
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
 
 	vsPtr := vs
 
 	// Apply template if specified
-	vs, err = applyVirtualServiceTemplate(vs, store)
+	vs, err = rb.applyVirtualServiceTemplate(vs)
 	if err != nil {
 		return nil, err
 	}
@@ -249,18 +263,18 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 		return nil, err
 	}
 
-	xdsListener, err := buildListener(listenerNN, store)
+	xdsListener, err := rb.buildListener(listenerNN)
 	if err != nil {
 		return nil, err
 	}
 
 	// If the listener already has filter chains, use them
 	if len(xdsListener.FilterChains) > 0 {
-		return buildResourcesFromExistingFilterChains(vs, xdsListener, listenerNN, store)
+		return rb.buildResourcesFromExistingFilterChains(vs, xdsListener, listenerNN)
 	}
 
 	// Otherwise, build resources from virtual service configuration
-	resources, err := buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn, store)
+	resources, err := rb.buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn)
 	if err != nil {
 		return nil, err
 	}
@@ -272,8 +286,27 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 	return resources, nil
 }
 
+type Resources struct {
+	Listener    helpers.NamespacedName
+	FilterChain []*listenerv3.FilterChain
+	RouteConfig *routev3.RouteConfiguration
+	Clusters    []*cluster.Cluster
+	Secrets     []*tlsv3.Secret
+	UsedSecrets []helpers.NamespacedName
+	Domains     []string
+}
+
+// BuildResources is the main entry point for building Envoy resources using the modular architecture
+func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources, error) {
+	// Create a ResourceBuilder instance with all modular components
+	builder := NewResourceBuilder(store)
+	
+	// Delegate to the modular BuildResources method
+	return builder.BuildResources(vs)
+}
+
 // applyVirtualServiceTemplate applies a template to the virtual service if specified
-func applyVirtualServiceTemplate(vs *v1alpha1.VirtualService, store *store.Store) (*v1alpha1.VirtualService, error) {
+func (rb *ResourceBuilder) applyVirtualServiceTemplate(vs *v1alpha1.VirtualService) (*v1alpha1.VirtualService, error) {
 	if vs.Spec.Template == nil {
 		return vs, nil
 	}
@@ -282,7 +315,7 @@ func applyVirtualServiceTemplate(vs *v1alpha1.VirtualService, store *store.Store
 	templateName := vs.Spec.Template.Name
 	templateNN := helpers.NamespacedName{Namespace: templateNamespace, Name: templateName}
 
-	vst := store.GetVirtualServiceTemplate(templateNN)
+	vst := rb.store.GetVirtualServiceTemplate(templateNN)
 	if vst == nil {
 		return nil, fmt.Errorf("virtual service template %s/%s not found", templateNamespace, templateName)
 	}
@@ -296,7 +329,7 @@ func applyVirtualServiceTemplate(vs *v1alpha1.VirtualService, store *store.Store
 }
 
 // buildResourcesFromExistingFilterChains builds resources using existing filter chains from the listener
-func buildResourcesFromExistingFilterChains(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName, store *store.Store) (*Resources, error) {
+func (rb *ResourceBuilder) buildResourcesFromExistingFilterChains(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName) (*Resources, error) {
 	// Check for conflicts with virtual service configuration
 	if err := checkFilterChainsConflicts(vs); err != nil {
 		return nil, err
@@ -307,7 +340,7 @@ func buildResourcesFromExistingFilterChains(vs *v1alpha1.VirtualService, xdsList
 	}
 
 	// Extract clusters from filter chains
-	clusters, err := extractClustersFromFilterChains(xdsListener.FilterChains, store)
+	clusters, err := extractClustersFromFilterChains(xdsListener.FilterChains, rb.store)
 	if err != nil {
 		return nil, err
 	}
@@ -386,23 +419,23 @@ func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, sto
 }
 
 // buildResourcesFromVirtualService builds resources from virtual service configuration
-func buildResourcesFromVirtualService(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName, nn helpers.NamespacedName, store *store.Store) (*Resources, error) {
+func (rb *ResourceBuilder) buildResourcesFromVirtualService(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName, nn helpers.NamespacedName) (*Resources, error) {
 	listenerIsTLS := isTLSListener(xdsListener)
 
 	// Build virtual host and route configuration
-	virtualHost, routeConfiguration, err := buildRouteConfiguration(vs, xdsListener, nn, store)
+	virtualHost, routeConfiguration, err := buildRouteConfiguration(vs, xdsListener, nn, rb.store)
 	if err != nil {
 		return nil, err
 	}
 
-	// Build HTTP filters
-	httpFilters, err := buildHTTPFilters(vs, store)
+	// Build HTTP filters using modular builder
+	httpFilters, err := rb.filtersBuilder.BuildHTTPFilters(vs)
 	if err != nil {
 		return nil, err
 	}
 
 	// Build filter chain parameters
-	filterChainParams, err := buildFilterChainParams(vs, nn, httpFilters, listenerIsTLS, virtualHost, store)
+	filterChainParams, err := buildFilterChainParams(vs, nn, httpFilters, listenerIsTLS, virtualHost, rb.store)
 	if err != nil {
 		return nil, err
 	}
@@ -419,14 +452,14 @@ func buildResourcesFromVirtualService(vs *v1alpha1.VirtualService, xdsListener *
 		return nil, err
 	}
 
-	// Build clusters
-	clusters, err := buildClusters(vs, virtualHost, httpFilters, store)
+	// Build clusters using modular builder
+	clusters, err := rb.clustersBuilder.BuildClusters(vs, virtualHost, httpFilters)
 	if err != nil {
 		return nil, err
 	}
 
-	// Build secrets
-	secrets, usedSecrets, err := buildSecrets(httpFilters, filterChainParams.SecretNameToDomains, store)
+	// Build secrets using modular builder
+	secrets, usedSecrets, err := rb.secretsBuilder.BuildSecrets(vs, filterChainParams.SecretNameToDomains)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build secrets: %w", err)
 	}
@@ -566,8 +599,8 @@ func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedNa
 	return filterChainParams, nil
 }
 
-func buildListener(listenerNN helpers.NamespacedName, store *store.Store) (*listenerv3.Listener, error) {
-	listener := store.GetListener(listenerNN)
+func (rb *ResourceBuilder) buildListener(listenerNN helpers.NamespacedName) (*listenerv3.Listener, error) {
+	listener := rb.store.GetListener(listenerNN)
 	if listener == nil {
 		return nil, fmt.Errorf("listener %s not found", listenerNN.String())
 	}
