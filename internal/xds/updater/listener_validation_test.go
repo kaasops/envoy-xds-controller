@@ -16,20 +16,20 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func makeTestListenerCR(ns, name string, l *listenerv3.Listener) *v1alpha1.Listener {
+func makeTestListenerCR(name string, l *listenerv3.Listener) *v1alpha1.Listener {
 	b, _ := protoutil.Marshaler.Marshal(l)
 	return &v1alpha1.Listener{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "envoy.kaasops.io/v1alpha1", Kind: "Listener"},
-		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: name},
 		Spec:       &runtime.RawExtension{Raw: b},
 	}
 }
 
-func makeTestVirtualServiceCR(ns, name string, nodeIDs []string, listenerName string) *v1alpha1.VirtualService {
+func makeTestVirtualServiceCR(name string, nodeIDs []string, listenerName string) *v1alpha1.VirtualService {
 	vs := &v1alpha1.VirtualService{
 		TypeMeta: metav1.TypeMeta{APIVersion: "envoy.kaasops.io/v1alpha1", Kind: "VirtualService"},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:   ns,
+			Namespace:   "default",
 			Name:        name,
 			Annotations: make(map[string]string),
 		},
@@ -78,12 +78,12 @@ func TestValidateListenerAddresses_SameAddressDifferentNodeIDs(t *testing.T) {
 	}
 
 	// Add listeners to store
-	s.SetListener(makeTestListenerCR("default", "listener1", l1))
-	s.SetListener(makeTestListenerCR("default", "listener2", l2))
+	s.SetListener(makeTestListenerCR("listener1", l1))
+	s.SetListener(makeTestListenerCR("listener2", l2))
 
 	// Create VirtualServices that use these listeners for DIFFERENT nodeIDs
-	vs1 := makeTestVirtualServiceCR("default", "vs1", []string{"node1"}, "listener1")
-	vs2 := makeTestVirtualServiceCR("default", "vs2", []string{"node2"}, "listener2")
+	vs1 := makeTestVirtualServiceCR("vs1", []string{"node1"}, "listener1")
+	vs2 := makeTestVirtualServiceCR("vs2", []string{"node2"}, "listener2")
 
 	s.SetVirtualService(vs1)
 	s.SetVirtualService(vs2)
@@ -128,12 +128,12 @@ func TestValidateListenerAddresses_SameAddressSameNodeID(t *testing.T) {
 	}
 
 	// Add listeners to store
-	s.SetListener(makeTestListenerCR("default", "listener1", l1))
-	s.SetListener(makeTestListenerCR("default", "listener2", l2))
+	s.SetListener(makeTestListenerCR("listener1", l1))
+	s.SetListener(makeTestListenerCR("listener2", l2))
 
 	// Create VirtualServices that use these listeners for the SAME nodeID
-	vs1 := makeTestVirtualServiceCR("default", "vs1", []string{"same-node"}, "listener1")
-	vs2 := makeTestVirtualServiceCR("default", "vs2", []string{"same-node"}, "listener2")
+	vs1 := makeTestVirtualServiceCR("vs1", []string{"same-node"}, "listener1")
+	vs2 := makeTestVirtualServiceCR("vs2", []string{"same-node"}, "listener2")
 
 	s.SetVirtualService(vs1)
 	s.SetVirtualService(vs2)
@@ -184,13 +184,13 @@ func TestValidateListenerAddresses_MultipleNodeIDsOverlap(t *testing.T) {
 	}
 
 	// Add listeners to store
-	s.SetListener(makeTestListenerCR("default", "listener1", l1))
-	s.SetListener(makeTestListenerCR("default", "listener2", l2))
+	s.SetListener(makeTestListenerCR("listener1", l1))
+	s.SetListener(makeTestListenerCR("listener2", l2))
 
 	// listener1 is used by node1 and node2
-	vs1 := makeTestVirtualServiceCR("default", "vs1", []string{"node1", "node2"}, "listener1")
+	vs1 := makeTestVirtualServiceCR("vs1", []string{"node1", "node2"}, "listener1")
 	// listener2 is used by node2 and node3
-	vs2 := makeTestVirtualServiceCR("default", "vs2", []string{"node2", "node3"}, "listener2")
+	vs2 := makeTestVirtualServiceCR("vs2", []string{"node2", "node3"}, "listener2")
 
 	s.SetVirtualService(vs1)
 	s.SetVirtualService(vs2)
@@ -225,21 +225,18 @@ func TestBuildListenerToNodeIDsMapping(t *testing.T) {
 		},
 	}
 
-	s.SetListener(makeTestListenerCR("default", "listener1", l1))
+	s.SetListener(makeTestListenerCR("listener1", l1))
 
 	// Create VirtualServices
-	vs1 := makeTestVirtualServiceCR("default", "vs1", []string{"node1", "node2"}, "listener1")
-	vs2 := makeTestVirtualServiceCR("default", "vs2", []string{"node2", "node3"}, "listener1")
+	vs1 := makeTestVirtualServiceCR("vs1", []string{"node1", "node2"}, "listener1")
+	vs2 := makeTestVirtualServiceCR("vs2", []string{"node2", "node3"}, "listener1")
 
 	s.SetVirtualService(vs1)
 	s.SetVirtualService(vs2)
 
 	// Build mapping
 	snapshotCache := wrapped.NewSnapshotCache()
-	mapping, err := buildListenerToNodeIDsMapping(s, snapshotCache)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	mapping := buildListenerToNodeIDsMapping(s, snapshotCache)
 
 	listenerNN := helpers.NamespacedName{Namespace: "default", Name: "listener1"}
 	nodeIDs := mapping[listenerNN]
@@ -282,10 +279,10 @@ func TestBuildListenerToNodeIDsMapping_WithCommonVS(t *testing.T) {
 		},
 	}
 
-	s.SetListener(makeTestListenerCR("default", "common-listener", l1))
+	s.SetListener(makeTestListenerCR("common-listener", l1))
 
 	// Create a common VirtualService with nodeID = "*"
-	commonVS := makeTestVirtualServiceCR("default", "common-vs", []string{"*"}, "common-listener")
+	commonVS := makeTestVirtualServiceCR("common-vs", []string{"*"}, "common-listener")
 	s.SetVirtualService(commonVS)
 
 	// Create snapshotCache with some known nodeIDs
@@ -297,10 +294,7 @@ func TestBuildListenerToNodeIDsMapping_WithCommonVS(t *testing.T) {
 	_ = snapshotCache.SetSnapshot(ctx, "node-c", &cachev3.Snapshot{})
 
 	// Build mapping
-	mapping, err := buildListenerToNodeIDsMapping(s, snapshotCache)
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
+	mapping := buildListenerToNodeIDsMapping(s, snapshotCache)
 
 	listenerNN := helpers.NamespacedName{Namespace: "default", Name: "common-listener"}
 	nodeIDs := mapping[listenerNN]

@@ -442,7 +442,8 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Secret")
 			os.Exit(1)
 		}
-		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater, webhookConfig); err != nil {
+		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater,
+			webhookConfig); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualServiceTemplate")
 			os.Exit(1)
 		}

@@ -134,35 +134,6 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v
 	return nil
 }
 
-// validateListenerAddressesUniqueInStore ensures there are no duplicate host:port pairs
-// across all listeners present in the provided store.
-func validateListenerAddressesUniqueInStore(store *store.Store) error {
-	lst := store.MapListeners()
-	addr2name := make(map[string]string, len(lst))
-	for nn, l := range lst {
-		lv3, err := l.UnmarshalV3()
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal listener %s to v3: %w", nn.String(), err)
-		}
-		addr := lv3.GetAddress()
-		if addr == nil {
-			return fmt.Errorf("listener %s has no address configured", nn.String())
-		}
-		sa := addr.GetSocketAddress()
-		if sa == nil {
-			return fmt.Errorf("listener %s has no socket address configured", nn.String())
-		}
-		host := sa.GetAddress()
-		port := sa.GetPortValue()
-		hostPort := fmt.Sprintf("%s:%d", host, port)
-		if exist, ok := addr2name[hostPort]; ok {
-			return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s'", nn.String(), hostPort, exist)
-		}
-		addr2name[hostPort] = nn.String()
-	}
-	return nil
-}
-
 func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) error {
 	c.mx.RLock()
 	storeCopy := c.store.Copy()
@@ -601,10 +572,7 @@ func validateDomainsWithinVS(domains []string) error {
 // the same address:port from being used across different nodeIDs (different snapshots).
 func validateListenerAddresses(storeCopy *store.Store, snapshotCache *wrapped.SnapshotCache, validationIndices bool) error {
 	// Build mapping of listeners to nodeIDs
-	listenerToNodeIDs, err := buildListenerToNodeIDsMapping(storeCopy, snapshotCache)
-	if err != nil {
-		return fmt.Errorf("failed to build listener to nodeIDs mapping: %w", err)
-	}
+	listenerToNodeIDs := buildListenerToNodeIDsMapping(storeCopy, snapshotCache)
 
 	if validationIndices {
 		// Use the fast index-based approach but check per nodeID
@@ -622,7 +590,7 @@ func validateListenerAddresses(storeCopy *store.Store, snapshotCache *wrapped.Sn
 // buildListenerToNodeIDsMapping creates a mapping of listener names to the nodeIDs that use them.
 // This is determined by analyzing which VirtualServices reference each listener and what nodeIDs
 // those VirtualServices target. For common VirtualServices (nodeID = "*"), expands to all actual nodeIDs.
-func buildListenerToNodeIDsMapping(storeCopy *store.Store, snapshotCache *wrapped.SnapshotCache) (map[helpers.NamespacedName][]string, error) {
+func buildListenerToNodeIDsMapping(storeCopy *store.Store, snapshotCache *wrapped.SnapshotCache) map[helpers.NamespacedName][]string {
 	mapping := make(map[helpers.NamespacedName][]string)
 
 	// Iterate through all VirtualServices to find which listeners they use
@@ -661,7 +629,7 @@ func buildListenerToNodeIDsMapping(storeCopy *store.Store, snapshotCache *wrappe
 		}
 	}
 
-	return mapping, nil
+	return mapping
 }
 
 // validateListenerAddressesPerNodeID validates listener addresses using indices, but per nodeID.
