@@ -5,9 +5,11 @@ import (
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -141,5 +143,52 @@ func BenchmarkFindSDSNames(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_ = findSDSNames(testData, "name")
+	}
+}
+
+// BenchmarkExtractClusterNamesFromRoute benchmarks the optimized direct route traversal
+func BenchmarkExtractClusterNamesFromRoute(b *testing.B) {
+	// Create test route with cluster action
+	route := &routev3.Route{
+		Action: &routev3.Route_Route{
+			Route: &routev3.RouteAction{
+				ClusterSpecifier: &routev3.RouteAction_Cluster{
+					Cluster: "test-cluster",
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = extractClusterNamesFromRoute(route)
+	}
+}
+
+// BenchmarkExtractClusterNamesFromRouteWeighted benchmarks weighted cluster extraction
+func BenchmarkExtractClusterNamesFromRouteWeighted(b *testing.B) {
+	// Create test route with weighted clusters
+	route := &routev3.Route{
+		Action: &routev3.Route_Route{
+			Route: &routev3.RouteAction{
+				ClusterSpecifier: &routev3.RouteAction_WeightedClusters{
+					WeightedClusters: &routev3.WeightedCluster{
+						Clusters: []*routev3.WeightedCluster_ClusterWeight{
+							{Name: "cluster1", Weight: &wrapperspb.UInt32Value{Value: 50}},
+							{Name: "cluster2", Weight: &wrapperspb.UInt32Value{Value: 50}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		_ = extractClusterNamesFromRoute(route)
 	}
 }

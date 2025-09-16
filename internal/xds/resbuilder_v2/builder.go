@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	oauth2v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/oauth2/v3"
 
@@ -33,6 +34,43 @@ const (
 	SecretRefType     = "secretRef"
 	AutoDiscoveryType = "autoDiscoveryType"
 )
+
+// Object pools for frequently allocated slices to reduce GC pressure
+var (
+	stringSlicePool = sync.Pool{
+		New: func() interface{} {
+			return make([]string, 0, 8) // Initial capacity of 8
+		},
+	}
+	
+	clusterSlicePool = sync.Pool{
+		New: func() interface{} {
+			return make([]*cluster.Cluster, 0, 4) // Initial capacity of 4
+		},
+	}
+)
+
+// getStringSlice returns a string slice from the pool
+func getStringSlice() []string {
+	return stringSlicePool.Get().([]string)
+}
+
+// putStringSlice returns a string slice to the pool after clearing it
+func putStringSlice(s []string) {
+	s = s[:0] // Clear the slice but keep capacity
+	stringSlicePool.Put(s)
+}
+
+// getClusterSlice returns a cluster slice from the pool
+func getClusterSlice() []*cluster.Cluster {
+	return clusterSlicePool.Get().([]*cluster.Cluster)
+}
+
+// putClusterSlice returns a cluster slice to the pool after clearing it
+func putClusterSlice(s []*cluster.Cluster) {
+	s = s[:0] // Clear the slice but keep capacity
+	clusterSlicePool.Put(s)
+}
 
 type FilterChainsParams struct {
 	VSName               string
@@ -180,7 +218,8 @@ func checkFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
 
 // extractClustersFromFilterChains extracts clusters from filter chains
 func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store *store.Store) ([]*cluster.Cluster, error) {
-	clusters := make([]*cluster.Cluster, 0)
+	// Pre-allocate based on number of filter chains (each typically contains one cluster)
+	clusters := make([]*cluster.Cluster, 0, len(filterChains))
 
 	for _, fc := range filterChains {
 		for _, filter := range fc.Filters {
@@ -545,7 +584,9 @@ func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3
 }
 
 func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
-	var clusters []*cluster.Cluster
+	// Estimate capacity: routes typically have 1-3 clusters, plus potential OAuth2, tracing clusters
+	estimatedCapacity := len(virtualHost.Routes) + len(httpFilters)/2 + 2 // conservative estimate
+	clusters := make([]*cluster.Cluster, 0, estimatedCapacity)
 
 	// 1. Clusters referenced in routes
 	routeClusters, err := clustersFromVirtualHostRoutes(virtualHost, store)
@@ -580,27 +621,69 @@ func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost
 
 // clustersFromVirtualHostRoutes extracts clusters referenced by routes inside the given VirtualHost.
 func clustersFromVirtualHostRoutes(virtualHost *routev3.VirtualHost, store *store.Store) ([]*cluster.Cluster, error) {
-	var clusters []*cluster.Cluster
+	// Use object pools to reduce allocations
+	clusters := getClusterSlice()
+	defer putClusterSlice(clusters)
+	
+	clusterNames := getStringSlice()
+	defer putStringSlice(clusterNames)
+	
+	// Direct traversal of route structures instead of JSON marshaling
 	for _, route := range virtualHost.Routes {
-		jsonData, err := json.Marshal(route)
-		if err != nil {
-			return nil, err
-		}
-		var data any
-		if err := json.Unmarshal(jsonData, &data); err != nil {
-			return nil, err
-		}
-		names := findClusterNames(data, "Cluster")
-		if len(names) == 0 {
-			continue
-		}
-		cl, err := getClustersByNames(names, store)
-		if err != nil {
-			return nil, err
-		}
-		clusters = append(clusters, cl...)
+		names := extractClusterNamesFromRoute(route)
+		clusterNames = append(clusterNames, names...)
 	}
-	return clusters, nil
+	
+	if len(clusterNames) == 0 {
+		return nil, nil
+	}
+	
+	cl, err := getClustersByNames(clusterNames, store)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Return a copy since we're putting clusters back to pool
+	result := make([]*cluster.Cluster, len(cl))
+	copy(result, cl)
+	
+	return result, nil
+}
+
+// extractClusterNamesFromRoute directly extracts cluster names from route configuration
+func extractClusterNamesFromRoute(route *routev3.Route) []string {
+	var names []string
+	
+	if route.Action == nil {
+		return names
+	}
+	
+	switch action := route.Action.(type) {
+	case *routev3.Route_Route:
+		if action.Route == nil {
+			break
+		}
+		switch cluster := action.Route.ClusterSpecifier.(type) {
+		case *routev3.RouteAction_Cluster:
+			if cluster.Cluster != "" {
+				names = append(names, cluster.Cluster)
+			}
+		case *routev3.RouteAction_WeightedClusters:
+			if cluster.WeightedClusters != nil {
+				for _, wc := range cluster.WeightedClusters.Clusters {
+					if wc.Name != "" {
+						names = append(names, wc.Name)
+					}
+				}
+			}
+		}
+	case *routev3.Route_DirectResponse:
+		// Direct responses don't reference clusters
+	case *routev3.Route_Redirect:
+		// Redirects don't reference clusters
+	}
+	
+	return names
 }
 
 // clustersFromOAuth2HTTPFilters extracts clusters referenced by OAuth2 HTTP filters (token/authorize/etc).
@@ -638,29 +721,43 @@ func clustersFromTracingRaw(tr *runtime.RawExtension, store *store.Store) ([]*cl
 	if tr == nil {
 		return nil, nil
 	}
-	var clusters []*cluster.Cluster
-	jsonData, err := json.Marshal(tr)
-	if err != nil {
-		return nil, err
-	}
+	
+	// Direct parsing of RawExtension data instead of JSON marshal/unmarshal roundtrip
 	var data any
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return nil, err
+	if tr.Raw != nil {
+		if err := json.Unmarshal(tr.Raw, &data); err != nil {
+			return nil, err
+		}
+	} else if tr.Object != nil {
+		// Handle structured object case if needed
+		jsonData, err := json.Marshal(tr.Object)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, nil
 	}
+	
+	var clusters []*cluster.Cluster
+	var allNames []string
+	
 	// opentelemetry/zipkin use different field names
 	names := findClusterNames(data, "cluster_name")
-	cl, err := getClustersByNames(names, store)
-	if err != nil {
-		return nil, err
-	}
-	clusters = append(clusters, cl...)
-
+	allNames = append(allNames, names...)
+	
 	names = findClusterNames(data, "collector_cluster") // zipkin
-	cl, err = getClustersByNames(names, store)
-	if err != nil {
-		return nil, err
+	allNames = append(allNames, names...)
+	
+	if len(allNames) > 0 {
+		cl, err := getClustersByNames(allNames, store)
+		if err != nil {
+			return nil, err
+		}
+		clusters = append(clusters, cl...)
 	}
-	clusters = append(clusters, cl...)
 
 	return clusters, nil
 }
@@ -675,28 +772,47 @@ func clustersFromTracingRef(vs *v1alpha1.VirtualService, store *store.Store) ([]
 	if tracing == nil {
 		return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
 	}
-	jsonData, err := json.Marshal(tracing.Spec)
-	if err != nil {
-		return nil, err
-	}
+	
+	// Direct parsing of tracing spec instead of JSON marshal/unmarshal roundtrip
 	var data any
-	if err := json.Unmarshal(jsonData, &data); err != nil {
-		return nil, err
+	if tracing.Spec != nil {
+		if tracing.Spec.Raw != nil {
+			if err := json.Unmarshal(tracing.Spec.Raw, &data); err != nil {
+				return nil, err
+			}
+		} else if tracing.Spec.Object != nil {
+			// Handle structured object case if needed
+			jsonData, err := json.Marshal(tracing.Spec.Object)
+			if err != nil {
+				return nil, err
+			}
+			if err := json.Unmarshal(jsonData, &data); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, nil
+		}
+	} else {
+		return nil, nil
 	}
+	
 	var clusters []*cluster.Cluster
+	var allNames []string
+	
+	// opentelemetry/zipkin use different field names
 	names := findClusterNames(data, "cluster_name")
-	cl, err := getClustersByNames(names, store)
-	if err != nil {
-		return nil, err
-	}
-	clusters = append(clusters, cl...)
-
+	allNames = append(allNames, names...)
+	
 	names = findClusterNames(data, "collector_cluster") // zipkin
-	cl, err = getClustersByNames(names, store)
-	if err != nil {
-		return nil, err
+	allNames = append(allNames, names...)
+	
+	if len(allNames) > 0 {
+		cl, err := getClustersByNames(allNames, store)
+		if err != nil {
+			return nil, err
+		}
+		clusters = append(clusters, cl...)
 	}
-	clusters = append(clusters, cl...)
 
 	return clusters, nil
 }
@@ -914,7 +1030,17 @@ func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*
 		return nil, fmt.Errorf("can't use accessLog, accessLogConfig, accessLogs and accessLogConfigs at the same time")
 	}
 
-	accessLogConfigs := make([]*accesslogv3.AccessLog, 0)
+	// Pre-allocate based on the configuration type
+	var capacity int
+	if vs.Spec.AccessLog != nil || vs.Spec.AccessLogConfig != nil {
+		capacity = 1
+	} else if len(vs.Spec.AccessLogs) > 0 {
+		capacity = len(vs.Spec.AccessLogs)
+	} else if len(vs.Spec.AccessLogConfigs) > 0 {
+		capacity = len(vs.Spec.AccessLogConfigs)
+	}
+	accessLogConfigs := make([]*accesslogv3.AccessLog, 0, capacity)
+	
 	if vs.Spec.AccessLog != nil {
 		vs.UpdateStatus(false, "accessLog is deprecated, use accessLogs instead")
 		var accessLog accesslogv3.AccessLog
@@ -1061,8 +1187,10 @@ func findClusterNames(data interface{}, fieldName string) []string {
 }
 
 func buildSecrets(httpFilters []*hcmv3.HttpFilter, secretNameToDomains map[helpers.NamespacedName][]string, store *store.Store) ([]*tlsv3.Secret, []helpers.NamespacedName, error) {
-	var secrets []*tlsv3.Secret
-	var usedSecrets []helpers.NamespacedName // for validation
+	// Pre-allocate based on secretNameToDomains and estimated HTTP filter secrets
+	estimatedCapacity := len(secretNameToDomains) + len(httpFilters)/4 // conservative estimate
+	secrets := make([]*tlsv3.Secret, 0, estimatedCapacity)
+	usedSecrets := make([]helpers.NamespacedName, 0, estimatedCapacity) // for validation
 
 	getEnvoySecret := func(namespace, name string) ([]*tlsv3.Secret, error) {
 		kubeSecret := store.GetSecret(helpers.NamespacedName{Namespace: namespace, Name: name})
