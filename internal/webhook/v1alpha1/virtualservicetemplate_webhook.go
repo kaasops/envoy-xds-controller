@@ -256,5 +256,5 @@ func (v *VirtualServiceTemplateCustomValidator) getDryRunTimeout() time.Duration
 	if v.Config.DryRunTimeoutMS > 0 {
 		return time.Duration(v.Config.DryRunTimeoutMS) * time.Millisecond
 	}
-	return time.Duration(800) * time.Millisecond // default fallback
+	return time.Duration(1000) * time.Millisecond // default fallback
 }
