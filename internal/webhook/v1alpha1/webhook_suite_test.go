@@ -146,10 +146,10 @@ var _ = BeforeSuite(func() {
 	err = SetupHttpFilterWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater)
+	err = SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater, WebhookConfig{})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater)
+	err = SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater, WebhookConfig{})
 	Expect(err).NotTo(HaveOccurred())
 
 	err = SetupTracingWebhookWithManager(mgr)

@@ -121,7 +121,15 @@ spec:
           {{- if .Values.webhook.port }}
           - name: WEBHOOK_PORT
             value: "{{ .Values.webhook.port }}"
-        {{- end }}
+          {{- end }}
+          {{- if .Values.webhook.dryRunTimeoutMS }}
+          - name: WEBHOOK_DRYRUN_TIMEOUT_MS
+            value: "{{ .Values.webhook.dryRunTimeoutMS }}"
+          {{- end }}
+          - name: WEBHOOK_LIGHT_DRYRUN
+            value: "{{ .Values.webhook.lightDryRun }}"
+          - name: WEBHOOK_VALIDATION_INDICES
+            value: "{{ .Values.webhook.validationIndices }}"
         {{- end }}
         {{- if not .Values.webhook.enabled }}
           - name: WEBHOOK_DISABLE

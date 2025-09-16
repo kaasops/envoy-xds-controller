@@ -100,6 +100,12 @@ type Config struct {
 		ServiceName    string `default:"envoy-xds-controller-webhook-service"        envconfig:"SERVICE_NAME"`
 		Path           string `default:"/validate"                                   envconfig:"WEBHOOK_PATH"`
 		Port           int    `default:"9443"                                        envconfig:"WEBHOOK_PORT"`
+		// DryRunTimeoutMS defines the timeout in milliseconds for webhook dry-run validation operations
+		DryRunTimeoutMS int `default:"1000"                                         envconfig:"WEBHOOK_DRYRUN_TIMEOUT_MS"`
+		// LightDryRun enables lightweight validation mode that performs faster checks without full snapshot rebuilding
+		LightDryRun bool `default:"false"                                       envconfig:"WEBHOOK_LIGHT_DRYRUN"`
+		// ValidationIndices enables store-backed validation indices for O(1) domain and listener address conflict detection
+		ValidationIndices bool `default:"false"                                       envconfig:"WEBHOOK_VALIDATION_INDICES"`
 	}
 }
 
@@ -423,7 +429,12 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "HttpFilter")
 			os.Exit(1)
 		}
-		if err = webhookenvoyv1alpha1.SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater); err != nil {
+		webhookConfig := webhookenvoyv1alpha1.WebhookConfig{
+			DryRunTimeoutMS:   cfg.Webhook.DryRunTimeoutMS,
+			LightDryRun:       cfg.Webhook.LightDryRun,
+			ValidationIndices: cfg.Webhook.ValidationIndices,
+		}
+		if err = webhookenvoyv1alpha1.SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater, webhookConfig); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualService")
 			os.Exit(1)
 		}
@@ -431,7 +442,8 @@ func main() {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Secret")
 			os.Exit(1)
 		}
-		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater); err != nil {
+		if err = webhookenvoyv1alpha1.SetupVirtualServiceTemplateWebhookWithManager(mgr, cacheUpdater,
+			webhookConfig); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualServiceTemplate")
 			os.Exit(1)
 		}

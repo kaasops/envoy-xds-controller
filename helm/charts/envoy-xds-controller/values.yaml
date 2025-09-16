@@ -188,6 +188,10 @@ webhook:
     name: "envoy-xds-controller-webhook-cert"
   serviceName: "envoy-xds-controller-webhook-service"
   configName: "envoy-xds-controller-validating-webhook-configuration"
+  # Validation optimization settings
+  dryRunTimeoutMS: 1000    # Timeout in milliseconds for webhook dry-run validation operations
+  lightDryRun: false       # Enable lightweight validation mode for faster checks
+  validationIndices: false # Enable store-backed validation indices for O(1) domain conflict detection
 
 # Init container for certificate initialization
 initCert:

@@ -32,6 +32,9 @@ type Store struct {
 	secrets                     map[helpers.NamespacedName]*v1.Secret
 	tracings                    map[helpers.NamespacedName]*v1alpha1.Tracing
 	domainToSecretMap           map[string]v1.Secret
+
+	// Indices (optional, used by light validators when enabled)
+	nodeDomainsIndex map[string]map[string]struct{} // nodeID -> set(domains)
 }
 
 func New() *Store {
@@ -113,6 +116,18 @@ func (s *Store) Copy() *Store {
 	}
 	for k, v := range s.tracings {
 		clone.tracings[k] = v
+	}
+
+	// Deep copy nodeDomainsIndex (if present)
+	if s.nodeDomainsIndex != nil {
+		clone.nodeDomainsIndex = make(map[string]map[string]struct{}, len(s.nodeDomainsIndex))
+		for node, set := range s.nodeDomainsIndex {
+			inner := make(map[string]struct{}, len(set))
+			for d := range set {
+				inner[d] = struct{}{}
+			}
+			clone.nodeDomainsIndex[node] = inner
+		}
 	}
 
 	clone.updateListenerByUIDMap()
