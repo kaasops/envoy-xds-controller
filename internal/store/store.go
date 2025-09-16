@@ -34,9 +34,7 @@ type Store struct {
 	domainToSecretMap           map[string]v1.Secret
 
 	// Indices (optional, used by light validators when enabled)
-	listenerAddrIndex map[string]string              // host:port -> listener namespaced name string
-	listenerAddrDup   *listenerAddrDup               // first detected duplicate, if any
-	nodeDomainsIndex  map[string]map[string]struct{} // nodeID -> set(domains)
+	nodeDomainsIndex map[string]map[string]struct{} // nodeID -> set(domains)
 }
 
 func New() *Store {
@@ -141,7 +139,6 @@ func (s *Store) Copy() *Store {
 	clone.updateHTTPFilterByUIDMap()
 	clone.updateDomainSecretsMap()
 	clone.updateSpecClusters()
-	clone.updateListenerAddressIndex()
 
 	return clone
 }
@@ -251,6 +248,5 @@ func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error 
 	s.updateHTTPFilterByUIDMap()
 	s.updateDomainSecretsMap()
 	s.updateSpecClusters()
-	s.updateListenerAddressIndex()
 	return nil
 }

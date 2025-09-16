@@ -12,7 +12,6 @@ func (s *Store) SetListener(l *v1alpha1.Listener) {
 	defer s.mu.Unlock()
 	s.listeners[helpers.NamespacedName{Namespace: l.Namespace, Name: l.Name}] = l
 	s.updateListenerByUIDMap()
-	s.updateListenerAddressIndex()
 }
 
 func (s *Store) GetListener(name helpers.NamespacedName) *v1alpha1.Listener {
@@ -27,7 +26,6 @@ func (s *Store) DeleteListener(name helpers.NamespacedName) {
 	defer s.mu.Unlock()
 	delete(s.listeners, name)
 	s.updateListenerByUIDMap()
-	s.updateListenerAddressIndex()
 }
 
 func (s *Store) IsExistingListener(name helpers.NamespacedName) bool {
