@@ -1,6 +1,7 @@
 package resbuilder_v2
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -49,6 +50,138 @@ var (
 		},
 	}
 )
+
+// Cache for buildHTTPFilters results to avoid expensive re-computation
+type httpFiltersCache struct {
+	mu     sync.RWMutex
+	cache  map[string][]*hcmv3.HttpFilter
+	maxSize int
+}
+
+func newHTTPFiltersCache() *httpFiltersCache {
+	return &httpFiltersCache{
+		cache:   make(map[string][]*hcmv3.HttpFilter),
+		maxSize: 1000, // Limit cache size
+	}
+}
+
+func (c *httpFiltersCache) get(key string) ([]*hcmv3.HttpFilter, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	filters, exists := c.cache[key]
+	if !exists {
+		return nil, false
+	}
+	// Return deep copies to avoid mutation issues
+	result := make([]*hcmv3.HttpFilter, len(filters))
+	for i, filter := range filters {
+		result[i] = &hcmv3.HttpFilter{}
+		*result[i] = *filter // Shallow copy should be sufficient for protobuf messages
+	}
+	return result, true
+}
+
+func (c *httpFiltersCache) set(key string, filters []*hcmv3.HttpFilter) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// Simple eviction: if cache is full, clear it
+	if len(c.cache) >= c.maxSize {
+		c.cache = make(map[string][]*hcmv3.HttpFilter)
+	}
+	
+	// Store deep copies to avoid mutation issues
+	cached := make([]*hcmv3.HttpFilter, len(filters))
+	for i, filter := range filters {
+		cached[i] = &hcmv3.HttpFilter{}
+		*cached[i] = *filter // Shallow copy should be sufficient for protobuf messages
+	}
+	c.cache[key] = cached
+}
+
+var httpFiltersGlobalCache = newHTTPFiltersCache()
+
+// Cache for cluster extraction results to avoid expensive re-computation
+type clusterCache struct {
+	mu     sync.RWMutex
+	cache  map[string][]*cluster.Cluster
+	maxSize int
+}
+
+func newClusterCache() *clusterCache {
+	return &clusterCache{
+		cache:   make(map[string][]*cluster.Cluster),
+		maxSize: 500, // Smaller cache size than HTTP filters
+	}
+}
+
+func (c *clusterCache) get(key string) ([]*cluster.Cluster, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	clusters, exists := c.cache[key]
+	if !exists {
+		return nil, false
+	}
+	// Return deep copies to avoid mutation issues
+	result := make([]*cluster.Cluster, len(clusters))
+	for i, cl := range clusters {
+		result[i] = &cluster.Cluster{}
+		*result[i] = *cl // Shallow copy should be sufficient for protobuf messages
+	}
+	return result, true
+}
+
+func (c *clusterCache) set(key string, clusters []*cluster.Cluster) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	
+	// Simple eviction: if cache is full, clear it
+	if len(c.cache) >= c.maxSize {
+		c.cache = make(map[string][]*cluster.Cluster)
+	}
+	
+	// Store deep copies to avoid mutation issues
+	cached := make([]*cluster.Cluster, len(clusters))
+	for i, cl := range clusters {
+		cached[i] = &cluster.Cluster{}
+		*cached[i] = *cl // Shallow copy should be sufficient for protobuf messages
+	}
+	c.cache[key] = cached
+}
+
+var clusterGlobalCache = newClusterCache()
+
+// generateHTTPFiltersCacheKey creates a hash-based cache key for HTTP filters configuration
+func generateHTTPFiltersCacheKey(vs *v1alpha1.VirtualService, store *store.Store) string {
+	hasher := sha256.New()
+	
+	// Include RBAC configuration if present
+	if vs.Spec.RBAC != nil {
+		if rbacData, err := json.Marshal(vs.Spec.RBAC); err == nil {
+			hasher.Write(rbacData)
+		}
+	}
+	
+	// Include inline HTTP filters
+	for _, filter := range vs.Spec.HTTPFilters {
+		hasher.Write(filter.Raw)
+	}
+	
+	// Include additional HTTP filter references and their content
+	for _, filterRef := range vs.Spec.AdditionalHttpFilters {
+		refNs := helpers.GetNamespace(filterRef.Namespace, vs.Namespace)
+		hasher.Write([]byte(fmt.Sprintf("%s/%s", refNs, filterRef.Name)))
+		
+		// Include the actual filter content from store
+		if hf := store.GetHTTPFilter(helpers.NamespacedName{Namespace: refNs, Name: filterRef.Name}); hf != nil {
+			for _, spec := range hf.Spec {
+				hasher.Write(spec.Raw)
+			}
+		}
+	}
+	
+	return fmt.Sprintf("%x", hasher.Sum(nil))
+}
 
 // getStringSlice returns a string slice from the pool
 func getStringSlice() []string {
@@ -510,6 +643,12 @@ func buildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, st
 }
 
 func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3.HttpFilter, error) {
+	// Check cache first
+	cacheKey := generateHTTPFiltersCacheKey(vs, store)
+	if cached, exists := httpFiltersGlobalCache.get(cacheKey); exists {
+		return cached, nil
+	}
+	
 	httpFilters := make([]*hcmv3.HttpFilter, 0, len(vs.Spec.HTTPFilters)+len(vs.Spec.AdditionalHttpFilters))
 
 	rbacF, err := buildRBACFilter(vs, store)
@@ -580,6 +719,9 @@ func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3
 		httpFilters = append(httpFilters, route)
 	}
 
+	// Store result in cache before returning
+	httpFiltersGlobalCache.set(cacheKey, httpFilters)
+	
 	return httpFilters, nil
 }
 
@@ -686,8 +828,30 @@ func extractClusterNamesFromRoute(route *routev3.Route) []string {
 	return names
 }
 
+// generateOAuth2CacheKey creates a cache key for OAuth2 HTTP filters
+func generateOAuth2CacheKey(httpFilters []*hcmv3.HttpFilter) string {
+	hasher := sha256.New()
+	
+	for _, httpFilter := range httpFilters {
+		tc := httpFilter.GetTypedConfig()
+		if tc == nil || tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2" {
+			continue
+		}
+		// Use the raw TypedConfig data for consistent hashing
+		hasher.Write(tc.Value)
+	}
+	
+	return fmt.Sprintf("oauth2_%x", hasher.Sum(nil))
+}
+
 // clustersFromOAuth2HTTPFilters extracts clusters referenced by OAuth2 HTTP filters (token/authorize/etc).
 func clustersFromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
+	// Check cache first
+	cacheKey := generateOAuth2CacheKey(httpFilters)
+	if cached, exists := clusterGlobalCache.get(cacheKey); exists {
+		return cached, nil
+	}
+	
 	var clusters []*cluster.Cluster
 	for _, httpFilter := range httpFilters {
 		tc := httpFilter.GetTypedConfig()
@@ -713,13 +877,43 @@ func clustersFromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter, store *store
 		}
 		clusters = append(clusters, cl...)
 	}
+	
+	// Store result in cache before returning
+	clusterGlobalCache.set(cacheKey, clusters)
+	
 	return clusters, nil
+}
+
+// generateTracingRawCacheKey creates a cache key for inline tracing configuration
+func generateTracingRawCacheKey(tr *runtime.RawExtension) string {
+	if tr == nil {
+		return "tracing_raw_nil"
+	}
+	
+	hasher := sha256.New()
+	
+	if tr.Raw != nil {
+		hasher.Write(tr.Raw)
+	} else if tr.Object != nil {
+		// Handle structured object case
+		if jsonData, err := json.Marshal(tr.Object); err == nil {
+			hasher.Write(jsonData)
+		}
+	}
+	
+	return fmt.Sprintf("tracing_raw_%x", hasher.Sum(nil))
 }
 
 // clustersFromTracingRaw extracts clusters referenced by inline tracing configuration.
 func clustersFromTracingRaw(tr *runtime.RawExtension, store *store.Store) ([]*cluster.Cluster, error) {
 	if tr == nil {
 		return nil, nil
+	}
+	
+	// Check cache first
+	cacheKey := generateTracingRawCacheKey(tr)
+	if cached, exists := clusterGlobalCache.get(cacheKey); exists {
+		return cached, nil
 	}
 	
 	// Direct parsing of RawExtension data instead of JSON marshal/unmarshal roundtrip
@@ -759,7 +953,38 @@ func clustersFromTracingRaw(tr *runtime.RawExtension, store *store.Store) ([]*cl
 		clusters = append(clusters, cl...)
 	}
 
+	// Store result in cache before returning
+	clusterGlobalCache.set(cacheKey, clusters)
+
 	return clusters, nil
+}
+
+// generateTracingRefCacheKey creates a cache key for tracing reference configuration
+func generateTracingRefCacheKey(vs *v1alpha1.VirtualService, store *store.Store) string {
+	if vs.Spec.TracingRef == nil {
+		return "tracing_ref_nil"
+	}
+	
+	tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
+	hasher := sha256.New()
+	
+	// Include the reference path in the key
+	hasher.Write([]byte(fmt.Sprintf("%s/%s", tracingRefNs, vs.Spec.TracingRef.Name)))
+	
+	// Include the actual tracing content if available
+	if tracing := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name}); tracing != nil {
+		if tracing.Spec != nil {
+			if tracing.Spec.Raw != nil {
+				hasher.Write(tracing.Spec.Raw)
+			} else if tracing.Spec.Object != nil {
+				if jsonData, err := json.Marshal(tracing.Spec.Object); err == nil {
+					hasher.Write(jsonData)
+				}
+			}
+		}
+	}
+	
+	return fmt.Sprintf("tracing_ref_%x", hasher.Sum(nil))
 }
 
 // clustersFromTracingRef extracts clusters referenced by a Tracing resource referenced from VS.
@@ -767,6 +992,13 @@ func clustersFromTracingRef(vs *v1alpha1.VirtualService, store *store.Store) ([]
 	if vs.Spec.TracingRef == nil {
 		return nil, nil
 	}
+	
+	// Check cache first
+	cacheKey := generateTracingRefCacheKey(vs, store)
+	if cached, exists := clusterGlobalCache.get(cacheKey); exists {
+		return cached, nil
+	}
+	
 	tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
 	tracing := store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
 	if tracing == nil {
@@ -813,6 +1045,9 @@ func clustersFromTracingRef(vs *v1alpha1.VirtualService, store *store.Store) ([]
 		}
 		clusters = append(clusters, cl...)
 	}
+
+	// Store result in cache before returning
+	clusterGlobalCache.set(cacheKey, clusters)
 
 	return clusters, nil
 }
