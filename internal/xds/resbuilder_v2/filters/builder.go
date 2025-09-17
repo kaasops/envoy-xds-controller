@@ -91,14 +91,14 @@ var globalHTTPFiltersCache = newHTTPFiltersCache()
 // Builder handles filter building operations
 type Builder struct {
 	store *store.Store
-	cache *httpFiltersCache
+	cache *HTTPFilterLRUCache
 }
 
 // NewBuilder creates a new filter builder
 func NewBuilder(store *store.Store) *Builder {
 	return &Builder{
 		store: store,
-		cache: globalHTTPFiltersCache,
+		cache: GetGlobalHTTPFilterCache(),
 	}
 }
 
@@ -138,7 +138,7 @@ func (b *Builder) generateHTTPFiltersCacheKey(vs *v1alpha1.VirtualService) strin
 func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFilter, error) {
 	// Check cache first
 	cacheKey := b.generateHTTPFiltersCacheKey(vs)
-	if cached, exists := b.cache.get(cacheKey); exists {
+	if cached, exists := b.cache.Get(cacheKey); exists {
 		return cached, nil
 	}
 
@@ -216,7 +216,7 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 	}
 
 	// Store result in cache before returning
-	b.cache.set(cacheKey, httpFilters)
+	b.cache.Set(cacheKey, httpFilters)
 
 	return httpFilters, nil
 }
