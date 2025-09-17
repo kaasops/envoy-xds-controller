@@ -32,8 +32,8 @@ func (b *Builder) BuildSecrets(vs *v1alpha1.VirtualService, secretNameToDomains 
 	secrets := make([]*tlsv3.Secret, 0, len(secretNameToDomains))
 	usedSecrets := make([]helpers.NamespacedName, 0, len(secretNameToDomains))
 
-	for secretName, domains := range secretNameToDomains {
-		secret, err := b.buildSecret(secretName, domains)
+	for secretName := range secretNameToDomains {
+		secret, err := b.buildSecret(secretName)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build secret %s: %w", secretName.String(), err)
 		}
@@ -45,7 +45,7 @@ func (b *Builder) BuildSecrets(vs *v1alpha1.VirtualService, secretNameToDomains 
 }
 
 // buildSecret builds a single TLS secret from Kubernetes secret
-func (b *Builder) buildSecret(secretName helpers.NamespacedName, domains []string) (*tlsv3.Secret, error) {
+func (b *Builder) buildSecret(secretName helpers.NamespacedName) (*tlsv3.Secret, error) {
 	k8sSecret := b.store.GetSecret(secretName)
 	if k8sSecret == nil {
 		return nil, fmt.Errorf("Kubernetes secret %s not found", secretName.String())
@@ -95,7 +95,7 @@ func (b *Builder) buildSecret(secretName helpers.NamespacedName, domains []strin
 // validateSecretData validates that the Kubernetes secret contains required TLS data
 func (b *Builder) validateSecretData(secret *v1.Secret) error {
 	if secret.Type != v1.SecretTypeTLS && secret.Type != v1.SecretTypeOpaque {
-		return fmt.Errorf("unsupported secret type: %s (expected %s or %s)", 
+		return fmt.Errorf("unsupported secret type: %s (expected %s or %s)",
 			secret.Type, v1.SecretTypeTLS, v1.SecretTypeOpaque)
 	}
 
@@ -148,62 +148,6 @@ func (b *Builder) extractCertificateData(secret *v1.Secret) ([]byte, []byte, err
 	copy(keyCopy, keyData)
 
 	return certCopy, keyCopy, nil
-}
-
-// GetSecretNameToDomainsViaSecretRef builds secret-to-domains mapping from SecretRef configuration
-func GetSecretNameToDomainsViaSecretRef(secretRef *v1alpha1.ResourceRef, vsNamespace string, domains []string) map[helpers.NamespacedName][]string {
-	if secretRef == nil {
-		return nil
-	}
-
-	secretNamespace := helpers.GetNamespace(secretRef.Namespace, vsNamespace)
-	secretName := helpers.NamespacedName{
-		Namespace: secretNamespace,
-		Name:      secretRef.Name,
-	}
-
-	// Copy domains to avoid mutation issues
-	domainsCopy := make([]string, len(domains))
-	copy(domainsCopy, domains)
-
-	return map[helpers.NamespacedName][]string{
-		secretName: domainsCopy,
-	}
-}
-
-// GetSecretNameToDomainsViaAutoDiscovery builds secret-to-domains mapping using auto-discovery
-func GetSecretNameToDomainsViaAutoDiscovery(domains []string, domainSecretsMap map[string]v1.Secret) (map[helpers.NamespacedName][]string, error) {
-	if len(domains) == 0 {
-		return nil, nil
-	}
-
-	secretToDomains := make(map[helpers.NamespacedName][]string)
-
-	for _, domain := range domains {
-		if domain == "" || domain == "*" {
-			continue // Skip empty or wildcard domains for auto-discovery
-		}
-
-		secret, exists := domainSecretsMap[domain]
-		if !exists {
-			return nil, fmt.Errorf("no secret found for domain %s in auto-discovery", domain)
-		}
-
-		// Create NamespacedName from secret
-		secretName := helpers.NamespacedName{
-			Namespace: secret.Namespace,
-			Name:      secret.Name,
-		}
-
-		// Add domain to the secret's domain list
-		secretToDomains[secretName] = append(secretToDomains[secretName], domain)
-	}
-
-	if len(secretToDomains) == 0 {
-		return nil, fmt.Errorf("no secrets found for any domains in auto-discovery")
-	}
-
-	return secretToDomains, nil
 }
 
 // GetTLSType determines the TLS configuration type from TlsConfig

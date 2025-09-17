@@ -9,6 +9,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,9 +36,9 @@ func createTestVirtualService() *v1alpha1.VirtualService {
 			},
 		},
 	}
-	
+
 	virtualHostRaw, _ := protoutil.Marshaler.Marshal(virtualHost)
-	
+
 	return &v1alpha1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-vs",
@@ -56,15 +57,15 @@ func createTestVirtualService() *v1alpha1.VirtualService {
 	}
 }
 
-// makeListenerCR creates a test listener CR with given host:port
-func makeListenerCR(ns, name, host string, port uint32) *v1alpha1.Listener {
+// makeListenerCR creates a test listener CR with given port
+func makeListenerCR() *v1alpha1.Listener {
 	l := &listenerv3.Listener{
-		Address: &corev3.Address{Address: &corev3.Address_SocketAddress{SocketAddress: &corev3.SocketAddress{Address: host, PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: port}}}},
+		Address: &corev3.Address{Address: &corev3.Address_SocketAddress{SocketAddress: &corev3.SocketAddress{Address: "127.0.0.1", PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: 8080}}}},
 	}
 	b, _ := protoutil.Marshaler.Marshal(l)
 	return &v1alpha1.Listener{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "envoy.kaasops.io/v1alpha1", Kind: "Listener"},
-		ObjectMeta: metav1.ObjectMeta{Namespace: ns, Name: name},
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "test-listener"},
 		Spec:       &runtime.RawExtension{Raw: b},
 	}
 }
@@ -73,9 +74,9 @@ func makeListenerCR(ns, name, host string, port uint32) *v1alpha1.Listener {
 func createTestStore() *store.Store {
 	store := store.New()
 	// Add test listener required by the VirtualService
-	listener := makeListenerCR("default", "test-listener", "127.0.0.1", 8080)
+	listener := makeListenerCR()
 	store.SetListener(listener)
-	
+
 	// Add test cluster required by the VirtualHost routes
 	testCluster := &v1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
@@ -87,7 +88,7 @@ func createTestStore() *store.Store {
 		},
 	}
 	store.SetCluster(testCluster)
-	
+
 	return store
 }
 
@@ -156,31 +157,7 @@ func BenchmarkFindClusterNames(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_ = findClusterNames(testData, "cluster")
-	}
-}
-
-// BenchmarkFindSDSNames benchmarks the findSDSNames function
-func BenchmarkFindSDSNames(b *testing.B) {
-	// Create test data structure  
-	testData := map[string]interface{}{
-		"transport_socket": map[string]interface{}{
-			"typed_config": map[string]interface{}{
-				"common_tls_context": map[string]interface{}{
-					"tls_certificate_sds_secret_configs": []map[string]interface{}{
-						{"name": "test-sds-1"},
-						{"name": "test-sds-2"},
-					},
-				},
-			},
-		},
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		_ = findSDSNames(testData, "name")
+		_ = utils.FindClusterNames(testData, "cluster")
 	}
 }
 
@@ -201,7 +178,7 @@ func BenchmarkExtractClusterNamesFromRoute(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_ = extractClusterNamesFromRoute(route)
+		_ = utils.ExtractClusterNamesFromRoute(route)
 	}
 }
 
@@ -227,6 +204,6 @@ func BenchmarkExtractClusterNamesFromRouteWeighted(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_ = extractClusterNamesFromRoute(route)
+		_ = utils.ExtractClusterNamesFromRoute(route)
 	}
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -69,28 +70,28 @@ func (b *Builder) BuildClusters(vs *v1alpha1.VirtualService, virtualHost *routev
 // FromVirtualHostRoutes extracts clusters referenced by routes inside the given VirtualHost
 func (b *Builder) FromVirtualHostRoutes(virtualHost *routev3.VirtualHost) ([]*cluster.Cluster, error) {
 	var clusterNames []string
-	
+
 	// Direct traversal of route structures instead of JSON marshaling
 	for _, route := range virtualHost.Routes {
 		names := extractClusterNamesFromRoute(route)
 		clusterNames = append(clusterNames, names...)
 	}
-	
+
 	if len(clusterNames) == 0 {
 		return nil, nil
 	}
-	
+
 	return b.getClustersByNames(clusterNames)
 }
 
 // extractClusterNamesFromRoute directly extracts cluster names from route configuration
 func extractClusterNamesFromRoute(route *routev3.Route) []string {
 	var names []string
-	
+
 	if route.Action == nil {
 		return names
 	}
-	
+
 	switch action := route.Action.(type) {
 	case *routev3.Route_Route:
 		if action.Route == nil {
@@ -115,7 +116,7 @@ func extractClusterNamesFromRoute(route *routev3.Route) []string {
 	case *routev3.Route_Redirect:
 		// Redirects don't reference clusters
 	}
-	
+
 	return names
 }
 
@@ -126,7 +127,7 @@ func (b *Builder) FromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter) ([]*clu
 	if cached, exists := b.cache.get(cacheKey); exists {
 		return cached, nil
 	}
-	
+
 	var clusters []*cluster.Cluster
 	for _, httpFilter := range httpFilters {
 		tc := httpFilter.GetTypedConfig()
@@ -145,17 +146,17 @@ func (b *Builder) FromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter) ([]*clu
 		if err := json.Unmarshal(jsonData, &data); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal oauth2 config data: %w", err)
 		}
-		names := findClusterNames(data, "Cluster")
+		names := utils.FindClusterNames(data, "Cluster")
 		cl, err := b.getClustersByNames(names)
 		if err != nil {
 			return nil, err
 		}
 		clusters = append(clusters, cl...)
 	}
-	
+
 	// Store result in cache before returning
 	b.cache.set(cacheKey, clusters)
-	
+
 	return clusters, nil
 }
 
@@ -164,13 +165,13 @@ func (b *Builder) FromTracingRaw(tr *runtime.RawExtension) ([]*cluster.Cluster, 
 	if tr == nil {
 		return nil, nil
 	}
-	
+
 	// Check cache first
 	cacheKey := b.generateTracingRawCacheKey(tr)
 	if cached, exists := b.cache.get(cacheKey); exists {
 		return cached, nil
 	}
-	
+
 	// Direct parsing of RawExtension data instead of JSON marshal/unmarshal roundtrip
 	var data interface{}
 	if tr.Raw != nil {
@@ -189,17 +190,17 @@ func (b *Builder) FromTracingRaw(tr *runtime.RawExtension) ([]*cluster.Cluster, 
 	} else {
 		return nil, nil
 	}
-	
+
 	var clusters []*cluster.Cluster
 	var allNames []string
-	
+
 	// opentelemetry/zipkin use different field names
-	names := findClusterNames(data, "cluster_name")
+	names := utils.FindClusterNames(data, "cluster_name")
 	allNames = append(allNames, names...)
-	
-	names = findClusterNames(data, "collector_cluster") // zipkin
+
+	names = utils.FindClusterNames(data, "collector_cluster") // zipkin
 	allNames = append(allNames, names...)
-	
+
 	if len(allNames) > 0 {
 		cl, err := b.getClustersByNames(allNames)
 		if err != nil {
@@ -219,19 +220,19 @@ func (b *Builder) FromTracingRef(vs *v1alpha1.VirtualService) ([]*cluster.Cluste
 	if vs.Spec.TracingRef == nil {
 		return nil, nil
 	}
-	
+
 	// Check cache first
 	cacheKey := b.generateTracingRefCacheKey(vs)
 	if cached, exists := b.cache.get(cacheKey); exists {
 		return cached, nil
 	}
-	
+
 	tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
 	tracing := b.store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
 	if tracing == nil {
 		return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
 	}
-	
+
 	// Direct parsing of tracing spec instead of JSON marshal/unmarshal roundtrip
 	var data interface{}
 	if tracing.Spec != nil {
@@ -254,17 +255,17 @@ func (b *Builder) FromTracingRef(vs *v1alpha1.VirtualService) ([]*cluster.Cluste
 	} else {
 		return nil, nil
 	}
-	
+
 	var clusters []*cluster.Cluster
 	var allNames []string
-	
+
 	// opentelemetry/zipkin use different field names
-	names := findClusterNames(data, "cluster_name")
+	names := utils.FindClusterNames(data, "cluster_name")
 	allNames = append(allNames, names...)
-	
-	names = findClusterNames(data, "collector_cluster") // zipkin
+
+	names = utils.FindClusterNames(data, "collector_cluster") // zipkin
 	allNames = append(allNames, names...)
-	
+
 	if len(allNames) > 0 {
 		cl, err := b.getClustersByNames(allNames)
 		if err != nil {
@@ -299,7 +300,7 @@ func (b *Builder) getClustersByNames(names []string) ([]*cluster.Cluster, error)
 // generateOAuth2CacheKey creates a cache key for OAuth2 HTTP filters
 func (b *Builder) generateOAuth2CacheKey(httpFilters []*hcmv3.HttpFilter) string {
 	hasher := sha256.New()
-	
+
 	for _, httpFilter := range httpFilters {
 		tc := httpFilter.GetTypedConfig()
 		if tc == nil || tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2" {
@@ -308,7 +309,7 @@ func (b *Builder) generateOAuth2CacheKey(httpFilters []*hcmv3.HttpFilter) string
 		// Use the raw TypedConfig data for consistent hashing
 		hasher.Write(tc.Value)
 	}
-	
+
 	return fmt.Sprintf("oauth2_%x", hasher.Sum(nil))
 }
 
@@ -317,9 +318,9 @@ func (b *Builder) generateTracingRawCacheKey(tr *runtime.RawExtension) string {
 	if tr == nil {
 		return "tracing_raw_nil"
 	}
-	
+
 	hasher := sha256.New()
-	
+
 	if tr.Raw != nil {
 		hasher.Write(tr.Raw)
 	} else if tr.Object != nil {
@@ -328,7 +329,7 @@ func (b *Builder) generateTracingRawCacheKey(tr *runtime.RawExtension) string {
 			hasher.Write(jsonData)
 		}
 	}
-	
+
 	return fmt.Sprintf("tracing_raw_%x", hasher.Sum(nil))
 }
 
@@ -337,13 +338,13 @@ func (b *Builder) generateTracingRefCacheKey(vs *v1alpha1.VirtualService) string
 	if vs.Spec.TracingRef == nil {
 		return "tracing_ref_nil"
 	}
-	
+
 	tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
 	hasher := sha256.New()
-	
+
 	// Include the reference path in the key
 	hasher.Write([]byte(fmt.Sprintf("%s/%s", tracingRefNs, vs.Spec.TracingRef.Name)))
-	
+
 	// Include the actual tracing content if available
 	if tracing := b.store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name}); tracing != nil {
 		if tracing.Spec != nil {
@@ -356,31 +357,6 @@ func (b *Builder) generateTracingRefCacheKey(vs *v1alpha1.VirtualService) string
 			}
 		}
 	}
-	
-	return fmt.Sprintf("tracing_ref_%x", hasher.Sum(nil))
-}
 
-// findClusterNames recursively searches for cluster names in configuration data
-// This is kept here as a utility function used by multiple extraction methods
-func findClusterNames(data interface{}, clusterField string) []string {
-	var names []string
-	
-	switch v := data.(type) {
-	case map[string]interface{}:
-		for key, value := range v {
-			if key == clusterField {
-				if str, ok := value.(string); ok && str != "" {
-					names = append(names, str)
-				}
-			} else {
-				names = append(names, findClusterNames(value, clusterField)...)
-			}
-		}
-	case []interface{}:
-		for _, item := range v {
-			names = append(names, findClusterNames(item, clusterField)...)
-		}
-	}
-	
-	return names
+	return fmt.Sprintf("tracing_ref_%x", hasher.Sum(nil))
 }

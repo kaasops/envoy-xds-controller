@@ -14,6 +14,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -42,8 +43,7 @@ func (c *httpFiltersCache) get(key string) ([]*hcmv3.HttpFilter, bool) {
 	// Return deep copies to avoid mutation issues
 	result := make([]*hcmv3.HttpFilter, len(filters))
 	for i, filter := range filters {
-		result[i] = &hcmv3.HttpFilter{}
-		*result[i] = *filter // Shallow copy should be sufficient for protobuf messages
+		result[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
 	}
 	return result, true
 }
@@ -60,8 +60,7 @@ func (c *httpFiltersCache) set(key string, filters []*hcmv3.HttpFilter) {
 	// Store deep copies to avoid mutation issues
 	cached := make([]*hcmv3.HttpFilter, len(filters))
 	for i, filter := range filters {
-		cached[i] = &hcmv3.HttpFilter{}
-		*cached[i] = *filter // Shallow copy should be sufficient for protobuf messages
+		cached[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
 	}
 	c.cache[key] = cached
 }

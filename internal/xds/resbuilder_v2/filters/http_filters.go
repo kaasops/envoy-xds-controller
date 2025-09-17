@@ -10,19 +10,13 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // HTTPFilterBuilder handles the construction of HTTP filters with caching
 type HTTPFilterBuilder struct {
 	cache *filterCache
-}
-
-// NewHTTPFilterBuilder creates a new HTTP filter builder with caching enabled
-func NewHTTPFilterBuilder() *HTTPFilterBuilder {
-	return &HTTPFilterBuilder{
-		cache: newFilterCache(),
-	}
 }
 
 // filterCache provides thread-safe caching of HTTP filter build results
@@ -32,31 +26,22 @@ type filterCache struct {
 	maxSize int
 }
 
-// newFilterCache creates a new HTTP filters cache with default settings
-func newFilterCache() *filterCache {
-	return &filterCache{
-		cache:   make(map[string][]*hcmv3.HttpFilter),
-		maxSize: 1000, // Limit cache size
-	}
-}
-
 // get retrieves cached HTTP filters for the given key
 func (c *filterCache) get(key string) ([]*hcmv3.HttpFilter, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	filters, exists := c.cache[key]
 	if !exists {
 		return nil, false
 	}
-	
+
 	// Return deep copies to avoid mutation issues
 	result := make([]*hcmv3.HttpFilter, len(filters))
 	for i, filter := range filters {
-		result[i] = &hcmv3.HttpFilter{}
-		*result[i] = *filter // Shallow copy should be sufficient for protobuf messages
+		result[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
 	}
-	
+
 	return result, true
 }
 
@@ -64,19 +49,18 @@ func (c *filterCache) get(key string) ([]*hcmv3.HttpFilter, bool) {
 func (c *filterCache) set(key string, filters []*hcmv3.HttpFilter) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Simple eviction: if cache is full, clear it
 	if len(c.cache) >= c.maxSize {
 		c.cache = make(map[string][]*hcmv3.HttpFilter)
 	}
-	
+
 	// Store deep copies to avoid mutation issues
 	cached := make([]*hcmv3.HttpFilter, len(filters))
 	for i, filter := range filters {
-		cached[i] = &hcmv3.HttpFilter{}
-		*cached[i] = *filter // Shallow copy should be sufficient for protobuf messages
+		cached[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
 	}
-	
+
 	c.cache[key] = cached
 }
 
@@ -87,7 +71,7 @@ func (b *HTTPFilterBuilder) BuildHTTPFilters(vs *v1alpha1.VirtualService, store 
 	if cached, exists := b.cache.get(cacheKey); exists {
 		return cached, nil
 	}
-	
+
 	// Estimate capacity for pre-allocation
 	estimatedCapacity := len(vs.Spec.HTTPFilters) + len(vs.Spec.AdditionalHttpFilters) + 1 // +1 for potential RBAC
 	httpFilters := make([]*hcmv3.HttpFilter, 0, estimatedCapacity)
@@ -127,7 +111,7 @@ func (b *HTTPFilterBuilder) BuildHTTPFilters(vs *v1alpha1.VirtualService, store 
 		for _, httpFilterRef := range vs.Spec.AdditionalHttpFilters {
 			refFilters, err := b.buildReferencedHTTPFilters(httpFilterRef, vs.Namespace, store)
 			if err != nil {
-				return nil, fmt.Errorf("failed to build referenced HTTP filter %s/%s: %w", 
+				return nil, fmt.Errorf("failed to build referenced HTTP filter %s/%s: %w",
 					helpers.GetNamespace(httpFilterRef.Namespace, vs.Namespace), httpFilterRef.Name, err)
 			}
 			httpFilters = append(httpFilters, refFilters...)
@@ -141,7 +125,7 @@ func (b *HTTPFilterBuilder) BuildHTTPFilters(vs *v1alpha1.VirtualService, store 
 
 	// Store result in cache before returning
 	b.cache.set(cacheKey, httpFilters)
-	
+
 	return httpFilters, nil
 }
 
@@ -152,7 +136,7 @@ func (b *HTTPFilterBuilder) buildReferencedHTTPFilters(httpFilterRef *v1alpha1.R
 	if hf == nil {
 		return nil, fmt.Errorf("HTTP filter %s/%s not found", httpFilterRefNs, httpFilterRef.Name)
 	}
-	
+
 	filters := make([]*hcmv3.HttpFilter, 0, len(hf.Spec))
 	for idx, filter := range hf.Spec {
 		xdsHttpFilter := &hcmv3.HttpFilter{}
@@ -164,14 +148,14 @@ func (b *HTTPFilterBuilder) buildReferencedHTTPFilters(httpFilterRef *v1alpha1.R
 		}
 		filters = append(filters, xdsHttpFilter)
 	}
-	
+
 	return filters, nil
 }
 
 // ensureRouterFilterAtEnd ensures that the router filter is positioned at the end
 func (b *HTTPFilterBuilder) ensureRouterFilterAtEnd(httpFilters []*hcmv3.HttpFilter) error {
 	const routerTypeURL = "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
-	
+
 	var routerIdxs []int
 	for i, f := range httpFilters {
 		if tc := f.GetTypedConfig(); tc != nil {
@@ -198,44 +182,44 @@ func (b *HTTPFilterBuilder) ensureRouterFilterAtEnd(httpFilters []*hcmv3.HttpFil
 // generateCacheKey creates a hash-based cache key for HTTP filters configuration
 func (b *HTTPFilterBuilder) generateCacheKey(vs *v1alpha1.VirtualService, store *store.Store) string {
 	hasher := sha256.New()
-	
+
 	// Include VirtualService namespace and name for uniqueness
 	hasher.Write([]byte(fmt.Sprintf("%s/%s", vs.Namespace, vs.Name)))
-	
+
 	// Include RBAC configuration if present
 	if vs.Spec.RBAC != nil {
 		hasher.Write([]byte("rbac:"))
 		hasher.Write([]byte(vs.Spec.RBAC.Action))
-		
+
 		// Include inline policies
 		for policyName, policy := range vs.Spec.RBAC.Policies {
 			hasher.Write([]byte(fmt.Sprintf("policy:%s:", policyName)))
 			hasher.Write(policy.Raw)
 		}
-		
+
 		// Include referenced policies
 		for _, policyRef := range vs.Spec.RBAC.AdditionalPolicies {
 			refNs := helpers.GetNamespace(policyRef.Namespace, vs.Namespace)
 			hasher.Write([]byte(fmt.Sprintf("policyRef:%s/%s", refNs, policyRef.Name)))
-			
+
 			// Include actual policy content from store
 			if policy := store.GetPolicy(helpers.NamespacedName{Namespace: refNs, Name: policyRef.Name}); policy != nil {
 				hasher.Write(policy.Spec.Raw)
 			}
 		}
 	}
-	
+
 	// Include inline HTTP filters
 	for i, filter := range vs.Spec.HTTPFilters {
 		hasher.Write([]byte(fmt.Sprintf("inline:%d:", i)))
 		hasher.Write(filter.Raw)
 	}
-	
+
 	// Include additional HTTP filter references and their content
 	for _, filterRef := range vs.Spec.AdditionalHttpFilters {
 		refNs := helpers.GetNamespace(filterRef.Namespace, vs.Namespace)
 		hasher.Write([]byte(fmt.Sprintf("ref:%s/%s:", refNs, filterRef.Name)))
-		
+
 		// Include the actual filter content from store
 		if hf := store.GetHTTPFilter(helpers.NamespacedName{Namespace: refNs, Name: filterRef.Name}); hf != nil {
 			for i, spec := range hf.Spec {
@@ -244,7 +228,7 @@ func (b *HTTPFilterBuilder) generateCacheKey(vs *v1alpha1.VirtualService, store 
 			}
 		}
 	}
-	
+
 	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
 
@@ -252,7 +236,7 @@ func (b *HTTPFilterBuilder) generateCacheKey(vs *v1alpha1.VirtualService, store 
 func (b *HTTPFilterBuilder) Clear() {
 	b.cache.mu.Lock()
 	defer b.cache.mu.Unlock()
-	
+
 	b.cache.cache = make(map[string][]*hcmv3.HttpFilter)
 }
 
@@ -260,6 +244,6 @@ func (b *HTTPFilterBuilder) Clear() {
 func (b *HTTPFilterBuilder) Size() int {
 	b.cache.mu.RLock()
 	defer b.cache.mu.RUnlock()
-	
+
 	return len(b.cache.cache)
 }

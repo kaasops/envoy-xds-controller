@@ -55,12 +55,12 @@ func BuildRBACFilter(vs *v1alpha1.VirtualService, store *store.Store) (*rbacFilt
 		if err != nil {
 			return nil, err
 		}
-		
+
 		// Check for policy name conflicts
 		if _, exists := rules.Policies[policy.name]; exists {
 			return nil, fmt.Errorf("policy '%s' already exists in RBAC", policy.name)
 		}
-		
+
 		rules.Policies[policy.name] = policy.policy
 	}
 
@@ -105,68 +105,4 @@ func buildReferencedRBACPolicy(policyRef *v1alpha1.ResourceRef, vsNamespace stri
 		name:   policy.Name,
 		policy: rbacPolicy,
 	}, nil
-}
-
-// ValidateRBACConfiguration validates RBAC configuration without building the filter
-// This can be used for pre-validation in admission controllers
-func ValidateRBACConfiguration(rbacSpec *v1alpha1.VirtualServiceRBACSpec, vsNamespace string, store *store.Store) error {
-	if rbacSpec == nil {
-		return nil
-	}
-
-	// Validate action
-	if rbacSpec.Action == "" {
-		return fmt.Errorf("RBAC action is empty")
-	}
-	if _, ok := rbacv3.RBAC_Action_value[rbacSpec.Action]; !ok {
-		return fmt.Errorf("invalid RBAC action %s", rbacSpec.Action)
-	}
-
-	// Validate that at least one policy is specified
-	if len(rbacSpec.Policies) == 0 && len(rbacSpec.AdditionalPolicies) == 0 {
-		return fmt.Errorf("RBAC policies is empty")
-	}
-
-	// Track policy names to detect duplicates
-	policyNames := make(map[string]bool)
-
-	// Validate inline policies
-	for policyName, rawPolicy := range rbacSpec.Policies {
-		if policyNames[policyName] {
-			return fmt.Errorf("duplicate policy name '%s'", policyName)
-		}
-		policyNames[policyName] = true
-
-		policy := &rbacv3.Policy{}
-		if err := protoutil.Unmarshaler.Unmarshal(rawPolicy.Raw, policy); err != nil {
-			return fmt.Errorf("failed to unmarshal RBAC policy %s: %w", policyName, err)
-		}
-		if err := policy.ValidateAll(); err != nil {
-			return fmt.Errorf("failed to validate RBAC policy %s: %w", policyName, err)
-		}
-	}
-
-	// Validate referenced policies
-	for _, policyRef := range rbacSpec.AdditionalPolicies {
-		ns := helpers.GetNamespace(policyRef.Namespace, vsNamespace)
-		policy := store.GetPolicy(helpers.NamespacedName{Namespace: ns, Name: policyRef.Name})
-		if policy == nil {
-			return fmt.Errorf("RBAC policy %s/%s not found", ns, policyRef.Name)
-		}
-
-		if policyNames[policy.Name] {
-			return fmt.Errorf("duplicate policy name '%s' (from reference %s/%s)", policy.Name, ns, policyRef.Name)
-		}
-		policyNames[policy.Name] = true
-
-		rbacPolicy := &rbacv3.Policy{}
-		if err := protoutil.Unmarshaler.Unmarshal(policy.Spec.Raw, rbacPolicy); err != nil {
-			return fmt.Errorf("failed to unmarshal RBAC policy %s/%s: %w", ns, policyRef.Name, err)
-		}
-		if err := rbacPolicy.ValidateAll(); err != nil {
-			return fmt.Errorf("failed to validate RBAC policy %s/%s: %w", ns, policyRef.Name, err)
-		}
-	}
-
-	return nil
 }

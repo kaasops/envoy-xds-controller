@@ -5,6 +5,8 @@ import (
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/clusters"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -186,7 +188,7 @@ func TestExtractClustersFromFilterChains(t *testing.T) {
 	// For simplicity, we'll just test the error cases
 	t.Run("Empty filter chains", func(t *testing.T) {
 		mockStore := store.New()
-		clusters, err := extractClustersFromFilterChains(nil, mockStore)
+		clusters, err := clusters.ExtractClustersFromFilterChains(nil, mockStore)
 		assert.NoError(t, err)
 		assert.Empty(t, clusters)
 	})
@@ -258,7 +260,7 @@ func TestCheckAllDomainsUnique(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkAllDomainsUnique(tt.domains)
+			err := utils.CheckAllDomainsUnique(tt.domains)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {
@@ -270,7 +272,7 @@ func TestCheckAllDomainsUnique(t *testing.T) {
 
 func TestIsTLSListener(t *testing.T) {
 	// Test with nil listener
-	result := isTLSListener(nil)
+	result := utils.IsTLSListener(nil)
 	assert.False(t, result, "nil listener should not be considered a TLS listener")
 }
 
@@ -300,7 +302,7 @@ func TestGetTLSType(t *testing.T) {
 					Name: "test-secret",
 				},
 			},
-			expected:    SecretRefType,
+			expected:    utils.SecretRefType,
 			expectError: false,
 		},
 		{
@@ -308,7 +310,7 @@ func TestGetTLSType(t *testing.T) {
 			tlsConfig: &v1alpha1.TlsConfig{
 				AutoDiscovery: func() *bool { b := true; return &b }(),
 			},
-			expected:    AutoDiscoveryType,
+			expected:    utils.AutoDiscoveryType,
 			expectError: false,
 		},
 		{

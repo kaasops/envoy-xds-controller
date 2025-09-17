@@ -8,6 +8,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -75,7 +76,7 @@ func (b *Builder) BuildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.Names
 	}
 
 	// Check domain uniqueness
-	if err := b.checkAllDomainsUnique(virtualHost.Domains); err != nil {
+	if err := utils.CheckAllDomainsUnique(virtualHost.Domains); err != nil {
 		return nil, err
 	}
 
@@ -210,26 +211,6 @@ func (b *Builder) moveRouteToEnd(virtualHost *routev3.VirtualHost, index int) {
 	virtualHost.Routes = append(virtualHost.Routes, route)
 }
 
-// checkAllDomainsUnique ensures that all domains in the virtual host are unique
-func (b *Builder) checkAllDomainsUnique(domains []string) error {
-	if len(domains) <= 1 {
-		return nil
-	}
-
-	seen := make(map[string]bool, len(domains))
-	for _, domain := range domains {
-		if domain == "" {
-			continue // Skip empty domains
-		}
-		if seen[domain] {
-			return fmt.Errorf("duplicate domain '%s' found", domain)
-		}
-		seen[domain] = true
-	}
-
-	return nil
-}
-
 // BuildFallbackVirtualHost creates a fallback virtual host for TLS listeners
 // This addresses https://github.com/envoyproxy/envoy/issues/37810
 func (b *Builder) BuildFallbackVirtualHost() *routev3.VirtualHost {
@@ -255,8 +236,8 @@ func (b *Builder) BuildFallbackVirtualHost() *routev3.VirtualHost {
 func (b *Builder) AddFallbackVirtualHostIfNeeded(routeConfig *routev3.RouteConfiguration, virtualHost *routev3.VirtualHost, isTLSListener, hasPort443 bool) {
 	// Add fallback route for TLS listeners
 	// https://github.com/envoyproxy/envoy/issues/37810
-	shouldAddFallback := isTLSListener && 
-		!(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") && 
+	shouldAddFallback := isTLSListener &&
+		!(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") &&
 		hasPort443
 
 	if shouldAddFallback {
