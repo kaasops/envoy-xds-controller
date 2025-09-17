@@ -142,7 +142,10 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 		return cached, nil
 	}
 
-	httpFilters := make([]*hcmv3.HttpFilter, 0, len(vs.Spec.HTTPFilters)+len(vs.Spec.AdditionalHttpFilters))
+	// Get a slice from the pool instead of using make
+	httpFiltersPtr := utils.GetHTTPFilterSlice()
+	defer utils.PutHTTPFilterSlice(httpFiltersPtr)
+	httpFilters := *httpFiltersPtr
 
 	rbacF, err := b.buildRBACFilter(vs)
 	if err != nil {
