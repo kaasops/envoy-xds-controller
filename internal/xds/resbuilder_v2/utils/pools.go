@@ -35,6 +35,8 @@ var (
 
 // GetStringSlice получает слайс строк из пула
 func GetStringSlice() *[]string {
+	// Record object pool get operation
+	RecordObjectPoolGet("string_slice")
 	return StringSlicePool.Get().(*[]string)
 }
 
@@ -46,10 +48,14 @@ func PutStringSlice(s *[]string) {
 	}
 	*s = (*s)[:0] // Очистка слайса без освобождения памяти
 	StringSlicePool.Put(s)
+	// Record object pool put operation
+	RecordObjectPoolPut("string_slice")
 }
 
 // GetClusterSlice получает слайс кластеров из пула
 func GetClusterSlice() *[]*cluster.Cluster {
+	// Record object pool get operation
+	RecordObjectPoolGet("cluster_slice")
 	return ClusterSlicePool.Get().(*[]*cluster.Cluster)
 }
 
@@ -61,10 +67,14 @@ func PutClusterSlice(s *[]*cluster.Cluster) {
 	}
 	*s = (*s)[:0] // Очистка слайса без освобождения памяти
 	ClusterSlicePool.Put(s)
+	// Record object pool put operation
+	RecordObjectPoolPut("cluster_slice")
 }
 
 // GetHTTPFilterSlice получает слайс HTTP фильтров из пула
 func GetHTTPFilterSlice() *[]*hcmv3.HttpFilter {
+	// Record object pool get operation
+	RecordObjectPoolGet("http_filter_slice")
 	return HTTPFilterSlicePool.Get().(*[]*hcmv3.HttpFilter)
 }
 
@@ -76,10 +86,13 @@ func PutHTTPFilterSlice(s *[]*hcmv3.HttpFilter) {
 	}
 	*s = (*s)[:0] // Очистка слайса без освобождения памяти
 	HTTPFilterSlicePool.Put(s)
+	// Record object pool put operation
+	RecordObjectPoolPut("http_filter_slice")
 }
 
 // SafeCopyStringSlice создает копию слайса строк с использованием пула
 // Возвращает новый слайс, который нужно освободить с помощью PutStringSlice
+// Метрики использования пула автоматически записываются через вызовы GetStringSlice и PutStringSlice
 func SafeCopyStringSlice(src []string) *[]string {
 	if len(src) == 0 {
 		return GetStringSlice()
@@ -92,6 +105,7 @@ func SafeCopyStringSlice(src []string) *[]string {
 
 // SafeCopyClusterSlice создает глубокую копию слайса кластеров с использованием пула
 // Возвращает новый слайс, который нужно освободить с помощью PutClusterSlice
+// Метрики использования пула автоматически записываются через вызовы GetClusterSlice и PutClusterSlice
 func SafeCopyClusterSlice(src []*cluster.Cluster) *[]*cluster.Cluster {
 	if len(src) == 0 {
 		return GetClusterSlice()
@@ -110,6 +124,7 @@ func SafeCopyClusterSlice(src []*cluster.Cluster) *[]*cluster.Cluster {
 
 // SafeCopyHTTPFilterSlice создает глубокую копию слайса HTTP фильтров с использованием пула
 // Возвращает новый слайс, который нужно освободить с помощью PutHTTPFilterSlice
+// Метрики использования пула автоматически записываются через вызовы GetHTTPFilterSlice и PutHTTPFilterSlice
 func SafeCopyHTTPFilterSlice(src []*hcmv3.HttpFilter) *[]*hcmv3.HttpFilter {
 	if len(src) == 0 {
 		return GetHTTPFilterSlice()

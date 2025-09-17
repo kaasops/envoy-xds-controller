@@ -34,7 +34,7 @@ func NewHTTPFilterLRUCache(capacity int, ttl time.Duration) *HTTPFilterLRUCache 
 	}
 	
 	return &HTTPFilterLRUCache{
-		lru: utils.NewLRUCache(capacity, ttl),
+		lru: utils.NewTypedLRUCache(capacity, ttl, "http_filter_lru"),
 	}
 }
 

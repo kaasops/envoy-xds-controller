@@ -34,7 +34,7 @@ func NewClusterLRUCache(capacity int, ttl time.Duration) *ClusterLRUCache {
 	}
 	
 	return &ClusterLRUCache{
-		lru: utils.NewLRUCache(capacity, ttl),
+		lru: utils.NewTypedLRUCache(capacity, ttl, "cluster_lru"),
 	}
 }
 

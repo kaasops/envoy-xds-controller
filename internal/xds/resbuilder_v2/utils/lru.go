@@ -15,21 +15,35 @@ type LRUCacheItem struct {
 
 // LRUCache provides a thread-safe LRU cache implementation with TTL support
 type LRUCache struct {
-	mu       sync.RWMutex
-	capacity int
-	ll       *list.List                 // doubly linked list for LRU ordering
-	cache    map[string]*list.Element   // map for O(1) lookups
-	ttl      time.Duration              // optional TTL for cache items
+	mu        sync.RWMutex
+	capacity  int
+	ll        *list.List                // doubly linked list for LRU ordering
+	cache     map[string]*list.Element  // map for O(1) lookups
+	ttl       time.Duration             // optional TTL for cache items
+	cacheType string                    // type of cache for metrics (e.g., "cluster", "http_filter")
 }
 
 // NewLRUCache creates a new LRU cache with the specified capacity and TTL
 // If ttl is 0, items will not expire based on time
 func NewLRUCache(capacity int, ttl time.Duration) *LRUCache {
 	return &LRUCache{
-		capacity: capacity,
-		ll:       list.New(),
-		cache:    make(map[string]*list.Element),
-		ttl:      ttl,
+		capacity:  capacity,
+		ll:        list.New(),
+		cache:     make(map[string]*list.Element),
+		ttl:       ttl,
+		cacheType: "generic_lru", // default cache type
+	}
+}
+
+// NewTypedLRUCache creates a new LRU cache with the specified capacity, TTL, and cache type
+// The cache type is used for metrics identification
+func NewTypedLRUCache(capacity int, ttl time.Duration, cacheType string) *LRUCache {
+	return &LRUCache{
+		capacity:  capacity,
+		ll:        list.New(),
+		cache:     make(map[string]*list.Element),
+		ttl:       ttl,
+		cacheType: cacheType,
 	}
 }
 
@@ -41,6 +55,8 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 	c.mu.RUnlock()
 	
 	if !exists {
+		// Record cache miss
+		RecordCacheMiss(c.cacheType)
 		return nil, false
 	}
 	
@@ -50,6 +66,8 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 	// Double-check after acquiring write lock
 	element, exists = c.cache[key]
 	if !exists {
+		// Record cache miss
+		RecordCacheMiss(c.cacheType)
 		return nil, false
 	}
 	
@@ -59,12 +77,20 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 	if c.ttl > 0 && time.Since(item.Timestamp) > c.ttl {
 		c.ll.Remove(element)
 		delete(c.cache, key)
+		// Record TTL eviction
+		RecordCacheEviction(c.cacheType, "ttl")
+		RecordCacheMiss(c.cacheType)
+		// Update cache size metric
+		UpdateCacheSize(c.cacheType, c.ll.Len())
 		return nil, false
 	}
 	
 	// Move to front (most recently used)
 	c.ll.MoveToFront(element)
 	item.Timestamp = time.Now() // Update timestamp on access
+	
+	// Record cache hit
+	RecordCacheHit(c.cacheType)
 	
 	return item.Value, true
 }
@@ -86,6 +112,8 @@ func (c *LRUCache) Set(key string, value interface{}) {
 	// Evict if at capacity
 	if c.ll.Len() >= c.capacity {
 		c.evictOldest()
+		// Record LRU eviction
+		RecordCacheEviction(c.cacheType, "lru")
 	}
 	
 	// Add new item
@@ -96,6 +124,9 @@ func (c *LRUCache) Set(key string, value interface{}) {
 	}
 	element := c.ll.PushFront(item)
 	c.cache[key] = element
+	
+	// Update cache size metric
+	UpdateCacheSize(c.cacheType, c.ll.Len())
 }
 
 // Remove explicitly removes a key from the cache
@@ -106,6 +137,12 @@ func (c *LRUCache) Remove(key string) {
 	if element, exists := c.cache[key]; exists {
 		c.ll.Remove(element)
 		delete(c.cache, key)
+		
+		// Record manual eviction
+		RecordCacheEviction(c.cacheType, "manual")
+		
+		// Update cache size metric
+		UpdateCacheSize(c.cacheType, c.ll.Len())
 	}
 }
 
@@ -114,8 +151,18 @@ func (c *LRUCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	
+	oldSize := c.ll.Len()
+	
+	// Record bulk eviction if there were items
+	if oldSize > 0 {
+		RecordCacheEviction(c.cacheType, "bulk_clear")
+	}
+	
 	c.ll = list.New()
 	c.cache = make(map[string]*list.Element)
+	
+	// Update cache size metric (should be zero)
+	UpdateCacheSize(c.cacheType, 0)
 }
 
 // Len returns the current number of items in the cache
@@ -161,10 +208,19 @@ func (c *LRUCache) RemoveExpired() int {
 			c.ll.Remove(e)
 			delete(c.cache, item.Key)
 			removed++
+			
+			// Record TTL-based eviction
+			RecordCacheEviction(c.cacheType, "ttl")
+			
 			e = next
 		} else {
 			e = e.Prev()
 		}
+	}
+	
+	// Update cache size metric if items were removed
+	if removed > 0 {
+		UpdateCacheSize(c.cacheType, c.ll.Len())
 	}
 	
 	return removed
