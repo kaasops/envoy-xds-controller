@@ -17,27 +17,35 @@ import (
 // ExtractClustersFromFilterChains extracts all cluster references from listener filter chains
 // This function provides optimized cluster extraction from existing listener configurations
 func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store *store.Store) ([]*cluster.Cluster, error) {
-	var clusterNames []string
+	// Use pooled string slice for cluster names
+	namesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(namesPtr)
+	names := *namesPtr
 
+	// Extract cluster names from all filter chains
 	for _, filterChain := range filterChains {
 		for _, filter := range filterChain.Filters {
-			names, err := extractClustersFromFilter(filter)
+			filterNames, err := extractClustersFromFilter(filter)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract clusters from filter %s: %w", filter.Name, err)
 			}
-			clusterNames = append(clusterNames, names...)
+			names = append(names, filterNames...)
 		}
 	}
 
-	if len(clusterNames) == 0 {
+	if len(names) == 0 {
 		return nil, nil
 	}
 
 	// Remove duplicates
-	uniqueNames := removeDuplicateStrings(clusterNames)
+	uniqueNames := removeDuplicateStrings(names)
+
+	// Use pooled cluster slice for results
+	clustersPtr := utils.GetClusterSlice()
+	defer utils.PutClusterSlice(clustersPtr)
+	clusters := *clustersPtr
 
 	// Resolve clusters from store
-	clusters := make([]*cluster.Cluster, 0, len(uniqueNames))
 	for _, clusterName := range uniqueNames {
 		cl := store.GetSpecCluster(clusterName)
 		if cl == nil {
@@ -50,47 +58,63 @@ func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, sto
 		clusters = append(clusters, xdsCluster)
 	}
 
-	return clusters, nil
+	// Create a new slice to return to the caller
+	// We can't return the pooled slice directly as it would be reused
+	result := make([]*cluster.Cluster, len(clusters))
+	copy(result, clusters)
+
+	return result, nil
 }
 
 // extractClustersFromFilter extracts cluster names from a specific listener filter
 func extractClustersFromFilter(filter *listenerv3.Filter) ([]string, error) {
-	var names []string
+	// Use pooled string slice for results
+	namesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(namesPtr)
+	// We're not using the pooled slice directly in this function,
+	// but we still need to acquire and release it properly
+
+	var err error
+	var extractedNames []string
 
 	switch filter.Name {
 	case wellknown.HTTPConnectionManager:
-		hcmNames, err := extractClustersFromHCMFilter(filter)
+		extractedNames, err = extractClustersFromHCMFilter(filter)
 		if err != nil {
 			return nil, err
 		}
-		names = append(names, hcmNames...)
 
 	case wellknown.TCPProxy:
-		tcpNames, err := extractClustersFromTCPProxyFilter(filter)
+		extractedNames, err = extractClustersFromTCPProxyFilter(filter)
 		if err != nil {
 			return nil, err
 		}
-		names = append(names, tcpNames...)
 
 	default:
 		// For other filter types, try generic JSON-based extraction as fallback
-		genericNames, err := extractClustersFromGenericFilter(filter)
+		extractedNames, err = extractClustersFromGenericFilter(filter)
 		if err != nil {
 			return nil, err
 		}
-		names = append(names, genericNames...)
 	}
 
-	return names, nil
+	// Create a new slice to return to the caller
+	result := make([]string, len(extractedNames))
+	copy(result, extractedNames)
+
+	return result, nil
 }
 
 // extractClustersFromHCMFilter extracts cluster names from HTTP Connection Manager filter
 func extractClustersFromHCMFilter(filter *listenerv3.Filter) ([]string, error) {
-	var names []string
+	// Use pooled string slice for results
+	namesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(namesPtr)
+	names := *namesPtr
 
 	typedConfig := filter.GetTypedConfig()
 	if typedConfig == nil {
-		return names, nil
+		return make([]string, 0), nil
 	}
 
 	var hcm hcmv3.HttpConnectionManager
@@ -122,16 +146,23 @@ func extractClustersFromHCMFilter(filter *listenerv3.Filter) ([]string, error) {
 		names = append(names, tracingNames...)
 	}
 
-	return names, nil
+	// Create a new slice to return to the caller
+	result := make([]string, len(names))
+	copy(result, names)
+
+	return result, nil
 }
 
 // extractClustersFromTCPProxyFilter extracts cluster names from TCP Proxy filter
 func extractClustersFromTCPProxyFilter(filter *listenerv3.Filter) ([]string, error) {
-	var names []string
+	// Use pooled string slice for results
+	namesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(namesPtr)
+	names := *namesPtr
 
 	typedConfig := filter.GetTypedConfig()
 	if typedConfig == nil {
-		return names, nil
+		return make([]string, 0), nil
 	}
 
 	var tcpProxy tcpProxyv3.TcpProxy
@@ -155,14 +186,18 @@ func extractClustersFromTCPProxyFilter(filter *listenerv3.Filter) ([]string, err
 		}
 	}
 
-	return names, nil
+	// Create a new slice to return to the caller
+	result := make([]string, len(names))
+	copy(result, names)
+
+	return result, nil
 }
 
 // extractClustersFromGenericFilter provides fallback JSON-based extraction for unknown filter types
 func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, error) {
 	typedConfig := filter.GetTypedConfig()
 	if typedConfig == nil {
-		return nil, nil
+		return make([]string, 0), nil
 	}
 
 	// Convert to generic data structure for searching
@@ -172,30 +207,44 @@ func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, erro
 	}
 
 	// Search for common cluster field names
-	var allNames []string
+	// Use pooled string slice for collecting names
+	allNamesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(allNamesPtr)
+	allNames := *allNamesPtr
+
 	commonClusterFields := []string{"cluster", "cluster_name", "collector_cluster"}
 
 	for _, fieldName := range commonClusterFields {
-		names := utils.FindClusterNames(data, fieldName)
-		allNames = append(allNames, names...)
+		fieldNames := utils.FindClusterNames(data, fieldName)
+		allNames = append(allNames, fieldNames...)
 	}
 
-	return removeDuplicateStrings(allNames), nil
+	// Remove duplicates and create a new slice to return
+	uniqueNames := removeDuplicateStrings(allNames)
+
+	// Create a new slice to return to the caller
+	result := make([]string, len(uniqueNames))
+	copy(result, uniqueNames)
+
+	return result, nil
 }
 
 // extractClustersFromHTTPFilter extracts cluster names from HTTP filters (OAuth2, etc.)
 func extractClustersFromHTTPFilter(httpFilter *hcmv3.HttpFilter) []string {
-	var names []string
+	// Use pooled string slice for results
+	namesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(namesPtr)
+	names := *namesPtr
 
 	typedConfig := httpFilter.GetTypedConfig()
 	if typedConfig == nil {
-		return names
+		return make([]string, 0)
 	}
 
 	// Convert to generic data structure for searching
 	var data interface{}
 	if err := json.Unmarshal(typedConfig.Value, &data); err != nil {
-		return names
+		return make([]string, 0)
 	}
 
 	// Search for cluster references in various formats
@@ -205,16 +254,23 @@ func extractClustersFromHTTPFilter(httpFilter *hcmv3.HttpFilter) []string {
 		names = append(names, fieldNames...)
 	}
 
-	return names
+	// Create a new slice to return to the caller
+	result := make([]string, len(names))
+	copy(result, names)
+
+	return result
 }
 
 // extractClustersFromAccessLog extracts cluster names from access log configurations
 func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, error) {
-	var names []string
+	// Use pooled string slice for results
+	namesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(namesPtr)
+	names := *namesPtr
 
 	typedConfig := accessLog.GetTypedConfig()
 	if typedConfig == nil {
-		return names, nil
+		return make([]string, 0), nil
 	}
 
 	// Convert to generic data structure for searching
@@ -230,12 +286,19 @@ func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, e
 		names = append(names, fieldNames...)
 	}
 
-	return names, nil
+	// Create a new slice to return to the caller
+	result := make([]string, len(names))
+	copy(result, names)
+
+	return result, nil
 }
 
 // extractClustersFromTracing extracts cluster names from tracing configuration
 func extractClustersFromTracing(tracing *hcmv3.HttpConnectionManager_Tracing) ([]string, error) {
-	var names []string
+	// Use pooled string slice for results
+	namesPtr := utils.GetStringSlice()
+	defer utils.PutStringSlice(namesPtr)
+	names := *namesPtr
 
 	// Convert tracing config to generic data for searching
 	jsonData, err := json.Marshal(tracing)
@@ -255,13 +318,17 @@ func extractClustersFromTracing(tracing *hcmv3.HttpConnectionManager_Tracing) ([
 		names = append(names, fieldNames...)
 	}
 
-	return names, nil
+	// Create a new slice to return to the caller
+	result := make([]string, len(names))
+	copy(result, names)
+
+	return result, nil
 }
 
 // removeDuplicateStrings removes duplicate entries from a string slice
 func removeDuplicateStrings(strings []string) []string {
 	if len(strings) == 0 {
-		return strings
+		return make([]string, 0)
 	}
 
 	seen := make(map[string]struct{}, len(strings))

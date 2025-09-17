@@ -56,12 +56,24 @@ func (c *httpFiltersCache) get(key string) ([]*hcmv3.HttpFilter, bool) {
 	if !exists {
 		return nil, false
 	}
-	// Return deep copies to avoid mutation issues
-	result := make([]*hcmv3.HttpFilter, len(filters))
-	for i, filter := range filters {
-		result[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
+
+	// Get a slice from the pool
+	resultPtr := utils.GetHTTPFilterSlice()
+	result := *resultPtr
+
+	// Create deep copies to avoid mutation issues
+	for _, filter := range filters {
+		*resultPtr = append(*resultPtr, proto.Clone(filter).(*hcmv3.HttpFilter))
 	}
-	return result, true
+
+	// Create a new slice to return to the caller - we can't return the pooled slice directly
+	finalResult := make([]*hcmv3.HttpFilter, len(result))
+	copy(finalResult, result)
+
+	// Return the slice to the pool
+	utils.PutHTTPFilterSlice(resultPtr)
+
+	return finalResult, true
 }
 
 func (c *httpFiltersCache) set(key string, filters []*hcmv3.HttpFilter) {
@@ -73,12 +85,21 @@ func (c *httpFiltersCache) set(key string, filters []*hcmv3.HttpFilter) {
 		c.cache = make(map[string][]*hcmv3.HttpFilter)
 	}
 
+	// Get a slice from the pool
+	cachedPtr := utils.GetHTTPFilterSlice()
+
 	// Store deep copies to avoid mutation issues
-	cached := make([]*hcmv3.HttpFilter, len(filters))
-	for i, filter := range filters {
-		cached[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
+	for _, filter := range filters {
+		*cachedPtr = append(*cachedPtr, proto.Clone(filter).(*hcmv3.HttpFilter))
 	}
-	c.cache[key] = cached
+
+	// Create a permanent slice for the cache - we can't store the pooled slice
+	permanentCached := make([]*hcmv3.HttpFilter, len(*cachedPtr))
+	copy(permanentCached, *cachedPtr)
+	c.cache[key] = permanentCached
+
+	// Return the slice to the pool
+	utils.PutHTTPFilterSlice(cachedPtr)
 }
 
 var httpFiltersGlobalCache = newHTTPFiltersCache()
@@ -291,8 +312,9 @@ func checkFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
 
 // extractClustersFromFilterChains extracts clusters from filter chains
 func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store *store.Store) ([]*cluster.Cluster, error) {
-	// Pre-allocate based on number of filter chains (each typically contains one cluster)
-	clusters := make([]*cluster.Cluster, 0, len(filterChains))
+	// Get a slice from the pool
+	clustersPtr := utils.GetClusterSlice()
+	defer utils.PutClusterSlice(clustersPtr)
 
 	for _, fc := range filterChains {
 		for _, filter := range fc.Filters {
@@ -317,12 +339,16 @@ func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, sto
 					return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
 				}
 
-				clusters = append(clusters, xdsCluster)
+				*clustersPtr = append(*clustersPtr, xdsCluster)
 			}
 		}
 	}
 
-	return clusters, nil
+	// Create a new slice to return to the caller - we can't return the pooled slice directly
+	result := make([]*cluster.Cluster, len(*clustersPtr))
+	copy(result, *clustersPtr)
+
+	return result, nil
 }
 
 // buildResourcesFromVirtualService builds resources from virtual service configuration

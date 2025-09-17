@@ -14,6 +14,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,12 +41,23 @@ func (c *httpFiltersCache) get(key string) ([]*hcmv3.HttpFilter, bool) {
 	if !exists {
 		return nil, false
 	}
-	// Return deep copies to avoid mutation issues
-	result := make([]*hcmv3.HttpFilter, len(filters))
-	for i, filter := range filters {
-		result[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
+
+	// Get a slice from the pool
+	resultPtr := utils.GetHTTPFilterSlice()
+
+	// Create deep copies to avoid mutation issues
+	for _, filter := range filters {
+		*resultPtr = append(*resultPtr, proto.Clone(filter).(*hcmv3.HttpFilter))
 	}
-	return result, true
+
+	// Create a new slice to return to the caller - we can't return the pooled slice directly
+	finalResult := make([]*hcmv3.HttpFilter, len(*resultPtr))
+	copy(finalResult, *resultPtr)
+
+	// Return the slice to the pool
+	utils.PutHTTPFilterSlice(resultPtr)
+
+	return finalResult, true
 }
 
 func (c *httpFiltersCache) set(key string, filters []*hcmv3.HttpFilter) {
@@ -57,12 +69,21 @@ func (c *httpFiltersCache) set(key string, filters []*hcmv3.HttpFilter) {
 		c.cache = make(map[string][]*hcmv3.HttpFilter)
 	}
 
+	// Get a slice from the pool
+	cachedPtr := utils.GetHTTPFilterSlice()
+
 	// Store deep copies to avoid mutation issues
-	cached := make([]*hcmv3.HttpFilter, len(filters))
-	for i, filter := range filters {
-		cached[i] = proto.Clone(filter).(*hcmv3.HttpFilter)
+	for _, filter := range filters {
+		*cachedPtr = append(*cachedPtr, proto.Clone(filter).(*hcmv3.HttpFilter))
 	}
-	c.cache[key] = cached
+
+	// Create a permanent slice for the cache - we can't store the pooled slice
+	permanentCached := make([]*hcmv3.HttpFilter, len(*cachedPtr))
+	copy(permanentCached, *cachedPtr)
+	c.cache[key] = permanentCached
+
+	// Return the slice to the pool
+	utils.PutHTTPFilterSlice(cachedPtr)
 }
 
 var globalHTTPFiltersCache = newHTTPFiltersCache()
