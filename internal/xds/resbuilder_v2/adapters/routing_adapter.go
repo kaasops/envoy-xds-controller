@@ -5,7 +5,7 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/interfaces"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/routes"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 )
@@ -16,7 +16,7 @@ type RoutingAdapter struct {
 }
 
 // NewRoutingAdapter creates a new adapter for the routes.Builder
-func NewRoutingAdapter(builder *routes.Builder) resbuilder_v2.RoutingBuilder {
+func NewRoutingAdapter(builder *routes.Builder) interfaces.RoutingBuilder {
 	return &RoutingAdapter{
 		builder: builder,
 	}

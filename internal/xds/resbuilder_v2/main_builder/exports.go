@@ -1,17 +1,16 @@
 package main_builder
 
 import (
-	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/interfaces"
 )
 
-// Ensure Builder implements resbuilder_v2.MainBuilder
-var _ resbuilder_v2.MainBuilder = (*Builder)(nil)
+// Ensure Builder implements interfaces.MainBuilder
+var _ interfaces.MainBuilder = (*Builder)(nil)
 
 // NewMainBuilder creates a new Main Resource Builder that implements the MainBuilder interface
 // This is the main entry point for using the Main Resource Building component
-func NewMainBuilder(store *store.Store) resbuilder_v2.MainBuilder {
+func NewMainBuilder(store *store.Store) interfaces.MainBuilder {
 	return &Builder{
 		store: store,
 		// These components would normally be injected, but we're creating them here for simplicity
@@ -22,21 +21,19 @@ func NewMainBuilder(store *store.Store) resbuilder_v2.MainBuilder {
 		accessLogBuilder: nil, // Will be set in the ResourceBuilder
 		tlsBuilder:       nil, // Will be set in the ResourceBuilder
 		clusterExtractor: nil, // Will be set in the ResourceBuilder
+		cache:           newResourcesCache(), // Initialize cache
 	}
 }
-
-// Ensure Builder implements resbuilder_v2.MainBuilder
-var _ resbuilder_v2.MainBuilder = (*Builder)(nil)
 
 // SetComponents sets all the component builders for the Main Builder
 // This allows the ResourceBuilder to inject its components into the Main Builder
 func (b *Builder) SetComponents(
-	httpFilterBuilder resbuilder_v2.HTTPFilterBuilder,
-	filterChainBuilder resbuilder_v2.FilterChainBuilder,
-	routingBuilder resbuilder_v2.RoutingBuilder,
-	accessLogBuilder resbuilder_v2.AccessLogBuilder,
-	tlsBuilder resbuilder_v2.TLSBuilder,
-	clusterExtractor resbuilder_v2.ClusterExtractor,
+	httpFilterBuilder interfaces.HTTPFilterBuilder,
+	filterChainBuilder interfaces.FilterChainBuilder,
+	routingBuilder interfaces.RoutingBuilder,
+	accessLogBuilder interfaces.AccessLogBuilder,
+	tlsBuilder interfaces.TLSBuilder,
+	clusterExtractor interfaces.ClusterExtractor,
 ) {
 	b.httpFilterBuilder = httpFilterBuilder
 	b.filterChainBuilder = filterChainBuilder

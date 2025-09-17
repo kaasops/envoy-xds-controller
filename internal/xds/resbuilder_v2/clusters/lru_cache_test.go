@@ -197,7 +197,7 @@ func TestGetGlobalClusterCache(t *testing.T) {
 	// Simple operation to verify it works
 	testCluster := createTestCluster("test-global-cluster")
 	cache1.Set("global-test-key", []*cluster.Cluster{testCluster})
-	
+
 	clusters, found := cache2.Get("global-test-key")
 	if !found {
 		t.Errorf("Failed to get clusters from global cache")

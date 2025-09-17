@@ -1,13 +1,17 @@
 package adapters
 
 import (
+	"fmt"
+
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/clusters"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/interfaces"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 )
 
 // ClusterExtractorAdapter adapts the clusters.Builder to implement the ClusterExtractor interface
@@ -17,7 +21,7 @@ type ClusterExtractorAdapter struct {
 }
 
 // NewClusterExtractorAdapter creates a new adapter for the clusters.Builder
-func NewClusterExtractorAdapter(builder *clusters.Builder, store *store.Store) resbuilder_v2.ClusterExtractor {
+func NewClusterExtractorAdapter(builder *clusters.Builder, store *store.Store) interfaces.ClusterExtractor {
 	return &ClusterExtractorAdapter{
 		builder: builder,
 		store:   store,
@@ -26,29 +30,51 @@ func NewClusterExtractorAdapter(builder *clusters.Builder, store *store.Store) r
 
 // ExtractClustersFromFilterChains extracts clusters from filter chains
 func (a *ClusterExtractorAdapter) ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain) ([]*cluster.Cluster, error) {
-	// This method isn't directly available in clusters.Builder
-	// Implementing based on extractClustersFromFilterChains in builder.go
-	
-	var clusters []*cluster.Cluster
-	
-	// For each filter chain
+	// Get a slice from the object pool
+	clustersPtr := utils.GetClusterSlice()
+	defer utils.PutClusterSlice(clustersPtr)
+
+	// Process each filter chain
 	for _, fc := range filterChains {
 		for _, filter := range fc.Filters {
-			// Look for TCP proxy filters with cluster references
 			if tc := filter.GetTypedConfig(); tc != nil {
-				// In a real implementation, you would extract clusters from TCP proxy config
-				// This would involve:
-				// 1. Checking if the filter is a TCP proxy
-				// 2. Extracting the cluster name
-				// 3. Getting the cluster from the store
-				// 4. Adding it to the results
+				// Check if this is a TCP proxy filter
+				if tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy" {
+					return nil, fmt.Errorf("unexpected filter type: %s", tc.TypeUrl)
+				}
+
+				// Unmarshal the TCP proxy configuration
+				var tcpProxy tcpProxyv3.TcpProxy
+				if err := tc.UnmarshalTo(&tcpProxy); err != nil {
+					return nil, fmt.Errorf("failed to unmarshal TCP proxy config: %w", err)
+				}
+
+				// Extract the cluster name
+				clusterName := tcpProxy.GetCluster()
+				
+				// Get the cluster from the store
+				cl := a.store.GetSpecCluster(clusterName)
+				if cl == nil {
+					return nil, fmt.Errorf("cluster %s not found", clusterName)
+				}
+
+				// Unmarshal and validate the cluster
+				xdsCluster, err := cl.UnmarshalV3AndValidate()
+				if err != nil {
+					return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+				}
+
+				// Add the cluster to the result collection
+				*clustersPtr = append(*clustersPtr, xdsCluster)
 			}
 		}
 	}
-	
-	// In a real implementation, this would need to be fully implemented
-	// For now, returning an empty slice to demonstrate the structure
-	return clusters, nil
+
+	// Create a new slice to return to the caller - we can't return the pooled slice directly
+	result := make([]*cluster.Cluster, len(*clustersPtr))
+	copy(result, *clustersPtr)
+
+	return result, nil
 }
 
 // ExtractClustersFromVirtualHost extracts clusters from a virtual host

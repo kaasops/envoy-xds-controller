@@ -11,7 +11,7 @@ import (
 const (
 	// DefaultCacheCapacity is the default maximum number of cached cluster configurations
 	DefaultCacheCapacity = 500
-	
+
 	// DefaultCacheTTL is the default time-to-live for cached cluster configurations
 	// 5 minutes is a reasonable default that balances freshness with performance
 	DefaultCacheTTL = 5 * time.Minute
@@ -28,11 +28,11 @@ func NewClusterLRUCache(capacity int, ttl time.Duration) *ClusterLRUCache {
 	if capacity <= 0 {
 		capacity = DefaultCacheCapacity
 	}
-	
+
 	if ttl <= 0 {
 		ttl = DefaultCacheTTL
 	}
-	
+
 	return &ClusterLRUCache{
 		lru: utils.NewTypedLRUCache(capacity, ttl, "cluster_lru"),
 	}
@@ -44,19 +44,19 @@ func (c *ClusterLRUCache) Get(key string) ([]*cluster.Cluster, bool) {
 	if !exists {
 		return nil, false
 	}
-	
+
 	// Type assertion
 	clusters, ok := value.([]*cluster.Cluster)
 	if !ok {
 		return nil, false
 	}
-	
+
 	// Return deep copies to avoid mutation issues
 	result := make([]*cluster.Cluster, len(clusters))
 	for i, cl := range clusters {
 		result[i] = proto.Clone(cl).(*cluster.Cluster)
 	}
-	
+
 	return result, true
 }
 
@@ -67,7 +67,7 @@ func (c *ClusterLRUCache) Set(key string, clusters []*cluster.Cluster) {
 	for i, cl := range clusters {
 		cached[i] = proto.Clone(cl).(*cluster.Cluster)
 	}
-	
+
 	c.lru.Set(key, cached)
 }
 

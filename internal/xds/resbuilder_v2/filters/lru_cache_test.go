@@ -180,17 +180,17 @@ func TestHTTPFilterLRUCache_RemoveExpired(t *testing.T) {
 // We can't directly check pool usage stats, but we can verify the operations complete successfully
 func TestHTTPFilterLRUCache_ObjectPool(t *testing.T) {
 	cache := NewHTTPFilterLRUCache(20, 0) // No TTL, larger capacity to fit all test items
-	
+
 	// Create test filters
 	filter1 := createTestHTTPFilter("test-filter-1")
 	filter2 := createTestHTTPFilter("test-filter-2")
-	
+
 	// Set and get multiple times to exercise the object pool
 	for i := 0; i < 10; i++ {
 		key := "key" + string(rune('0'+i))
 		cache.Set(key, []*hcmv3.HttpFilter{filter1, filter2})
 	}
-	
+
 	// Verify we can retrieve the items
 	for i := 0; i < 10; i++ {
 		key := "key" + string(rune('0'+i))
@@ -202,7 +202,7 @@ func TestHTTPFilterLRUCache_ObjectPool(t *testing.T) {
 			t.Errorf("Expected 2 filters for key %s, got %d", key, len(filters))
 		}
 	}
-	
+
 	// The test passes if all operations complete without errors
 }
 
@@ -227,7 +227,7 @@ func TestGetGlobalHTTPFilterCache(t *testing.T) {
 	// Simple operation to verify it works
 	testFilter := createTestHTTPFilter("test-global-filter")
 	cache1.Set("global-test-key", []*hcmv3.HttpFilter{testFilter})
-	
+
 	filters, found := cache2.Get("global-test-key")
 	if !found {
 		t.Errorf("Failed to get filters from global cache")

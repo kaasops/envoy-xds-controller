@@ -17,10 +17,10 @@ type LRUCacheItem struct {
 type LRUCache struct {
 	mu        sync.RWMutex
 	capacity  int
-	ll        *list.List                // doubly linked list for LRU ordering
-	cache     map[string]*list.Element  // map for O(1) lookups
-	ttl       time.Duration             // optional TTL for cache items
-	cacheType string                    // type of cache for metrics (e.g., "cluster", "http_filter")
+	ll        *list.List               // doubly linked list for LRU ordering
+	cache     map[string]*list.Element // map for O(1) lookups
+	ttl       time.Duration            // optional TTL for cache items
+	cacheType string                   // type of cache for metrics (e.g., "cluster", "http_filter")
 }
 
 // NewLRUCache creates a new LRU cache with the specified capacity and TTL
@@ -53,16 +53,16 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 	c.mu.RLock()
 	element, exists := c.cache[key]
 	c.mu.RUnlock()
-	
+
 	if !exists {
 		// Record cache miss
 		RecordCacheMiss(c.cacheType)
 		return nil, false
 	}
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Double-check after acquiring write lock
 	element, exists = c.cache[key]
 	if !exists {
@@ -70,9 +70,9 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 		RecordCacheMiss(c.cacheType)
 		return nil, false
 	}
-	
+
 	item := element.Value.(*LRUCacheItem)
-	
+
 	// Check TTL if enabled
 	if c.ttl > 0 && time.Since(item.Timestamp) > c.ttl {
 		c.ll.Remove(element)
@@ -84,14 +84,14 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 		UpdateCacheSize(c.cacheType, c.ll.Len())
 		return nil, false
 	}
-	
+
 	// Move to front (most recently used)
 	c.ll.MoveToFront(element)
 	item.Timestamp = time.Now() // Update timestamp on access
-	
+
 	// Record cache hit
 	RecordCacheHit(c.cacheType)
-	
+
 	return item.Value, true
 }
 
@@ -99,7 +99,7 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 func (c *LRUCache) Set(key string, value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// If key exists, update its value and move to front
 	if element, exists := c.cache[key]; exists {
 		c.ll.MoveToFront(element)
@@ -108,14 +108,14 @@ func (c *LRUCache) Set(key string, value interface{}) {
 		item.Timestamp = time.Now()
 		return
 	}
-	
+
 	// Evict if at capacity
 	if c.ll.Len() >= c.capacity {
 		c.evictOldest()
 		// Record LRU eviction
 		RecordCacheEviction(c.cacheType, "lru")
 	}
-	
+
 	// Add new item
 	item := &LRUCacheItem{
 		Key:       key,
@@ -124,7 +124,7 @@ func (c *LRUCache) Set(key string, value interface{}) {
 	}
 	element := c.ll.PushFront(item)
 	c.cache[key] = element
-	
+
 	// Update cache size metric
 	UpdateCacheSize(c.cacheType, c.ll.Len())
 }
@@ -133,14 +133,14 @@ func (c *LRUCache) Set(key string, value interface{}) {
 func (c *LRUCache) Remove(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if element, exists := c.cache[key]; exists {
 		c.ll.Remove(element)
 		delete(c.cache, key)
-		
+
 		// Record manual eviction
 		RecordCacheEviction(c.cacheType, "manual")
-		
+
 		// Update cache size metric
 		UpdateCacheSize(c.cacheType, c.ll.Len())
 	}
@@ -150,17 +150,17 @@ func (c *LRUCache) Remove(key string) {
 func (c *LRUCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	oldSize := c.ll.Len()
-	
+
 	// Record bulk eviction if there were items
 	if oldSize > 0 {
 		RecordCacheEviction(c.cacheType, "bulk_clear")
 	}
-	
+
 	c.ll = list.New()
 	c.cache = make(map[string]*list.Element)
-	
+
 	// Update cache size metric (should be zero)
 	UpdateCacheSize(c.cacheType, 0)
 }
@@ -169,7 +169,7 @@ func (c *LRUCache) Clear() {
 func (c *LRUCache) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	return c.ll.Len()
 }
 
@@ -179,7 +179,7 @@ func (c *LRUCache) evictOldest() {
 	if c.ll.Len() == 0 {
 		return
 	}
-	
+
 	oldest := c.ll.Back()
 	if oldest != nil {
 		item := oldest.Value.(*LRUCacheItem)
@@ -194,13 +194,13 @@ func (c *LRUCache) RemoveExpired() int {
 	if c.ttl <= 0 {
 		return 0 // TTL not enabled, nothing to do
 	}
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	removed := 0
 	now := time.Now()
-	
+
 	for e := c.ll.Back(); e != nil; {
 		item := e.Value.(*LRUCacheItem)
 		if now.Sub(item.Timestamp) > c.ttl {
@@ -208,20 +208,20 @@ func (c *LRUCache) RemoveExpired() int {
 			c.ll.Remove(e)
 			delete(c.cache, item.Key)
 			removed++
-			
+
 			// Record TTL-based eviction
 			RecordCacheEviction(c.cacheType, "ttl")
-			
+
 			e = next
 		} else {
 			e = e.Prev()
 		}
 	}
-	
+
 	// Update cache size metric if items were removed
 	if removed > 0 {
 		UpdateCacheSize(c.cacheType, c.ll.Len())
 	}
-	
+
 	return removed
 }

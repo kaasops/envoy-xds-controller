@@ -7,7 +7,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/interfaces"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/secrets"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	v1 "k8s.io/api/core/v1"
@@ -19,7 +19,7 @@ type TLSAdapter struct {
 }
 
 // NewTLSAdapter creates a new adapter for TLS functionality
-func NewTLSAdapter(store *store.Store) resbuilder_v2.TLSBuilder {
+func NewTLSAdapter(store *store.Store) interfaces.TLSBuilder {
 	return &TLSAdapter{
 		store: store,
 	}
