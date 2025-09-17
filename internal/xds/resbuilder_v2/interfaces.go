@@ -51,3 +51,19 @@ type ClusterExtractor interface {
 	ExtractClustersFromVirtualHost(virtualHost *routev3.VirtualHost) ([]*cluster.Cluster, error)
 	ExtractClustersFromHTTPFilters(httpFilters []*hcmv3.HttpFilter) ([]*cluster.Cluster, error)
 }
+
+// MainBuilder is the interface for the main resource building component
+type MainBuilder interface {
+	// BuildResources builds all resources for a VirtualService
+	BuildResources(vs *v1alpha1.VirtualService) (interface{}, error)
+	
+	// SetComponents sets all the component builders for the Main Builder
+	SetComponents(
+		httpFilterBuilder HTTPFilterBuilder,
+		filterChainBuilder FilterChainBuilder,
+		routingBuilder RoutingBuilder,
+		accessLogBuilder AccessLogBuilder,
+		tlsBuilder TLSBuilder,
+		clusterExtractor ClusterExtractor,
+	)
+}
