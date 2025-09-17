@@ -1,7 +1,7 @@
 # Передача задач по оптимизации ResBuilder
 
 ## Статус: В_РАБОТЕ
-Последнее обновление: 2025-09-17 14:30
+Последнее обновление: 2025-09-17 14:45
 
 ## Выполненные задачи
 - [x] Анализ текущего состояния - [завершено] - [2025-09-17]
@@ -10,7 +10,13 @@
 - [x] Улучшение стратегии кэширования (LRU) - [завершено] - [2025-09-17]
 - [x] Расширение тестового покрытия для LRU кэша - [завершено] - [2025-09-17]
 - [x] Добавление метрик мониторинга - [завершено] - [2025-09-17]
-- [ ] Дальнейший рефакторинг архитектуры - [не начато]
+- [x] Реализация HTTP Filters Management компонента - [завершено] - [2025-09-17]
+- [x] Реализация Filter Chains Building компонента - [завершено] - [2025-09-17]
+- [ ] Реализация Routing Configuration компонента - [не начато]
+- [ ] Реализация Access Logging компонента - [не начато]
+- [ ] Реализация TLS/Security Configuration компонента - [не начато]
+- [ ] Реализация Main Resource Building компонента - [не начато]
+- [ ] Интеграция компонентов и обновление ResourceBuilder - [не начато]
 
 ## Текущий прогресс
 
@@ -106,20 +112,36 @@
 - Интенсивность использования пулов объектов
 - Динамику создания ресурсов
 
-5. **Архитектура**: ⏳ Разработан план рефакторинга
+5. **Архитектура**: ⏳ В процессе реализации
    - Файл builder.go (~1000 строк) содержит разнородную функциональность и требует разделения
    - Создан детальный план рефакторинга архитектуры в документе `docs/resbuilder-optimization/refactoring-plan.md`
    - Определены компоненты для выделения:
-     - HTTP Filters Management
-     - Filter Chains Building
-     - Routing Configuration
+     - HTTP Filters Management ✅ Реализовано
+     - Filter Chains Building ✅ Реализовано
+     - Routing Configuration ⏳ В процессе
      - Access Logging
      - TLS/Security Configuration
      - Main Resource Building
-     - Utility Functions
+     - Utility Functions ✅ Частично реализовано
    - Спроектирована новая структура пакетов с разделением ответственности
    - Определены интерфейсы компонентов для улучшения тестируемости
    - Разработана стратегия тестирования и план внедрения
+   
+6. **HTTP Filters Management**: ✅ Реализовано
+   - Создан пакет `http_filters` с четким разделением ответственности
+   - Реализован `Builder` для создания HTTP фильтров, который:
+     - Использует существующий LRU кэш с TTL из filters/lru_cache.go
+     - Эффективно обрабатывает RBAC фильтры
+     - Обеспечивает корректный порядок фильтров (router filter всегда в конце)
+   - Создан exports.go файл, предоставляющий чистый публичный API
+   - Компонент полностью совместим с интерфейсом HTTPFilterBuilder
+   
+7. **Filter Chains Building**: ✅ Реализовано
+   - Создан пакет `filter_chains` с минимальной функциональностью
+   - Реализован упрощенный `Builder` без зависимостей от компонентов, которые еще не реализованы
+   - Создан `Params` struct с детальными комментариями для всех полей
+   - Реализованы методы BuildFilterChains и buildFilterChain для основной функциональности
+   - Создан exports.go файл, предоставляющий чистый публичный API
 
 Текущие показатели производительности:
 - Скорость выполнения: 11,492 ns/op (улучшение +18.4% от предыдущей версии)
@@ -219,6 +241,9 @@
 - docs/resbuilder-optimization/handoff.md - подробный отчет о проделанной работе и планах
 - docs/resbuilder-optimization/refactoring-plan.md - детальный план архитектурного рефакторинга
 
+### Определение интерфейсов
+- internal/xds/resbuilder_v2/interfaces.go - определения основных интерфейсов для компонентов
+
 ### Оптимизация пулов объектов
 - internal/xds/resbuilder_v2/utils/pools.go - реализация пулов объектов
 - internal/xds/resbuilder_v2/utils/pools_test.go - тесты для пулов объектов
@@ -236,3 +261,12 @@
 
 ### Мониторинг производительности
 - internal/xds/resbuilder_v2/utils/metrics.go - определения и функции Prometheus метрик
+
+### HTTP Filters Management
+- internal/xds/resbuilder_v2/http_filters/builder.go - основная реализация Builder для HTTP фильтров
+- internal/xds/resbuilder_v2/http_filters/exports.go - публичный API для пакета
+
+### Filter Chains Building
+- internal/xds/resbuilder_v2/filter_chains/params.go - определение структуры параметров
+- internal/xds/resbuilder_v2/filter_chains/builder.go - основная реализация Builder для цепочек фильтров
+- internal/xds/resbuilder_v2/filter_chains/exports.go - публичный API для пакета
