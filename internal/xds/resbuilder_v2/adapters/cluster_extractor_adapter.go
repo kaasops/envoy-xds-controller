@@ -51,7 +51,7 @@ func (a *ClusterExtractorAdapter) ExtractClustersFromFilterChains(filterChains [
 
 				// Extract the cluster name
 				clusterName := tcpProxy.GetCluster()
-				
+
 				// Get the cluster from the store
 				cl := a.store.GetSpecCluster(clusterName)
 				if cl == nil {

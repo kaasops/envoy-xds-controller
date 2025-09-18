@@ -9,13 +9,13 @@ func TestGetFeatureFlags(t *testing.T) {
 	// Save original environment variables to restore after test
 	originalEnableMainBuilder := os.Getenv(EnvEnableMainBuilder)
 	originalMainBuilderPercentage := os.Getenv(EnvMainBuilderPercentage)
-	
+
 	// Restore environment variables after test
 	defer func() {
 		os.Setenv(EnvEnableMainBuilder, originalEnableMainBuilder)
 		os.Setenv(EnvMainBuilderPercentage, originalMainBuilderPercentage)
 	}()
-	
+
 	tests := []struct {
 		name                  string
 		enableMainBuilder     string
@@ -86,24 +86,24 @@ func TestGetFeatureFlags(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set environment variables for test case
 			os.Setenv(EnvEnableMainBuilder, tc.enableMainBuilder)
 			os.Setenv(EnvMainBuilderPercentage, tc.mainBuilderPercentage)
-			
+
 			// Get feature flags
 			flags := GetFeatureFlags()
-			
+
 			// Check results
 			if flags.EnableMainBuilder != tc.expected.EnableMainBuilder {
-				t.Errorf("EnableMainBuilder: got %v, want %v", 
+				t.Errorf("EnableMainBuilder: got %v, want %v",
 					flags.EnableMainBuilder, tc.expected.EnableMainBuilder)
 			}
-			
+
 			if flags.MainBuilderPercentage != tc.expected.MainBuilderPercentage {
-				t.Errorf("MainBuilderPercentage: got %v, want %v", 
+				t.Errorf("MainBuilderPercentage: got %v, want %v",
 					flags.MainBuilderPercentage, tc.expected.MainBuilderPercentage)
 			}
 		})
@@ -130,20 +130,20 @@ func TestGetBoolEnv(t *testing.T) {
 		{"Invalid value with true default", "invalid", true, true},
 		{"Invalid value with false default", "invalid", false, false},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := getBoolEnv("TEST_KEY", tc.defaultVal)
-			
+
 			// For empty value tests, don't set environment variable
 			if tc.value != "" {
 				os.Setenv("TEST_KEY", tc.value)
 				defer os.Unsetenv("TEST_KEY")
 				result = getBoolEnv("TEST_KEY", tc.defaultVal)
 			}
-			
+
 			if result != tc.expected {
-				t.Errorf("getBoolEnv(%q, %v) = %v, want %v", 
+				t.Errorf("getBoolEnv(%q, %v) = %v, want %v",
 					tc.value, tc.defaultVal, result, tc.expected)
 			}
 		})
@@ -164,20 +164,20 @@ func TestGetIntEnv(t *testing.T) {
 		{"Invalid value", "not-an-int", 42, 42},
 		{"Float value", "123.45", 42, 42},
 	}
-	
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			result := getIntEnv("TEST_KEY", tc.defaultVal)
-			
+
 			// For empty value tests, don't set environment variable
 			if tc.value != "" {
 				os.Setenv("TEST_KEY", tc.value)
 				defer os.Unsetenv("TEST_KEY")
 				result = getIntEnv("TEST_KEY", tc.defaultVal)
 			}
-			
+
 			if result != tc.expected {
-				t.Errorf("getIntEnv(%q, %v) = %v, want %v", 
+				t.Errorf("getIntEnv(%q, %v) = %v, want %v",
 					tc.value, tc.defaultVal, result, tc.expected)
 			}
 		})

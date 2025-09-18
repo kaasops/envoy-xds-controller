@@ -2,8 +2,8 @@ package filter_chains
 
 import (
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
-	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 )
 

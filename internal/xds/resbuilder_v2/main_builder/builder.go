@@ -23,7 +23,7 @@ type resourcesCache struct {
 	cache       map[string]*cacheEntry
 	maxSize     int
 	ttl         time.Duration
-	evictionLRU []string     // LRU list of keys for eviction
+	evictionLRU []string             // LRU list of keys for eviction
 	accessTimes map[string]time.Time // Last access time for each key
 }
 
@@ -37,7 +37,7 @@ type cacheEntry struct {
 func newResourcesCache() *resourcesCache {
 	return &resourcesCache{
 		cache:       make(map[string]*cacheEntry),
-		maxSize:     100, // Limit cache size
+		maxSize:     100,             // Limit cache size
 		ttl:         5 * time.Minute, // Default TTL
 		evictionLRU: make([]string, 0, 100),
 		accessTimes: make(map[string]time.Time),
@@ -62,14 +62,14 @@ func (c *resourcesCache) SetMaxSize(maxSize int) {
 func (c *resourcesCache) get(key string) (*Resources, bool) {
 	c.mu.Lock() // Using write lock since we update accessTimes and LRU
 	defer c.mu.Unlock()
-	
+
 	entry, exists := c.cache[key]
 	if !exists {
 		// Record cache miss
 		utils.RecordCacheMiss("main_builder")
 		return nil, false
 	}
-	
+
 	// Check if the entry has expired
 	if time.Since(entry.createdAt) > c.ttl {
 		// Remove expired entry
@@ -80,21 +80,21 @@ func (c *resourcesCache) get(key string) (*Resources, bool) {
 		utils.RecordCacheMiss("main_builder")
 		return nil, false
 	}
-	
+
 	// Update access metadata
 	now := time.Now()
 	c.accessTimes[key] = now
 	entry.accessCount++
-	
+
 	// Update LRU list - move to end (most recently used)
 	c.removeFromLRU(key)
 	c.evictionLRU = append(c.evictionLRU, key)
-	
+
 	// Record cache hit and item age
 	utils.RecordCacheHit("main_builder")
 	ageSeconds := time.Since(entry.createdAt).Seconds()
 	utils.CacheItemAge.WithLabelValues("main_builder", "hit").Observe(ageSeconds)
-	
+
 	return entry.resource, true
 }
 
@@ -102,17 +102,17 @@ func (c *resourcesCache) get(key string) (*Resources, bool) {
 func (c *resourcesCache) set(key string, resource *Resources) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Check if we need to evict entries
 	c.evictIfNeeded()
-	
+
 	// Create new entry
 	entry := &cacheEntry{
 		resource:    resource,
 		createdAt:   time.Now(),
 		accessCount: 0,
 	}
-	
+
 	// Update or add the entry
 	if _, exists := c.cache[key]; exists {
 		// If key already exists, update it but preserve its position in LRU
@@ -123,7 +123,7 @@ func (c *resourcesCache) set(key string, resource *Resources) {
 		c.accessTimes[key] = time.Now()
 		c.evictionLRU = append(c.evictionLRU, key)
 	}
-	
+
 	// Update cache size metric
 	utils.UpdateCacheSize("main_builder", len(c.cache))
 }
@@ -134,16 +134,16 @@ func (c *resourcesCache) evictIfNeeded() {
 	if len(c.cache) < c.maxSize {
 		return
 	}
-	
+
 	// First try to remove any expired entries
 	removed := c.removeExpiredEntries()
-	
+
 	// If still over capacity, use LRU eviction
 	if len(c.cache) >= c.maxSize {
 		// Remove oldest entries based on LRU until we're at 75% capacity
 		targetSize := int(float64(c.maxSize) * 0.75)
 		toRemove := len(c.cache) - targetSize
-		
+
 		if toRemove > 0 && len(c.evictionLRU) > 0 {
 			// Remove the oldest entries (start of LRU list)
 			for i := 0; i < toRemove && i < len(c.evictionLRU); i++ {
@@ -153,7 +153,7 @@ func (c *resourcesCache) evictIfNeeded() {
 				utils.RecordCacheEviction("main_builder", "lru_eviction")
 				removed++
 			}
-			
+
 			// Update LRU list
 			if toRemove >= len(c.evictionLRU) {
 				c.evictionLRU = make([]string, 0, c.maxSize)
@@ -162,7 +162,7 @@ func (c *resourcesCache) evictIfNeeded() {
 			}
 		}
 	}
-	
+
 	// If we've removed entries, log it
 	if removed > 0 {
 		utils.ResourceCardinality.WithLabelValues("cache_evictions", "resources", "mainbuilder").Add(float64(removed))
@@ -173,7 +173,7 @@ func (c *resourcesCache) evictIfNeeded() {
 func (c *resourcesCache) removeExpiredEntries() int {
 	removed := 0
 	now := time.Now()
-	
+
 	for key, entry := range c.cache {
 		if now.Sub(entry.createdAt) > c.ttl {
 			delete(c.cache, key)
@@ -183,7 +183,7 @@ func (c *resourcesCache) removeExpiredEntries() int {
 			removed++
 		}
 	}
-	
+
 	return removed
 }
 
@@ -202,17 +202,17 @@ func (c *resourcesCache) prewarm(keys []string, builder func(key string) (*Resou
 	// Create a workerpool to prewarm the cache in parallel
 	const workers = 4
 	workChan := make(chan string, len(keys))
-	
+
 	// Add all keys to the work channel
 	for _, key := range keys {
 		workChan <- key
 	}
 	close(workChan)
-	
+
 	// Create worker goroutines
 	var wg sync.WaitGroup
 	wg.Add(workers)
-	
+
 	for w := 0; w < workers; w++ {
 		go func() {
 			defer wg.Done()
@@ -224,40 +224,40 @@ func (c *resourcesCache) prewarm(keys []string, builder func(key string) (*Resou
 			}
 		}()
 	}
-	
+
 	wg.Wait()
 }
 
 // generateCacheKey creates a hash-based cache key for a VirtualService
 func generateCacheKey(vs *v1alpha1.VirtualService) string {
 	hasher := sha256.New()
-	
+
 	// Include name and namespace
 	hasher.Write([]byte(vs.Name))
 	hasher.Write([]byte(vs.Namespace))
-	
+
 	// Include generation number which changes on updates
 	hasher.Write([]byte(fmt.Sprintf("%d", vs.Generation)))
-	
+
 	// Include spec data
 	if specData, err := json.Marshal(vs.Spec); err == nil {
 		hasher.Write(specData)
 	}
-	
+
 	// Return hex-encoded hash as the cache key
 	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
 
 // Builder is responsible for coordinating the building of all resources for a VirtualService
 type Builder struct {
-	store            *store.Store
-	httpFilterBuilder interfaces.HTTPFilterBuilder
+	store              *store.Store
+	httpFilterBuilder  interfaces.HTTPFilterBuilder
 	filterChainBuilder interfaces.FilterChainBuilder
-	routingBuilder   interfaces.RoutingBuilder
-	accessLogBuilder interfaces.AccessLogBuilder
-	tlsBuilder       interfaces.TLSBuilder
-	clusterExtractor interfaces.ClusterExtractor
-	cache           *resourcesCache
+	routingBuilder     interfaces.RoutingBuilder
+	accessLogBuilder   interfaces.AccessLogBuilder
+	tlsBuilder         interfaces.TLSBuilder
+	clusterExtractor   interfaces.ClusterExtractor
+	cache              *resourcesCache
 }
 
 // NewBuilder creates a new Builder with the provided dependencies
@@ -271,14 +271,14 @@ func NewBuilder(
 	clusterExtractor interfaces.ClusterExtractor,
 ) *Builder {
 	return &Builder{
-		store:            store,
-		httpFilterBuilder: httpFilterBuilder,
+		store:              store,
+		httpFilterBuilder:  httpFilterBuilder,
 		filterChainBuilder: filterChainBuilder,
-		routingBuilder:   routingBuilder,
-		accessLogBuilder: accessLogBuilder,
-		tlsBuilder:       tlsBuilder,
-		clusterExtractor: clusterExtractor,
-		cache:           newResourcesCache(),
+		routingBuilder:     routingBuilder,
+		accessLogBuilder:   accessLogBuilder,
+		tlsBuilder:         tlsBuilder,
+		clusterExtractor:   clusterExtractor,
+		cache:              newResourcesCache(),
 	}
 }
 
@@ -287,18 +287,18 @@ func NewBuilder(
 func (b *Builder) BuildResources(vs *v1alpha1.VirtualService) (interface{}, error) {
 	// Start measuring build time
 	startTime := time.Now()
-	
+
 	// Check if result is in cache
 	cacheKey := generateCacheKey(vs)
 	if cachedResources, found := b.cache.get(cacheKey); found {
 		// Record build duration (cache hit is very fast)
 		buildDuration := time.Since(startTime).Seconds()
 		utils.RecordBuildDuration("virtual_service", "cache_hit", buildDuration)
-		
+
 		// Return cached result
 		return cachedResources, nil
 	}
-	
+
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
 
@@ -339,12 +339,12 @@ func (b *Builder) BuildResources(vs *v1alpha1.VirtualService) (interface{}, erro
 	}
 
 	// Record resource creation
-	utils.RecordResourceCreation("virtual_service")
-	
+	utils.RecordResourceCreation("virtual_service", "mainbuilder")
+
 	// Record build duration
 	buildDuration := time.Since(startTime).Seconds()
 	utils.RecordBuildDuration("virtual_service", "build", buildDuration)
-	
+
 	// Store result in cache
 	b.cache.set(cacheKey, resources)
 
@@ -380,12 +380,12 @@ func (b *Builder) buildListener(listenerNN helpers.NamespacedName) (*listenerv3.
 	if listener == nil {
 		return nil, fmt.Errorf("listener %s not found", listenerNN.String())
 	}
-	
+
 	xdsListener, err := listener.UnmarshalV3()
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal listener %s: %w", listenerNN.String(), err)
 	}
-	
+
 	xdsListener.Name = listenerNN.String()
 	return xdsListener, nil
 }

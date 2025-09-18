@@ -44,7 +44,7 @@ func (m *MockFilterChainBuilder) BuildFilterChains(params *interfaces.FilterChai
 	return args.Get(0).([]*listenerv3.FilterChain), args.Error(1)
 }
 
-func (m *MockFilterChainBuilder) BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, 
+func (m *MockFilterChainBuilder) BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName,
 	httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost) (*interfaces.FilterChainsParams, error) {
 	args := m.Called(vs, nn, httpFilters, listenerIsTLS, virtualHost)
 	return args.Get(0).(*interfaces.FilterChainsParams), args.Error(1)
@@ -59,7 +59,7 @@ type MockRoutingBuilder struct {
 	mock.Mock
 }
 
-func (m *MockRoutingBuilder) BuildRouteConfiguration(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, 
+func (m *MockRoutingBuilder) BuildRouteConfiguration(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener,
 	nn helpers.NamespacedName) (*routev3.VirtualHost, *routev3.RouteConfiguration, error) {
 	args := m.Called(vs, xdsListener, nn)
 	return args.Get(0).(*routev3.VirtualHost), args.Get(1).(*routev3.RouteConfiguration), args.Error(2)
@@ -116,7 +116,7 @@ func (m *MockClusterExtractor) ExtractClustersFromHTTPFilters(httpFilters []*hcm
 func TestNewBuilder(t *testing.T) {
 	// We'll create a real store.Store for testing
 	storeInstance := &store.Store{}
-	
+
 	// Create all mock component builders
 	mockHTTPFilterBuilder := &MockHTTPFilterBuilder{}
 	mockFilterChainBuilder := &MockFilterChainBuilder{}
@@ -152,49 +152,49 @@ func TestResourcesCacheGetSet(t *testing.T) {
 	// Create a new cache
 	cache := newResourcesCache()
 	require.NotNil(t, cache)
-	
+
 	// Create a test resource
 	resource := &Resources{
 		Listener: helpers.NamespacedName{Namespace: "test", Name: "test-listener"},
-		Domains: []string{"example.com"},
+		Domains:  []string{"example.com"},
 	}
-	
+
 	// Try to get a non-existent key
 	result, exists := cache.get("non-existent-key")
 	assert.False(t, exists)
 	assert.Nil(t, result)
-	
+
 	// Set a value in the cache
 	cache.set("test-key", resource)
-	
+
 	// Get the value back
 	result, exists = cache.get("test-key")
 	assert.True(t, exists)
 	assert.NotNil(t, result)
 	assert.Equal(t, resource.Listener, result.Listener)
 	assert.Equal(t, resource.Domains, result.Domains)
-	
+
 	// Test cache eviction when max size is reached
 	// First, set maxSize to a small value for testing
 	cache.maxSize = 2
-	
+
 	// Add values to reach max size
 	cache.set("key1", resource)
 	cache.set("key2", resource)
-	
+
 	// Verify both values are in the cache
 	_, exists1 := cache.get("key1")
 	_, exists2 := cache.get("key2")
 	assert.True(t, exists1)
 	assert.True(t, exists2)
-	
+
 	// Add one more value to trigger eviction
 	cache.set("key3", resource)
-	
+
 	// Verify new value is in cache and cache was cleared (eviction strategy)
 	_, exists3 := cache.get("key3")
 	assert.True(t, exists3)
-	
+
 	// The other keys should be gone due to our simple eviction strategy
 	_, exists1 = cache.get("key1")
 	_, exists2 = cache.get("key2")
@@ -207,8 +207,9 @@ func TestResourcesCacheGetSet(t *testing.T) {
 //
 // A proper test would need to:
 // 1. Create complete mock implementations of:
-//    - store.Store with methods like GetListener, GetVirtualServiceTemplate, etc.
-//    - All component interfaces (HTTPFilterBuilder, FilterChainBuilder, etc.)
+//   - store.Store with methods like GetListener, GetVirtualServiceTemplate, etc.
+//   - All component interfaces (HTTPFilterBuilder, FilterChainBuilder, etc.)
+//
 // 2. Set up expectations for all mock method calls that would occur during BuildResources
 // 3. Create a test VirtualService with appropriate configuration
 // 4. Call BuildResources and verify the results
@@ -222,29 +223,29 @@ func TestResourcesCacheGetSet(t *testing.T) {
 // and will rely on integration/comparison tests to verify the full implementation.
 func TestBuildResources_DocumentedApproach(t *testing.T) {
 	t.Skip("This test is skipped as it documents the approach but is not implemented")
-	
+
 	// Create a mock store that would handle:
 	// - GetVirtualServiceTemplate
 	// - GetListener
 	// - GetSpecCluster
 	// - GetSecret
-	
+
 	// Create mock component implementations:
 	// - HTTPFilterBuilder
-	// - FilterChainBuilder 
+	// - FilterChainBuilder
 	// - RoutingBuilder
 	// - AccessLogBuilder
 	// - TLSBuilder
 	// - ClusterExtractor
-	
+
 	// Set up expectations for all mock method calls
-	
+
 	// Create test VirtualService with appropriate configuration
-	
+
 	// Create the builder with all mock components
-	
+
 	// Call BuildResources
-	
+
 	// Verify results:
 	// - Check that returned Resources contains expected values
 	// - Verify all mock expectations were met
@@ -255,7 +256,7 @@ func TestGenerateCacheKey(t *testing.T) {
 	rawVirtualHost := &runtime.RawExtension{
 		Raw: []byte(`{"domains": ["example.com"], "routes": []}`),
 	}
-	
+
 	// Create two identical VirtualServices
 	vs1 := &v1alpha1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -269,7 +270,7 @@ func TestGenerateCacheKey(t *testing.T) {
 			},
 		},
 	}
-	
+
 	vs2 := &v1alpha1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "test-vs",
@@ -282,7 +283,7 @@ func TestGenerateCacheKey(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Create a different VirtualService
 	vsDifferent := &v1alpha1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -296,22 +297,22 @@ func TestGenerateCacheKey(t *testing.T) {
 			},
 		},
 	}
-	
+
 	// Generate keys
 	key1 := generateCacheKey(vs1)
 	key2 := generateCacheKey(vs2)
 	keyDifferent := generateCacheKey(vsDifferent)
-	
+
 	// Same VS should produce same key
 	assert.Equal(t, key1, key2)
-	
+
 	// Different VS should produce different key
 	assert.NotEqual(t, key1, keyDifferent)
-	
+
 	// Change generation number
 	vs1.Generation = 2
 	keyNewGen := generateCacheKey(vs1)
-	
+
 	// Different generation should produce different key
 	assert.NotEqual(t, key1, keyNewGen)
 }

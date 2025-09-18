@@ -177,10 +177,10 @@ func NewResourceBuilder(store *store.Store) *ResourceBuilder {
 		secretsBuilder:  secrets.NewBuilder(store),
 		useMainBuilder:  false, // Default to original implementation
 	}
-	
+
 	// Apply feature flags from environment
 	rb.UpdateFeatureFlags()
-	
+
 	return rb
 }
 
@@ -189,7 +189,7 @@ func NewResourceBuilder(store *store.Store) *ResourceBuilder {
 // When disabled, it will use the original implementation
 func (rb *ResourceBuilder) EnableMainBuilder(enable bool) {
 	rb.useMainBuilder = enable
-	
+
 	// Initialize MainBuilder if it's not already set and we're enabling it
 	if enable && rb.mainBuilder == nil {
 		// Use the resource_builder_adapter.go functionality to set up the MainBuilder
@@ -202,7 +202,7 @@ func (rb *ResourceBuilder) EnableMainBuilder(enable bool) {
 func (rb *ResourceBuilder) UpdateFeatureFlags() {
 	// Get feature flags from environment
 	flags := config.GetFeatureFlags()
-	
+
 	// Update useMainBuilder flag
 	if flags.EnableMainBuilder != rb.useMainBuilder {
 		rb.EnableMainBuilder(flags.EnableMainBuilder)
@@ -213,18 +213,18 @@ func (rb *ResourceBuilder) UpdateFeatureFlags() {
 func (rb *ResourceBuilder) BuildResources(vs *v1alpha1.VirtualService) (*Resources, error) {
 	// Get namespaced name for the VirtualService
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
-	
+
 	// Determine whether to use MainBuilder based on feature flags and rollout strategy
 	// If useMainBuilder is true, always use it regardless of percentage
 	// Otherwise, use the percentage-based rollout strategy
 	flags := config.GetFeatureFlags()
 	useMainBuilder := rb.useMainBuilder || config.ShouldUseMainBuilder(flags, nn.String())
-	
+
 	// If MainBuilder should be used, use it
 	if useMainBuilder {
 		return rb.buildResourcesWithMainBuilder(vs)
 	}
-	
+
 	// Otherwise, use the original implementation
 	var err error
 
@@ -271,11 +271,11 @@ func (rb *ResourceBuilder) buildResourcesWithMainBuilder(vs *v1alpha1.VirtualSer
 	if vs == nil {
 		return nil, fmt.Errorf("virtual service cannot be nil")
 	}
-	
+
 	// Make sure MainBuilder is initialized
 	if rb.mainBuilder == nil {
 		UpdateResourceBuilder(rb)
-		
+
 		// Double-check initialization was successful
 		if rb.mainBuilder == nil {
 			return nil, fmt.Errorf("failed to initialize MainBuilder")
@@ -285,7 +285,7 @@ func (rb *ResourceBuilder) buildResourcesWithMainBuilder(vs *v1alpha1.VirtualSer
 	// Call MainBuilder.BuildResources with timeout and panic recovery
 	var result interface{}
 	var err error
-	
+
 	// Use panic recovery to handle any unexpected panics in the MainBuilder
 	func() {
 		defer func() {
@@ -293,15 +293,15 @@ func (rb *ResourceBuilder) buildResourcesWithMainBuilder(vs *v1alpha1.VirtualSer
 				err = fmt.Errorf("panic in MainBuilder.BuildResources: %v", r)
 			}
 		}()
-		
+
 		result, err = rb.mainBuilder.BuildResources(vs)
 	}()
-	
+
 	// Check for errors from BuildResources or from panic recovery
 	if err != nil {
 		return nil, fmt.Errorf("MainBuilder.BuildResources failed: %w", err)
 	}
-	
+
 	// Check for nil result
 	if result == nil {
 		return nil, fmt.Errorf("MainBuilder.BuildResources returned nil result")
@@ -313,21 +313,21 @@ func (rb *ResourceBuilder) buildResourcesWithMainBuilder(vs *v1alpha1.VirtualSer
 	if !ok {
 		return nil, fmt.Errorf("unexpected result type from MainBuilder: %T", result)
 	}
-	
+
 	// Validate required fields
 	if mainResources.Listener.Name == "" {
 		return nil, fmt.Errorf("invalid result from MainBuilder: Listener name is empty")
 	}
-	
+
 	if len(mainResources.FilterChain) == 0 {
 		return nil, fmt.Errorf("invalid result from MainBuilder: FilterChain is empty")
 	}
-	
+
 	// Optional fields validation with warnings
 	if mainResources.RouteConfig == nil && len(mainResources.Clusters) == 0 {
 		// This is a warning rather than an error because some configurations might be valid without these
 		// But it's unusual enough to log
-		fmt.Printf("Warning: MainBuilder returned resources without RouteConfig and Clusters for %s\n", 
+		fmt.Printf("Warning: MainBuilder returned resources without RouteConfig and Clusters for %s\n",
 			mainResources.Listener.String())
 	}
 

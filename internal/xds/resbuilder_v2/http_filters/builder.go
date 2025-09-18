@@ -75,7 +75,7 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 	if err != nil {
 		return nil, fmt.Errorf("failed to build RBAC filter: %w", err)
 	}
-	
+
 	if rbacF != nil {
 		configType := &hcmv3.HttpFilter_TypedConfig{
 			TypedConfig: &anypb.Any{},
@@ -112,11 +112,11 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 			for _, filter := range hf.Spec {
 				xdsHttpFilter := &hcmv3.HttpFilter{}
 				if err := protoutil.Unmarshaler.Unmarshal(filter.Raw, xdsHttpFilter); err != nil {
-					return nil, fmt.Errorf("failed to unmarshal HTTP filter reference %s/%s: %w", 
+					return nil, fmt.Errorf("failed to unmarshal HTTP filter reference %s/%s: %w",
 						httpFilterRefNs, httpFilterRef.Name, err)
 				}
 				if err := xdsHttpFilter.ValidateAll(); err != nil {
-					return nil, fmt.Errorf("failed to validate HTTP filter reference %s/%s: %w", 
+					return nil, fmt.Errorf("failed to validate HTTP filter reference %s/%s: %w",
 						httpFilterRefNs, httpFilterRef.Name, err)
 				}
 				httpFilters = append(httpFilters, xdsHttpFilter)

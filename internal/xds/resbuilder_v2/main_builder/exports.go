@@ -15,13 +15,13 @@ func NewMainBuilder(store *store.Store) interfaces.MainBuilder {
 		store: store,
 		// These components would normally be injected, but we're creating them here for simplicity
 		// In a more advanced implementation, they could be provided via dependency injection
-		httpFilterBuilder: nil, // Will be set in the ResourceBuilder
-		filterChainBuilder: nil, // Will be set in the ResourceBuilder
-		routingBuilder:   nil, // Will be set in the ResourceBuilder
-		accessLogBuilder: nil, // Will be set in the ResourceBuilder
-		tlsBuilder:       nil, // Will be set in the ResourceBuilder
-		clusterExtractor: nil, // Will be set in the ResourceBuilder
-		cache:           newResourcesCache(), // Initialize cache
+		httpFilterBuilder:  nil,                 // Will be set in the ResourceBuilder
+		filterChainBuilder: nil,                 // Will be set in the ResourceBuilder
+		routingBuilder:     nil,                 // Will be set in the ResourceBuilder
+		accessLogBuilder:   nil,                 // Will be set in the ResourceBuilder
+		tlsBuilder:         nil,                 // Will be set in the ResourceBuilder
+		clusterExtractor:   nil,                 // Will be set in the ResourceBuilder
+		cache:              newResourcesCache(), // Initialize cache
 	}
 }
 

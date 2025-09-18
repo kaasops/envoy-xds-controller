@@ -39,16 +39,16 @@ type HTTPFilterBuilder interface {
 // FilterChainBuilder is responsible for building filter chains
 type FilterChainBuilder interface {
 	BuildFilterChains(params *FilterChainsParams) ([]*listenerv3.FilterChain, error)
-	BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, 
-						httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, 
-						virtualHost *routev3.VirtualHost) (*FilterChainsParams, error)
+	BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName,
+		httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool,
+		virtualHost *routev3.VirtualHost) (*FilterChainsParams, error)
 	CheckFilterChainsConflicts(vs *v1alpha1.VirtualService) error
 }
 
 // RoutingBuilder is responsible for building routing configuration
 type RoutingBuilder interface {
-	BuildRouteConfiguration(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, 
-						  nn helpers.NamespacedName) (*routev3.VirtualHost, *routev3.RouteConfiguration, error)
+	BuildRouteConfiguration(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener,
+		nn helpers.NamespacedName) (*routev3.VirtualHost, *routev3.RouteConfiguration, error)
 	BuildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName) (*routev3.VirtualHost, error)
 }
 
@@ -74,7 +74,7 @@ type ClusterExtractor interface {
 type MainBuilder interface {
 	// BuildResources builds all resources for a VirtualService
 	BuildResources(vs *v1alpha1.VirtualService) (interface{}, error)
-	
+
 	// SetComponents sets all the component builders for the Main Builder
 	SetComponents(
 		httpFilterBuilder HTTPFilterBuilder,

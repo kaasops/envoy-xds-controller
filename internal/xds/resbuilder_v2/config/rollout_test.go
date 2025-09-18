@@ -65,15 +65,15 @@ func TestConsistentHashing(t *testing.T) {
 	namespacedName := "default/test-vs"
 	hash1 := getHash(namespacedName)
 	hash2 := getHash(namespacedName)
-	
+
 	if hash1 != hash2 {
 		t.Errorf("getHash not consistent: getHash(%q) = %d, %d", namespacedName, hash1, hash2)
 	}
-	
+
 	// Test different namespacedNames get different hashes
 	namespacedName2 := "default/test-vs-2"
 	hash3 := getHash(namespacedName2)
-	
+
 	if hash1 == hash3 {
 		t.Errorf("getHash not producing different values: getHash(%q) = getHash(%q) = %d",
 			namespacedName, namespacedName2, hash1)
@@ -83,29 +83,29 @@ func TestConsistentHashing(t *testing.T) {
 func TestPercentageDistribution(t *testing.T) {
 	// This test checks that the percentage distribution is roughly correct
 	// by generating many namespacedNames and checking the percentage that return true
-	
+
 	percentages := []int{10, 25, 50, 75, 90}
-	
+
 	for _, percentage := range percentages {
 		flags := FeatureFlags{
 			EnableMainBuilder:     false,
 			MainBuilderPercentage: percentage,
 		}
-		
+
 		// Generate many namespacedNames and count how many return true
 		count := 0
 		iterations := 1000
-		
+
 		for i := 0; i < iterations; i++ {
 			namespacedName := "default/test-vs-" + string(rune(i))
 			if ShouldUseMainBuilder(flags, namespacedName) {
 				count++
 			}
 		}
-		
+
 		// Calculate the actual percentage
 		actualPercentage := (count * 100) / iterations
-		
+
 		// Allow for some variance due to the hashing function
 		allowedVariance := 5
 		if actualPercentage < percentage-allowedVariance || actualPercentage > percentage+allowedVariance {

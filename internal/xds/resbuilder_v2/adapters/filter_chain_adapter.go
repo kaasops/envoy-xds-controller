@@ -76,7 +76,7 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 	if vs.Spec.Tracing != nil && vs.Spec.TracingRef != nil {
 		return nil, fmt.Errorf("only one of spec.tracing or spec.tracingRef may be set")
 	}
-	
+
 	if vs.Spec.Tracing != nil {
 		tracing := &hcmv3.HttpConnectionManager_Tracing{}
 		if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.Tracing.Raw, tracing); err != nil {
@@ -136,7 +136,7 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 
 	if accessLogCount > 0 {
 		var accessLogs []*accesslogv3.AccessLog
-		
+
 		// Handle inline access log
 		if vs.Spec.AccessLog != nil {
 			vs.UpdateStatus(false, "accessLog is deprecated, use accessLogs instead")
@@ -149,7 +149,7 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 			}
 			accessLogs = append(accessLogs, &accessLog)
 		}
-		
+
 		// Handle access log config reference
 		if vs.Spec.AccessLogConfig != nil {
 			vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
@@ -164,7 +164,7 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 			}
 			accessLogs = append(accessLogs, accessLog)
 		}
-		
+
 		// Handle multiple inline access logs
 		if len(vs.Spec.AccessLogs) > 0 {
 			for _, accessLogSpec := range vs.Spec.AccessLogs {
@@ -178,7 +178,7 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 				accessLogs = append(accessLogs, &accessLogV3)
 			}
 		}
-		
+
 		// Handle multiple access log config references
 		if len(vs.Spec.AccessLogConfigs) > 0 {
 			for _, accessLogConfig := range vs.Spec.AccessLogConfigs {
@@ -194,7 +194,7 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 				accessLogs = append(accessLogs, accessLogV3)
 			}
 		}
-		
+
 		filterChainParams.AccessLogs = accessLogs
 	}
 

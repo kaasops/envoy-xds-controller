@@ -56,6 +56,7 @@ func getBoolEnv(key string, defaultVal bool) bool {
 
 // getIntEnv reads an integer value from an environment variable
 // Returns the default value if the environment variable is not set or has an invalid value
+// For MainBuilderPercentage, values are clamped to the range 0-100
 func getIntEnv(key string, defaultVal int) int {
 	val := os.Getenv(key)
 	if val == "" {
@@ -65,6 +66,16 @@ func getIntEnv(key string, defaultVal int) int {
 	intVal, err := strconv.Atoi(val)
 	if err != nil {
 		return defaultVal
+	}
+
+	// For MainBuilderPercentage, clamp values to the range 0-100
+	if key == EnvMainBuilderPercentage {
+		if intVal < 0 {
+			return 0
+		}
+		if intVal > 100 {
+			return 100
+		}
 	}
 
 	return intVal

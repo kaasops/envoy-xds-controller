@@ -178,7 +178,7 @@ func RecordObjectPoolPut(poolType string) {
 	ObjectPoolPuts.WithLabelValues(poolType).Inc()
 }
 
-// RecordResourceCreation increments the resource creation counter for the specified resource type
-func RecordResourceCreation(resourceType string) {
-	ResourceCounts.WithLabelValues(resourceType).Inc()
+// RecordResourceCreation increments the resource creation counter for the specified resource type and implementation
+func RecordResourceCreation(resourceType string, implementation string) {
+	ResourceCounts.WithLabelValues(resourceType, implementation).Inc()
 }
