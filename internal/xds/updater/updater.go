@@ -20,7 +20,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	wrapped "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
@@ -33,9 +32,7 @@ type CacheUpdater struct {
 	usedSecrets   map[helpers.NamespacedName]helpers.NamespacedName
 }
 
-// buildVSResources is a function variable to allow stubbing in tests.
-// In production it points to resbuilder.BuildResources.
-var buildVSResources = resbuilder.BuildResources
+var buildVSResources = buildResourcesWithMainBuilder
 
 func NewCacheUpdater(wsc *wrapped.SnapshotCache, store *store.Store) *CacheUpdater {
 	return &CacheUpdater{
@@ -212,7 +209,7 @@ func buildSnapshots(
 		if err := ctx.Err(); err != nil {
 			return err, usedSecrets
 		}
-		vsRes, err := resbuilder.BuildResources(vs, store)
+		vsRes, err := buildVSResources(vs, store)
 		if err != nil {
 			vs.UpdateStatus(true, err.Error())
 			errs = append(errs, err)
@@ -269,7 +266,7 @@ func buildSnapshots(
 			if err := ctx.Err(); err != nil {
 				return err, usedSecrets
 			}
-			vsRes, err := resbuilder.BuildResources(vs, store)
+			vsRes, err := buildVSResources(vs, store)
 			if err != nil {
 				errs = append(errs, err)
 				continue

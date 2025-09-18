@@ -3,7 +3,7 @@ package utils
 // TLS Configuration Types
 const (
 	SecretRefType     = "secretRef"
-	AutoDiscoveryType = "autoDiscoveryType"
+	AutoDiscoveryType = "autoDiscovery"
 )
 
 // Well-known filter names and type URLs

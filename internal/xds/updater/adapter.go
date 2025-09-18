@@ -7,12 +7,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
 )
 
-// init replaces the buildVSResources function with the one that uses the new MainBuilder implementation
-func init() {
-	// Replace the buildVSResources function with the new implementation
-	buildVSResources = buildResourcesWithMainBuilder
-}
-
 // buildResourcesWithMainBuilder builds resources using the new MainBuilder implementation
 // but returns them in the format expected by the old implementation
 func buildResourcesWithMainBuilder(vs *v1alpha1.VirtualService, store *store.Store) (*resbuilder.Resources, error) {
