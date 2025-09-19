@@ -25,6 +25,9 @@ func TestEnableMainBuilder(t *testing.T) {
 	// Create the necessary listeners in the test store
 	AddTestListener(s, "test-listener", "default")
 
+	// Add test cluster
+	AddTestCluster(s, "test-cluster", "default")
+
 	// Create virtual services for testing
 	vs1 := CreateTestVirtualService()
 	vs1.ObjectMeta.Name = "test-vs-1"

@@ -103,8 +103,18 @@ func (c *resourcesCache) set(key string, resource *Resources) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check if we need to evict entries
-	c.evictIfNeeded()
+	// Simple eviction: if cache is full, clear it before adding new entry
+	if len(c.cache) >= c.maxSize {
+		// Clear all entries
+		for k := range c.cache {
+			delete(c.cache, k)
+			delete(c.accessTimes, k)
+			utils.RecordCacheEviction("main_builder", "lru_eviction")
+		}
+		// Reset LRU list
+		c.evictionLRU = make([]string, 0, c.maxSize)
+		c.accessTimes = make(map[string]time.Time)
+	}
 
 	// Create new entry
 	entry := &cacheEntry{
@@ -113,57 +123,20 @@ func (c *resourcesCache) set(key string, resource *Resources) {
 		accessCount: 0,
 	}
 
-	// Update or add the entry
-	if _, exists := c.cache[key]; exists {
-		// If key already exists, update it but preserve its position in LRU
-		c.cache[key] = entry
-	} else {
-		// Add new entry
-		c.cache[key] = entry
-		c.accessTimes[key] = time.Now()
-		c.evictionLRU = append(c.evictionLRU, key)
-	}
+	// Set the entry
+	c.cache[key] = entry
+	c.accessTimes[key] = time.Now()
+
+	// Add to LRU list
+	c.evictionLRU = append(c.evictionLRU, key)
 
 	// Update cache size metric
 	utils.UpdateCacheSize("main_builder", len(c.cache))
 }
 
-// evictIfNeeded ensures the cache size stays within limits by evicting entries
-func (c *resourcesCache) evictIfNeeded() {
-	// If we're under maxSize, do nothing
-	if len(c.cache) < c.maxSize {
-		return
-	}
-
-	// First try to remove any expired entries
+// removeExpiredEntriesIfNeeded removes expired entries from the cache
+func (c *resourcesCache) removeExpiredEntriesIfNeeded() {
 	removed := c.removeExpiredEntries()
-
-	// If still over capacity, use LRU eviction
-	if len(c.cache) >= c.maxSize {
-		// Remove oldest entries based on LRU until we're at 75% capacity
-		targetSize := int(float64(c.maxSize) * 0.75)
-		toRemove := len(c.cache) - targetSize
-
-		if toRemove > 0 && len(c.evictionLRU) > 0 {
-			// Remove the oldest entries (start of LRU list)
-			for i := 0; i < toRemove && i < len(c.evictionLRU); i++ {
-				key := c.evictionLRU[i]
-				delete(c.cache, key)
-				delete(c.accessTimes, key)
-				utils.RecordCacheEviction("main_builder", "lru_eviction")
-				removed++
-			}
-
-			// Update LRU list
-			if toRemove >= len(c.evictionLRU) {
-				c.evictionLRU = make([]string, 0, c.maxSize)
-			} else {
-				c.evictionLRU = c.evictionLRU[toRemove:]
-			}
-		}
-	}
-
-	// If we've removed entries, log it
 	if removed > 0 {
 		utils.ResourceCardinality.WithLabelValues("cache_evictions", "resources", "mainbuilder").Add(float64(removed))
 	}

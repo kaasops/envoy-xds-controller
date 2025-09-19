@@ -10,6 +10,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -233,6 +234,96 @@ func AddTestVirtualService(s *store.Store, vs *v1alpha1.VirtualService) {
 	s.SetVirtualService(vs)
 }
 
+// AddTestListenerWithTLS adds a test listener with TLS inspector to the store
+func AddTestListenerWithTLS(s *store.Store, name, namespace string) {
+	listener := &v1alpha1.Listener{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Listener",
+			APIVersion: "envoy.kaasops.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &runtime.RawExtension{
+			Raw: []byte(`{
+				"name": "tls_listener",
+				"address": {
+					"socket_address": {
+						"address": "0.0.0.0",
+						"port_value": 8443
+					}
+				},
+				"listener_filters": [
+					{
+						"name": "envoy.filters.listener.tls_inspector"
+					}
+				],
+				"filter_chains": []
+			}`),
+		},
+	}
+
+	s.SetListener(listener)
+}
+
+// AddTestSecret adds a test TLS secret to the store
+func AddTestSecret(s *store.Store, name, namespace string) {
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			"tls.crt": []byte("-----BEGIN CERTIFICATE-----\ntest certificate data\n-----END CERTIFICATE-----"),
+			"tls.key": []byte("-----BEGIN PRIVATE KEY-----\ntest private key data\n-----END PRIVATE KEY-----"),
+		},
+	}
+	s.SetSecret(secret)
+}
+
+// AddTestCluster adds a test cluster to the store
+func AddTestCluster(s *store.Store, name, namespace string) {
+	cluster := &v1alpha1.Cluster{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Cluster",
+			APIVersion: "envoy.kaasops.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: &runtime.RawExtension{
+			Raw: []byte(`{
+				"name": "` + name + `",
+				"type": "STRICT_DNS",
+				"connect_timeout": "5s",
+				"load_assignment": {
+					"cluster_name": "` + name + `",
+					"endpoints": [{
+						"lb_endpoints": [{
+							"endpoint": {
+								"address": {
+									"socket_address": {
+										"address": "127.0.0.1",
+										"port_value": 8080
+									}
+								}
+							}
+						}]
+					}]
+				}
+			}`),
+		},
+	}
+	s.SetCluster(cluster)
+}
+
 // TestBasicHTTPRouting tests a basic HTTP routing configuration
 func TestBasicHTTPRouting(t *testing.T) {
 	// Create a test store
@@ -242,6 +333,11 @@ func TestBasicHTTPRouting(t *testing.T) {
 	listenerName := "test-listener"
 	listenerNamespace := "default"
 	AddTestListener(s, listenerName, listenerNamespace)
+
+	// Add a test cluster
+	clusterName := "test-cluster"
+	clusterNamespace := "default"
+	AddTestCluster(s, clusterName, clusterNamespace)
 
 	// Create a virtual service that references the listener
 	vs := CreateTestVirtualService()
@@ -284,11 +380,17 @@ func TestTLSConfiguration(t *testing.T) {
 	// Add a test listener with TLS inspector
 	listenerName := "tls-listener"
 	listenerNamespace := "default"
-	AddTestListener(s, listenerName, listenerNamespace)
+	AddTestListenerWithTLS(s, listenerName, listenerNamespace)
+
+	// Add a test cluster
+	clusterName := "secure-cluster"
+	clusterNamespace := "default"
+	AddTestCluster(s, clusterName, clusterNamespace)
 
 	// Add a secret to the store
 	secretName := "test-tls-secret"
 	secretNamespace := "default"
+	AddTestSecret(s, secretName, secretNamespace)
 
 	// Create a virtual service with TLS configuration
 	vs := CreateTestVirtualService()
@@ -348,6 +450,11 @@ func TestRBACConfiguration(t *testing.T) {
 	listenerName := "rbac-listener"
 	listenerNamespace := "default"
 	AddTestListener(s, listenerName, listenerNamespace)
+
+	// Add a test cluster
+	clusterName := "rbac-cluster"
+	clusterNamespace := "default"
+	AddTestCluster(s, clusterName, clusterNamespace)
 
 	// Create a virtual service with RBAC configuration
 	vs := CreateTestVirtualService()

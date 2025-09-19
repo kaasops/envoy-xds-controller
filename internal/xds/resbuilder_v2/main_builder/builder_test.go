@@ -2,6 +2,7 @@ package main_builder
 
 import (
 	"testing"
+	"time"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -175,7 +176,12 @@ func TestResourcesCacheGetSet(t *testing.T) {
 	assert.Equal(t, resource.Domains, result.Domains)
 
 	// Test cache eviction when max size is reached
-	// First, set maxSize to a small value for testing
+	// First, clear the cache to start fresh for eviction test
+	cache.cache = make(map[string]*cacheEntry)
+	cache.evictionLRU = make([]string, 0)
+	cache.accessTimes = make(map[string]time.Time)
+
+	// Set maxSize to a small value for testing
 	cache.maxSize = 2
 
 	// Add values to reach max size
