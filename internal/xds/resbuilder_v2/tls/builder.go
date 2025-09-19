@@ -2,7 +2,6 @@ package tls
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -88,7 +87,7 @@ func (b *Builder) getSecretNameToDomainsViaAutoDiscovery(domains []string, domai
 		var secret v1.Secret
 		secret, ok := domainToSecretMap[domain]
 		if !ok {
-			secret, ok = domainToSecretMap[b.getWildcardDomain(domain)]
+			secret, ok = domainToSecretMap[utils.GetWildcardDomain(domain)]
 			if !ok {
 				return nil, fmt.Errorf("can't find secret for domain %s", domain)
 			}
@@ -103,14 +102,4 @@ func (b *Builder) getSecretNameToDomainsViaAutoDiscovery(domains []string, domai
 	}
 
 	return m, nil
-}
-
-// getWildcardDomain converts a domain to its wildcard form
-func (b *Builder) getWildcardDomain(domain string) string {
-	parts := strings.Split(domain, ".")
-	if len(parts) < 2 {
-		return ""
-	}
-	parts[0] = "*"
-	return strings.Join(parts, ".")
 }

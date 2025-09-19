@@ -131,7 +131,7 @@ func (b *Builder) FromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter) ([]*clu
 	var clusters []*cluster.Cluster
 	for _, httpFilter := range httpFilters {
 		tc := httpFilter.GetTypedConfig()
-		if tc == nil || tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2" {
+		if tc == nil || tc.TypeUrl != utils.TypeURLOAuth2 {
 			continue
 		}
 		var oauthCfg oauth2v3.OAuth2
@@ -303,7 +303,7 @@ func (b *Builder) generateOAuth2CacheKey(httpFilters []*hcmv3.HttpFilter) string
 
 	for _, httpFilter := range httpFilters {
 		tc := httpFilter.GetTypedConfig()
-		if tc == nil || tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2" {
+		if tc == nil || tc.TypeUrl != utils.TypeURLOAuth2 {
 			continue
 		}
 		// Use the raw TypedConfig data for consistent hashing

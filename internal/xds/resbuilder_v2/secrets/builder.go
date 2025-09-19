@@ -8,6 +8,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -161,12 +162,12 @@ func GetTLSType(tlsConfig *v1alpha1.TlsConfig) (string, error) {
 
 	if tlsConfig.SecretRef != nil {
 		configCount++
-		configType = "secretRef"
+		configType = utils.SecretRefType
 	}
 
 	if tlsConfig.AutoDiscovery != nil && *tlsConfig.AutoDiscovery {
 		configCount++
-		configType = "autoDiscovery"
+		configType = utils.AutoDiscoveryType
 	}
 
 	switch configCount {
@@ -191,9 +192,9 @@ func (b *Builder) ValidateTLSConfiguration(tlsConfig *v1alpha1.TlsConfig, domain
 	}
 
 	switch tlsType {
-	case "secretRef":
+	case utils.SecretRefType:
 		return b.validateSecretRefConfiguration(tlsConfig.SecretRef, store)
-	case "autoDiscovery":
+	case utils.AutoDiscoveryType:
 		return b.validateAutoDiscoveryConfiguration(domains, store)
 	default:
 		return fmt.Errorf("unknown TLS configuration type: %s", tlsType)

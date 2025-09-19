@@ -173,7 +173,7 @@ func (c *resourcesCache) removeFromLRU(key string) {
 // prewarm preloads frequently accessed resources into the cache
 func (c *resourcesCache) prewarm(keys []string, builder func(key string) (*Resources, error)) {
 	// Create a workerpool to prewarm the cache in parallel
-	const workers = 4
+	workers := utils.DefaultWorkerPoolSize
 	workChan := make(chan string, len(keys))
 
 	// Add all keys to the work channel

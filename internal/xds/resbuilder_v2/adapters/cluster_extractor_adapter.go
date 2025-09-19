@@ -41,7 +41,7 @@ func (a *ClusterExtractorAdapter) ExtractClustersFromFilterChains(filterChains [
 		for _, filter := range fc.Filters {
 			if tc := filter.GetTypedConfig(); tc != nil {
 				// Check if this is a TCP proxy filter
-				if tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy" {
+				if tc.TypeUrl != utils.TypeURLTCPProxy {
 					return nil, fmt.Errorf("unexpected filter type: %s", tc.TypeUrl)
 				}
 

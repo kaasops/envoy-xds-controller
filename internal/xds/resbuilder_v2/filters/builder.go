@@ -195,11 +195,11 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 		}
 	}
 
-	// filter with type type.googleapis.com/envoy.extensions.filters.http.router.v3.Router must be in the end
+	// filter with Router type must be in the end
 	var routerIdxs []int
 	for i, f := range httpFilters {
 		if tc := f.GetTypedConfig(); tc != nil {
-			if tc.TypeUrl == "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router" {
+			if tc.TypeUrl == utils.TypeURLRouter {
 				routerIdxs = append(routerIdxs, i)
 			}
 		}

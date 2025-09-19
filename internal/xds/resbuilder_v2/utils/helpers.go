@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"strings"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -121,4 +122,15 @@ func FindClusterNames(data interface{}, clusterField string) []string {
 	}
 
 	return names
+}
+
+// GetWildcardDomain converts a domain to its wildcard equivalent
+// For example: "api.example.com" -> "*.example.com"
+func GetWildcardDomain(domain string) string {
+	parts := strings.Split(domain, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	parts[0] = "*"
+	return strings.Join(parts, ".")
 }

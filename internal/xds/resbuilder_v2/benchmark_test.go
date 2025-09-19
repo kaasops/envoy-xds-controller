@@ -9,6 +9,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/filters"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -132,10 +133,12 @@ func BenchmarkBuildHTTPFilters(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
+	filtersBuilder := filters.NewBuilder(store)
+
 	for i := 0; i < b.N; i++ {
-		_, err := buildHTTPFilters(vs, store)
+		_, err := filtersBuilder.BuildHTTPFilters(vs)
 		if err != nil {
-			b.Fatalf("buildHTTPFilters failed: %v", err)
+			b.Fatalf("BuildHTTPFilters failed: %v", err)
 		}
 	}
 }

@@ -224,7 +224,7 @@ func TestGetWildcardDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := getWildcardDomain(tt.domain)
+			result := utils.GetWildcardDomain(tt.domain)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
