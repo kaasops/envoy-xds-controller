@@ -3,6 +3,7 @@ package interfaces
 import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -68,6 +69,8 @@ type ClusterExtractor interface {
 	ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain) ([]*cluster.Cluster, error)
 	ExtractClustersFromVirtualHost(virtualHost *routev3.VirtualHost) ([]*cluster.Cluster, error)
 	ExtractClustersFromHTTPFilters(httpFilters []*hcmv3.HttpFilter) ([]*cluster.Cluster, error)
+	ExtractClustersFromTracingRaw(tr *runtime.RawExtension) ([]*cluster.Cluster, error)
+	ExtractClustersFromTracingRef(vs *v1alpha1.VirtualService) ([]*cluster.Cluster, error)
 }
 
 // MainBuilder is the interface for the main resource building component

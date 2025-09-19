@@ -8,10 +8,12 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/clusters"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/interfaces"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ClusterExtractorAdapter adapts the clusters.Builder to implement the ClusterExtractor interface
@@ -88,4 +90,16 @@ func (a *ClusterExtractorAdapter) ExtractClustersFromHTTPFilters(httpFilters []*
 	// Delegate to the wrapped builder's FromOAuth2HTTPFilters method
 	// This method specifically handles OAuth2 filters that may reference clusters
 	return a.builder.FromOAuth2HTTPFilters(httpFilters)
+}
+
+// ExtractClustersFromTracingRaw extracts clusters from inline tracing configuration
+func (a *ClusterExtractorAdapter) ExtractClustersFromTracingRaw(tr *runtime.RawExtension) ([]*cluster.Cluster, error) {
+	// Delegate to the wrapped builder's FromTracingRaw method
+	return a.builder.FromTracingRaw(tr)
+}
+
+// ExtractClustersFromTracingRef extracts clusters from tracing reference
+func (a *ClusterExtractorAdapter) ExtractClustersFromTracingRef(vs *v1alpha1.VirtualService) ([]*cluster.Cluster, error) {
+	// Delegate to the wrapped builder's FromTracingRef method
+	return a.builder.FromTracingRef(vs)
 }

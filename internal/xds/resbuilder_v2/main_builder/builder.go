@@ -436,18 +436,38 @@ func (b *Builder) buildResourcesFromVirtualService(
 		Domains:     domains,
 	}
 
-	// 8. Extract clusters from virtual host and HTTP filters
+	// 8. Extract clusters from various sources
+	// 8.1 Extract clusters from virtual host routes
 	virtualHostClusters, err := b.clusterExtractor.ExtractClustersFromVirtualHost(virtualHost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract clusters from virtual host: %w", err)
 	}
 	resources.Clusters = append(resources.Clusters, virtualHostClusters...)
 
+	// 8.2 Extract clusters from HTTP filters
 	httpFilterClusters, err := b.clusterExtractor.ExtractClustersFromHTTPFilters(httpFilters)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract clusters from HTTP filters: %w", err)
 	}
 	resources.Clusters = append(resources.Clusters, httpFilterClusters...)
+
+	// 8.3 Extract clusters from inline tracing configuration
+	if vs.Spec.Tracing != nil {
+		tracingClusters, err := b.clusterExtractor.ExtractClustersFromTracingRaw(vs.Spec.Tracing)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract clusters from inline tracing: %w", err)
+		}
+		resources.Clusters = append(resources.Clusters, tracingClusters...)
+	}
+
+	// 8.4 Extract clusters from tracing reference
+	if vs.Spec.TracingRef != nil {
+		tracingRefClusters, err := b.clusterExtractor.ExtractClustersFromTracingRef(vs)
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract clusters from tracing ref: %w", err)
+		}
+		resources.Clusters = append(resources.Clusters, tracingRefClusters...)
+	}
 
 	// 9. Build TLS configuration if needed
 	if listenerIsTLS && vs.Spec.TlsConfig != nil {

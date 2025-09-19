@@ -113,6 +113,16 @@ func (m *MockClusterExtractor) ExtractClustersFromHTTPFilters(httpFilters []*hcm
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
 }
 
+func (m *MockClusterExtractor) ExtractClustersFromTracingRaw(tr *runtime.RawExtension) ([]*clusterv3.Cluster, error) {
+	args := m.Called(tr)
+	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
+}
+
+func (m *MockClusterExtractor) ExtractClustersFromTracingRef(vs *v1alpha1.VirtualService) ([]*clusterv3.Cluster, error) {
+	args := m.Called(vs)
+	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
+}
+
 // TestNewBuilder creates a test-specific builder that accepts our mock implementations
 func TestNewBuilder(t *testing.T) {
 	// We'll create a real store.Store for testing
