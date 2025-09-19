@@ -11,7 +11,6 @@ import (
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
@@ -332,47 +331,6 @@ func checkFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
 	}
 
 	return nil
-}
-
-// extractClustersFromFilterChains extracts clusters from filter chains
-func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store *store.Store) ([]*cluster.Cluster, error) {
-	// Get a slice from the pool
-	clustersPtr := utils.GetClusterSlice()
-	defer utils.PutClusterSlice(clustersPtr)
-
-	for _, fc := range filterChains {
-		for _, filter := range fc.Filters {
-			if tc := filter.GetTypedConfig(); tc != nil {
-				if tc.TypeUrl != utils.TypeURLTCPProxy {
-					return nil, fmt.Errorf("unexpected filter type: %s", tc.TypeUrl)
-				}
-
-				var tcpProxy tcpProxyv3.TcpProxy
-				if err := tc.UnmarshalTo(&tcpProxy); err != nil {
-					return nil, err
-				}
-
-				clusterName := tcpProxy.GetCluster()
-				cl := store.GetSpecCluster(clusterName)
-				if cl == nil {
-					return nil, fmt.Errorf("cluster %s not found", clusterName)
-				}
-
-				xdsCluster, err := cl.UnmarshalV3AndValidate()
-				if err != nil {
-					return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-				}
-
-				*clustersPtr = append(*clustersPtr, xdsCluster)
-			}
-		}
-	}
-
-	// Create a new slice to return to the caller - we can't return the pooled slice directly
-	result := make([]*cluster.Cluster, len(*clustersPtr))
-	copy(result, *clustersPtr)
-
-	return result, nil
 }
 
 // buildResourcesFromVirtualService builds resources from virtual service configuration

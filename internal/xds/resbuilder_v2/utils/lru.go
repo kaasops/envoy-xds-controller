@@ -51,7 +51,7 @@ func NewTypedLRUCache(capacity int, ttl time.Duration, cacheType string) *LRUCac
 // Returns the value and a boolean indicating if the key was found
 func (c *LRUCache) Get(key string) (interface{}, bool) {
 	c.mu.RLock()
-	element, exists := c.cache[key]
+	_, exists := c.cache[key]
 	c.mu.RUnlock()
 
 	if !exists {
@@ -64,7 +64,7 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 	defer c.mu.Unlock()
 
 	// Double-check after acquiring write lock
-	element, exists = c.cache[key]
+	element, exists := c.cache[key]
 	if !exists {
 		// Record cache miss
 		RecordCacheMiss(c.cacheType)

@@ -150,8 +150,8 @@ func DetailedCompare(t *testing.T, name string, original, new proto.Message) {
 
 // CreateTestVirtualService creates a simple VirtualService for testing
 func CreateTestVirtualService() *v1alpha1.VirtualService {
-	// Create a default listener namespace
-	defaultNamespace := "default"
+	// Create namespace variable for reference
+	ns := defaultNamespace
 
 	return &v1alpha1.VirtualService{
 		TypeMeta: metav1.TypeMeta{
@@ -160,14 +160,14 @@ func CreateTestVirtualService() *v1alpha1.VirtualService {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-vs",
-			Namespace: "default",
+			Namespace: defaultNamespace,
 		},
 		Spec: v1alpha1.VirtualServiceSpec{
 			VirtualServiceCommonSpec: v1alpha1.VirtualServiceCommonSpec{
 				// Add a default listener reference
 				Listener: &v1alpha1.ResourceRef{
 					Name:      "test-listener",
-					Namespace: &defaultNamespace,
+					Namespace: &ns,
 				},
 				// Add a simple VirtualHost with a route
 				VirtualHost: &runtime.RawExtension{
@@ -334,12 +334,12 @@ func TestBasicHTTPRouting(t *testing.T) {
 
 	// Add a test listener
 	listenerName := "test-listener"
-	listenerNamespace := "default"
+	listenerNamespace := defaultNamespace
 	AddTestListener(s, listenerName, listenerNamespace)
 
 	// Add a test cluster
 	clusterName := "test-cluster"
-	clusterNamespace := "default"
+	clusterNamespace := defaultNamespace
 	AddTestCluster(s, clusterName, clusterNamespace)
 
 	// Create a virtual service that references the listener
@@ -384,17 +384,17 @@ func TestTLSConfiguration(t *testing.T) {
 
 	// Add a test listener with TLS inspector
 	listenerName := "tls-listener"
-	listenerNamespace := "default"
+	listenerNamespace := defaultNamespace
 	AddTestListenerWithTLS(s, listenerName, listenerNamespace)
 
 	// Add a test cluster
 	clusterName := "secure-cluster"
-	clusterNamespace := "default"
+	clusterNamespace := defaultNamespace
 	AddTestCluster(s, clusterName, clusterNamespace)
 
 	// Add a secret to the store
 	secretName := "test-tls-secret"
-	secretNamespace := "default"
+	secretNamespace := defaultNamespace
 	AddTestSecret(s, secretName, secretNamespace)
 
 	// Create a virtual service with TLS configuration
@@ -455,12 +455,12 @@ func TestRBACConfiguration(t *testing.T) {
 
 	// Add a test listener
 	listenerName := "rbac-listener"
-	listenerNamespace := "default"
+	listenerNamespace := defaultNamespace
 	AddTestListener(s, listenerName, listenerNamespace)
 
 	// Add a test cluster
 	clusterName := "rbac-cluster"
-	clusterNamespace := "default"
+	clusterNamespace := defaultNamespace
 	AddTestCluster(s, clusterName, clusterNamespace)
 
 	// Create a virtual service with RBAC configuration

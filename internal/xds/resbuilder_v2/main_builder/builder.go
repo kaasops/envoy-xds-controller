@@ -134,32 +134,6 @@ func (c *resourcesCache) set(key string, resource *Resources) {
 	utils.UpdateCacheSize("main_builder", len(c.cache))
 }
 
-// removeExpiredEntriesIfNeeded removes expired entries from the cache
-func (c *resourcesCache) removeExpiredEntriesIfNeeded() {
-	removed := c.removeExpiredEntries()
-	if removed > 0 {
-		utils.ResourceCardinality.WithLabelValues("cache_evictions", "resources", "mainbuilder").Add(float64(removed))
-	}
-}
-
-// removeExpiredEntries removes all expired entries from the cache
-func (c *resourcesCache) removeExpiredEntries() int {
-	removed := 0
-	now := time.Now()
-
-	for key, entry := range c.cache {
-		if now.Sub(entry.createdAt) > c.ttl {
-			delete(c.cache, key)
-			delete(c.accessTimes, key)
-			c.removeFromLRU(key)
-			utils.RecordCacheEviction("main_builder", "ttl_expired")
-			removed++
-		}
-	}
-
-	return removed
-}
-
 // removeFromLRU removes a key from the LRU list
 func (c *resourcesCache) removeFromLRU(key string) {
 	for i, k := range c.evictionLRU {
@@ -168,37 +142,6 @@ func (c *resourcesCache) removeFromLRU(key string) {
 			break
 		}
 	}
-}
-
-// prewarm preloads frequently accessed resources into the cache
-func (c *resourcesCache) prewarm(keys []string, builder func(key string) (*Resources, error)) {
-	// Create a workerpool to prewarm the cache in parallel
-	workers := utils.DefaultWorkerPoolSize
-	workChan := make(chan string, len(keys))
-
-	// Add all keys to the work channel
-	for _, key := range keys {
-		workChan <- key
-	}
-	close(workChan)
-
-	// Create worker goroutines
-	var wg sync.WaitGroup
-	wg.Add(workers)
-
-	for w := 0; w < workers; w++ {
-		go func() {
-			defer wg.Done()
-			for key := range workChan {
-				resource, err := builder(key)
-				if err == nil && resource != nil {
-					c.set(key, resource)
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
 }
 
 // generateCacheKey creates a hash-based cache key for a VirtualService

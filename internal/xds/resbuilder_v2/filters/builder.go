@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"sync"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
@@ -15,78 +14,9 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/runtime"
 )
-
-// Cache for buildHTTPFilters results to avoid expensive re-computation
-type httpFiltersCache struct {
-	mu      sync.RWMutex
-	cache   map[string][]*hcmv3.HttpFilter
-	maxSize int
-}
-
-func newHTTPFiltersCache() *httpFiltersCache {
-	return &httpFiltersCache{
-		cache:   make(map[string][]*hcmv3.HttpFilter),
-		maxSize: 1000, // Limit cache size
-	}
-}
-
-func (c *httpFiltersCache) get(key string) ([]*hcmv3.HttpFilter, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	filters, exists := c.cache[key]
-	if !exists {
-		return nil, false
-	}
-
-	// Get a slice from the pool
-	resultPtr := utils.GetHTTPFilterSlice()
-
-	// Create deep copies to avoid mutation issues
-	for _, filter := range filters {
-		*resultPtr = append(*resultPtr, proto.Clone(filter).(*hcmv3.HttpFilter))
-	}
-
-	// Create a new slice to return to the caller - we can't return the pooled slice directly
-	finalResult := make([]*hcmv3.HttpFilter, len(*resultPtr))
-	copy(finalResult, *resultPtr)
-
-	// Return the slice to the pool
-	utils.PutHTTPFilterSlice(resultPtr)
-
-	return finalResult, true
-}
-
-func (c *httpFiltersCache) set(key string, filters []*hcmv3.HttpFilter) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Simple eviction: if cache is full, clear it
-	if len(c.cache) >= c.maxSize {
-		c.cache = make(map[string][]*hcmv3.HttpFilter)
-	}
-
-	// Get a slice from the pool
-	cachedPtr := utils.GetHTTPFilterSlice()
-
-	// Store deep copies to avoid mutation issues
-	for _, filter := range filters {
-		*cachedPtr = append(*cachedPtr, proto.Clone(filter).(*hcmv3.HttpFilter))
-	}
-
-	// Create a permanent slice for the cache - we can't store the pooled slice
-	permanentCached := make([]*hcmv3.HttpFilter, len(*cachedPtr))
-	copy(permanentCached, *cachedPtr)
-	c.cache[key] = permanentCached
-
-	// Return the slice to the pool
-	utils.PutHTTPFilterSlice(cachedPtr)
-}
-
-var globalHTTPFiltersCache = newHTTPFiltersCache()
 
 // Builder handles filter building operations
 type Builder struct {

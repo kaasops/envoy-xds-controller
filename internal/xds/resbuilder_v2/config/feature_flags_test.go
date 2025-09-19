@@ -12,8 +12,8 @@ func TestGetFeatureFlags(t *testing.T) {
 
 	// Restore environment variables after test
 	defer func() {
-		os.Setenv(EnvEnableMainBuilder, originalEnableMainBuilder)
-		os.Setenv(EnvMainBuilderPercentage, originalMainBuilderPercentage)
+		_ = os.Setenv(EnvEnableMainBuilder, originalEnableMainBuilder)
+		_ = os.Setenv(EnvMainBuilderPercentage, originalMainBuilderPercentage)
 	}()
 
 	tests := []struct {
@@ -90,8 +90,8 @@ func TestGetFeatureFlags(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set environment variables for test case
-			os.Setenv(EnvEnableMainBuilder, tc.enableMainBuilder)
-			os.Setenv(EnvMainBuilderPercentage, tc.mainBuilderPercentage)
+			_ = os.Setenv(EnvEnableMainBuilder, tc.enableMainBuilder)
+			_ = os.Setenv(EnvMainBuilderPercentage, tc.mainBuilderPercentage)
 
 			// Get feature flags
 			flags := GetFeatureFlags()
@@ -137,8 +137,8 @@ func TestGetBoolEnv(t *testing.T) {
 
 			// For empty value tests, don't set environment variable
 			if tc.value != "" {
-				os.Setenv("TEST_KEY", tc.value)
-				defer os.Unsetenv("TEST_KEY")
+				_ = os.Setenv("TEST_KEY", tc.value)
+				defer func() { _ = os.Unsetenv("TEST_KEY") }()
 				result = getBoolEnv("TEST_KEY", tc.defaultVal)
 			}
 
@@ -171,8 +171,8 @@ func TestGetIntEnv(t *testing.T) {
 
 			// For empty value tests, don't set environment variable
 			if tc.value != "" {
-				os.Setenv("TEST_KEY", tc.value)
-				defer os.Unsetenv("TEST_KEY")
+				_ = os.Setenv("TEST_KEY", tc.value)
+				defer func() { _ = os.Unsetenv("TEST_KEY") }()
 				result = getIntEnv("TEST_KEY", tc.defaultVal)
 			}
 

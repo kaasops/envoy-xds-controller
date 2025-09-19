@@ -72,8 +72,8 @@ func TestEnvironmentFlagConfiguration(t *testing.T) {
 	originalEnableValue := os.Getenv("ENABLE_MAIN_BUILDER")
 	originalPercentageValue := os.Getenv("MAIN_BUILDER_PERCENTAGE")
 	defer func() {
-		os.Setenv("ENABLE_MAIN_BUILDER", originalEnableValue)
-		os.Setenv("MAIN_BUILDER_PERCENTAGE", originalPercentageValue)
+		_ = os.Setenv("ENABLE_MAIN_BUILDER", originalEnableValue)
+		_ = os.Setenv("MAIN_BUILDER_PERCENTAGE", originalPercentageValue)
 	}()
 
 	// Test cases for ENABLE_MAIN_BUILDER
@@ -95,7 +95,7 @@ func TestEnvironmentFlagConfiguration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set environment variable
-			os.Setenv("ENABLE_MAIN_BUILDER", tc.envValue)
+			_ = os.Setenv("ENABLE_MAIN_BUILDER", tc.envValue)
 
 			// Get feature flags
 			flags := config.GetFeatureFlags()
@@ -125,7 +125,7 @@ func TestEnvironmentFlagConfiguration(t *testing.T) {
 	for _, tc := range percentageCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Set environment variable
-			os.Setenv("MAIN_BUILDER_PERCENTAGE", tc.envValue)
+			_ = os.Setenv("MAIN_BUILDER_PERCENTAGE", tc.envValue)
 
 			// Get feature flags
 			flags := config.GetFeatureFlags()
@@ -144,8 +144,8 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	originalEnableValue := os.Getenv("ENABLE_MAIN_BUILDER")
 	originalPercentageValue := os.Getenv("MAIN_BUILDER_PERCENTAGE")
 	defer func() {
-		os.Setenv("ENABLE_MAIN_BUILDER", originalEnableValue)
-		os.Setenv("MAIN_BUILDER_PERCENTAGE", originalPercentageValue)
+		_ = os.Setenv("ENABLE_MAIN_BUILDER", originalEnableValue)
+		_ = os.Setenv("MAIN_BUILDER_PERCENTAGE", originalPercentageValue)
 	}()
 
 	// Create a test store
@@ -155,10 +155,10 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	rb := resbuilder_v2.NewResourceBuilder(s)
 
 	// Set ENABLE_MAIN_BUILDER=false to test percentage-based rollout
-	os.Setenv("ENABLE_MAIN_BUILDER", "false")
+	_ = os.Setenv("ENABLE_MAIN_BUILDER", "false")
 
 	// Test with 0% - should never use MainBuilder
-	os.Setenv("MAIN_BUILDER_PERCENTAGE", "0")
+	_ = os.Setenv("MAIN_BUILDER_PERCENTAGE", "0")
 	rb.UpdateFeatureFlags()
 
 	for i := 0; i < 100; i++ {
@@ -172,7 +172,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	}
 
 	// Test with 100% - should always use MainBuilder
-	os.Setenv("MAIN_BUILDER_PERCENTAGE", "100")
+	_ = os.Setenv("MAIN_BUILDER_PERCENTAGE", "100")
 	rb.UpdateFeatureFlags()
 
 	for i := 0; i < 100; i++ {
@@ -186,7 +186,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	}
 
 	// Test with 50% - should use MainBuilder for approximately half of the cases
-	os.Setenv("MAIN_BUILDER_PERCENTAGE", "50")
+	_ = os.Setenv("MAIN_BUILDER_PERCENTAGE", "50")
 	rb.UpdateFeatureFlags()
 
 	usedMainBuilder := 0

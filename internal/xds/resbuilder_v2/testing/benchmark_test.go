@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+const defaultNamespace = "default"
+
 // BenchmarkResourceBuilder benchmarks both implementations of ResourceBuilder
 func BenchmarkResourceBuilder(b *testing.B) {
 	// Run benchmarks for different VirtualService configurations
@@ -126,13 +128,13 @@ func createBasicHTTPRoutingVS() *v1alpha1.VirtualService {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "benchmark-basic-vs",
-			Namespace: "default",
+			Namespace: defaultNamespace,
 		},
 		Spec: v1alpha1.VirtualServiceSpec{},
 	}
 
 	// Configure listener
-	listenerNamespace := "default"
+	listenerNamespace := defaultNamespace
 	vs.Spec.Listener = &v1alpha1.ResourceRef{
 		Name:      "benchmark-listener",
 		Namespace: &listenerNamespace,
@@ -164,7 +166,7 @@ func createTLSConfigurationVS() *v1alpha1.VirtualService {
 	vs.ObjectMeta.Name = "benchmark-tls-vs"
 
 	// Configure TLS
-	secretNamespace := "default"
+	secretNamespace := defaultNamespace
 	vs.Spec.TlsConfig = &v1alpha1.TlsConfig{
 		SecretRef: &v1alpha1.ResourceRef{
 			Name:      "benchmark-tls-secret",
@@ -248,7 +250,7 @@ func createComplexConfigurationVS() *v1alpha1.VirtualService {
 	vs.ObjectMeta.Name = "benchmark-complex-vs"
 
 	// Configure TLS
-	secretNamespace := "default"
+	secretNamespace := defaultNamespace
 	vs.Spec.TlsConfig = &v1alpha1.TlsConfig{
 		SecretRef: &v1alpha1.ResourceRef{
 			Name:      "benchmark-tls-secret",
