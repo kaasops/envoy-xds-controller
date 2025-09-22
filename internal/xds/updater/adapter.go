@@ -1,11 +1,41 @@
 package updater
 
 import (
+	"fmt"
+
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/config"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+// buildResourcesAdapter routes resource building to either the old or new implementation
+// based on feature flags configuration
+func buildResourcesAdapter(vs *v1alpha1.VirtualService, store *store.Store) (*resbuilder.Resources, error) {
+	logger := log.Log.WithValues("virtualservice", vs.Name, "namespace", vs.Namespace)
+
+	// Get feature flags configuration
+	flags := config.GetFeatureFlags()
+
+	// Create namespaced name for consistent hashing
+	namespacedName := fmt.Sprintf("%s/%s", vs.Namespace, vs.Name)
+
+	// Use the existing rollout logic with consistent hashing
+	useMainBuilder := config.ShouldUseMainBuilder(flags, namespacedName)
+
+	if useMainBuilder {
+		logger.V(2).Info("Using MainBuilder implementation",
+			"EnableMainBuilder", flags.EnableMainBuilder,
+			"MainBuilderPercentage", flags.MainBuilderPercentage)
+		return buildResourcesWithMainBuilder(vs, store)
+	}
+
+	// Fall back to the original implementation
+	logger.V(2).Info("Using legacy resbuilder implementation")
+	return resbuilder.BuildResources(vs, store)
+}
 
 // buildResourcesWithMainBuilder builds resources using the new MainBuilder implementation
 // but returns them in the format expected by the old implementation

@@ -32,7 +32,7 @@ type CacheUpdater struct {
 	usedSecrets   map[helpers.NamespacedName]helpers.NamespacedName
 }
 
-var buildVSResources = buildResourcesWithMainBuilder
+var buildVSResources = buildResourcesAdapter
 
 func NewCacheUpdater(wsc *wrapped.SnapshotCache, store *store.Store) *CacheUpdater {
 	return &CacheUpdater{
