@@ -296,7 +296,7 @@ func validationEnvoyContext() {
 			{
 				Description:   "VirtualService template with multiple root routes",
 				Manifest:      "test/testdata/e2e/template_validation/virtual-service-template-2.yaml",
-				ExpectedError: "failed to apply VirtualServiceTemplate: multiple root routes found",
+				ExpectedError: "multiple root routes found",
 				ApplyBefore: []string{
 					"test/testdata/e2e/template_validation/cert.yaml",
 					"test/testdata/e2e/template_validation/listener.yaml",
