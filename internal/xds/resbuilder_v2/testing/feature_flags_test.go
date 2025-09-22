@@ -164,7 +164,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		vs := CreateTestVirtualService()
 		vs.Name = vs.Name + "-" + strconv.Itoa(i)
-		vs.Namespace = "default"
+		vs.Namespace = defaultNamespace
 		AddTestVirtualService(s, vs)
 
 		assert.False(t, config.ShouldUseMainBuilder(config.GetFeatureFlags(), vs.Name+"-"+vs.Namespace),
@@ -178,7 +178,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		vs := CreateTestVirtualService()
 		vs.Name = vs.Name + "-" + strconv.Itoa(i)
-		vs.Namespace = "default"
+		vs.Namespace = defaultNamespace
 		AddTestVirtualService(s, vs)
 
 		assert.True(t, config.ShouldUseMainBuilder(config.GetFeatureFlags(), vs.Name+"-"+vs.Namespace),
@@ -193,7 +193,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		vs := CreateTestVirtualService()
 		vs.Name = vs.Name + "-" + strconv.Itoa(i)
-		vs.Namespace = "default"
+		vs.Namespace = defaultNamespace
 		AddTestVirtualService(s, vs)
 
 		if config.ShouldUseMainBuilder(config.GetFeatureFlags(), vs.Name+"-"+vs.Namespace) {

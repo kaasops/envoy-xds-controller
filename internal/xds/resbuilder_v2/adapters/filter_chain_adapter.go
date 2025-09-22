@@ -14,6 +14,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/filter_chains"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/interfaces"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // FilterChainAdapter adapts the filter_chains.Builder to implement the FilterChainBuilder interface
@@ -72,50 +73,152 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 		XFFNumTrustedHops: vs.Spec.XFFNumTrustedHops,
 	}
 
-	// 1. Handle tracing configuration
+	// Handle tracing configuration
+	tracing, err := a.configureTracing(vs)
+	if err != nil {
+		return nil, err
+	}
+	filterChainParams.Tracing = tracing
+
+	// Handle upgrade configs
+	upgradeConfigs, err := a.configureUpgradeConfigs(vs)
+	if err != nil {
+		return nil, err
+	}
+	filterChainParams.UpgradeConfigs = upgradeConfigs
+
+	// Handle access logs
+	accessLogs, err := a.configureAccessLogs(vs)
+	if err != nil {
+		return nil, err
+	}
+	filterChainParams.AccessLogs = accessLogs
+
+	// Handle TLS configuration
+	if err := a.configureTLS(vs, listenerIsTLS, virtualHost, filterChainParams); err != nil {
+		return nil, err
+	}
+
+	return filterChainParams, nil
+}
+
+// configureTracing handles tracing configuration for the filter chain
+func (a *FilterChainAdapter) configureTracing(vs *v1alpha1.VirtualService) (*hcmv3.HttpConnectionManager_Tracing, error) {
 	if vs.Spec.Tracing != nil && vs.Spec.TracingRef != nil {
 		return nil, fmt.Errorf("only one of spec.tracing or spec.tracingRef may be set")
 	}
 
 	if vs.Spec.Tracing != nil {
-		tracing := &hcmv3.HttpConnectionManager_Tracing{}
-		if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.Tracing.Raw, tracing); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
+		return a.unmarshalInlineTracing(vs.Spec.Tracing)
+	}
+
+	if vs.Spec.TracingRef != nil {
+		return a.resolveTracingRef(vs)
+	}
+
+	return nil, nil
+}
+
+// unmarshalInlineTracing unmarshals inline tracing configuration
+func (a *FilterChainAdapter) unmarshalInlineTracing(tracingSpec *runtime.RawExtension) (*hcmv3.HttpConnectionManager_Tracing, error) {
+	tracing := &hcmv3.HttpConnectionManager_Tracing{}
+	if err := protoutil.Unmarshaler.Unmarshal(tracingSpec.Raw, tracing); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
+	}
+	if err := tracing.ValidateAll(); err != nil {
+		return nil, fmt.Errorf("failed to validate tracing: %w", err)
+	}
+	return tracing, nil
+}
+
+// resolveTracingRef resolves tracing reference from store
+func (a *FilterChainAdapter) resolveTracingRef(vs *v1alpha1.VirtualService) (*hcmv3.HttpConnectionManager_Tracing, error) {
+	tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
+	tr := a.store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
+	if tr == nil {
+		return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
+	}
+	trv3, err := tr.UnmarshalV3AndValidate()
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
+	}
+	return trv3, nil
+}
+
+// configureUpgradeConfigs handles upgrade configurations
+func (a *FilterChainAdapter) configureUpgradeConfigs(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpConnectionManager_UpgradeConfig, error) {
+	if vs.Spec.UpgradeConfigs == nil {
+		return nil, nil
+	}
+
+	upgradeConfigs := make([]*hcmv3.HttpConnectionManager_UpgradeConfig, 0, len(vs.Spec.UpgradeConfigs))
+	for _, upgradeConfig := range vs.Spec.UpgradeConfigs {
+		uc := &hcmv3.HttpConnectionManager_UpgradeConfig{}
+		if err := protoutil.Unmarshaler.Unmarshal(upgradeConfig.Raw, uc); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal upgrade config: %w", err)
 		}
-		if err := tracing.ValidateAll(); err != nil {
-			return nil, fmt.Errorf("failed to validate tracing: %w", err)
+		if err := uc.ValidateAll(); err != nil {
+			return nil, fmt.Errorf("failed to validate upgrade config: %w", err)
 		}
-		filterChainParams.Tracing = tracing
-	} else if vs.Spec.TracingRef != nil {
-		tracingRefNs := helpers.GetNamespace(vs.Spec.TracingRef.Namespace, vs.Namespace)
-		tr := a.store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name})
-		if tr == nil {
-			return nil, fmt.Errorf("tracing %s/%s not found", tracingRefNs, vs.Spec.TracingRef.Name)
-		}
-		trv3, err := tr.UnmarshalV3AndValidate()
+		upgradeConfigs = append(upgradeConfigs, uc)
+	}
+	return upgradeConfigs, nil
+}
+
+// configureAccessLogs handles access log configuration
+func (a *FilterChainAdapter) configureAccessLogs(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
+	// Validate that only one type of access log configuration is used
+	if err := a.validateAccessLogConfiguration(vs); err != nil {
+		return nil, err
+	}
+
+	if !a.hasAccessLogConfiguration(vs) {
+		return nil, nil
+	}
+
+	var accessLogs []*accesslogv3.AccessLog
+
+	// Process deprecated single access log
+	if vs.Spec.AccessLog != nil {
+		logs, err := a.processDeprecatedAccessLog(vs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
+			return nil, err
 		}
-		filterChainParams.Tracing = trv3
+		accessLogs = append(accessLogs, logs...)
 	}
 
-	// 2. Handle upgrade configs
-	if vs.Spec.UpgradeConfigs != nil {
-		upgradeConfigs := make([]*hcmv3.HttpConnectionManager_UpgradeConfig, 0, len(vs.Spec.UpgradeConfigs))
-		for _, upgradeConfig := range vs.Spec.UpgradeConfigs {
-			uc := &hcmv3.HttpConnectionManager_UpgradeConfig{}
-			if err := protoutil.Unmarshaler.Unmarshal(upgradeConfig.Raw, uc); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal upgrade config: %w", err)
-			}
-			if err := uc.ValidateAll(); err != nil {
-				return nil, fmt.Errorf("failed to validate upgrade config: %w", err)
-			}
-			upgradeConfigs = append(upgradeConfigs, uc)
+	// Process deprecated single access log config reference
+	if vs.Spec.AccessLogConfig != nil {
+		logs, err := a.processDeprecatedAccessLogConfig(vs)
+		if err != nil {
+			return nil, err
 		}
-		filterChainParams.UpgradeConfigs = upgradeConfigs
+		accessLogs = append(accessLogs, logs...)
 	}
 
-	// 3. Handle access log configs
+	// Process multiple inline access logs
+	if len(vs.Spec.AccessLogs) > 0 {
+		logs, err := a.processInlineAccessLogs(vs.Spec.AccessLogs)
+		if err != nil {
+			return nil, err
+		}
+		accessLogs = append(accessLogs, logs...)
+	}
+
+	// Process multiple access log config references
+	if len(vs.Spec.AccessLogConfigs) > 0 {
+		logs, err := a.processAccessLogConfigRefs(vs)
+		if err != nil {
+			return nil, err
+		}
+		accessLogs = append(accessLogs, logs...)
+	}
+
+	return accessLogs, nil
+}
+
+// validateAccessLogConfiguration ensures only one type of access log config is used
+func (a *FilterChainAdapter) validateAccessLogConfiguration(vs *v1alpha1.VirtualService) error {
 	var accessLogCount int
 	if vs.Spec.AccessLog != nil {
 		accessLogCount++
@@ -131,97 +234,113 @@ func (a *FilterChainAdapter) BuildFilterChainParams(
 	}
 
 	if accessLogCount > 1 {
-		return nil, fmt.Errorf("can't use accessLog, accessLogConfig, accessLogs and accessLogConfigs at the same time")
+		return fmt.Errorf("can't use accessLog, accessLogConfig, accessLogs and accessLogConfigs at the same time")
 	}
+	return nil
+}
 
-	if accessLogCount > 0 {
-		var accessLogs []*accesslogv3.AccessLog
+// hasAccessLogConfiguration checks if any access log configuration exists
+func (a *FilterChainAdapter) hasAccessLogConfiguration(vs *v1alpha1.VirtualService) bool {
+	return vs.Spec.AccessLog != nil ||
+		vs.Spec.AccessLogConfig != nil ||
+		len(vs.Spec.AccessLogs) > 0 ||
+		len(vs.Spec.AccessLogConfigs) > 0
+}
 
-		// Handle inline access log
-		if vs.Spec.AccessLog != nil {
-			vs.UpdateStatus(false, "accessLog is deprecated, use accessLogs instead")
-			var accessLog accesslogv3.AccessLog
-			if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, &accessLog); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
-			}
-			if err := accessLog.ValidateAll(); err != nil {
-				return nil, err
-			}
-			accessLogs = append(accessLogs, &accessLog)
-		}
-
-		// Handle access log config reference
-		if vs.Spec.AccessLogConfig != nil {
-			vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
-			accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
-			accessLogConfig := a.store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name})
-			if accessLogConfig == nil {
-				return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, vs.Spec.AccessLogConfig.Name)
-			}
-			accessLog, err := accessLogConfig.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
-			if err != nil {
-				return nil, err
-			}
-			accessLogs = append(accessLogs, accessLog)
-		}
-
-		// Handle multiple inline access logs
-		if len(vs.Spec.AccessLogs) > 0 {
-			for _, accessLogSpec := range vs.Spec.AccessLogs {
-				var accessLogV3 accesslogv3.AccessLog
-				if err := protoutil.Unmarshaler.Unmarshal(accessLogSpec.Raw, &accessLogV3); err != nil {
-					return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
-				}
-				if err := accessLogV3.ValidateAll(); err != nil {
-					return nil, err
-				}
-				accessLogs = append(accessLogs, &accessLogV3)
-			}
-		}
-
-		// Handle multiple access log config references
-		if len(vs.Spec.AccessLogConfigs) > 0 {
-			for _, accessLogConfig := range vs.Spec.AccessLogConfigs {
-				accessLogNs := helpers.GetNamespace(accessLogConfig.Namespace, vs.Namespace)
-				accessLog := a.store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: accessLogConfig.Name})
-				if accessLog == nil {
-					return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, accessLogConfig.Name)
-				}
-				accessLogV3, err := accessLog.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
-				if err != nil {
-					return nil, err
-				}
-				accessLogs = append(accessLogs, accessLogV3)
-			}
-		}
-
-		filterChainParams.AccessLogs = accessLogs
+// processDeprecatedAccessLog processes deprecated single inline access log
+func (a *FilterChainAdapter) processDeprecatedAccessLog(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
+	vs.UpdateStatus(false, "accessLog is deprecated, use accessLogs instead")
+	var accessLog accesslogv3.AccessLog
+	if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, &accessLog); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
 	}
-
-	// 4. Handle TLS configuration
-	if listenerIsTLS && vs.Spec.TlsConfig == nil {
-		return nil, fmt.Errorf("tls listener not configured, virtual service has not tls config")
+	if err := accessLog.ValidateAll(); err != nil {
+		return nil, err
 	}
-	if !listenerIsTLS && vs.Spec.TlsConfig != nil {
-		return nil, fmt.Errorf("listener is not tls, virtual service has tls config")
-	}
+	return []*accesslogv3.AccessLog{&accessLog}, nil
+}
 
-	if vs.Spec.TlsConfig != nil {
-		tlsAdapter := NewTLSAdapter(a.store)
-		// Validate TLS configuration type
-		if _, err := tlsAdapter.GetTLSType(vs.Spec.TlsConfig); err != nil {
+// processDeprecatedAccessLogConfig processes deprecated single access log config reference
+func (a *FilterChainAdapter) processDeprecatedAccessLogConfig(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
+	vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
+	accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
+	accessLogConfig := a.store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name})
+	if accessLogConfig == nil {
+		return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, vs.Spec.AccessLogConfig.Name)
+	}
+	accessLog, err := accessLogConfig.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
+	if err != nil {
+		return nil, err
+	}
+	return []*accesslogv3.AccessLog{accessLog}, nil
+}
+
+// processInlineAccessLogs processes multiple inline access logs
+func (a *FilterChainAdapter) processInlineAccessLogs(accessLogSpecs []*runtime.RawExtension) ([]*accesslogv3.AccessLog, error) {
+	accessLogs := make([]*accesslogv3.AccessLog, 0, len(accessLogSpecs))
+	for _, accessLogSpec := range accessLogSpecs {
+		var accessLogV3 accesslogv3.AccessLog
+		if err := protoutil.Unmarshaler.Unmarshal(accessLogSpec.Raw, &accessLogV3); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
+		}
+		if err := accessLogV3.ValidateAll(); err != nil {
 			return nil, err
 		}
+		accessLogs = append(accessLogs, &accessLogV3)
+	}
+	return accessLogs, nil
+}
 
-		// Get SecretNameToDomains mapping based on TLS configuration
-		var err error
-		filterChainParams.SecretNameToDomains, err = tlsAdapter.GetSecretNameToDomains(vs, virtualHost.Domains)
+// processAccessLogConfigRefs processes multiple access log config references
+func (a *FilterChainAdapter) processAccessLogConfigRefs(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
+	accessLogs := make([]*accesslogv3.AccessLog, 0, len(vs.Spec.AccessLogConfigs))
+	for _, accessLogConfig := range vs.Spec.AccessLogConfigs {
+		accessLogNs := helpers.GetNamespace(accessLogConfig.Namespace, vs.Namespace)
+		accessLog := a.store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: accessLogConfig.Name})
+		if accessLog == nil {
+			return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, accessLogConfig.Name)
+		}
+		accessLogV3, err := accessLog.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
 		if err != nil {
 			return nil, err
 		}
+		accessLogs = append(accessLogs, accessLogV3)
+	}
+	return accessLogs, nil
+}
+
+// configureTLS handles TLS configuration for the filter chain
+func (a *FilterChainAdapter) configureTLS(vs *v1alpha1.VirtualService, listenerIsTLS bool, virtualHost *routev3.VirtualHost, params *interfaces.FilterChainsParams) error {
+	// Validate TLS configuration consistency
+	if err := a.validateTLSConfiguration(vs, listenerIsTLS); err != nil {
+		return err
 	}
 
-	return filterChainParams, nil
+	if vs.Spec.TlsConfig == nil {
+		return nil
+	}
+
+	tlsAdapter := NewTLSAdapter(a.store)
+	// Validate TLS configuration type
+	if _, err := tlsAdapter.GetTLSType(vs.Spec.TlsConfig); err != nil {
+		return err
+	}
+
+	// Get SecretNameToDomains mapping based on TLS configuration
+	var err error
+	params.SecretNameToDomains, err = tlsAdapter.GetSecretNameToDomains(vs, virtualHost.Domains)
+	return err
+}
+
+// validateTLSConfiguration validates TLS configuration consistency
+func (a *FilterChainAdapter) validateTLSConfiguration(vs *v1alpha1.VirtualService, listenerIsTLS bool) error {
+	if listenerIsTLS && vs.Spec.TlsConfig == nil {
+		return fmt.Errorf("tls listener not configured, virtual service has not tls config")
+	}
+	if !listenerIsTLS && vs.Spec.TlsConfig != nil {
+		return fmt.Errorf("listener is not tls, virtual service has tls config")
+	}
+	return nil
 }
 
 // CheckFilterChainsConflicts checks for conflicts between existing filter chains and virtual service configuration
