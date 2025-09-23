@@ -204,8 +204,14 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 		return false
 	}
 	if vs.Spec.Template != nil && other.Spec.Template != nil {
-		if vs.Spec.Template.Name != other.Spec.Template.Name ||
-			*vs.Spec.Template.Namespace != *other.Spec.Template.Namespace { // TODO: check
+		if vs.Spec.Template.Name != other.Spec.Template.Name {
+			return false
+		}
+		if (vs.Spec.Template.Namespace == nil) != (other.Spec.Template.Namespace == nil) {
+			return false
+		}
+		if vs.Spec.Template.Namespace != nil && other.Spec.Template.Namespace != nil &&
+			*vs.Spec.Template.Namespace != *other.Spec.Template.Namespace {
 			return false
 		}
 	}
