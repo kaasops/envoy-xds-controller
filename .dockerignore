@@ -24,6 +24,7 @@ Dockerfile.cross
 
 # Documentation (not needed in runtime)
 docs/
+!docs/api/cacheRestAPI/
 README.md
 CLAUDE.md
 *.md

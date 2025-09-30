@@ -152,6 +152,20 @@ docker-build-all: docker-build docker-build-ui docker-build-init-cert
 .PHONY: docker-build-all-local
 docker-build-all-local: set-local docker-build-all
 
+.PHONY: docker-cache-clear
+docker-cache-clear: ## Clear Docker build cache
+	@echo "Clearing Docker build cache..."
+	@docker builder prune -af
+	@echo "Docker build cache cleared!"
+
+.PHONY: docker-cache-info
+docker-cache-info: ## Show Docker cache and images information
+	@echo "=== Docker system info ==="
+	@docker system df
+	@echo ""
+	@echo "=== Envoy XDS Controller images ==="
+	@docker images --filter=reference='*envoy-xds-controller*' --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"
+
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
