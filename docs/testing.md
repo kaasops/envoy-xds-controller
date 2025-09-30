@@ -55,7 +55,7 @@ Linting ensures code quality and consistency. The project uses `golangci-lint` w
 
 ### Prerequisites
 
-- Go v1.22.0+
+- Go v1.24.0+
 - Docker (for e2e tests)
 - Kind (for e2e tests)
 - Access to a Kubernetes cluster (for e2e tests)

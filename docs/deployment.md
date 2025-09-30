@@ -20,7 +20,7 @@ Before deploying the Envoy XDS Controller, ensure you have the following:
 - kubectl v1.11.3+
 - Helm v3+ (for Helm deployment)
 - Docker v17.03+ (for building custom images)
-- Go v1.22.0+ (for development)
+- Go v1.24.0+ (for development)
 
 ## Deployment Options
 
