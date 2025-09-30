@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -18,9 +17,7 @@ type OptimizedStore struct {
 	mu sync.RWMutex
 
 	// Unified resource storage with string interning
-	stringPool   *StringPool
-	resourcePool *ResourcePool
-	copyCounter  uint64 // Track number of copies for COW optimization
+	stringPool *StringPool
 
 	// Core storage - unified approach with better cache locality
 	virtualServices map[helpers.NamespacedName]*v1alpha1.VirtualService
@@ -62,51 +59,10 @@ type OptimizedStore struct {
 	nodeDomains   map[string]map[string]struct{}
 }
 
-// ResourcePool manages object pooling to reduce GC pressure
-type ResourcePool struct {
-	vsPool       sync.Pool
-	listenerPool sync.Pool
-	clusterPool  sync.Pool
-}
-
-// NewResourcePool creates a resource pool for object reuse
-func NewResourcePool() *ResourcePool {
-	return &ResourcePool{
-		vsPool: sync.Pool{
-			New: func() interface{} {
-				return &v1alpha1.VirtualService{}
-			},
-		},
-		listenerPool: sync.Pool{
-			New: func() interface{} {
-				return &v1alpha1.Listener{}
-			},
-		},
-		clusterPool: sync.Pool{
-			New: func() interface{} {
-				return &v1alpha1.Cluster{}
-			},
-		},
-	}
-}
-
-// GetVirtualService returns a VirtualService from the pool
-func (rp *ResourcePool) GetVirtualService() *v1alpha1.VirtualService {
-	return rp.vsPool.Get().(*v1alpha1.VirtualService)
-}
-
-// PutVirtualService returns a VirtualService to the pool
-func (rp *ResourcePool) PutVirtualService(vs *v1alpha1.VirtualService) {
-	// Reset the object before returning to pool
-	*vs = v1alpha1.VirtualService{} // Simple reset
-	rp.vsPool.Put(vs)
-}
-
 // NewOptimizedStore creates a new truly optimized store
 func NewOptimizedStore() Store {
 	return &OptimizedStore{
-		stringPool:   NewStringPool(),
-		resourcePool: NewResourcePool(),
+		stringPool: NewStringPool(),
 
 		// Pre-allocate maps with realistic capacity to avoid resizing
 		virtualServices: make(map[helpers.NamespacedName]*v1alpha1.VirtualService, 1000),
@@ -150,7 +106,11 @@ func NewOptimizedStore() Store {
 }
 
 // VirtualService operations with optimizations
+// WARNING: Set* methods mutate input parameters for string interning optimization.
+// This is safe in controller-runtime reconcile loops where objects are already owned by the store.
 
+// SetVirtualService adds or updates a VirtualService in the store
+// WARNING: This method mutates the input VirtualService (name/namespace interning)
 func (s *OptimizedStore) SetVirtualService(vs *v1alpha1.VirtualService) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -218,7 +178,15 @@ func (s *OptimizedStore) updateTemplateIndex(vs *v1alpha1.VirtualService) {
 		Name:      vs.Spec.Template.Name,
 	}
 
-	s.templateToVS[templateKey] = append(s.templateToVS[templateKey], vs)
+	// Check if already exists to prevent duplicates
+	vsList := s.templateToVS[templateKey]
+	for _, existing := range vsList {
+		if existing.UID == vs.UID {
+			return // Already in index
+		}
+	}
+
+	s.templateToVS[templateKey] = append(vsList, vs)
 }
 
 func (s *OptimizedStore) removeFromTemplateIndex(vs *v1alpha1.VirtualService) {
@@ -245,17 +213,16 @@ func (s *OptimizedStore) removeFromTemplateIndex(vs *v1alpha1.VirtualService) {
 	}
 }
 
-// Copy with Copy-on-Write optimization
+// Copy creates a shallow copy of the store with independent maps
+// This is safe with the immutable pattern where buildSnapshots returns statuses
+// instead of mutating VirtualServices directly
 func (s *OptimizedStore) Copy() Store {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	atomic.AddUint64(&s.copyCounter, 1)
-
 	// Create new store instance
 	newStore := &OptimizedStore{
-		stringPool:   s.stringPool,   // Share string pool (it's immutable-friendly)
-		resourcePool: s.resourcePool, // Share resource pool
+		stringPool: s.stringPool, // Share string pool (it's immutable-friendly)
 
 		// Create new maps with appropriate capacity
 		virtualServices: make(map[helpers.NamespacedName]*v1alpha1.VirtualService, len(s.virtualServices)),
@@ -985,7 +952,8 @@ func (s *OptimizedStore) DeletePolicy(name helpers.NamespacedName) {
 	}
 }
 
-// Secret operations
+// SetSecret adds or updates a secret in the store
+// WARNING: This method mutates the input secret (name/namespace interning)
 func (s *OptimizedStore) SetSecret(secret *corev1.Secret) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -994,8 +962,16 @@ func (s *OptimizedStore) SetSecret(secret *corev1.Secret) {
 	secret.Namespace = s.stringPool.InternNamespace(secret.Namespace)
 
 	key := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+
+	// Remove old secret's domains from index if exists
+	if oldSecret := s.secrets[key]; oldSecret != nil {
+		s.removeDomainSecretsForSecret(oldSecret)
+	}
+
 	s.secrets[key] = secret
-	s.updateDomainSecretsMap()
+
+	// Add new secret's domains to index
+	s.addDomainSecretsForSecret(secret)
 }
 
 func (s *OptimizedStore) GetSecret(name helpers.NamespacedName) *corev1.Secret {
@@ -1010,9 +986,9 @@ func (s *OptimizedStore) DeleteSecret(name helpers.NamespacedName) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.secrets[name] != nil {
+	if secret := s.secrets[name]; secret != nil {
+		s.removeDomainSecretsForSecret(secret)
 		delete(s.secrets, name)
-		s.updateDomainSecretsMap()
 	}
 }
 
@@ -1252,14 +1228,12 @@ func (s *OptimizedStore) GetAccessLogByUID(uid string) *v1alpha1.AccessLogConfig
 	return s.accessLogsByUID[uid]
 }
 
-// Domain and node methods
-func (s *OptimizedStore) GetDomainSecret(domain string) *corev1.Secret {
+// GetDomainSecret returns the secret for a given domain
+// Returns zero value if not found (check with secret.Name != "")
+func (s *OptimizedStore) GetDomainSecret(domain string) corev1.Secret {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if secret, ok := s.domainSecrets[domain]; ok {
-		return &secret
-	}
-	return nil
+	return s.domainSecrets[domain]
 }
 
 func (s *OptimizedStore) GetSpecCluster(name string) *v1alpha1.Cluster {
@@ -1267,10 +1241,20 @@ func (s *OptimizedStore) GetSpecCluster(name string) *v1alpha1.Cluster {
 	defer s.mu.RUnlock()
 	return s.specClusters[name]
 }
+
+// GetVirtualServicesByTemplate returns a copy of VirtualServices using the given template
+// Returns nil if no VirtualServices use this template
 func (s *OptimizedStore) GetVirtualServicesByTemplate(templateName helpers.NamespacedName) []*v1alpha1.VirtualService {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.templateToVS[templateName]
+
+	vsList := s.templateToVS[templateName]
+	if vsList == nil {
+		return nil
+	}
+
+	// Return a copy to prevent external modifications
+	return append([]*v1alpha1.VirtualService(nil), vsList...)
 }
 
 // Additional required methods for Store interface
@@ -1352,8 +1336,50 @@ func (s *OptimizedStore) GetVirtualServicesByTemplateNN(nn helpers.NamespacedNam
 	return s.GetVirtualServicesByTemplate(nn)
 }
 
-// updateDomainSecretsMap rebuilds the domain to secret mapping from secret annotations
-// This method should be called after any secret addition or removal
+// addDomainSecretsForSecret adds domains from a secret to the domain index
+func (s *OptimizedStore) addDomainSecretsForSecret(secret *corev1.Secret) {
+	if secret.Annotations == nil {
+		return
+	}
+	domainsAnnotation, exists := secret.Annotations[v1alpha1.AnnotationSecretDomains]
+	if !exists {
+		return
+	}
+
+	for _, domain := range strings.Split(domainsAnnotation, ",") {
+		domain = strings.TrimSpace(domain)
+		if domain == "" {
+			continue
+		}
+		if _, exists := s.domainSecrets[domain]; exists {
+			// TODO: domain already exists in another secret! Need to create error case
+			continue
+		}
+		s.domainSecrets[domain] = *secret
+	}
+}
+
+// removeDomainSecretsForSecret removes domains from a secret from the domain index
+func (s *OptimizedStore) removeDomainSecretsForSecret(secret *corev1.Secret) {
+	if secret.Annotations == nil {
+		return
+	}
+	domainsAnnotation, exists := secret.Annotations[v1alpha1.AnnotationSecretDomains]
+	if !exists {
+		return
+	}
+
+	for _, domain := range strings.Split(domainsAnnotation, ",") {
+		domain = strings.TrimSpace(domain)
+		if domain == "" {
+			continue
+		}
+		delete(s.domainSecrets, domain)
+	}
+}
+
+// updateDomainSecretsMap rebuilds the entire domain to secret mapping from all secrets
+// This is used only during FillFromKubernetes for initial population
 func (s *OptimizedStore) updateDomainSecretsMap() {
 	m := make(map[string]corev1.Secret)
 
