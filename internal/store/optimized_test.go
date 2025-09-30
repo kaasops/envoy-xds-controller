@@ -291,6 +291,70 @@ func TestOptimizedStore_FillFromKubernetes(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOptimizedStore_CopyUIDIndices(t *testing.T) {
+	store := NewOptimizedStore()
+
+	// Add various resources with UIDs to test UID index copying
+	httpFilter := &v1alpha1.HttpFilter{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-filter",
+			Namespace: "default",
+			UID:       types.UID("filter-uid-456"),
+		},
+	}
+	store.SetHTTPFilter(httpFilter)
+
+	accessLog := &v1alpha1.AccessLogConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-accesslog",
+			Namespace: "default",
+			UID:       types.UID("accesslog-uid-789"),
+		},
+	}
+	store.SetAccessLog(accessLog)
+
+	route := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-route",
+			Namespace: "default",
+			UID:       types.UID("route-uid-abc"),
+		},
+	}
+	store.SetRoute(route)
+
+	// Create a copy
+	storeCopy := store.Copy()
+	require.NotNil(t, storeCopy)
+
+	// Verify UID indices are copied correctly using available Get*ByUID methods
+	assert.Equal(t, httpFilter, storeCopy.GetHTTPFilterByUID("filter-uid-456"), "HTTPFilter UID index not copied")
+	assert.Equal(t, accessLog, storeCopy.GetAccessLogByUID("accesslog-uid-789"), "AccessLog UID index not copied")
+	assert.Equal(t, route, storeCopy.GetRouteByUID("route-uid-abc"), "Route UID index not copied")
+
+	// Verify copy is independent - delete from original
+	store.DeleteHTTPFilter(helpers.NamespacedName{Namespace: "default", Name: "test-filter"})
+	assert.Nil(t, store.GetHTTPFilterByUID("filter-uid-456"), "Original should not have filter after delete")
+	assert.Equal(t, httpFilter, storeCopy.GetHTTPFilterByUID("filter-uid-456"), "Copy should still have filter after delete from original")
+
+	// Also verify that policies UID index was copied (this was the critical bug)
+	policy := &v1alpha1.Policy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-policy",
+			Namespace: "default",
+			UID:       types.UID("policy-uid-123"),
+		},
+	}
+	store.SetPolicy(policy)
+
+	storeCopy2 := store.Copy()
+	policyNN := helpers.NamespacedName{Namespace: "default", Name: "test-policy"}
+
+	// Delete from original
+	store.DeletePolicy(policyNN)
+	assert.Nil(t, store.GetPolicy(policyNN), "Original should not have policy after delete")
+	assert.NotNil(t, storeCopy2.GetPolicy(policyNN), "Copy should still have policy after delete from original")
+}
+
 func TestOptimizedStore_ConcurrentAccess(t *testing.T) {
 	store := NewOptimizedStore()
 

@@ -132,7 +132,6 @@ func (s *OptimizedStore) SetVirtualService(vs *v1alpha1.VirtualService) {
 	s.virtualServices[key] = vs
 	s.uidToVS[uid] = vs
 	s.updateTemplateIndex(vs)
-
 }
 
 func (s *OptimizedStore) GetVirtualService(name helpers.NamespacedName) *v1alpha1.VirtualService {
@@ -266,7 +265,9 @@ func (s *OptimizedStore) Copy() Store {
 	// buildSnapshots no longer mutates VirtualServices directly, statuses are applied separately
 	for k, v := range s.virtualServices {
 		newStore.virtualServices[k] = v
-		newStore.uidToVS[string(v.UID)] = v
+	}
+	for k, v := range s.uidToVS {
+		newStore.uidToVS[k] = v
 	}
 
 	// Copy template index
@@ -277,12 +278,16 @@ func (s *OptimizedStore) Copy() Store {
 	// Copy other resources (shallow copy for performance)
 	for k, v := range s.listeners {
 		newStore.listeners[k] = v
-		newStore.uidToListener[string(v.UID)] = v
+	}
+	for k, v := range s.uidToListener {
+		newStore.uidToListener[k] = v
 	}
 
 	for k, v := range s.clusters {
 		newStore.clusters[k] = v
-		newStore.uidToCluster[string(v.UID)] = v
+	}
+	for k, v := range s.uidToCluster {
+		newStore.uidToCluster[k] = v
 	}
 
 	for k, v := range s.secrets {
@@ -292,35 +297,48 @@ func (s *OptimizedStore) Copy() Store {
 	for k, v := range s.policies {
 		newStore.policies[k] = v
 	}
+	for k, v := range s.policiesByUID {
+		newStore.policiesByUID[k] = v
+	}
 
 	// Copy VirtualServiceTemplates - shallow copy is now safe
 	for k, v := range s.virtualServiceTemplates {
 		newStore.virtualServiceTemplates[k] = v
-		newStore.virtualServiceTemplatesByUID[string(v.UID)] = v
+	}
+	for k, v := range s.virtualServiceTemplatesByUID {
+		newStore.virtualServiceTemplatesByUID[k] = v
 	}
 
 	// Copy Routes
 	for k, v := range s.routes {
 		newStore.routes[k] = v
-		newStore.routesByUID[string(v.UID)] = v
+	}
+	for k, v := range s.routesByUID {
+		newStore.routesByUID[k] = v
 	}
 
 	// Copy HTTPFilters
 	for k, v := range s.httpFilters {
 		newStore.httpFilters[k] = v
-		newStore.httpFiltersByUID[string(v.UID)] = v
+	}
+	for k, v := range s.httpFiltersByUID {
+		newStore.httpFiltersByUID[k] = v
 	}
 
 	// Copy AccessLogs
 	for k, v := range s.accessLogs {
 		newStore.accessLogs[k] = v
-		newStore.accessLogsByUID[string(v.UID)] = v
+	}
+	for k, v := range s.accessLogsByUID {
+		newStore.accessLogsByUID[k] = v
 	}
 
 	// Copy Tracings
 	for k, v := range s.tracings {
 		newStore.tracings[k] = v
-		newStore.tracingsByUID[string(v.UID)] = v
+	}
+	for k, v := range s.tracingsByUID {
+		newStore.tracingsByUID[k] = v
 	}
 
 	// Copy additional indices
