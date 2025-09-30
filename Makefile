@@ -41,6 +41,8 @@ CONTAINER_TOOL ?= docker
 SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+.DEFAULT_GOAL := help
+
 .PHONY: all
 all: build
 
@@ -61,7 +63,34 @@ all: build
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+.PHONY: version
+version: ## Show version information
+	@echo "Tag: $(TAG)"
+	@echo "Revision: $(REV)"
+	@echo "Registry: $(REGISTRY)"
+	@echo "Main Image: $(IMG)"
+	@echo "UI Image: $(UI_IMG)"
+	@echo "Init-Cert Image: $(INIT_CERT_IMG)"
+
+.PHONY: clean
+clean: ## Clean build artifacts
+	@echo "Cleaning build artifacts..."
+	@rm -rf bin/
+	@rm -rf dist/
+	@rm -f cover.out
+	@echo "✅ Build artifacts cleaned"
+
 ##@ Development
+
+.PHONY: deps-update
+deps-update: ## Update Go dependencies
+	go get -u ./...
+	go mod tidy
+
+.PHONY: deps-verify
+deps-verify: ## Verify Go dependencies
+	go mod verify
+	go mod tidy
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -163,6 +192,9 @@ docker-cache-info: ## Show Docker cache and images information
 	@echo "=== Docker system info ==="
 	@docker system df
 	@echo ""
+	@echo "=== Docker BuildKit cache ==="
+	@docker buildx du 2>/dev/null || echo "No buildx cache found"
+	@echo ""
 	@echo "=== Envoy XDS Controller images ==="
 	@docker images --filter=reference='*envoy-xds-controller*' --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"
 
@@ -242,7 +274,7 @@ KUBECTL ?= kubectl
 KUSTOMIZE ?= $(LOCALBIN)/kustomize
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 ENVTEST ?= $(LOCALBIN)/setup-envtest
-GOLANGCI_LINT = golangci-lint
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -306,13 +338,13 @@ helm-index:
 ### HELM DEPLOY
 
 .PHONY: helm-deploy-local
-helm-deploy-local: manifests set-local## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
+helm-deploy-local: manifests set-local ## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)
 	helm install exc --set metrics.address=:8443 \
 		--set metrics.secure=false \
 		--set development=true \
 		--set auth.enabled=$(AUTH_ENABLED) \
- 		--set 'watchNamespaces={default}' \
+		--set 'watchNamespaces={default}' \
  		--set image.repository=$(IMG_WITHOUT_TAG) \
  		--set image.tag=$(TAG) \
  		--set ui.enabled=true \
@@ -359,7 +391,7 @@ dev-delete-resources:
 	kubectl -n envoy-xds-controller delete -f dev/testdata
 
 .PHONY: helm-deploy-backend-local
-helm-deploy-backend-local: manifests set-local## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
+helm-deploy-backend-local: manifests set-local ## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
 	@$(LOG_TARGET)
 	helm install exc --set metrics.address=:8443 \
  		--set 'watchNamespaces={default}' \
