@@ -5,6 +5,6 @@ import (
 )
 
 // NewFilterChainBuilder creates a new filter chain builder
-func NewFilterChainBuilder(store *store.Store) *Builder {
+func NewFilterChainBuilder(store store.Store) *Builder {
 	return NewBuilder(store)
 }

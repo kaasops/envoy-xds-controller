@@ -166,7 +166,7 @@ func generateCacheKey(vs *v1alpha1.VirtualService) string {
 
 // Builder is responsible for coordinating the building of all resources for a VirtualService
 type Builder struct {
-	store              *store.Store
+	store              store.Store
 	httpFilterBuilder  interfaces.HTTPFilterBuilder
 	filterChainBuilder interfaces.FilterChainBuilder
 	routingBuilder     interfaces.RoutingBuilder
@@ -178,7 +178,7 @@ type Builder struct {
 
 // NewBuilder creates a new Builder with the provided dependencies
 func NewBuilder(
-	store *store.Store,
+	store store.Store,
 	httpFilterBuilder interfaces.HTTPFilterBuilder,
 	filterChainBuilder interfaces.FilterChainBuilder,
 	routingBuilder interfaces.RoutingBuilder,

@@ -14,11 +14,11 @@ import (
 )
 
 type ListenerStore struct {
-	store *store.Store
+	store store.Store
 	listenerv1connect.ListenerStoreServiceHandler
 }
 
-func NewListenerStore(s *store.Store) *ListenerStore {
+func NewListenerStore(s store.Store) *ListenerStore {
 	return &ListenerStore{
 		store: s,
 	}

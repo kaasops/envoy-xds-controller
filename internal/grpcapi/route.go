@@ -11,11 +11,11 @@ import (
 )
 
 type RouteStore struct {
-	store *store.Store
+	store store.Store
 	routev1connect.RouteStoreServiceHandler
 }
 
-func NewRouteStore(s *store.Store) *RouteStore {
+func NewRouteStore(s store.Store) *RouteStore {
 	return &RouteStore{
 		store: s,
 	}

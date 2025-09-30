@@ -14,11 +14,11 @@ import (
 
 // TLSAdapter adapts the secrets package functions to implement the TLSBuilder interface
 type TLSAdapter struct {
-	store *store.Store
+	store store.Store
 }
 
 // NewTLSAdapter creates a new adapter for TLS functionality
-func NewTLSAdapter(store *store.Store) interfaces.TLSBuilder {
+func NewTLSAdapter(store store.Store) interfaces.TLSBuilder {
 	return &TLSAdapter{
 		store: store,
 	}

@@ -49,7 +49,7 @@ type FilterChainsParams struct {
 
 // ResourceBuilder provides a modular approach to building Envoy resources
 type ResourceBuilder struct {
-	store           *store.Store
+	store           store.Store
 	clustersBuilder *clusters.Builder
 	filtersBuilder  *filters.Builder
 	routesBuilder   *routes.Builder
@@ -59,7 +59,7 @@ type ResourceBuilder struct {
 }
 
 // NewResourceBuilder creates a new ResourceBuilder with all modular components
-func NewResourceBuilder(store *store.Store) *ResourceBuilder {
+func NewResourceBuilder(store store.Store) *ResourceBuilder {
 	// Create a ResourceBuilder with default settings
 	rb := &ResourceBuilder{
 		store:           store,
@@ -248,7 +248,7 @@ type Resources struct {
 }
 
 // BuildResources is the main entry point for building Envoy resources using the modular architecture
-func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources, error) {
+func BuildResources(vs *v1alpha1.VirtualService, store store.Store) (*Resources, error) {
 	// Create a ResourceBuilder instance with all modular components
 	builder := NewResourceBuilder(store)
 
@@ -395,7 +395,7 @@ func buildRouteConfiguration(
 	vs *v1alpha1.VirtualService,
 	xdsListener *listenerv3.Listener,
 	nn helpers.NamespacedName,
-	store *store.Store,
+	store store.Store,
 ) (*routev3.VirtualHost, *routev3.RouteConfiguration, error) {
 	virtualHost, err := buildVirtualHost(vs, nn, store)
 	if err != nil {
@@ -435,7 +435,7 @@ func buildRouteConfiguration(
 }
 
 // buildFilterChainParams builds the filter chain parameters
-func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost, store *store.Store) (*FilterChainsParams, error) {
+func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost, store store.Store) (*FilterChainsParams, error) {
 	filterChainParams := &FilterChainsParams{
 		VSName:            nn.String(),
 		UseRemoteAddress:  helpers.BoolFromPtr(vs.Spec.UseRemoteAddress),
@@ -527,7 +527,7 @@ func (rb *ResourceBuilder) buildListener(listenerNN helpers.NamespacedName) (*li
 	return xdsListener, nil
 }
 
-func buildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, store *store.Store) (*routev3.VirtualHost, error) {
+func buildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, store store.Store) (*routev3.VirtualHost, error) {
 	if vs.Spec.VirtualHost == nil {
 		return nil, fmt.Errorf("virtual host is empty")
 	}
@@ -712,7 +712,7 @@ func buildUpgradeConfigs(rawUpgradeConfigs []*runtime.RawExtension) ([]*hcmv3.Ht
 	return upgradeConfigs, nil
 }
 
-func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*accesslogv3.AccessLog, error) {
+func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store store.Store) ([]*accesslogv3.AccessLog, error) {
 	var i int
 
 	if vs.Spec.AccessLog != nil {

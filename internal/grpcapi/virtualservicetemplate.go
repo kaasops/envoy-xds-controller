@@ -22,11 +22,11 @@ import (
 )
 
 type VirtualServiceTemplateStore struct {
-	store *store.Store
+	store store.Store
 	virtual_service_templatev1connect.UnimplementedVirtualServiceTemplateStoreServiceHandler
 }
 
-func NewVirtualServiceTemplateStore(s *store.Store) *VirtualServiceTemplateStore {
+func NewVirtualServiceTemplateStore(s store.Store) *VirtualServiceTemplateStore {
 	return &VirtualServiceTemplateStore{
 		store: s,
 	}

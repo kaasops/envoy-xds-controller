@@ -108,7 +108,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	cacheStore := store.New()
+	cacheStore := store.NewStoreAdapter()
 	Expect(cacheStore).NotTo(BeNil())
 
 	cacheUpdater := updater.NewCacheUpdater(cache.NewSnapshotCache(), cacheStore)

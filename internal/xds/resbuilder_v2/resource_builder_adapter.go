@@ -40,7 +40,7 @@ func UpdateResourceBuilder(rb *ResourceBuilder) {
 }
 
 // NewModernResourceBuilder creates a new ResourceBuilder with the MainBuilder already configured
-func NewModernResourceBuilder(store *store.Store) *ResourceBuilder {
+func NewModernResourceBuilder(store store.Store) *ResourceBuilder {
 	// Create standard ResourceBuilder
 	rb := &ResourceBuilder{
 		store:           store,

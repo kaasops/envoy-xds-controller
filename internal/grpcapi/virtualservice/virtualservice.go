@@ -8,14 +8,14 @@ import (
 )
 
 type VirtualServiceStore struct {
-	store        *store.Store
+	store        store.Store
 	client       client.Client
 	targetNs     string
 	cacheUpdater *updater.CacheUpdater // for clone store only
 	virtual_servicev1connect.UnimplementedVirtualServiceStoreServiceHandler
 }
 
-func NewVirtualServiceStore(s *store.Store, c client.Client, targetNs string, updater *updater.CacheUpdater) *VirtualServiceStore {
+func NewVirtualServiceStore(s store.Store, c client.Client, targetNs string, updater *updater.CacheUpdater) *VirtualServiceStore {
 	return &VirtualServiceStore{
 		store:        s,
 		client:       c,

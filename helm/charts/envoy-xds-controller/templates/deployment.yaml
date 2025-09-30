@@ -145,6 +145,10 @@ spec:
           - name: WATCH_NAMESPACES
             value: {{ join "," .Values.watchNamespaces | quote }}
         {{- end }}
+        {{- if .Values.store }}
+          - name: STORE_USE_OPTIMIZED
+            value: {{ .Values.store.useOptimized | quote }}
+        {{- end }}
         ports:
           - name: grpc
             containerPort: {{ .Values.xds.port }}

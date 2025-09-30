@@ -17,7 +17,7 @@ func TestBuildResourcesEquivalence(t *testing.T) {
 	testCases := []struct {
 		name  string
 		vs    *v1alpha1.VirtualService
-		setup func(*store.Store)
+		setup func(*store.LegacyStore)
 	}{
 		{
 			name: "Basic VirtualService",
@@ -44,7 +44,7 @@ func TestBuildResourcesEquivalence(t *testing.T) {
 					},
 				},
 			},
-			setup: func(store *store.Store) {
+			setup: func(store *store.LegacyStore) {
 				// Add required listener
 				listener := makeListenerCR()
 				store.SetListener(listener)
@@ -117,7 +117,7 @@ func TestBuildResourcesEquivalence(t *testing.T) {
 					},
 				},
 			},
-			setup: func(store *store.Store) {
+			setup: func(store *store.LegacyStore) {
 				// Add required listener
 				listener := makeListenerCR()
 				store.SetListener(listener)
@@ -189,7 +189,7 @@ func TestBuildResourcesEquivalence(t *testing.T) {
 					},
 				},
 			},
-			setup: func(store *store.Store) {
+			setup: func(store *store.LegacyStore) {
 				// Add required listener
 				listener := makeListenerCR()
 				store.SetListener(listener)
@@ -231,10 +231,11 @@ func TestBuildResourcesEquivalence(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup store
-			testStore := store.New()
+			legacyStore := store.New()
 			if tc.setup != nil {
-				tc.setup(testStore)
+				tc.setup(legacyStore)
 			}
+			testStore := store.NewStoreAdapterFromLegacy(legacyStore)
 
 			// Build resources with old implementation
 			oldResources, oldErr := resbuilder.BuildResources(tc.vs, testStore)

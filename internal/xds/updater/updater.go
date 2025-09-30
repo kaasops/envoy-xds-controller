@@ -28,13 +28,19 @@ import (
 type CacheUpdater struct {
 	mx            sync.RWMutex
 	snapshotCache *wrapped.SnapshotCache
-	store         *store.Store
+	store         store.Store
 	usedSecrets   map[helpers.NamespacedName]helpers.NamespacedName
+}
+
+// VSStatus represents the status of a VirtualService after processing
+type VSStatus struct {
+	Invalid bool
+	Message string
 }
 
 var buildVSResources = buildResourcesAdapter
 
-func NewCacheUpdater(wsc *wrapped.SnapshotCache, store *store.Store) *CacheUpdater {
+func NewCacheUpdater(wsc *wrapped.SnapshotCache, store store.Store) *CacheUpdater {
 	return &CacheUpdater{
 		snapshotCache: wsc,
 		usedSecrets:   make(map[helpers.NamespacedName]helpers.NamespacedName),
@@ -53,7 +59,7 @@ func (c *CacheUpdater) RebuildSnapshots(ctx context.Context) error {
 	return c.rebuildSnapshots(ctx)
 }
 
-func (c *CacheUpdater) CopyStore() *store.Store {
+func (c *CacheUpdater) CopyStore() store.Store {
 	c.mx.RLock()
 	defer c.mx.RUnlock()
 	return c.store.Copy()
@@ -64,7 +70,7 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, 
 	storeCopy := c.store.Copy()
 	c.mx.RUnlock()
 	storeCopy.SetVirtualService(vs)
-	err, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	err, _, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
 	return err
 }
 
@@ -136,7 +142,7 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.C
 	storeCopy := c.store.Copy()
 	c.mx.RUnlock()
 	storeCopy.SetVirtualServiceTemplate(vst)
-	err, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	err, _, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
 	return err
 }
 
@@ -144,12 +150,20 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	rlog := log.FromContext(ctx).WithName("cache-updater")
 	rlog.Info("rebuild snapshots started")
 	start := time.Now()
-	err, usedSecrets := buildSnapshots(ctx, c.snapshotCache, c.store)
+	err, usedSecrets, vsStatuses := buildSnapshots(ctx, c.snapshotCache, c.store)
 	if err != nil {
 		rlog.Error(err, "rebuild snapshots with errors", "duration", time.Since(start).String())
 		return err
 	}
 	c.usedSecrets = usedSecrets
+
+	// Apply statuses to VirtualServices in the store (only on successful build)
+	for vsNN, status := range vsStatuses {
+		if vs := c.store.GetVirtualService(vsNN); vs != nil {
+			vs.UpdateStatus(status.Invalid, status.Message)
+		}
+	}
+
 	rlog.Info("rebuild snapshots done", "duration", time.Since(start).String())
 	return nil
 }
@@ -158,13 +172,14 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 func buildSnapshots(
 	ctx context.Context,
 	snapshotCache *wrapped.SnapshotCache,
-	store *store.Store,
-) (error, map[helpers.NamespacedName]helpers.NamespacedName) {
+	store store.Store,
+) (error, map[helpers.NamespacedName]helpers.NamespacedName, map[helpers.NamespacedName]VSStatus) {
 	errs := make([]error, 0)
+	vsStatuses := make(map[helpers.NamespacedName]VSStatus)
 
 	// Honor context cancellation early
 	if err := ctx.Err(); err != nil {
-		return err, nil
+		return err, nil, vsStatuses
 	}
 
 	mixer := NewMixer()
@@ -187,15 +202,18 @@ func buildSnapshots(
 	for _, vs := range store.MapVirtualServices() {
 		// Check cancellation between iterations
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets
+			return err, usedSecrets, vsStatuses
 		}
 
-		vs.UpdateStatus(false, "")
+		vsNN := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
+		// Initialize status as valid (replaces vs.UpdateStatus(false, ""))
+		vsStatuses[vsNN] = VSStatus{Invalid: false, Message: ""}
 
 		vsNodeIDs := vs.GetNodeIDs()
 		if len(vsNodeIDs) == 0 {
 			err := fmt.Errorf("virtual service %s/%s has no node IDs", vs.Namespace, vs.Name)
-			vs.UpdateStatus(true, err.Error())
+			// Store error status instead of mutating (replaces vs.UpdateStatus(true, err.Error()))
+			vsStatuses[vsNN] = VSStatus{Invalid: true, Message: err.Error()}
 			errs = append(errs, err)
 			continue
 		}
@@ -207,16 +225,17 @@ func buildSnapshots(
 
 		// Build resources for VS (may be heavy); check ctx before and after
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets
+			return err, usedSecrets, vsStatuses
 		}
 		vsRes, err := buildVSResources(vs, store)
 		if err != nil {
-			vs.UpdateStatus(true, err.Error())
+			// Store error status instead of mutating (replaces vs.UpdateStatus(true, err.Error()))
+			vsStatuses[vsNN] = VSStatus{Invalid: true, Message: err.Error()}
 			errs = append(errs, err)
 			continue
 		}
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets
+			return err, usedSecrets, vsStatuses
 		}
 
 		for _, secret := range vsRes.UsedSecrets {
@@ -226,16 +245,16 @@ func buildSnapshots(
 		for _, nodeID := range vsNodeIDs {
 			// Check ctx inside nested loops too
 			if err := ctx.Err(); err != nil {
-				return err, usedSecrets
+				return err, usedSecrets, vsStatuses
 			}
 
 			for _, domain := range vsRes.Domains {
 				if err := ctx.Err(); err != nil { // cheap check
-					return err, usedSecrets
+					return err, usedSecrets, vsStatuses
 				}
 				nodeDom := nodeIDDomain(nodeID, domain)
 				if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil
+					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses
 				}
 				nodeIDDomainsSet[nodeDom] = struct{}{}
 				if buildDomainsIndex {
@@ -264,7 +283,7 @@ func buildSnapshots(
 	if len(commonVirtualServices) > 0 {
 		for _, vs := range commonVirtualServices {
 			if err := ctx.Err(); err != nil {
-				return err, usedSecrets
+				return err, usedSecrets, vsStatuses
 			}
 			vsRes, err := buildVSResources(vs, store)
 			if err != nil {
@@ -272,7 +291,7 @@ func buildSnapshots(
 				continue
 			}
 			if err := ctx.Err(); err != nil {
-				return err, usedSecrets
+				return err, usedSecrets, vsStatuses
 			}
 			for _, secret := range vsRes.UsedSecrets {
 				usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
@@ -280,16 +299,16 @@ func buildSnapshots(
 
 			for nodeID := range mixer.nodeIDs {
 				if err := ctx.Err(); err != nil {
-					return err, usedSecrets
+					return err, usedSecrets, vsStatuses
 				}
 
 				for _, domain := range vsRes.Domains {
 					if err := ctx.Err(); err != nil {
-						return err, usedSecrets
+						return err, usedSecrets, vsStatuses
 					}
 					nodeDom := nodeIDDomain(nodeID, domain)
 					if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil
+						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses
 					}
 					nodeIDDomainsSet[nodeDom] = struct{}{}
 					if buildDomainsIndex {
@@ -317,12 +336,12 @@ func buildSnapshots(
 	}
 
 	if err := ctx.Err(); err != nil {
-		return err, usedSecrets
+		return err, usedSecrets, vsStatuses
 	}
 	tmp, err := mixer.Mix(store)
 	if err != nil {
 		errs = append(errs, err)
-		return multierr.Combine(errs...), usedSecrets
+		return multierr.Combine(errs...), usedSecrets, vsStatuses
 	}
 
 	// Stage snapshots to avoid partial updates on cancellation or errors
@@ -330,7 +349,7 @@ func buildSnapshots(
 
 	for nodeID, resMap := range tmp {
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets
+			return err, usedSecrets, vsStatuses
 		}
 		var snapshot *cache.Snapshot
 		var err error
@@ -364,11 +383,11 @@ func buildSnapshots(
 
 	// If any error occurred during staging, abort without mutating cache
 	if len(errs) > 0 {
-		return multierr.Combine(errs...), usedSecrets
+		return multierr.Combine(errs...), usedSecrets, vsStatuses
 	}
 	// Abort on cancellation prior to commit to avoid partial state
 	if err := ctx.Err(); err != nil {
-		return err, usedSecrets
+		return err, usedSecrets, vsStatuses
 	}
 
 	// Commit phase: ensure we are not interrupted mid-commit
@@ -385,7 +404,7 @@ func buildSnapshots(
 	}
 
 	if len(errs) > 0 {
-		return multierr.Combine(errs...), usedSecrets
+		return multierr.Combine(errs...), usedSecrets, vsStatuses
 	}
 
 	// Update Store domain index after successful commit (feature-flagged)
@@ -406,7 +425,7 @@ func buildSnapshots(
 		store.ReplaceNodeDomainsIndex(nodeDomainsIndex)
 	}
 
-	return nil, usedSecrets
+	return nil, usedSecrets, vsStatuses
 }
 
 func (c *CacheUpdater) GetUsedSecrets() map[helpers.NamespacedName]helpers.NamespacedName {
@@ -567,7 +586,7 @@ func validateDomainsWithinVS(domains []string) error {
 // validateListenerAddresses validates that listener addresses are unique within each nodeID (snapshot).
 // This replaces the previous global validation approach which incorrectly prevented
 // the same address:port from being used across different nodeIDs (different snapshots).
-func validateListenerAddresses(storeCopy *store.Store, snapshotCache *wrapped.SnapshotCache, validationIndices bool) error {
+func validateListenerAddresses(storeCopy store.Store, snapshotCache *wrapped.SnapshotCache, validationIndices bool) error {
 	// Build mapping of listeners to nodeIDs
 	listenerToNodeIDs := buildListenerToNodeIDsMapping(storeCopy, snapshotCache)
 
@@ -587,7 +606,7 @@ func validateListenerAddresses(storeCopy *store.Store, snapshotCache *wrapped.Sn
 // buildListenerToNodeIDsMapping creates a mapping of listener names to the nodeIDs that use them.
 // This is determined by analyzing which VirtualServices reference each listener and what nodeIDs
 // those VirtualServices target. For common VirtualServices (nodeID = "*"), expands to all actual nodeIDs.
-func buildListenerToNodeIDsMapping(storeCopy *store.Store, snapshotCache *wrapped.SnapshotCache) map[helpers.NamespacedName][]string {
+func buildListenerToNodeIDsMapping(storeCopy store.Store, snapshotCache *wrapped.SnapshotCache) map[helpers.NamespacedName][]string {
 	mapping := make(map[helpers.NamespacedName][]string)
 
 	// Iterate through all VirtualServices to find which listeners they use
@@ -630,7 +649,7 @@ func buildListenerToNodeIDsMapping(storeCopy *store.Store, snapshotCache *wrappe
 }
 
 // validateListenerAddressesPerNodeID validates listener addresses using indices, but per nodeID.
-func validateListenerAddressesPerNodeID(storeCopy *store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
+func validateListenerAddressesPerNodeID(storeCopy store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
 	// Group listeners by nodeID
 	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
 	for listenerNN, nodeIDs := range listenerToNodeIDs {
@@ -675,7 +694,7 @@ func validateListenerAddressesPerNodeID(storeCopy *store.Store, listenerToNodeID
 }
 
 // validateListenerAddressesUniquePerNodeID performs thorough validation of listener addresses per nodeID.
-func validateListenerAddressesUniquePerNodeID(storeCopy *store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
+func validateListenerAddressesUniquePerNodeID(storeCopy store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
 	// Group listeners by nodeID
 	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
 	for listenerNN, nodeIDs := range listenerToNodeIDs {
@@ -725,7 +744,7 @@ func validateListenerAddressesUniquePerNodeID(storeCopy *store.Store, listenerTo
 }
 
 // buildExistingDomainsMap builds a map of existing domains per node from either indices or snapshot cache.
-func (c *CacheUpdater) buildExistingDomainsMap(ctx context.Context, targetNodeIDs []string, storeCopy *store.Store, validationIndices bool) (map[string]map[string]struct{}, error) {
+func (c *CacheUpdater) buildExistingDomainsMap(ctx context.Context, targetNodeIDs []string, storeCopy store.Store, validationIndices bool) (map[string]map[string]struct{}, error) {
 	existingByNode := make(map[string]map[string]struct{})
 	if validationIndices {
 		// Prefer Store-backed index when available; ensures O(1) lookup

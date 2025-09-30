@@ -19,11 +19,11 @@ import (
 )
 
 type UtilsService struct {
-	store *store.Store
+	store store.Store
 	utilv1connect.UnimplementedUtilsServiceHandler
 }
 
-func NewUtilsService(s *store.Store) *UtilsService {
+func NewUtilsService(s store.Store) *UtilsService {
 	return &UtilsService{store: s}
 }
 

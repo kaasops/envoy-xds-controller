@@ -12,11 +12,11 @@ import (
 
 // Builder handles TLS configuration
 type Builder struct {
-	store *store.Store
+	store *store.LegacyStore
 }
 
 // NewBuilder creates a new TLS builder
-func NewBuilder(store *store.Store) *Builder {
+func NewBuilder(store *store.LegacyStore) *Builder {
 	return &Builder{
 		store: store,
 	}

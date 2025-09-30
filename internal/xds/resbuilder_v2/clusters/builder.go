@@ -19,11 +19,11 @@ import (
 // Builder handles the construction of Envoy clusters from various sources
 type Builder struct {
 	cache *cache
-	store *store.Store
+	store store.Store
 }
 
 // NewBuilder creates a new cluster builder with caching enabled
-func NewBuilder(store *store.Store) *Builder {
+func NewBuilder(store store.Store) *Builder {
 	return &Builder{
 		cache: newCache(),
 		store: store,

@@ -5,6 +5,6 @@ import (
 )
 
 // NewRoutingBuilder creates a new instance of the RoutingBuilder interface
-func NewRoutingBuilder(store *store.Store) *Builder {
+func NewRoutingBuilder(store *store.LegacyStore) *Builder {
 	return NewBuilder(store)
 }

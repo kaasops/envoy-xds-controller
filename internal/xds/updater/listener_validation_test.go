@@ -48,7 +48,7 @@ func makeTestVirtualServiceCR(name string, nodeIDs []string, listenerName string
 
 func TestValidateListenerAddresses_SameAddressDifferentNodeIDs(t *testing.T) {
 	// Test that same address:port is allowed across different nodeIDs
-	s := store.New()
+	s := store.NewStoreAdapter()
 
 	// Create two listeners with the same address:port
 	l1 := &listenerv3.Listener{
@@ -98,7 +98,7 @@ func TestValidateListenerAddresses_SameAddressDifferentNodeIDs(t *testing.T) {
 
 func TestValidateListenerAddresses_SameAddressSameNodeID(t *testing.T) {
 	// Test that same address:port is NOT allowed within the same nodeID
-	s := store.New()
+	s := store.NewStoreAdapter()
 
 	// Create two listeners with the same address:port
 	l1 := &listenerv3.Listener{
@@ -154,7 +154,7 @@ func TestValidateListenerAddresses_SameAddressSameNodeID(t *testing.T) {
 func TestValidateListenerAddresses_MultipleNodeIDsOverlap(t *testing.T) {
 	// Test complex scenario: listener1 used by [node1, node2], listener2 used by [node2, node3]
 	// Same address should fail only where nodeIDs overlap (node2)
-	s := store.New()
+	s := store.NewStoreAdapter()
 
 	// Create two listeners with the same address:port
 	l1 := &listenerv3.Listener{
@@ -209,7 +209,7 @@ func TestValidateListenerAddresses_MultipleNodeIDsOverlap(t *testing.T) {
 }
 
 func TestBuildListenerToNodeIDsMapping(t *testing.T) {
-	s := store.New()
+	s := store.NewStoreAdapter()
 
 	// Create listeners
 	l1 := &listenerv3.Listener{
@@ -263,7 +263,7 @@ func TestBuildListenerToNodeIDsMapping(t *testing.T) {
 
 func TestBuildListenerToNodeIDsMapping_WithCommonVS(t *testing.T) {
 	// Test that VirtualService with nodeID = "*" is properly expanded to all known nodeIDs
-	s := store.New()
+	s := store.NewStoreAdapter()
 
 	// Create listener
 	l1 := &listenerv3.Listener{

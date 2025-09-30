@@ -16,7 +16,7 @@ import (
 
 // ExtractClustersFromFilterChains extracts all cluster references from listener filter chains
 // This function provides optimized cluster extraction from existing listener configurations
-func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store *store.Store) ([]*cluster.Cluster, error) {
+func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store store.Store) ([]*cluster.Cluster, error) {
 	// Use pooled string slice for cluster names
 	namesPtr := utils.GetStringSlice()
 	defer utils.PutStringSlice(namesPtr)

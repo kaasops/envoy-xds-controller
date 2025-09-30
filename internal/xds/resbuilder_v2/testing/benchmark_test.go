@@ -86,12 +86,12 @@ func BenchmarkResourceBuilder(b *testing.B) {
 }
 
 // createBenchmarkStore creates a store for benchmarking
-func createBenchmarkStore() *store.Store {
-	return store.New()
+func createBenchmarkStore() store.Store {
+	return store.NewStoreAdapter()
 }
 
 // addRequiredResources adds required resources to the store for the given VirtualService
-func addRequiredResources(s *store.Store, vs *v1alpha1.VirtualService) {
+func addRequiredResources(s store.Store, vs *v1alpha1.VirtualService) {
 	// Add listener
 	if vs.Spec.Listener != nil {
 		listenerName := vs.Spec.Listener.Name

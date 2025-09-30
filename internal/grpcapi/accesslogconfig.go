@@ -11,11 +11,11 @@ import (
 )
 
 type AccessLogConfigStore struct {
-	store *store.Store
+	store store.Store
 	access_log_configv1connect.AccessLogConfigStoreServiceHandler
 }
 
-func NewAccessLogConfigStore(s *store.Store) *AccessLogConfigStore {
+func NewAccessLogConfigStore(s store.Store) *AccessLogConfigStore {
 	return &AccessLogConfigStore{
 		store: s,
 	}

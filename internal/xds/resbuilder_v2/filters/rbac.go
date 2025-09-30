@@ -13,7 +13,7 @@ import (
 )
 
 // BuildRBACFilter builds an RBAC filter from VirtualService RBAC configuration
-func BuildRBACFilter(vs *v1alpha1.VirtualService, store *store.Store) (*rbacFilter.RBAC, error) {
+func BuildRBACFilter(vs *v1alpha1.VirtualService, store store.Store) (*rbacFilter.RBAC, error) {
 	if vs.Spec.RBAC == nil {
 		return nil, nil
 	}
@@ -86,7 +86,7 @@ type referencedRBACPolicy struct {
 }
 
 // buildReferencedRBACPolicy builds an RBAC policy from a reference
-func buildReferencedRBACPolicy(policyRef *v1alpha1.ResourceRef, vsNamespace string, store *store.Store) (*referencedRBACPolicy, error) {
+func buildReferencedRBACPolicy(policyRef *v1alpha1.ResourceRef, vsNamespace string, store store.Store) (*referencedRBACPolicy, error) {
 	ns := helpers.GetNamespace(policyRef.Namespace, vsNamespace)
 	policy := store.GetPolicy(helpers.NamespacedName{Namespace: ns, Name: policyRef.Name})
 	if policy == nil {

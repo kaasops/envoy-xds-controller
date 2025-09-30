@@ -17,11 +17,11 @@ import (
 // HTTPFilterAdapter adapts the filters.Builder to implement the HTTPFilterBuilder interface
 type HTTPFilterAdapter struct {
 	builder *filters.Builder
-	store   *store.Store
+	store   store.Store
 }
 
 // NewHTTPFilterAdapter creates a new adapter for the filters.Builder
-func NewHTTPFilterAdapter(builder *filters.Builder, store *store.Store) interfaces.HTTPFilterBuilder {
+func NewHTTPFilterAdapter(builder *filters.Builder, store store.Store) interfaces.HTTPFilterBuilder {
 	return &HTTPFilterAdapter{
 		builder: builder,
 		store:   store,

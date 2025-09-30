@@ -14,11 +14,11 @@ import (
 
 // Builder handles the construction of route configurations
 type Builder struct {
-	store *store.Store
+	store store.Store
 }
 
 // NewBuilder creates a new route builder
-func NewBuilder(store *store.Store) *Builder {
+func NewBuilder(store store.Store) *Builder {
 	return &Builder{
 		store: store,
 	}

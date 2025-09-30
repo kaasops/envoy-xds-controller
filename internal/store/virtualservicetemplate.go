@@ -7,7 +7,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 )
 
-func (s *Store) SetVirtualServiceTemplate(vst *v1alpha1.VirtualServiceTemplate) {
+func (s *LegacyStore) SetVirtualServiceTemplate(vst *v1alpha1.VirtualServiceTemplate) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.normalizeVirtualServiceTemplate(vst)
@@ -15,7 +15,7 @@ func (s *Store) SetVirtualServiceTemplate(vst *v1alpha1.VirtualServiceTemplate) 
 	s.updateVirtualServiceTemplateByUIDMap()
 }
 
-func (s *Store) normalizeVirtualServiceTemplate(vst *v1alpha1.VirtualServiceTemplate) {
+func (s *LegacyStore) normalizeVirtualServiceTemplate(vst *v1alpha1.VirtualServiceTemplate) {
 	if vst.Spec.Listener != nil && vst.Spec.Listener.Namespace == nil {
 		vst.Spec.Listener.Namespace = &vst.Namespace
 	}
@@ -38,34 +38,34 @@ func (s *Store) normalizeVirtualServiceTemplate(vst *v1alpha1.VirtualServiceTemp
 	}
 }
 
-func (s *Store) GetVirtualServiceTemplate(name helpers.NamespacedName) *v1alpha1.VirtualServiceTemplate {
+func (s *LegacyStore) GetVirtualServiceTemplate(name helpers.NamespacedName) *v1alpha1.VirtualServiceTemplate {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	vst := s.virtualServiceTemplates[name]
 	return vst
 }
 
-func (s *Store) DeleteVirtualServiceTemplate(name helpers.NamespacedName) {
+func (s *LegacyStore) DeleteVirtualServiceTemplate(name helpers.NamespacedName) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.virtualServiceTemplates, name)
 	s.updateVirtualServiceTemplateByUIDMap()
 }
 
-func (s *Store) IsExistingVirtualServiceTemplate(name helpers.NamespacedName) bool {
+func (s *LegacyStore) IsExistingVirtualServiceTemplate(name helpers.NamespacedName) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	_, ok := s.virtualServiceTemplates[name]
 	return ok
 }
 
-func (s *Store) MapVirtualServiceTemplates() map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate {
+func (s *LegacyStore) MapVirtualServiceTemplates() map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.virtualServiceTemplates)
 }
 
-func (s *Store) updateVirtualServiceTemplateByUIDMap() {
+func (s *LegacyStore) updateVirtualServiceTemplateByUIDMap() {
 	if len(s.virtualServiceTemplates) == 0 {
 		return
 	}
@@ -76,7 +76,7 @@ func (s *Store) updateVirtualServiceTemplateByUIDMap() {
 	s.virtualServiceTemplateByUID = m
 }
 
-func (s *Store) GetVirtualServiceTemplateByUID(uid string) *v1alpha1.VirtualServiceTemplate {
+func (s *LegacyStore) GetVirtualServiceTemplateByUID(uid string) *v1alpha1.VirtualServiceTemplate {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	vst := s.virtualServiceTemplateByUID[uid]
