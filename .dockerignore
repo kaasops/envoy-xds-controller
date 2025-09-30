@@ -1,4 +1,44 @@
 # More info: https://docs.docker.com/engine/reference/builder/#dockerignore-file
-# Ignore build and test binaries.
+
+# Version control
+.git/
+.gitignore
+
+# CI/CD
+.github/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts and test binaries
 bin/
 testbin/
+cover.out
+*.test
+*.out
+Dockerfile.cross
+
+# Documentation (not needed in runtime)
+docs/
+README.md
+CLAUDE.md
+*.md
+
+# Test files
+test/
+*_test.go
+
+# Development files
+.dockerignore
+Makefile
+scripts/
+dev/
+.devcontainer/
+
+# Helm and config (copied separately if needed)
+helm/
+config/samples/
