@@ -5,6 +5,6 @@ import (
 )
 
 // NewAccessLogBuilder creates a new instance of the AccessLogBuilder interface
-func NewAccessLogBuilder(store *store.Store) *Builder {
+func NewAccessLogBuilder(store store.Store) *Builder {
 	return NewBuilder(store)
 }

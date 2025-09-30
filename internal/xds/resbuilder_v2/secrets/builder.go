@@ -14,11 +14,11 @@ import (
 
 // Builder handles the construction of TLS secrets
 type Builder struct {
-	store *store.Store
+	store store.Store
 }
 
 // NewBuilder creates a new secret builder
-func NewBuilder(store *store.Store) *Builder {
+func NewBuilder(store store.Store) *Builder {
 	return &Builder{
 		store: store,
 	}
@@ -181,7 +181,7 @@ func GetTLSType(tlsConfig *v1alpha1.TlsConfig) (string, error) {
 }
 
 // ValidateTLSConfiguration validates TLS configuration without building secrets
-func (b *Builder) ValidateTLSConfiguration(tlsConfig *v1alpha1.TlsConfig, domains []string, store *store.Store) error {
+func (b *Builder) ValidateTLSConfiguration(tlsConfig *v1alpha1.TlsConfig, domains []string, store store.Store) error {
 	if tlsConfig == nil {
 		return nil // TLS is optional
 	}
@@ -202,7 +202,7 @@ func (b *Builder) ValidateTLSConfiguration(tlsConfig *v1alpha1.TlsConfig, domain
 }
 
 // validateSecretRefConfiguration validates SecretRef configuration
-func (b *Builder) validateSecretRefConfiguration(secretRef *v1alpha1.ResourceRef, store *store.Store) error {
+func (b *Builder) validateSecretRefConfiguration(secretRef *v1alpha1.ResourceRef, store store.Store) error {
 	if secretRef == nil {
 		return fmt.Errorf("secretRef is nil")
 	}
@@ -231,7 +231,7 @@ func (b *Builder) validateSecretRefConfiguration(secretRef *v1alpha1.ResourceRef
 }
 
 // validateAutoDiscoveryConfiguration validates auto-discovery configuration
-func (b *Builder) validateAutoDiscoveryConfiguration(domains []string, store *store.Store) error {
+func (b *Builder) validateAutoDiscoveryConfiguration(domains []string, store store.Store) error {
 	if len(domains) == 0 {
 		return fmt.Errorf("no domains specified for auto-discovery")
 	}

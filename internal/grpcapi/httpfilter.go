@@ -11,11 +11,11 @@ import (
 )
 
 type HTTPFilterStore struct {
-	store *store.Store
+	store store.Store
 	http_filterv1connect.UnimplementedHTTPFilterStoreServiceHandler
 }
 
-func NewHTTPFilterStore(s *store.Store) *HTTPFilterStore {
+func NewHTTPFilterStore(s store.Store) *HTTPFilterStore {
 	return &HTTPFilterStore{
 		store: s,
 	}

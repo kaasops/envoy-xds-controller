@@ -112,8 +112,8 @@ var _ = AfterSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 })
 
-func testStore() (*store.Store, error) {
-	cacheStore := store.New()
+func testStore() (store.Store, error) {
+	cacheStore := store.NewStoreAdapter()
 
 	listener := &envoyv1alpha1.Listener{}
 	listener.Name = "http"

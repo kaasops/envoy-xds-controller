@@ -13,7 +13,7 @@ type Builder struct {
 }
 
 // NewBuilder creates a new access log builder
-func NewBuilder(store *store.Store) *Builder {
+func NewBuilder(store store.Store) *Builder {
 	return &Builder{
 		filtersBuilder: filters.NewBuilder(store),
 	}

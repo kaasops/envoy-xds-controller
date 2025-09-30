@@ -65,7 +65,7 @@ func (c *filterCache) set(key string, filters []*hcmv3.HttpFilter) {
 }
 
 // BuildHTTPFilters builds HTTP filters for a VirtualService with caching
-func (b *HTTPFilterBuilder) BuildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3.HttpFilter, error) {
+func (b *HTTPFilterBuilder) BuildHTTPFilters(vs *v1alpha1.VirtualService, store store.Store) ([]*hcmv3.HttpFilter, error) {
 	// Check cache first
 	cacheKey := b.generateCacheKey(vs, store)
 	if cached, exists := b.cache.get(cacheKey); exists {
@@ -130,7 +130,7 @@ func (b *HTTPFilterBuilder) BuildHTTPFilters(vs *v1alpha1.VirtualService, store 
 }
 
 // buildReferencedHTTPFilters builds HTTP filters from a reference
-func (b *HTTPFilterBuilder) buildReferencedHTTPFilters(httpFilterRef *v1alpha1.ResourceRef, vsNamespace string, store *store.Store) ([]*hcmv3.HttpFilter, error) {
+func (b *HTTPFilterBuilder) buildReferencedHTTPFilters(httpFilterRef *v1alpha1.ResourceRef, vsNamespace string, store store.Store) ([]*hcmv3.HttpFilter, error) {
 	httpFilterRefNs := helpers.GetNamespace(httpFilterRef.Namespace, vsNamespace)
 	hf := store.GetHTTPFilter(helpers.NamespacedName{Namespace: httpFilterRefNs, Name: httpFilterRef.Name})
 	if hf == nil {
@@ -180,7 +180,7 @@ func (b *HTTPFilterBuilder) ensureRouterFilterAtEnd(httpFilters []*hcmv3.HttpFil
 }
 
 // generateCacheKey creates a hash-based cache key for HTTP filters configuration
-func (b *HTTPFilterBuilder) generateCacheKey(vs *v1alpha1.VirtualService, store *store.Store) string {
+func (b *HTTPFilterBuilder) generateCacheKey(vs *v1alpha1.VirtualService, store store.Store) string {
 	hasher := sha256.New()
 
 	// Include VirtualService namespace and name for uniqueness

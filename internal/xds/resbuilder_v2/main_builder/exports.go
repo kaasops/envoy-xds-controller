@@ -10,7 +10,7 @@ var _ interfaces.MainBuilder = (*Builder)(nil)
 
 // NewMainBuilder creates a new Main Resource Builder that implements the MainBuilder interface
 // This is the main entry point for using the Main Resource Building component
-func NewMainBuilder(store *store.Store) interfaces.MainBuilder {
+func NewMainBuilder(store store.Store) interfaces.MainBuilder {
 	return &Builder{
 		store: store,
 		// These components would normally be injected, but we're creating them here for simplicity

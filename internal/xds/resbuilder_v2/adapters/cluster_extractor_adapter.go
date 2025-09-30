@@ -19,11 +19,11 @@ import (
 // ClusterExtractorAdapter adapts the clusters.Builder to implement the ClusterExtractor interface
 type ClusterExtractorAdapter struct {
 	builder *clusters.Builder
-	store   *store.Store
+	store   store.Store
 }
 
 // NewClusterExtractorAdapter creates a new adapter for the clusters.Builder
-func NewClusterExtractorAdapter(builder *clusters.Builder, store *store.Store) interfaces.ClusterExtractor {
+func NewClusterExtractorAdapter(builder *clusters.Builder, store store.Store) interfaces.ClusterExtractor {
 	return &ClusterExtractorAdapter{
 		builder: builder,
 		store:   store,

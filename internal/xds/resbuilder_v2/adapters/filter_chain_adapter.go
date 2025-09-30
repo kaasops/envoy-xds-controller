@@ -20,11 +20,11 @@ import (
 // FilterChainAdapter adapts the filter_chains.Builder to implement the FilterChainBuilder interface
 type FilterChainAdapter struct {
 	builder *filter_chains.Builder
-	store   *store.Store
+	store   store.Store
 }
 
 // NewFilterChainAdapter creates a new adapter for the filter_chains.Builder
-func NewFilterChainAdapter(builder *filter_chains.Builder, store *store.Store) interfaces.FilterChainBuilder {
+func NewFilterChainAdapter(builder *filter_chains.Builder, store store.Store) interfaces.FilterChainBuilder {
 	return &FilterChainAdapter{
 		builder: builder,
 		store:   store,

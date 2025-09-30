@@ -11,11 +11,11 @@ import (
 )
 
 type PolicyStore struct {
-	store *store.Store
+	store store.Store
 	policyv1connect.PolicyStoreServiceHandler
 }
 
-func NewPolicyStore(s *store.Store) *PolicyStore {
+func NewPolicyStore(s store.Store) *PolicyStore {
 	return &PolicyStore{
 		store: s,
 	}

@@ -20,12 +20,12 @@ import (
 
 // Builder handles filter building operations
 type Builder struct {
-	store *store.Store
+	store store.Store
 	cache *HTTPFilterLRUCache
 }
 
 // NewBuilder creates a new filter builder
-func NewBuilder(store *store.Store) *Builder {
+func NewBuilder(store store.Store) *Builder {
 	return &Builder{
 		store: store,
 		cache: GetGlobalHTTPFilterCache(),

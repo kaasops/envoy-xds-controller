@@ -60,7 +60,7 @@ type Resources struct {
 	Domains     []string
 }
 
-func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources, error) {
+func BuildResources(vs *v1alpha1.VirtualService, store store.Store) (*Resources, error) {
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
 
@@ -102,7 +102,7 @@ func BuildResources(vs *v1alpha1.VirtualService, store *store.Store) (*Resources
 }
 
 // applyVirtualServiceTemplate applies a template to the virtual service if specified
-func applyVirtualServiceTemplate(vs *v1alpha1.VirtualService, store *store.Store) (*v1alpha1.VirtualService, error) {
+func applyVirtualServiceTemplate(vs *v1alpha1.VirtualService, store store.Store) (*v1alpha1.VirtualService, error) {
 	if vs.Spec.Template == nil {
 		return vs, nil
 	}
@@ -125,7 +125,7 @@ func applyVirtualServiceTemplate(vs *v1alpha1.VirtualService, store *store.Store
 }
 
 // buildResourcesFromExistingFilterChains builds resources using existing filter chains from the listener
-func buildResourcesFromExistingFilterChains(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName, store *store.Store) (*Resources, error) {
+func buildResourcesFromExistingFilterChains(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName, store store.Store) (*Resources, error) {
 	// Check for conflicts with virtual service configuration
 	if err := checkFilterChainsConflicts(vs); err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func checkFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
 }
 
 // extractClustersFromFilterChains extracts clusters from filter chains
-func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store *store.Store) ([]*cluster.Cluster, error) {
+func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store store.Store) ([]*cluster.Cluster, error) {
 	clusters := make([]*cluster.Cluster, 0)
 
 	for _, fc := range filterChains {
@@ -214,7 +214,7 @@ func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, sto
 }
 
 // buildResourcesFromVirtualService builds resources from virtual service configuration
-func buildResourcesFromVirtualService(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName, nn helpers.NamespacedName, store *store.Store) (*Resources, error) {
+func buildResourcesFromVirtualService(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener, listenerNN helpers.NamespacedName, nn helpers.NamespacedName, store store.Store) (*Resources, error) {
 	listenerIsTLS := isTLSListener(xdsListener)
 
 	// Build virtual host and route configuration
@@ -275,7 +275,7 @@ func buildRouteConfiguration(
 	vs *v1alpha1.VirtualService,
 	xdsListener *listenerv3.Listener,
 	nn helpers.NamespacedName,
-	store *store.Store,
+	store store.Store,
 ) (*routev3.VirtualHost, *routev3.RouteConfiguration, error) {
 	virtualHost, err := buildVirtualHost(vs, nn, store)
 	if err != nil {
@@ -315,7 +315,7 @@ func buildRouteConfiguration(
 }
 
 // buildFilterChainParams builds the filter chain parameters
-func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost, store *store.Store) (*FilterChainsParams, error) {
+func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost, store store.Store) (*FilterChainsParams, error) {
 	filterChainParams := &FilterChainsParams{
 		VSName:            nn.String(),
 		UseRemoteAddress:  helpers.BoolFromPtr(vs.Spec.UseRemoteAddress),
@@ -394,7 +394,7 @@ func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedNa
 	return filterChainParams, nil
 }
 
-func buildListener(listenerNN helpers.NamespacedName, store *store.Store) (*listenerv3.Listener, error) {
+func buildListener(listenerNN helpers.NamespacedName, store store.Store) (*listenerv3.Listener, error) {
 	listener := store.GetListener(listenerNN)
 	if listener == nil {
 		return nil, fmt.Errorf("listener %s not found", listenerNN.String())
@@ -407,7 +407,7 @@ func buildListener(listenerNN helpers.NamespacedName, store *store.Store) (*list
 	return xdsListener, nil
 }
 
-func buildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, store *store.Store) (*routev3.VirtualHost, error) {
+func buildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, store store.Store) (*routev3.VirtualHost, error) {
 	if vs.Spec.VirtualHost == nil {
 		return nil, fmt.Errorf("virtual host is empty")
 	}
@@ -470,7 +470,7 @@ func buildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName, st
 	return virtualHost, nil
 }
 
-func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3.HttpFilter, error) {
+func buildHTTPFilters(vs *v1alpha1.VirtualService, store store.Store) ([]*hcmv3.HttpFilter, error) {
 	httpFilters := make([]*hcmv3.HttpFilter, 0, len(vs.Spec.HTTPFilters)+len(vs.Spec.AdditionalHttpFilters))
 
 	rbacF, err := buildRBACFilter(vs, store)
@@ -544,7 +544,7 @@ func buildHTTPFilters(vs *v1alpha1.VirtualService, store *store.Store) ([]*hcmv3
 	return httpFilters, nil
 }
 
-func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
+func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter, store store.Store) ([]*cluster.Cluster, error) {
 	var clusters []*cluster.Cluster
 
 	// 1. Clusters referenced in routes
@@ -579,7 +579,7 @@ func buildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost
 }
 
 // clustersFromVirtualHostRoutes extracts clusters referenced by routes inside the given VirtualHost.
-func clustersFromVirtualHostRoutes(virtualHost *routev3.VirtualHost, store *store.Store) ([]*cluster.Cluster, error) {
+func clustersFromVirtualHostRoutes(virtualHost *routev3.VirtualHost, store store.Store) ([]*cluster.Cluster, error) {
 	var clusters []*cluster.Cluster
 	for _, route := range virtualHost.Routes {
 		jsonData, err := json.Marshal(route)
@@ -604,7 +604,7 @@ func clustersFromVirtualHostRoutes(virtualHost *routev3.VirtualHost, store *stor
 }
 
 // clustersFromOAuth2HTTPFilters extracts clusters referenced by OAuth2 HTTP filters (token/authorize/etc).
-func clustersFromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter, store *store.Store) ([]*cluster.Cluster, error) {
+func clustersFromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter, store store.Store) ([]*cluster.Cluster, error) {
 	var clusters []*cluster.Cluster
 	for _, httpFilter := range httpFilters {
 		tc := httpFilter.GetTypedConfig()
@@ -634,7 +634,7 @@ func clustersFromOAuth2HTTPFilters(httpFilters []*hcmv3.HttpFilter, store *store
 }
 
 // clustersFromTracingRaw extracts clusters referenced by inline tracing configuration.
-func clustersFromTracingRaw(tr *runtime.RawExtension, store *store.Store) ([]*cluster.Cluster, error) {
+func clustersFromTracingRaw(tr *runtime.RawExtension, store store.Store) ([]*cluster.Cluster, error) {
 	if tr == nil {
 		return nil, nil
 	}
@@ -666,7 +666,7 @@ func clustersFromTracingRaw(tr *runtime.RawExtension, store *store.Store) ([]*cl
 }
 
 // clustersFromTracingRef extracts clusters referenced by a Tracing resource referenced from VS.
-func clustersFromTracingRef(vs *v1alpha1.VirtualService, store *store.Store) ([]*cluster.Cluster, error) {
+func clustersFromTracingRef(vs *v1alpha1.VirtualService, store store.Store) ([]*cluster.Cluster, error) {
 	if vs.Spec.TracingRef == nil {
 		return nil, nil
 	}
@@ -702,7 +702,7 @@ func clustersFromTracingRef(vs *v1alpha1.VirtualService, store *store.Store) ([]
 }
 
 // getClustersByNames resolves cluster specs by names and validates them.
-func getClustersByNames(names []string, store *store.Store) ([]*cluster.Cluster, error) {
+func getClustersByNames(names []string, store store.Store) ([]*cluster.Cluster, error) {
 	clusters := make([]*cluster.Cluster, 0, len(names))
 	for _, clusterName := range names {
 		cl := store.GetSpecCluster(clusterName)
@@ -718,7 +718,7 @@ func getClustersByNames(names []string, store *store.Store) ([]*cluster.Cluster,
 	return clusters, nil
 }
 
-func buildRBACFilter(vs *v1alpha1.VirtualService, store *store.Store) (*rbacFilter.RBAC, error) {
+func buildRBACFilter(vs *v1alpha1.VirtualService, store store.Store) (*rbacFilter.RBAC, error) {
 	if vs.Spec.RBAC == nil {
 		return nil, nil
 	}
@@ -892,7 +892,7 @@ func buildUpgradeConfigs(rawUpgradeConfigs []*runtime.RawExtension) ([]*hcmv3.Ht
 	return upgradeConfigs, nil
 }
 
-func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store *store.Store) ([]*accesslogv3.AccessLog, error) {
+func buildAccessLogConfigs(vs *v1alpha1.VirtualService, store store.Store) ([]*accesslogv3.AccessLog, error) {
 	var i int
 
 	if vs.Spec.AccessLog != nil {
@@ -1060,7 +1060,7 @@ func findClusterNames(data interface{}, fieldName string) []string {
 	return results
 }
 
-func buildSecrets(httpFilters []*hcmv3.HttpFilter, secretNameToDomains map[helpers.NamespacedName][]string, store *store.Store) ([]*tlsv3.Secret, []helpers.NamespacedName, error) {
+func buildSecrets(httpFilters []*hcmv3.HttpFilter, secretNameToDomains map[helpers.NamespacedName][]string, store store.Store) ([]*tlsv3.Secret, []helpers.NamespacedName, error) {
 	var secrets []*tlsv3.Secret
 	var usedSecrets []helpers.NamespacedName // for validation
 

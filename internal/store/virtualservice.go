@@ -7,41 +7,41 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 )
 
-func (s *Store) SetVirtualService(vs *v1alpha1.VirtualService) {
+func (s *LegacyStore) SetVirtualService(vs *v1alpha1.VirtualService) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.virtualServices[helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = vs
 	s.updateVirtualServiceByUIDMap()
 }
 
-func (s *Store) GetVirtualService(name helpers.NamespacedName) *v1alpha1.VirtualService {
+func (s *LegacyStore) GetVirtualService(name helpers.NamespacedName) *v1alpha1.VirtualService {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	vs := s.virtualServices[name]
 	return vs
 }
 
-func (s *Store) DeleteVirtualService(name helpers.NamespacedName) {
+func (s *LegacyStore) DeleteVirtualService(name helpers.NamespacedName) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.virtualServices, name)
 	s.updateVirtualServiceByUIDMap()
 }
 
-func (s *Store) IsExistingVirtualService(name helpers.NamespacedName) bool {
+func (s *LegacyStore) IsExistingVirtualService(name helpers.NamespacedName) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	_, ok := s.virtualServices[name]
 	return ok
 }
 
-func (s *Store) MapVirtualServices() map[helpers.NamespacedName]*v1alpha1.VirtualService {
+func (s *LegacyStore) MapVirtualServices() map[helpers.NamespacedName]*v1alpha1.VirtualService {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Clone(s.virtualServices)
 }
 
-func (s *Store) updateVirtualServiceByUIDMap() {
+func (s *LegacyStore) updateVirtualServiceByUIDMap() {
 	if len(s.virtualServices) == 0 {
 		return
 	}
@@ -52,7 +52,7 @@ func (s *Store) updateVirtualServiceByUIDMap() {
 	s.virtualServiceByUID = m
 }
 
-func (s *Store) GetVirtualServiceByUID(uid string) *v1alpha1.VirtualService {
+func (s *LegacyStore) GetVirtualServiceByUID(uid string) *v1alpha1.VirtualService {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	vs := s.virtualServiceByUID[uid]
@@ -63,7 +63,7 @@ func (s *Store) GetVirtualServiceByUID(uid string) *v1alpha1.VirtualService {
 	return vs
 }
 
-func (s *Store) GetVirtualServicesByTemplateNN(nn helpers.NamespacedName) []*v1alpha1.VirtualService {
+func (s *LegacyStore) GetVirtualServicesByTemplateNN(nn helpers.NamespacedName) []*v1alpha1.VirtualService {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	var virtualServices []*v1alpha1.VirtualService

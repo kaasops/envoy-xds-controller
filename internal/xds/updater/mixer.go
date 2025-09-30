@@ -41,7 +41,7 @@ func (m *Mixer) AddListenerParams(listenerNamespacedName helpers.NamespacedName,
 	m.nodeIDs[nodeID] = struct{}{}
 }
 
-func (m *Mixer) Mix(store *store.Store) (map[string]map[resource.Type][]types.Resource, error) {
+func (m *Mixer) Mix(store store.Store) (map[string]map[resource.Type][]types.Resource, error) {
 	result := make(map[string]map[resource.Type][]types.Resource)
 
 	for listenerNamespacedName, data := range m.listeners {

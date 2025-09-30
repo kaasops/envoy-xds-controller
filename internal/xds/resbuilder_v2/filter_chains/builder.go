@@ -16,11 +16,11 @@ import (
 
 // Builder implements filter chain building functionality
 type Builder struct {
-	store *store.Store
+	store store.Store
 }
 
 // NewBuilder creates a new filter chain builder
-func NewBuilder(store *store.Store) *Builder {
+func NewBuilder(store store.Store) *Builder {
 	return &Builder{
 		store: store,
 	}

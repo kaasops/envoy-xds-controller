@@ -11,11 +11,11 @@ import (
 )
 
 type ClusterStore struct {
-	store *store.Store
+	store store.Store
 	clusterv1connect.ClusterStoreServiceHandler
 }
 
-func NewClusterStore(s *store.Store) *ClusterStore {
+func NewClusterStore(s store.Store) *ClusterStore {
 	return &ClusterStore{
 		store: s,
 	}

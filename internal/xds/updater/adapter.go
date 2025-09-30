@@ -13,7 +13,7 @@ import (
 
 // buildResourcesAdapter routes resource building to either the old or new implementation
 // based on feature flags configuration
-func buildResourcesAdapter(vs *v1alpha1.VirtualService, store *store.Store) (*resbuilder.Resources, error) {
+func buildResourcesAdapter(vs *v1alpha1.VirtualService, store store.Store) (*resbuilder.Resources, error) {
 	logger := log.Log.WithValues("virtualservice", vs.Name, "namespace", vs.Namespace)
 
 	// Get feature flags configuration
@@ -39,7 +39,7 @@ func buildResourcesAdapter(vs *v1alpha1.VirtualService, store *store.Store) (*re
 
 // buildResourcesWithMainBuilder builds resources using the new MainBuilder implementation
 // but returns them in the format expected by the old implementation
-func buildResourcesWithMainBuilder(vs *v1alpha1.VirtualService, store *store.Store) (*resbuilder.Resources, error) {
+func buildResourcesWithMainBuilder(vs *v1alpha1.VirtualService, store store.Store) (*resbuilder.Resources, error) {
 	// Create a ResourceBuilder with MainBuilder enabled
 	rb := resbuilder_v2.NewResourceBuilder(store)
 

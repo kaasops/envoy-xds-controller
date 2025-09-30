@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Store struct {
+type LegacyStore struct {
 	mu                          sync.RWMutex
 	virtualServices             map[helpers.NamespacedName]*v1alpha1.VirtualService
 	virtualServiceByUID         map[string]*v1alpha1.VirtualService
@@ -37,8 +37,8 @@ type Store struct {
 	nodeDomainsIndex map[string]map[string]struct{} // nodeID -> set(domains)
 }
 
-func New() *Store {
-	store := &Store{
+func New() *LegacyStore {
+	store := &LegacyStore{
 		accessLogs:                  make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig),
 		accessLogByUID:              make(map[string]*v1alpha1.AccessLogConfig),
 		virtualServices:             make(map[helpers.NamespacedName]*v1alpha1.VirtualService),
@@ -62,11 +62,11 @@ func New() *Store {
 }
 
 // Copy creates copy of the Store
-func (s *Store) Copy() *Store {
+func (s *LegacyStore) Copy() *LegacyStore {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	clone := &Store{
+	clone := &LegacyStore{
 		accessLogs:                  make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig, len(s.accessLogs)),
 		accessLogByUID:              make(map[string]*v1alpha1.AccessLogConfig, len(s.accessLogByUID)),
 		virtualServices:             make(map[helpers.NamespacedName]*v1alpha1.VirtualService, len(s.virtualServices)),
@@ -143,7 +143,7 @@ func (s *Store) Copy() *Store {
 	return clone
 }
 
-func (s *Store) FillFromKubernetes(ctx context.Context, cl client.Client) error {
+func (s *LegacyStore) FillFromKubernetes(ctx context.Context, cl client.Client) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
