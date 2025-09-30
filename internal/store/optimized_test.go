@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
@@ -474,4 +475,540 @@ func TestOptimizedStore_CopyIndependence(t *testing.T) {
 
 	assert.NotNil(t, copy.GetVirtualService(nn2), "Copy should have new VS")
 	assert.Nil(t, original.GetVirtualService(nn2), "Original should not have new VS")
+}
+
+// TestOptimizedStore_DryRunPatterns tests Copy() behavior matching real DryRun usage from updater.go
+func TestOptimizedStore_DryRunPatterns(t *testing.T) {
+	t.Run("DryBuildSnapshotsWithVirtualService pattern", func(t *testing.T) {
+		// Setup: Original store with existing data
+		original := NewOptimizedStore()
+
+		vs1 := &v1alpha1.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "existing-vs",
+				Namespace: "default",
+				UID:       types.UID("existing-uid"),
+			},
+		}
+		original.SetVirtualService(vs1)
+
+		listener := &v1alpha1.Listener{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-listener",
+				Namespace: "default",
+				UID:       types.UID("listener-uid"),
+			},
+		}
+		original.SetListener(listener)
+
+		// Simulate DryRun: Copy store, add candidate VS, verify isolation
+		storeCopy := original.Copy()
+		candidateVS := &v1alpha1.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "candidate-vs",
+				Namespace: "default",
+				UID:       types.UID("candidate-uid"),
+			},
+		}
+		storeCopy.SetVirtualService(candidateVS)
+
+		// Verify: Original unchanged
+		assert.Nil(t, original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "candidate-vs"}),
+			"Original store should not have candidate VS")
+		assert.Nil(t, original.GetVirtualServiceByUID("candidate-uid"),
+			"Original store UID index should not have candidate VS")
+
+		// Verify: Copy has both
+		assert.NotNil(t, storeCopy.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "existing-vs"}),
+			"Copy should have existing VS")
+		assert.NotNil(t, storeCopy.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "candidate-vs"}),
+			"Copy should have candidate VS")
+		assert.NotNil(t, storeCopy.GetVirtualServiceByUID("candidate-uid"),
+			"Copy UID index should have candidate VS")
+
+		// Verify: Listener unaffected
+		assert.NotNil(t, original.GetListener(helpers.NamespacedName{Namespace: "default", Name: "test-listener"}),
+			"Original should still have listener")
+		assert.NotNil(t, storeCopy.GetListener(helpers.NamespacedName{Namespace: "default", Name: "test-listener"}),
+			"Copy should have listener")
+	})
+
+	t.Run("DryValidateVirtualServiceLight pattern", func(t *testing.T) {
+		// Setup: Store with multiple resources
+		original := NewOptimizedStore()
+
+		for i := 0; i < 10; i++ {
+			vs := &v1alpha1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("vs-%d", i),
+					Namespace: "default",
+					UID:       types.UID(fmt.Sprintf("uid-%d", i)),
+				},
+			}
+			original.SetVirtualService(vs)
+		}
+
+		cluster := &v1alpha1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-cluster",
+				Namespace: "default",
+				UID:       types.UID("cluster-uid"),
+			},
+		}
+		original.SetCluster(cluster)
+
+		// Simulate lightweight validation: Copy, overlay candidate, read resources
+		storeCopy := original.Copy()
+		candidateVS := &v1alpha1.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vs-5", // Update existing
+				Namespace: "default",
+				UID:       types.UID("uid-5-updated"),
+			},
+		}
+		storeCopy.SetVirtualService(candidateVS)
+
+		// Verify: Original VS-5 unchanged
+		origVS5 := original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "vs-5"})
+		assert.Equal(t, types.UID("uid-5"), origVS5.UID, "Original VS-5 UID unchanged")
+
+		// Verify: Copy has updated VS-5
+		copyVS5 := storeCopy.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "vs-5"})
+		assert.Equal(t, types.UID("uid-5-updated"), copyVS5.UID, "Copy VS-5 has new UID")
+
+		// Verify: UID indices independent
+		assert.NotNil(t, original.GetVirtualServiceByUID("uid-5"), "Original has old UID")
+		assert.Nil(t, original.GetVirtualServiceByUID("uid-5-updated"), "Original doesn't have new UID")
+		assert.NotNil(t, storeCopy.GetVirtualServiceByUID("uid-5-updated"), "Copy has new UID")
+
+		// Verify: Other resources unaffected
+		assert.Equal(t, 10, len(original.MapVirtualServices()), "Original still has 10 VS")
+		assert.Equal(t, 10, len(storeCopy.MapVirtualServices()), "Copy still has 10 VS")
+		assert.NotNil(t, storeCopy.GetCluster(helpers.NamespacedName{Namespace: "default", Name: "test-cluster"}),
+			"Copy has cluster")
+	})
+
+	t.Run("DryBuildSnapshotsWithVirtualServiceTemplate pattern", func(t *testing.T) {
+		// Setup: Store with templates
+		original := NewOptimizedStore()
+
+		existingTemplate := &v1alpha1.VirtualServiceTemplate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "existing-template",
+				Namespace: "default",
+				UID:       types.UID("template-uid-1"),
+			},
+		}
+		original.SetVirtualServiceTemplate(existingTemplate)
+
+		// Simulate DryRun with template
+		storeCopy := original.Copy()
+		candidateTemplate := &v1alpha1.VirtualServiceTemplate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "candidate-template",
+				Namespace: "default",
+				UID:       types.UID("template-uid-2"),
+			},
+		}
+		storeCopy.SetVirtualServiceTemplate(candidateTemplate)
+
+		// Verify isolation
+		assert.Nil(t, original.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "candidate-template"}),
+			"Original doesn't have candidate template")
+		assert.NotNil(t, storeCopy.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "candidate-template"}),
+			"Copy has candidate template")
+		assert.NotNil(t, storeCopy.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "existing-template"}),
+			"Copy has existing template")
+	})
+
+	t.Run("excludePreviousVSDomains pattern", func(t *testing.T) {
+		// Setup: Store representing current state
+		original := NewOptimizedStore()
+
+		currentVS := &v1alpha1.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-vs",
+				Namespace: "default",
+				UID:       types.UID("current-uid"),
+			},
+		}
+		original.SetVirtualService(currentVS)
+
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-secret",
+				Namespace: "default",
+			},
+			Data: map[string][]byte{"key": []byte("value")},
+		}
+		original.SetSecret(secret)
+
+		// Simulate: Copy store to analyze previous state
+		origStoreCopy := original.Copy()
+
+		// Verify: Can read previous state from copy without affecting original
+		prevVS := origStoreCopy.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "my-vs"})
+		assert.NotNil(t, prevVS, "Copy has previous VS")
+		assert.Equal(t, types.UID("current-uid"), prevVS.UID)
+
+		// Verify: Modifications to copy don't affect original
+		origStoreCopy.DeleteVirtualService(helpers.NamespacedName{Namespace: "default", Name: "my-vs"})
+		assert.Nil(t, origStoreCopy.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "my-vs"}),
+			"Deleted from copy")
+		assert.NotNil(t, original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "my-vs"}),
+			"Original still has VS")
+
+		// Verify: Secrets accessible in both
+		assert.NotNil(t, original.GetSecret(helpers.NamespacedName{Namespace: "default", Name: "my-secret"}))
+		assert.NotNil(t, origStoreCopy.GetSecret(helpers.NamespacedName{Namespace: "default", Name: "my-secret"}))
+	})
+}
+
+// TestOptimizedStore_DryRunAllResourceTypes verifies Copy() isolation for all resource types
+func TestOptimizedStore_DryRunAllResourceTypes(t *testing.T) {
+	original := NewOptimizedStore()
+
+	// Populate with one of each resource type
+	vs := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{Name: "vs", Namespace: "default", UID: "vs-uid"},
+	}
+	original.SetVirtualService(vs)
+
+	listener := &v1alpha1.Listener{
+		ObjectMeta: metav1.ObjectMeta{Name: "listener", Namespace: "default", UID: "listener-uid"},
+	}
+	original.SetListener(listener)
+
+	cluster := &v1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster", Namespace: "default", UID: "cluster-uid"},
+	}
+	original.SetCluster(cluster)
+
+	route := &v1alpha1.Route{
+		ObjectMeta: metav1.ObjectMeta{Name: "route", Namespace: "default", UID: "route-uid"},
+	}
+	original.SetRoute(route)
+
+	httpFilter := &v1alpha1.HttpFilter{
+		ObjectMeta: metav1.ObjectMeta{Name: "filter", Namespace: "default", UID: "filter-uid"},
+	}
+	original.SetHTTPFilter(httpFilter)
+
+	policy := &v1alpha1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "policy", Namespace: "default", UID: "policy-uid"},
+	}
+	original.SetPolicy(policy)
+
+	accessLog := &v1alpha1.AccessLogConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "accesslog", Namespace: "default", UID: "accesslog-uid"},
+	}
+	original.SetAccessLog(accessLog)
+
+	tracing := &v1alpha1.Tracing{
+		ObjectMeta: metav1.ObjectMeta{Name: "tracing", Namespace: "default", UID: "tracing-uid"},
+	}
+	original.SetTracing(tracing)
+
+	vst := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{Name: "template", Namespace: "default", UID: "template-uid"},
+	}
+	original.SetVirtualServiceTemplate(vst)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "secret", Namespace: "default"},
+	}
+	original.SetSecret(secret)
+
+	// DryRun: Copy and delete all resources
+	storeCopy := original.Copy()
+	storeCopy.DeleteVirtualService(helpers.NamespacedName{Namespace: "default", Name: "vs"})
+	storeCopy.DeleteListener(helpers.NamespacedName{Namespace: "default", Name: "listener"})
+	storeCopy.DeleteCluster(helpers.NamespacedName{Namespace: "default", Name: "cluster"})
+	storeCopy.DeleteRoute(helpers.NamespacedName{Namespace: "default", Name: "route"})
+	storeCopy.DeleteHTTPFilter(helpers.NamespacedName{Namespace: "default", Name: "filter"})
+	storeCopy.DeletePolicy(helpers.NamespacedName{Namespace: "default", Name: "policy"})
+	storeCopy.DeleteAccessLog(helpers.NamespacedName{Namespace: "default", Name: "accesslog"})
+	storeCopy.DeleteTracing(helpers.NamespacedName{Namespace: "default", Name: "tracing"})
+	storeCopy.DeleteVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "template"})
+	storeCopy.DeleteSecret(helpers.NamespacedName{Namespace: "default", Name: "secret"})
+
+	// Verify: Copy is empty
+	assert.Equal(t, 0, len(storeCopy.MapVirtualServices()), "Copy has no VS")
+	assert.Equal(t, 0, len(storeCopy.MapListeners()), "Copy has no listeners")
+	assert.Equal(t, 0, len(storeCopy.MapClusters()), "Copy has no clusters")
+	assert.Equal(t, 0, len(storeCopy.MapRoutes()), "Copy has no routes")
+	assert.Equal(t, 0, len(storeCopy.MapHTTPFilters()), "Copy has no filters")
+	assert.Equal(t, 0, len(storeCopy.MapPolicies()), "Copy has no policies")
+	assert.Equal(t, 0, len(storeCopy.MapAccessLogs()), "Copy has no accesslogs")
+	assert.Equal(t, 0, len(storeCopy.MapTracings()), "Copy has no tracings")
+	assert.Equal(t, 0, len(storeCopy.MapVirtualServiceTemplates()), "Copy has no templates")
+	assert.Equal(t, 0, len(storeCopy.MapSecrets()), "Copy has no secrets")
+
+	// Verify: Original unchanged
+	assert.NotNil(t, original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "vs"}))
+	assert.NotNil(t, original.GetListener(helpers.NamespacedName{Namespace: "default", Name: "listener"}))
+	assert.NotNil(t, original.GetCluster(helpers.NamespacedName{Namespace: "default", Name: "cluster"}))
+	assert.NotNil(t, original.GetRoute(helpers.NamespacedName{Namespace: "default", Name: "route"}))
+	assert.NotNil(t, original.GetHTTPFilter(helpers.NamespacedName{Namespace: "default", Name: "filter"}))
+	assert.NotNil(t, original.GetPolicy(helpers.NamespacedName{Namespace: "default", Name: "policy"}))
+	assert.NotNil(t, original.GetAccessLog(helpers.NamespacedName{Namespace: "default", Name: "accesslog"}))
+	assert.NotNil(t, original.GetTracing(helpers.NamespacedName{Namespace: "default", Name: "tracing"}))
+	assert.NotNil(t, original.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "template"}))
+	assert.NotNil(t, original.GetSecret(helpers.NamespacedName{Namespace: "default", Name: "secret"}))
+
+	// Verify: UID indices unchanged in original
+	assert.NotNil(t, original.GetVirtualServiceByUID("vs-uid"))
+	assert.NotNil(t, original.GetListenerByUID("listener-uid"))
+	assert.NotNil(t, original.GetVirtualServiceTemplateByUID("template-uid"))
+	assert.NotNil(t, original.GetRouteByUID("route-uid"))
+	assert.NotNil(t, original.GetHTTPFilterByUID("filter-uid"))
+	assert.NotNil(t, original.GetAccessLogByUID("accesslog-uid"))
+
+	// Verify: UID indices empty in copy
+	assert.Nil(t, storeCopy.GetVirtualServiceByUID("vs-uid"))
+	assert.Nil(t, storeCopy.GetListenerByUID("listener-uid"))
+	assert.Nil(t, storeCopy.GetVirtualServiceTemplateByUID("template-uid"))
+	assert.Nil(t, storeCopy.GetRouteByUID("route-uid"))
+	assert.Nil(t, storeCopy.GetHTTPFilterByUID("filter-uid"))
+	assert.Nil(t, storeCopy.GetAccessLogByUID("accesslog-uid"))
+}
+
+// TestOptimizedStore_ConcurrentDryRuns simulates concurrent DryRun operations
+func TestOptimizedStore_ConcurrentDryRuns(t *testing.T) {
+	original := NewOptimizedStore()
+
+	// Setup: Populate with initial data
+	for i := 0; i < 50; i++ {
+		vs := &v1alpha1.VirtualService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("vs-%d", i),
+				Namespace: "default",
+				UID:       types.UID(fmt.Sprintf("uid-%d", i)),
+			},
+		}
+		original.SetVirtualService(vs)
+	}
+
+	cluster := &v1alpha1.Cluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster",
+			Namespace: "default",
+			UID:       types.UID("cluster-uid"),
+		},
+	}
+	original.SetCluster(cluster)
+
+	// Simulate 10 concurrent DryRun operations
+	done := make(chan bool, 10)
+	for i := 0; i < 10; i++ {
+		go func(id int) {
+			// Each goroutine creates a copy and modifies it
+			storeCopy := original.Copy()
+
+			// Add new VS
+			candidateVS := &v1alpha1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("candidate-%d", id),
+					Namespace: "default",
+					UID:       types.UID(fmt.Sprintf("candidate-uid-%d", id)),
+				},
+			}
+			storeCopy.SetVirtualService(candidateVS)
+
+			// Update existing VS
+			updateVS := &v1alpha1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vs-10",
+					Namespace: "default",
+					UID:       types.UID(fmt.Sprintf("updated-uid-%d", id)),
+				},
+			}
+			storeCopy.SetVirtualService(updateVS)
+
+			// Delete some VS
+			storeCopy.DeleteVirtualService(helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("vs-%d", id)})
+
+			// Read cluster
+			assert.NotNil(t, storeCopy.GetCluster(helpers.NamespacedName{Namespace: "default", Name: "cluster"}))
+
+			// Verify candidate exists in this copy
+			assert.NotNil(t, storeCopy.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("candidate-%d", id)}))
+
+			done <- true
+		}(i)
+	}
+
+	// Wait for all DryRuns to complete
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+
+	// Verify: Original unchanged
+	assert.Equal(t, 50, len(original.MapVirtualServices()), "Original should still have 50 VS")
+	for i := 0; i < 50; i++ {
+		assert.NotNil(t, original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("vs-%d", i)}),
+			fmt.Sprintf("Original should have vs-%d", i))
+	}
+
+	// Verify: No candidates leaked to original
+	for i := 0; i < 10; i++ {
+		assert.Nil(t, original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("candidate-%d", i)}),
+			fmt.Sprintf("Original should not have candidate-%d", i))
+	}
+
+	// Verify: Original vs-10 unchanged
+	vs10 := original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: "vs-10"})
+	assert.Equal(t, types.UID("uid-10"), vs10.UID, "Original vs-10 UID unchanged")
+
+	// Verify: Cluster unchanged
+	assert.NotNil(t, original.GetCluster(helpers.NamespacedName{Namespace: "default", Name: "cluster"}))
+}
+
+// TestOptimizedStore_DryRunTemplateIndices tests template index isolation in Copy()
+func TestOptimizedStore_DryRunTemplateIndices(t *testing.T) {
+	original := NewOptimizedStore()
+
+	// Setup: Template and VSes using it
+	template := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-template",
+			Namespace: "default",
+			UID:       types.UID("template-uid"),
+		},
+	}
+	original.SetVirtualServiceTemplate(template)
+
+	vs1 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vs-1",
+			Namespace: "default",
+			UID:       types.UID("vs-1-uid"),
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			Template: &v1alpha1.ResourceRef{
+				Name: "my-template",
+			},
+		},
+	}
+	original.SetVirtualService(vs1)
+
+	vs2 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vs-2",
+			Namespace: "default",
+			UID:       types.UID("vs-2-uid"),
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			Template: &v1alpha1.ResourceRef{
+				Name: "my-template",
+			},
+		},
+	}
+	original.SetVirtualService(vs2)
+
+	// Verify initial state
+	templateNN := helpers.NamespacedName{Namespace: "default", Name: "my-template"}
+	originalVSList := original.GetVirtualServicesByTemplateNN(templateNN)
+	assert.Len(t, originalVSList, 2, "Original has 2 VS for template")
+
+	// DryRun: Copy and add new VS with same template
+	storeCopy := original.Copy()
+	vs3 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "vs-3",
+			Namespace: "default",
+			UID:       types.UID("vs-3-uid"),
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			Template: &v1alpha1.ResourceRef{
+				Name: "my-template",
+			},
+		},
+	}
+	storeCopy.SetVirtualService(vs3)
+
+	// Verify: Copy has 3 VS for template
+	copyVSList := storeCopy.GetVirtualServicesByTemplateNN(templateNN)
+	assert.Len(t, copyVSList, 3, "Copy has 3 VS for template")
+	assert.Contains(t, copyVSList, vs3, "Copy includes new VS")
+
+	// Verify: Original still has 2
+	originalVSList = original.GetVirtualServicesByTemplateNN(templateNN)
+	assert.Len(t, originalVSList, 2, "Original still has 2 VS for template")
+	assert.NotContains(t, originalVSList, vs3, "Original doesn't have new VS")
+
+	// DryRun: Delete VS from copy
+	storeCopy.DeleteVirtualService(helpers.NamespacedName{Namespace: "default", Name: "vs-1"})
+
+	// Verify: Copy has 2 VS for template (vs-2 and vs-3)
+	copyVSList = storeCopy.GetVirtualServicesByTemplateNN(templateNN)
+	assert.Len(t, copyVSList, 2, "Copy has 2 VS after delete")
+	vsNames := make([]string, 0, len(copyVSList))
+	for _, vs := range copyVSList {
+		vsNames = append(vsNames, vs.Name)
+	}
+	assert.Contains(t, vsNames, "vs-2")
+	assert.Contains(t, vsNames, "vs-3")
+	assert.NotContains(t, vsNames, "vs-1")
+
+	// Verify: Original still has vs-1 and vs-2
+	originalVSList = original.GetVirtualServicesByTemplateNN(templateNN)
+	assert.Len(t, originalVSList, 2, "Original still has 2 VS")
+	origVSNames := make([]string, 0, len(originalVSList))
+	for _, vs := range originalVSList {
+		origVSNames = append(origVSNames, vs.Name)
+	}
+	assert.Contains(t, origVSNames, "vs-1")
+	assert.Contains(t, origVSNames, "vs-2")
+}
+
+// TestOptimizedStore_DryRunNodeDomainsIndex tests node domains index isolation
+func TestOptimizedStore_DryRunNodeDomainsIndex(t *testing.T) {
+	original := NewOptimizedStore()
+
+	// Setup: Node domains index
+	originalIndex := map[string]map[string]struct{}{
+		"node1": {
+			"domain1.com": {},
+			"domain2.com": {},
+		},
+		"node2": {
+			"domain3.com": {},
+		},
+	}
+	original.ReplaceNodeDomainsIndex(originalIndex)
+
+	// Verify initial state
+	domains, missing := original.GetNodeDomainsForNodes([]string{"node1", "node2"})
+	assert.Len(t, domains, 2)
+	assert.Len(t, missing, 0)
+
+	// DryRun: Copy and modify index
+	storeCopy := original.Copy()
+	modifiedIndex := map[string]map[string]struct{}{
+		"node1": {
+			"domain1.com":    {},
+			"domain2.com":    {},
+			"domain-new.com": {}, // Added
+		},
+		"node3": { // New node
+			"domain4.com": {},
+		},
+	}
+	storeCopy.ReplaceNodeDomainsIndex(modifiedIndex)
+
+	// Verify: Copy has modified index
+	copyDomains, copyMissing := storeCopy.GetNodeDomainsForNodes([]string{"node1", "node2", "node3"})
+	assert.Len(t, copyDomains, 2, "Copy has node1 and node3")
+	assert.Contains(t, copyDomains["node1"], "domain-new.com", "Copy has new domain")
+	assert.Contains(t, copyDomains, "node3", "Copy has node3")
+	assert.Contains(t, copyMissing, "node2", "Copy doesn't have node2")
+
+	// Verify: Original unchanged
+	origDomains, origMissing := original.GetNodeDomainsForNodes([]string{"node1", "node2", "node3"})
+	assert.Len(t, origDomains, 2, "Original has node1 and node2")
+	assert.NotContains(t, origDomains["node1"], "domain-new.com", "Original doesn't have new domain")
+	assert.NotContains(t, origDomains, "node3", "Original doesn't have node3")
+	assert.Contains(t, origMissing, "node3", "Original is missing node3")
+	assert.NotContains(t, origMissing, "node2", "Original has node2")
 }
