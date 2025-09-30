@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// for work run command - 'go generate ./pkg/xds/cache'
+// for work run command - 'go generate ./internal/xds/cache'
 
 package cache
 
