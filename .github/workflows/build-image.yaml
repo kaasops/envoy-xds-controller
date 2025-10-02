@@ -9,8 +9,32 @@ on:
 
 jobs:
   build-and-push:
-    name: Build and push Docker images
+    name: Build and push ${{ matrix.image }} image
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: main
+            context: .
+            dockerfile: ./Dockerfile
+            suffix: ""
+            build-args: true
+          - image: ui
+            context: ./ui
+            dockerfile: ./ui/Dockerfile
+            suffix: "-ui"
+            build-args: false
+          - image: init-cert
+            context: .
+            dockerfile: ./cmd/init-cert/Dockerfile
+            suffix: "-init-cert"
+            build-args: false
+          - image: client
+            context: .
+            dockerfile: ./cmd/client/Dockerfile
+            suffix: "-client"
+            build-args: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -37,52 +61,18 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Main image and push to Docker Hub
+      - name: Build and push ${{ matrix.image }} image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            VERSION=${{ steps.tag.outputs.TAG }}
-            COMMIT_HASH=${{ github.sha }}
-            BUILD_DATE=${{ steps.date.outputs.BUILD_DATE }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:${{ steps.tag.outputs.TAG }},${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}:buildcache,mode=max
-          provenance: false
-
-      - name: Build UI image and push to Docker Hub
-        uses: docker/build-push-action@v6
-        with:
-          context: ./ui
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-ui:${{ steps.tag.outputs.TAG }},${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-ui:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-ui:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-ui:buildcache,mode=max
-          provenance: false
-
-      - name: Build Init-Cert image and push to Docker Hub
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./cmd/init-cert/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-init-cert:${{ steps.tag.outputs.TAG }},${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-init-cert:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-init-cert:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-init-cert:buildcache,mode=max
-          provenance: false
-
-      - name: Build client image and push to Docker Hub
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./cmd/client/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-client:${{ steps.tag.outputs.TAG }},${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-client:latest
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-client:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}-client:buildcache,mode=max
+            ${{ matrix.build-args == 'true' && format('VERSION={0}', steps.tag.outputs.TAG) || '' }}
+            ${{ matrix.build-args == 'true' && format('COMMIT_HASH={0}', github.sha) || '' }}
+            ${{ matrix.build-args == 'true' && format('BUILD_DATE={0}', steps.date.outputs.BUILD_DATE) || '' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:${{ steps.tag.outputs.TAG }},${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:buildcache,mode=max
           provenance: false
