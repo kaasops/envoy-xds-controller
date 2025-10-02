@@ -19,6 +19,7 @@ package v1alpha1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -79,15 +80,23 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(ctx context.Conte
 
 	// Validate that all extraFields are used in the template
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
+		virtualservicetemplatelog.Error(err, "ExtraFields validation failed", "name", virtualservicetemplate.GetName())
 		return nil, err
 	}
 
-	// Tracing XOR validation + existence check
-	if err := validateTemplateTracing(ctx, v.Client, virtualservicetemplate); err != nil {
+	// Tracing XOR validation + existence check with timeout
+	ctxTracing, cancelTracing := context.WithTimeout(ctx, v.getDryRunTimeout())
+	defer cancelTracing()
+	if err := validateTemplateTracing(ctxTracing, v.Client, virtualservicetemplate); err != nil {
+		if errors.Is(ctxTracing.Err(), context.DeadlineExceeded) {
+			virtualservicetemplatelog.Error(err, "Tracing validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
+			return nil, fmt.Errorf("tracing validation timed out after %s; please check Kubernetes API availability", v.getDryRunTimeout())
+		}
+		virtualservicetemplatelog.Error(err, "Tracing validation failed", "name", virtualservicetemplate.GetName())
 		return nil, err
 	}
 
-	virtualservicetemplatelog.Info("VirtualServiceTemplate is valid", "name", virtualservicetemplate.GetName())
+	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed", "name", virtualservicetemplate.GetName())
 
 	return nil, nil
 }
@@ -170,25 +179,36 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 
 	// Validate that all extraFields are used in the template
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
+		virtualservicetemplatelog.Error(err, "ExtraFields validation failed", "name", virtualservicetemplate.GetName())
 		return nil, err
 	}
 
-	// Tracing XOR validation + existence check
-	if err := validateTemplateTracing(ctx, v.Client, virtualservicetemplate); err != nil {
+	// Tracing XOR validation + existence check with timeout
+	ctxTracing, cancelTracing := context.WithTimeout(ctx, v.getDryRunTimeout())
+	defer cancelTracing()
+	if err := validateTemplateTracing(ctxTracing, v.Client, virtualservicetemplate); err != nil {
+		if errors.Is(ctxTracing.Err(), context.DeadlineExceeded) {
+			virtualservicetemplatelog.Error(err, "Tracing validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
+			return nil, fmt.Errorf("tracing validation timed out after %s; please check Kubernetes API availability", v.getDryRunTimeout())
+		}
+		virtualservicetemplatelog.Error(err, "Tracing validation failed", "name", virtualservicetemplate.GetName())
 		return nil, err
 	}
 
 	// Apply timeout for heavy dry-run path when updating template
+	virtualservicetemplatelog.Info("Starting dry-run validation", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
 	ctxTO, cancel := context.WithTimeout(ctx, v.getDryRunTimeout())
 	defer cancel()
 	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctxTO, virtualservicetemplate); err != nil {
-		if ctxTO.Err() == context.DeadlineExceeded {
+		if errors.Is(ctxTO.Err(), context.DeadlineExceeded) {
+			virtualservicetemplatelog.Error(err, "Dry-run validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
 			return nil, fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
 		}
+		virtualservicetemplatelog.Error(err, "Dry-run validation failed", "name", virtualservicetemplate.GetName())
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
 
-	virtualservicetemplatelog.Info("VirtualServiceTemplate is valid", "name", virtualservicetemplate.GetName())
+	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed", "name", virtualservicetemplate.GetName())
 
 	return nil, nil
 }
@@ -203,6 +223,7 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateDelete(ctx context.Conte
 
 	var virtualServiceList envoyv1alpha1.VirtualServiceList
 	if err := v.Client.List(ctx, &virtualServiceList, client.InNamespace(virtualservicetemplate.Namespace)); err != nil {
+		virtualservicetemplatelog.Error(err, "Failed to list VirtualService resources", "name", virtualservicetemplate.GetName(), "namespace", virtualservicetemplate.Namespace)
 		return nil, fmt.Errorf("failed to list VirtualService resources: %w", err)
 	}
 
@@ -214,12 +235,14 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateDelete(ctx context.Conte
 			}
 		}
 		if len(refVsNames) > 0 {
+			virtualservicetemplatelog.Info("Cannot delete VirtualServiceTemplate: still referenced", "name", virtualservicetemplate.GetName(), "referencedBy", refVsNames)
 			return nil, fmt.Errorf("cannot delete VirtualServiceTemplate %s because it is still referenced by VirtualService(s) %s",
 				virtualservicetemplate.GetName(),
 				refVsNames,
 			)
 		}
 	}
+
 	return nil, nil
 }
 
@@ -242,8 +265,19 @@ func validateTemplateTracing(ctx context.Context, cl client.Client, vst *envoyv1
 			return fmt.Errorf("spec.tracingRef.name must not be empty when spec.tracingRef is set")
 		}
 		ns := helpers.GetNamespace(spec.TracingRef.Namespace, vst.Namespace)
+
+		// Check if context is already cancelled before making API call
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("context cancelled before Tracing lookup: %w", err)
+		}
+
 		var tracing envoyv1alpha1.Tracing
 		if err := cl.Get(ctx, types.NamespacedName{Namespace: ns, Name: spec.TracingRef.Name}, &tracing); err != nil {
+			// Check if it's a context timeout/cancellation
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				virtualservicetemplatelog.Error(ctxErr, "Tracing lookup timed out", "name", vst.GetName(), "tracingName", spec.TracingRef.Name, "tracingNamespace", ns)
+				return fmt.Errorf("context error during Tracing lookup: %w", ctxErr)
+			}
 			return fmt.Errorf("referenced Tracing %s/%s not found or not accessible: %w", ns, spec.TracingRef.Name, err)
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type LegacyStore struct {
@@ -65,6 +66,9 @@ func New() *LegacyStore {
 func (s *LegacyStore) Copy() *LegacyStore {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	logger := log.Log.WithName("store")
+	logger.V(1).Info("Copy: starting", "virtualServices", len(s.virtualServices), "templates", len(s.virtualServiceTemplates), "listeners", len(s.listeners), "clusters", len(s.clusters))
 
 	clone := &LegacyStore{
 		accessLogs:                  make(map[helpers.NamespacedName]*v1alpha1.AccessLogConfig, len(s.accessLogs)),
@@ -130,6 +134,7 @@ func (s *LegacyStore) Copy() *LegacyStore {
 		}
 	}
 
+	logger.V(1).Info("Copy: rebuilding indices")
 	clone.updateListenerByUIDMap()
 	clone.updateVirtualServiceByUIDMap()
 	clone.updateVirtualServiceTemplateByUIDMap()
@@ -140,6 +145,7 @@ func (s *LegacyStore) Copy() *LegacyStore {
 	clone.updateDomainSecretsMap()
 	clone.updateSpecClusters()
 
+	logger.V(1).Info("Copy: completed")
 	return clone
 }
 

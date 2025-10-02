@@ -138,11 +138,36 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v
 }
 
 func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) error {
+	rlog := log.FromContext(ctx).WithName("cache-updater")
+
+	// Log before attempting to acquire lock to detect lock contention
+	lockStart := time.Now()
 	c.mx.RLock()
+	lockAcquireDuration := time.Since(lockStart)
+	if lockAcquireDuration > 100*time.Millisecond {
+		rlog.Info("DryBuildSnapshots: lock contention detected", "template", vst.Name, "lockWaitDuration", lockAcquireDuration.String())
+	}
+
+	start := time.Now()
 	storeCopy := c.store.Copy()
 	c.mx.RUnlock()
+	copyDuration := time.Since(start)
+
+	if copyDuration > 500*time.Millisecond {
+		rlog.Info("DryBuildSnapshots: slow store copy", "template", vst.Name, "duration", copyDuration.String())
+	}
+
 	storeCopy.SetVirtualServiceTemplate(vst)
+
+	buildStart := time.Now()
 	err, _, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	buildDuration := time.Since(buildStart)
+	totalDuration := time.Since(lockStart)
+
+	if err != nil || totalDuration > time.Second {
+		rlog.Info("DryBuildSnapshots: completed", "template", vst.Name, "copyDuration", copyDuration.String(), "buildDuration", buildDuration.String(), "totalDuration", totalDuration.String(), "error", err != nil)
+	}
+
 	return err
 }
 
