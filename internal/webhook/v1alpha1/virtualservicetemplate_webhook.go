@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"regexp"
 	"strings"
 	"time"
@@ -56,6 +57,15 @@ func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdate
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-virtualservicetemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=virtualservicetemplates,verbs=create;update;delete,versions=v1alpha1,name=vvirtualservicetemplate-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
+
+type contextKey string
+
+const validationIDKey contextKey = "validationID"
+
+// generateValidationID creates a short unique ID for correlating logs
+func generateValidationID() string {
+	return fmt.Sprintf("%08x", rand.Uint32())
+}
 
 // VirtualServiceTemplateCustomValidator struct is responsible for validating the VirtualServiceTemplate resource
 // when it is created, updated, or deleted.
@@ -175,11 +185,16 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", newObj)
 	}
-	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update", "name", virtualservicetemplate.GetName())
+
+	// Generate correlation ID for linking logs
+	validationID := generateValidationID()
+	ctx = context.WithValue(ctx, validationIDKey, validationID)
+
+	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update", "name", virtualservicetemplate.GetName(), "validationID", validationID)
 
 	// Validate that all extraFields are used in the template
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
-		virtualservicetemplatelog.Error(err, "ExtraFields validation failed", "name", virtualservicetemplate.GetName())
+		virtualservicetemplatelog.Error(err, "ExtraFields validation failed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
 		return nil, err
 	}
 
@@ -188,27 +203,27 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	defer cancelTracing()
 	if err := validateTemplateTracing(ctxTracing, v.Client, virtualservicetemplate); err != nil {
 		if errors.Is(ctxTracing.Err(), context.DeadlineExceeded) {
-			virtualservicetemplatelog.Error(err, "Tracing validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
+			virtualservicetemplatelog.Error(err, "Tracing validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout(), "validationID", validationID)
 			return nil, fmt.Errorf("tracing validation timed out after %s; please check Kubernetes API availability", v.getDryRunTimeout())
 		}
-		virtualservicetemplatelog.Error(err, "Tracing validation failed", "name", virtualservicetemplate.GetName())
+		virtualservicetemplatelog.Error(err, "Tracing validation failed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
 		return nil, err
 	}
 
 	// Apply timeout for heavy dry-run path when updating template
-	virtualservicetemplatelog.Info("Starting dry-run validation", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
+	virtualservicetemplatelog.Info("Starting dry-run validation", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout(), "validationID", validationID)
 	ctxTO, cancel := context.WithTimeout(ctx, v.getDryRunTimeout())
 	defer cancel()
 	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctxTO, virtualservicetemplate); err != nil {
 		if errors.Is(ctxTO.Err(), context.DeadlineExceeded) {
-			virtualservicetemplatelog.Error(err, "Dry-run validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
+			virtualservicetemplatelog.Error(err, "Dry-run validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout(), "validationID", validationID)
 			return nil, fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
 		}
-		virtualservicetemplatelog.Error(err, "Dry-run validation failed", "name", virtualservicetemplate.GetName())
+		virtualservicetemplatelog.Error(err, "Dry-run validation failed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
 
-	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed", "name", virtualservicetemplate.GetName())
+	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
 
 	return nil, nil
 }
