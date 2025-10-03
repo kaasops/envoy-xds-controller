@@ -1287,13 +1287,14 @@ func (s *OptimizedStore) MapSpecClusters() map[string]*v1alpha1.Cluster {
 	return result
 }
 
-func (s *OptimizedStore) MapDomainSecrets() map[string]corev1.Secret {
+func (s *OptimizedStore) MapDomainSecrets() map[string]*corev1.Secret {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := make(map[string]corev1.Secret, len(s.domainSecrets))
+	result := make(map[string]*corev1.Secret, len(s.domainSecrets))
 	for k, v := range s.domainSecrets {
-		result[k] = v
+		secret := v // Create explicit copy for pointer safety
+		result[k] = &secret
 	}
 	return result
 }

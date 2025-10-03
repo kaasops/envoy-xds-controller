@@ -82,7 +82,7 @@ type Store interface {
 	DeleteSecret(name helpers.NamespacedName)
 	IsExistingSecret(name helpers.NamespacedName) bool
 	MapSecrets() map[helpers.NamespacedName]*corev1.Secret
-	MapDomainSecrets() map[string]corev1.Secret
+	MapDomainSecrets() map[string]*corev1.Secret
 
 	// Tracing
 	GetTracing(name helpers.NamespacedName) *v1alpha1.Tracing
