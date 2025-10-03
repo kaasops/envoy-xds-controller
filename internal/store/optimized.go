@@ -55,7 +55,7 @@ type OptimizedStore struct {
 
 	// Additional indices
 	specClusters  map[string]*v1alpha1.Cluster
-	domainSecrets map[string]corev1.Secret
+	domainSecrets map[string]*corev1.Secret
 	nodeDomains   map[string]map[string]struct{}
 }
 
@@ -100,7 +100,7 @@ func NewOptimizedStore() Store {
 
 		// Additional indices
 		specClusters:  make(map[string]*v1alpha1.Cluster, 500),
-		domainSecrets: make(map[string]corev1.Secret, 200),
+		domainSecrets: make(map[string]*corev1.Secret, 200),
 		nodeDomains:   make(map[string]map[string]struct{}, 100),
 	}
 }
@@ -257,7 +257,7 @@ func (s *OptimizedStore) Copy() Store {
 
 		// Additional indices
 		specClusters:  make(map[string]*v1alpha1.Cluster, len(s.specClusters)),
-		domainSecrets: make(map[string]corev1.Secret, len(s.domainSecrets)),
+		domainSecrets: make(map[string]*corev1.Secret, len(s.domainSecrets)),
 		nodeDomains:   make(map[string]map[string]struct{}, len(s.nodeDomains)),
 	}
 
@@ -1247,8 +1247,8 @@ func (s *OptimizedStore) GetAccessLogByUID(uid string) *v1alpha1.AccessLogConfig
 }
 
 // GetDomainSecret returns the secret for a given domain
-// Returns zero value if not found (check with secret.Name != "")
-func (s *OptimizedStore) GetDomainSecret(domain string) corev1.Secret {
+// Returns nil if not found
+func (s *OptimizedStore) GetDomainSecret(domain string) *corev1.Secret {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.domainSecrets[domain]
@@ -1293,8 +1293,7 @@ func (s *OptimizedStore) MapDomainSecrets() map[string]*corev1.Secret {
 
 	result := make(map[string]*corev1.Secret, len(s.domainSecrets))
 	for k, v := range s.domainSecrets {
-		secret := v // Create explicit copy for pointer safety
-		result[k] = &secret
+		result[k] = v // v is already a pointer now
 	}
 	return result
 }
@@ -1374,7 +1373,7 @@ func (s *OptimizedStore) addDomainSecretsForSecret(secret *corev1.Secret) {
 			// TODO: domain already exists in another secret! Need to create error case
 			continue
 		}
-		s.domainSecrets[domain] = *secret
+		s.domainSecrets[domain] = secret
 	}
 }
 
@@ -1400,7 +1399,7 @@ func (s *OptimizedStore) removeDomainSecretsForSecret(secret *corev1.Secret) {
 // updateDomainSecretsMap rebuilds the entire domain to secret mapping from all secrets
 // This is used only during FillFromKubernetes for initial population
 func (s *OptimizedStore) updateDomainSecretsMap() {
-	m := make(map[string]corev1.Secret)
+	m := make(map[string]*corev1.Secret)
 
 	for _, secret := range s.secrets {
 		if secret.Annotations == nil {
@@ -1420,7 +1419,7 @@ func (s *OptimizedStore) updateDomainSecretsMap() {
 				// TODO: domain already exists in another secret! Need to create error case
 				continue
 			}
-			m[domain] = *secret
+			m[domain] = secret
 		}
 	}
 	s.domainSecrets = m

@@ -38,6 +38,18 @@ type VSStatus struct {
 	Message string
 }
 
+// buildMetrics tracks timing for different phases of snapshot building
+type buildMetrics struct {
+	initDuration           time.Duration
+	vsProcessingDuration   time.Duration
+	commonVSsDuration      time.Duration
+	listenerBuildDuration  time.Duration
+	snapshotCreateDuration time.Duration
+	totalVSCount           int
+	processedVSCount       int
+	commonVSCount          int
+}
+
 var buildVSResources = buildResourcesAdapter
 
 func NewCacheUpdater(wsc *wrapped.SnapshotCache, store store.Store) *CacheUpdater {
@@ -70,7 +82,7 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, 
 	storeCopy := c.store.Copy()
 	c.mx.RUnlock()
 	storeCopy.SetVirtualService(vs)
-	err, _, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	err, _, _, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
 	return err
 }
 
@@ -140,6 +152,23 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v
 func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) error {
 	rlog := log.FromContext(ctx).WithName("cache-updater")
 
+	// Always log webhook validation start for diagnostics
+	validationStart := time.Now()
+
+	// Extract validation ID from context if present (for log correlation)
+	validationID := ""
+	if val := ctx.Value("validationID"); val != nil {
+		if id, ok := val.(string); ok {
+			validationID = id
+		}
+	}
+
+	logFields := []interface{}{"template", vst.Name}
+	if validationID != "" {
+		logFields = append(logFields, "validationID", validationID)
+	}
+	rlog.Info("DryBuildSnapshots: started", logFields...)
+
 	// Log before attempting to acquire lock to detect lock contention
 	lockStart := time.Now()
 	c.mx.RLock()
@@ -157,15 +186,57 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.C
 		rlog.Info("DryBuildSnapshots: slow store copy", "template", vst.Name, "duration", copyDuration.String())
 	}
 
+	// Get resource counts for diagnostics
+	vsCount := len(storeCopy.MapVirtualServices())
+	secretCount := len(storeCopy.MapDomainSecrets())
+	clusterCount := len(storeCopy.MapClusters())
+	listenerCount := len(storeCopy.MapListeners())
+	routeCount := len(storeCopy.MapRoutes())
+
 	storeCopy.SetVirtualServiceTemplate(vst)
 
 	buildStart := time.Now()
-	err, _, _ := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
+	err, usedSecrets, vsStatuses, metrics := buildSnapshots(ctx, wrapped.NewSnapshotCache(), storeCopy)
 	buildDuration := time.Since(buildStart)
-	totalDuration := time.Since(lockStart)
+	totalDuration := time.Since(validationStart)
 
-	if err != nil || totalDuration > time.Second {
-		rlog.Info("DryBuildSnapshots: completed", "template", vst.Name, "copyDuration", copyDuration.String(), "buildDuration", buildDuration.String(), "totalDuration", totalDuration.String(), "error", err != nil)
+	// Always log completion for webhook validations (critical for timeout diagnosis)
+	completionLogFields := []interface{}{
+		"template", vst.Name,
+		"lockWaitDuration", lockAcquireDuration.String(),
+		"storeCopyDuration", copyDuration.String(),
+		"buildDuration", buildDuration.String(),
+		"totalDuration", totalDuration.String(),
+		"vsCount", vsCount,
+		"secretCount", secretCount,
+		"clusterCount", clusterCount,
+		"listenerCount", listenerCount,
+		"routeCount", routeCount,
+		"usedSecretsCount", len(usedSecrets),
+		"vsStatusesCount", len(vsStatuses),
+		"hasError", err != nil,
+		// Detailed build phase timings
+		"build.initDuration", metrics.initDuration.String(),
+		"build.vsProcessingDuration", metrics.vsProcessingDuration.String(),
+		"build.commonVSsDuration", metrics.commonVSsDuration.String(),
+		"build.listenerBuildDuration", metrics.listenerBuildDuration.String(),
+		"build.snapshotCreateDuration", metrics.snapshotCreateDuration.String(),
+		"build.totalVSCount", metrics.totalVSCount,
+		"build.processedVSCount", metrics.processedVSCount,
+		"build.commonVSCount", metrics.commonVSCount,
+	}
+	if validationID != "" {
+		completionLogFields = append(completionLogFields, "validationID", validationID)
+	}
+
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			rlog.Error(err, "DryBuildSnapshots: timeout exceeded", completionLogFields...)
+		} else {
+			rlog.Error(err, "DryBuildSnapshots: completed with error", completionLogFields...)
+		}
+	} else {
+		rlog.Info("DryBuildSnapshots: completed successfully", completionLogFields...)
 	}
 
 	return err
@@ -175,7 +246,7 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	rlog := log.FromContext(ctx).WithName("cache-updater")
 	rlog.Info("rebuild snapshots started")
 	start := time.Now()
-	err, usedSecrets, vsStatuses := buildSnapshots(ctx, c.snapshotCache, c.store)
+	err, usedSecrets, vsStatuses, _ := buildSnapshots(ctx, c.snapshotCache, c.store)
 	if err != nil {
 		rlog.Error(err, "rebuild snapshots with errors", "duration", time.Since(start).String())
 		return err
@@ -198,13 +269,16 @@ func buildSnapshots(
 	ctx context.Context,
 	snapshotCache *wrapped.SnapshotCache,
 	store store.Store,
-) (error, map[helpers.NamespacedName]helpers.NamespacedName, map[helpers.NamespacedName]VSStatus) {
+) (error, map[helpers.NamespacedName]helpers.NamespacedName, map[helpers.NamespacedName]VSStatus, buildMetrics) {
+	metrics := buildMetrics{}
+	initStart := time.Now()
+
 	errs := make([]error, 0)
 	vsStatuses := make(map[helpers.NamespacedName]VSStatus)
 
 	// Honor context cancellation early
 	if err := ctx.Err(); err != nil {
-		return err, nil, vsStatuses
+		return err, nil, vsStatuses, metrics
 	}
 
 	mixer := NewMixer()
@@ -224,10 +298,16 @@ func buildSnapshots(
 	nodeIDsForCleanup := snapshotCache.GetNodeIDsAsMap()
 	var commonVirtualServices []*v1alpha1.VirtualService
 
-	for _, vs := range store.MapVirtualServices() {
+	metrics.initDuration = time.Since(initStart)
+	vsProcessingStart := time.Now()
+
+	allVSs := store.MapVirtualServices()
+	metrics.totalVSCount = len(allVSs)
+
+	for _, vs := range allVSs {
 		// Check cancellation between iterations
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets, vsStatuses
+			return err, usedSecrets, vsStatuses, metrics
 		}
 
 		vsNN := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
@@ -245,12 +325,13 @@ func buildSnapshots(
 
 		if isCommonVirtualService(vsNodeIDs) {
 			commonVirtualServices = append(commonVirtualServices, vs)
+			metrics.commonVSCount++
 			continue
 		}
 
 		// Build resources for VS (may be heavy); check ctx before and after
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets, vsStatuses
+			return err, usedSecrets, vsStatuses, metrics
 		}
 		vsRes, err := buildVSResources(vs, store)
 		if err != nil {
@@ -260,8 +341,9 @@ func buildSnapshots(
 			continue
 		}
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets, vsStatuses
+			return err, usedSecrets, vsStatuses, metrics
 		}
+		metrics.processedVSCount++
 
 		for _, secret := range vsRes.UsedSecrets {
 			usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
@@ -270,16 +352,16 @@ func buildSnapshots(
 		for _, nodeID := range vsNodeIDs {
 			// Check ctx inside nested loops too
 			if err := ctx.Err(); err != nil {
-				return err, usedSecrets, vsStatuses
+				return err, usedSecrets, vsStatuses, metrics
 			}
 
 			for _, domain := range vsRes.Domains {
 				if err := ctx.Err(); err != nil { // cheap check
-					return err, usedSecrets, vsStatuses
+					return err, usedSecrets, vsStatuses, metrics
 				}
 				nodeDom := nodeIDDomain(nodeID, domain)
 				if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses
+					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses, metrics
 				}
 				nodeIDDomainsSet[nodeDom] = struct{}{}
 				if buildDomainsIndex {
@@ -305,10 +387,14 @@ func buildSnapshots(
 		}
 	}
 
+	metrics.vsProcessingDuration = time.Since(vsProcessingStart)
+
+	// Process common VirtualServices
+	commonVSsStart := time.Now()
 	if len(commonVirtualServices) > 0 {
 		for _, vs := range commonVirtualServices {
 			if err := ctx.Err(); err != nil {
-				return err, usedSecrets, vsStatuses
+				return err, usedSecrets, vsStatuses, metrics
 			}
 			vsRes, err := buildVSResources(vs, store)
 			if err != nil {
@@ -316,7 +402,7 @@ func buildSnapshots(
 				continue
 			}
 			if err := ctx.Err(); err != nil {
-				return err, usedSecrets, vsStatuses
+				return err, usedSecrets, vsStatuses, metrics
 			}
 			for _, secret := range vsRes.UsedSecrets {
 				usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
@@ -324,16 +410,16 @@ func buildSnapshots(
 
 			for nodeID := range mixer.nodeIDs {
 				if err := ctx.Err(); err != nil {
-					return err, usedSecrets, vsStatuses
+					return err, usedSecrets, vsStatuses, metrics
 				}
 
 				for _, domain := range vsRes.Domains {
 					if err := ctx.Err(); err != nil {
-						return err, usedSecrets, vsStatuses
+						return err, usedSecrets, vsStatuses, metrics
 					}
 					nodeDom := nodeIDDomain(nodeID, domain)
 					if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses
+						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses, metrics
 					}
 					nodeIDDomainsSet[nodeDom] = struct{}{}
 					if buildDomainsIndex {
@@ -359,22 +445,27 @@ func buildSnapshots(
 			}
 		}
 	}
+	metrics.commonVSsDuration = time.Since(commonVSsStart)
 
+	// Build listeners
+	listenerBuildStart := time.Now()
 	if err := ctx.Err(); err != nil {
-		return err, usedSecrets, vsStatuses
+		return err, usedSecrets, vsStatuses, metrics
 	}
 	tmp, err := mixer.Mix(store)
 	if err != nil {
 		errs = append(errs, err)
-		return multierr.Combine(errs...), usedSecrets, vsStatuses
+		return multierr.Combine(errs...), usedSecrets, vsStatuses, metrics
 	}
+	metrics.listenerBuildDuration = time.Since(listenerBuildStart)
 
 	// Stage snapshots to avoid partial updates on cancellation or errors
+	snapshotCreateStart := time.Now()
 	staged := make(map[string]cache.ResourceSnapshot)
 
 	for nodeID, resMap := range tmp {
 		if err := ctx.Err(); err != nil {
-			return err, usedSecrets, vsStatuses
+			return err, usedSecrets, vsStatuses, metrics
 		}
 		var snapshot *cache.Snapshot
 		var err error
@@ -408,11 +499,11 @@ func buildSnapshots(
 
 	// If any error occurred during staging, abort without mutating cache
 	if len(errs) > 0 {
-		return multierr.Combine(errs...), usedSecrets, vsStatuses
+		return multierr.Combine(errs...), usedSecrets, vsStatuses, metrics
 	}
 	// Abort on cancellation prior to commit to avoid partial state
 	if err := ctx.Err(); err != nil {
-		return err, usedSecrets, vsStatuses
+		return err, usedSecrets, vsStatuses, metrics
 	}
 
 	// Commit phase: ensure we are not interrupted mid-commit
@@ -429,7 +520,7 @@ func buildSnapshots(
 	}
 
 	if len(errs) > 0 {
-		return multierr.Combine(errs...), usedSecrets, vsStatuses
+		return multierr.Combine(errs...), usedSecrets, vsStatuses, metrics
 	}
 
 	// Update Store domain index after successful commit (feature-flagged)
@@ -450,7 +541,8 @@ func buildSnapshots(
 		store.ReplaceNodeDomainsIndex(nodeDomainsIndex)
 	}
 
-	return nil, usedSecrets, vsStatuses
+	metrics.snapshotCreateDuration = time.Since(snapshotCreateStart)
+	return nil, usedSecrets, vsStatuses, metrics
 }
 
 func (c *CacheUpdater) GetUsedSecrets() map[helpers.NamespacedName]helpers.NamespacedName {
