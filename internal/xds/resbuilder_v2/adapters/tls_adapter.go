@@ -73,12 +73,12 @@ func (a *TLSAdapter) getSecretNameToDomainsViaSecretRef(
 // getSecretNameToDomainsViaAutoDiscovery maps domains to secrets based on auto-discovery
 func (a *TLSAdapter) getSecretNameToDomainsViaAutoDiscovery(
 	domains []string,
-	domainToSecretMap map[string]v1.Secret,
+	domainToSecretMap map[string]*v1.Secret,
 ) (map[helpers.NamespacedName][]string, error) {
 	m := make(map[helpers.NamespacedName][]string)
 
 	for _, domain := range domains {
-		var secret v1.Secret
+		var secret *v1.Secret
 		secret, ok := domainToSecretMap[domain]
 		if !ok {
 			secret, ok = domainToSecretMap[utils.GetWildcardDomain(domain)]

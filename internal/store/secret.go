@@ -43,10 +43,15 @@ func (s *LegacyStore) MapSecrets() map[helpers.NamespacedName]*corev1.Secret {
 	return maps.Clone(s.secrets)
 }
 
-func (s *LegacyStore) MapDomainSecrets() map[string]corev1.Secret {
+func (s *LegacyStore) MapDomainSecrets() map[string]*corev1.Secret {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return maps.Clone(s.domainToSecretMap)
+	result := make(map[string]*corev1.Secret, len(s.domainToSecretMap))
+	for k, v := range s.domainToSecretMap {
+		secret := v
+		result[k] = &secret
+	}
+	return result
 }
 
 func (s *LegacyStore) updateDomainSecretsMap() {

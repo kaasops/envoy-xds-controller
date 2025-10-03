@@ -36,19 +36,19 @@ func (s *UtilsService) VerifyDomains(_ context.Context, req *connect.Request[v1.
 	return connect.NewResponse(&v1.VerifyDomainsResponse{Results: results}), nil
 }
 
-func verifyDomainFromSecrets(domain string, secrets map[string]corev1.Secret) *v1.DomainVerificationResult {
+func verifyDomainFromSecrets(domain string, secrets map[string]*corev1.Secret) *v1.DomainVerificationResult {
 	result := &v1.DomainVerificationResult{Domain: domain}
 	var matchedSecret *corev1.Secret
 	var matchedByWildcard bool
 
 	if secret, ok := secrets[domain]; ok {
-		matchedSecret = &secret
+		matchedSecret = secret
 	} else {
 		parts := strings.Split(domain, ".")
 		for i := 1; i < len(parts)-1; i++ {
 			wildcard := "*." + strings.Join(parts[i:], ".")
 			if secret, ok := secrets[wildcard]; ok {
-				matchedSecret = &secret
+				matchedSecret = secret
 				matchedByWildcard = true
 				break
 			}

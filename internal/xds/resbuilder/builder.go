@@ -1007,11 +1007,11 @@ func getSecretNameToDomainsViaSecretRef(secretRef *v1alpha1.ResourceRef, vsNames
 	return m
 }
 
-func getSecretNameToDomainsViaAutoDiscovery(domains []string, domainToSecretMap map[string]v1.Secret) (map[helpers.NamespacedName][]string, error) {
+func getSecretNameToDomainsViaAutoDiscovery(domains []string, domainToSecretMap map[string]*v1.Secret) (map[helpers.NamespacedName][]string, error) {
 	m := make(map[helpers.NamespacedName][]string)
 
 	for _, domain := range domains {
-		var secret v1.Secret
+		var secret *v1.Secret
 		secret, ok := domainToSecretMap[domain]
 		if !ok {
 			secret, ok = domainToSecretMap[getWildcardDomain(domain)]
