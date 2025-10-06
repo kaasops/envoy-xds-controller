@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -71,6 +72,13 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	prevStatus := vs.Status.DeepCopy()
 	r.Updater.ApplyVirtualService(ctx, &vs)
+
+	// Get status from store (stored separately for immutability)
+	nn := helpers.NamespacedName{Namespace: req.Namespace, Name: req.Name}
+	vsWithStatus := r.Updater.GetVirtualServiceWithStatus(nn)
+	if vsWithStatus != nil {
+		vs.Status = vsWithStatus.Status
+	}
 
 	if prevStatus.Invalid != vs.Status.Invalid ||
 		prevStatus.Message != vs.Status.Message {

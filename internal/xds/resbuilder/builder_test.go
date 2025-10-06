@@ -82,7 +82,7 @@ func TestApplyVirtualServiceTemplate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a mock store
-			mockStore := store.NewStoreAdapter()
+			mockStore := store.New()
 			for _, template := range tc.templates {
 				mockStore.SetVirtualServiceTemplate(template)
 			}
@@ -184,7 +184,7 @@ func TestExtractClustersFromFilterChains(t *testing.T) {
 	// This test would require mocking the listenerv3.FilterChain and store.Store
 	// For simplicity, we'll just test the error cases
 	t.Run("Empty filter chains", func(t *testing.T) {
-		mockStore := store.NewStoreAdapterFromLegacy(store.New())
+		mockStore := store.New()
 		clusters, err := extractClustersFromFilterChains(nil, mockStore)
 		assert.NoError(t, err)
 		assert.Empty(t, clusters)

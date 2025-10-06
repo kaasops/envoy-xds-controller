@@ -73,7 +73,7 @@ func makeListenerCR() *v1alpha1.Listener {
 
 // createTestStore creates a minimal store for benchmarking with required test data
 func createTestStore() store.Store {
-	store := store.NewStoreAdapter()
+	store := store.New()
 	// Add test listener required by the VirtualService
 	listener := makeListenerCR()
 	store.SetListener(listener)

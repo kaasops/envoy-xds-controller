@@ -68,7 +68,7 @@ func withStubbedBuilder(t *testing.T, f func(vs *v1alpha1.VirtualService, store 
 
 func TestLightValidator_CoverageMiss_WithIndices(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
 	// Stub builder to return one domain without touching listener/template/etc.
@@ -85,7 +85,7 @@ func TestLightValidator_CoverageMiss_WithIndices(t *testing.T) {
 
 func TestLightValidator_DuplicateWithinVS(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	// Provide coverage for nodeA with empty set to avoid coverage miss
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"nodeA": {}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -103,7 +103,7 @@ func TestLightValidator_DuplicateWithinVS(t *testing.T) {
 
 func TestLightValidator_DomainCollisionAcrossNodes(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"nodeA": {"b.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
@@ -121,7 +121,7 @@ func TestLightValidator_DomainCollisionAcrossNodes(t *testing.T) {
 
 func TestLightValidator_UpdatePrevVSExcluded(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	// Index includes domain that belongs to previous version of the same VS
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"node1": {"b.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -146,7 +146,7 @@ func TestLightValidator_UpdatePrevVSExcluded(t *testing.T) {
 
 func TestLightValidator_ListenerDuplicateDetected(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	// Two listeners with the same host:port
 	st.SetListener(makeListenerCR("ns", "l1", "127.0.0.1", 9090))
 	st.SetListener(makeListenerCR("ns", "l2", "127.0.0.1", 9090))
@@ -217,7 +217,7 @@ func index(s, sub string) int {
 
 func TestLightValidator_CommonVS_NoCollision_OK(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	// Provide index entries for both nodes with empty sets (coverage present)
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n1": {}, "n2": {}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -239,7 +239,7 @@ func TestLightValidator_CommonVS_NoCollision_OK(t *testing.T) {
 
 func TestLightValidator_CommonVS_DomainCollisionDetected(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n1": {}, "n2": {"a.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 	_ = cu.snapshotCache.SetSnapshot(context.Background(), "n1", &cachev3.Snapshot{})
@@ -259,7 +259,7 @@ func TestLightValidator_CommonVS_DomainCollisionDetected(t *testing.T) {
 
 func TestLightValidator_MultiNode_UpdatePrevExclusionPerNode(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	// Both nodes have x.com currently
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n1": {"x.com": {}}, "n2": {"x.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
@@ -279,7 +279,7 @@ func TestLightValidator_MultiNode_UpdatePrevExclusionPerNode(t *testing.T) {
 
 func TestLightValidator_NoFalseFallback_WithEmptyNodes(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
-	st := store.NewStoreAdapter()
+	st := store.New()
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"a": {}, "b": {}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 

@@ -153,6 +153,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("TCP Proxy", tcpProxyEnvoyContext)
 		Context("Templates", templatesEnvoyContext)
 		Context("Tracing", tracingEnvoyContext)
+		Context("Status Propagation", statusPropagationContext)
 	})
 
 	Context("GRPC_API", grpcAPIContext)

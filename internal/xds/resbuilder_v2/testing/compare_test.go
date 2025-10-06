@@ -191,7 +191,7 @@ func CreateTestVirtualService() *v1alpha1.VirtualService {
 }
 
 // CreateTestStore creates a store populated with test resources
-func CreateTestStore() *store.LegacyStore {
+func CreateTestStore() store.Store {
 	// Create a new store instance
 	s := store.New()
 
@@ -202,7 +202,7 @@ func CreateTestStore() *store.LegacyStore {
 }
 
 // AddTestListener adds a test listener to the store
-func AddTestListener(s *store.LegacyStore, name, namespace string) {
+func AddTestListener(s store.Store, name, namespace string) {
 	listener := &v1alpha1.Listener{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Listener",
@@ -230,12 +230,12 @@ func AddTestListener(s *store.LegacyStore, name, namespace string) {
 }
 
 // AddTestVirtualService adds a test virtual service to the store
-func AddTestVirtualService(s *store.LegacyStore, vs *v1alpha1.VirtualService) {
+func AddTestVirtualService(s store.Store, vs *v1alpha1.VirtualService) {
 	s.SetVirtualService(vs)
 }
 
 // AddTestListenerWithTLS adds a test listener with TLS inspector to the store
-func AddTestListenerWithTLS(s *store.LegacyStore, name, namespace string) {
+func AddTestListenerWithTLS(s store.Store, name, namespace string) {
 	listener := &v1alpha1.Listener{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Listener",
@@ -271,7 +271,7 @@ func AddTestListenerWithTLS(s *store.LegacyStore, name, namespace string) {
 }
 
 // AddTestSecret adds a test TLS secret to the store
-func AddTestSecret(s *store.LegacyStore, name, namespace string) {
+func AddTestSecret(s store.Store, name, namespace string) {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -291,7 +291,7 @@ func AddTestSecret(s *store.LegacyStore, name, namespace string) {
 }
 
 // AddTestCluster adds a test cluster to the store
-func AddTestCluster(s *store.LegacyStore, name, namespace string) {
+func AddTestCluster(s store.Store, name, namespace string) {
 	cluster := &v1alpha1.Cluster{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Cluster",

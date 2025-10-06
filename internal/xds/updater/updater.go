@@ -247,21 +247,51 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	rlog.Info("rebuild snapshots started")
 	start := time.Now()
 	err, usedSecrets, vsStatuses, _ := buildSnapshots(ctx, c.snapshotCache, c.store)
+
+	// Apply statuses to VirtualServices ALWAYS (even if build failed)
+	// This ensures invalid VS get their error status set in store
+	// Store statuses separately without mutating VS objects - maintains full immutability
+	for vsNN, status := range vsStatuses {
+		// Check if OptimizedStore (has status storage)
+		if optimizedStore, ok := c.store.(interface {
+			SetVirtualServiceStatus(helpers.NamespacedName, bool, string)
+		}); ok {
+			// Use separate status storage - no mutation, no DeepCopy needed
+			optimizedStore.SetVirtualServiceStatus(vsNN, status.Invalid, status.Message)
+		} else {
+			// Fallback for LegacyStore - use DeepCopy pattern
+			if vs := c.store.GetVirtualService(vsNN); vs != nil {
+				vsNew := vs.DeepCopy()
+				vsNew.UpdateStatus(status.Invalid, status.Message)
+				c.store.SetVirtualService(vsNew)
+			}
+		}
+	}
+
 	if err != nil {
 		rlog.Error(err, "rebuild snapshots with errors", "duration", time.Since(start).String())
 		return err
 	}
 	c.usedSecrets = usedSecrets
 
-	// Apply statuses to VirtualServices in the store (only on successful build)
-	for vsNN, status := range vsStatuses {
-		if vs := c.store.GetVirtualService(vsNN); vs != nil {
-			vs.UpdateStatus(status.Invalid, status.Message)
-		}
-	}
-
 	rlog.Info("rebuild snapshots done", "duration", time.Since(start).String())
 	return nil
+}
+
+// getRootCause unwraps an error chain to extract the innermost (root) error.
+// This is used to provide concise error messages to users while preserving
+// the full error chain in logs.
+func getRootCause(err error) error {
+	if err == nil {
+		return nil
+	}
+	for {
+		unwrapped := errors.Unwrap(err)
+		if unwrapped == nil {
+			return err
+		}
+		err = unwrapped
+	}
 }
 
 // nolint: gocyclo
@@ -318,7 +348,8 @@ func buildSnapshots(
 		if len(vsNodeIDs) == 0 {
 			err := fmt.Errorf("virtual service %s/%s has no node IDs", vs.Namespace, vs.Name)
 			// Store error status instead of mutating (replaces vs.UpdateStatus(true, err.Error()))
-			vsStatuses[vsNN] = VSStatus{Invalid: true, Message: err.Error()}
+			rootErr := getRootCause(err)
+			vsStatuses[vsNN] = VSStatus{Invalid: true, Message: rootErr.Error()}
 			errs = append(errs, err)
 			continue
 		}
@@ -336,7 +367,8 @@ func buildSnapshots(
 		vsRes, err := buildVSResources(vs, store)
 		if err != nil {
 			// Store error status instead of mutating (replaces vs.UpdateStatus(true, err.Error()))
-			vsStatuses[vsNN] = VSStatus{Invalid: true, Message: err.Error()}
+			rootErr := getRootCause(err)
+			vsStatuses[vsNN] = VSStatus{Invalid: true, Message: rootErr.Error()}
 			errs = append(errs, err)
 			continue
 		}
@@ -549,6 +581,23 @@ func (c *CacheUpdater) GetUsedSecrets() map[helpers.NamespacedName]helpers.Names
 	c.mx.RLock()
 	defer c.mx.RUnlock()
 	return maps.Clone(c.usedSecrets)
+}
+
+// GetVirtualServiceWithStatus retrieves a VirtualService with its status applied
+// This is used by controllers to get the current status for syncing to Kubernetes
+func (c *CacheUpdater) GetVirtualServiceWithStatus(nn helpers.NamespacedName) *v1alpha1.VirtualService {
+	c.mx.RLock()
+	defer c.mx.RUnlock()
+
+	// Check if OptimizedStore (has status storage)
+	if optimizedStore, ok := c.store.(interface {
+		GetVirtualServiceWithStatus(helpers.NamespacedName) *v1alpha1.VirtualService
+	}); ok {
+		return optimizedStore.GetVirtualServiceWithStatus(nn)
+	}
+
+	// Fallback for LegacyStore - status is already in VS object
+	return c.store.GetVirtualService(nn)
 }
 
 func (c *CacheUpdater) GetMarshaledStore() ([]byte, error) {
