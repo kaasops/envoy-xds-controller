@@ -130,6 +130,27 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 	}
 	go test ./test/e2e/ -v -ginkgo.v
 
+E2E_REPORTS_DIR ?= .e2e-reports
+
+.PHONY: test-e2e-report
+test-e2e-report: manifests generate fmt vet ## Run the e2e tests with report saved to .e2e-reports directory.
+	@command -v kind >/dev/null 2>&1 || { \
+		echo "Kind is not installed. Please install Kind manually."; \
+		exit 1; \
+	}
+	@kind get clusters | grep -q 'kind' || { \
+		echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
+		exit 1; \
+	}
+	@mkdir -p $(E2E_REPORTS_DIR)
+	@REPORT_FILE="$(E2E_REPORTS_DIR)/e2e-test-$$(date +%Y%m%d-%H%M%S).log"; \
+	echo "Running e2e tests with report saved to $$REPORT_FILE"; \
+	go test ./test/e2e/ -v -ginkgo.v -ginkgo.no-color 2>&1 | tee $$REPORT_FILE; \
+	TEST_EXIT_CODE=$${PIPEFAIL[0]}; \
+	echo ""; \
+	echo "Report saved to: $$REPORT_FILE"; \
+	exit $$TEST_EXIT_CODE
+
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter
 	$(GOLANGCI_LINT) run

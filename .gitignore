@@ -34,3 +34,6 @@ CLAUDE.md
 specs
 .editorconfig
 main
+
+# E2E test reports
+.e2e-reports/

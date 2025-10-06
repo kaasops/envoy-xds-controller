@@ -38,10 +38,6 @@ func templatesEnvoyContext() {
 		}
 		fixture.ApplyManifests(manifests...)
 
-		By("waiting for Envoy config to change")
-		fixture.WaitEnvoyConfigChanged()
-
-		By("verifying Envoy configuration")
 		// nolint: lll
 		expectations := map[string]string{
 			"configs.0.bootstrap.node.id":                                                                                                  "test",
@@ -65,6 +61,11 @@ func templatesEnvoyContext() {
 			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.name":                                                          "421vh",
 			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.routes.0.direct_response.status":                               "421",
 		}
+
+		By("waiting for Envoy config to match expected template configuration")
+		fixture.WaitEnvoyConfigMatches(expectations)
+
+		By("verifying Envoy configuration")
 		fixture.VerifyEnvoyConfig(expectations)
 
 		By("ensuring the envoy returns expected response")
@@ -96,10 +97,6 @@ func templatesEnvoyContext() {
 		}
 		fixture.ApplyManifests(manifests...)
 
-		By("waiting for Envoy config to change")
-		fixture.WaitEnvoyConfigChanged()
-
-		By("verifying Envoy configuration")
 		// nolint: lll
 		expectations := map[string]string{
 			"configs.0.bootstrap.node.id":                                                                                "test",
@@ -114,6 +111,11 @@ func templatesEnvoyContext() {
 			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.routes.0.direct_response.body.inline_string": "{\"message\":\"Hi!\"}",
 			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.routes.0.direct_response.status":             "200",
 		}
+
+		By("waiting for Envoy config to match expected extra fields configuration")
+		fixture.WaitEnvoyConfigMatches(expectations)
+
+		By("verifying Envoy configuration")
 		fixture.VerifyEnvoyConfig(expectations)
 
 		By("ensuring the envoy returns expected response with default extraField value")

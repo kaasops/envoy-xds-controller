@@ -151,6 +151,31 @@ func (f *EnvoyFixture) WaitEnvoyConfigChanged() {
 	}, LongTimeout, DefaultPollingInterval).Should(BeTrue())
 }
 
+// WaitEnvoyConfigMatches waits for the Envoy config to match expected values
+// This is more reliable than WaitEnvoyConfigChanged when you need to ensure
+// specific configuration is applied, especially after resource deletions
+func (f *EnvoyFixture) WaitEnvoyConfigMatches(expectations map[string]string) {
+	By("waiting for Envoy config to match expectations")
+	Eventually(func() error {
+		cfgDump := f.GetEnvoyConfigDump("")
+		dump := string(cfgDump)
+
+		for path, expectedValue := range expectations {
+			actualValue := gjson.Get(dump, path).String()
+			if actualValue != expectedValue {
+				return fmt.Errorf("path %s: expected %q, got %q", path, expectedValue, actualValue)
+			}
+		}
+
+		// Update stored config dump on success
+		_ = os.WriteFile("/tmp/prev-dump.json", f.ConfigDump, 0644)
+		f.ConfigDump = cfgDump
+		_ = os.WriteFile("/tmp/actual-dump.json", f.ConfigDump, 0644)
+
+		return nil
+	}, LongTimeout, DefaultPollingInterval).Should(Succeed())
+}
+
 // VerifyEnvoyConfig verifies that the Envoy config contains the expected values
 func (f *EnvoyFixture) VerifyEnvoyConfig(expectations map[string]string) {
 	dump := string(f.ConfigDump)
