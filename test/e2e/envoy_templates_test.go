@@ -46,6 +46,7 @@ func templatesEnvoyContext() {
 		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/https\").active_state.listener"
 		routePath := "configs.4.dynamic_route_configs.#(route_config.name==\"default/virtual-service\").route_config"
 
+		// nolint: lll
 		expectations := map[string]string{
 			"configs.0.bootstrap.node.id":                                                              "test",
 			"configs.0.bootstrap.node.cluster":                                                         "e2e",
@@ -73,6 +74,7 @@ func templatesEnvoyContext() {
 
 		By("verifying Envoy configuration with retries")
 		// Use Eventually to allow for potential delays in configuration propagation
+		// nolint: lll
 		Eventually(func() error {
 			// Refresh config dump on each retry
 			fixture.ConfigDump = fixture.GetEnvoyConfigDump("")
@@ -121,6 +123,7 @@ func templatesEnvoyContext() {
 		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/https\").active_state.listener"
 		routePath := "configs.4.dynamic_route_configs.#(route_config.name==\"default/virtual-service\").route_config"
 
+		// nolint: lll
 		expectations := map[string]string{
 			"configs.0.bootstrap.node.id":                                              "test",
 			"configs.0.bootstrap.node.cluster":                                         "e2e",
@@ -139,6 +142,7 @@ func templatesEnvoyContext() {
 
 		By("verifying Envoy configuration with retries")
 		// Use Eventually to allow for potential delays in configuration propagation
+		// nolint: lll
 		Eventually(func() error {
 			// Refresh config dump on each retry
 			fixture.ConfigDump = fixture.GetEnvoyConfigDump("")

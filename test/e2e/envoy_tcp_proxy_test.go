@@ -45,11 +45,12 @@ func tcpProxyEnvoyContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		By("verifying Envoy configuration")
+		// Use gjson filter to find listener by name instead of index
 		expectations := map[string]string{
-			"configs.0.bootstrap.node.id":                                 "test",
-			"configs.0.bootstrap.node.cluster":                            "e2e",
-			"configs.0.bootstrap.admin.address.socket_address.port_value": "19000",
-			"configs.2.dynamic_listeners.0.name":                          "default/tcp-proxy",
+			"configs.0.bootstrap.node.id":                                     "test",
+			"configs.0.bootstrap.node.cluster":                                "e2e",
+			"configs.0.bootstrap.admin.address.socket_address.port_value":     "19000",
+			"configs.2.dynamic_listeners.#(name==\"default/tcp-proxy\").name": "default/tcp-proxy",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
 

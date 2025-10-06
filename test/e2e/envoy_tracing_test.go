@@ -26,9 +26,12 @@ func tracingEnvoyContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		// Verify that tracing provider name is set to opentelemetry in HCM
+		// nolint: lll,goconst
+		// Use gjson filter to find listener by name instead of index
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/http\").active_state.listener"
+
 		expectations := map[string]string{
-			// nolint: lll
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.tracing.provider.name": "envoy.tracers.opentelemetry",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.tracing.provider.name": "envoy.tracers.opentelemetry",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
 	})
@@ -44,9 +47,12 @@ func tracingEnvoyContext() {
 
 		fixture.WaitEnvoyConfigChanged()
 
+		// nolint: lll,goconst
+		// Use gjson filter to find listener by name instead of index
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/http\").active_state.listener"
+
 		expectations := map[string]string{
-			// nolint: lll
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.tracing.provider.name": "envoy.tracers.opentelemetry",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.tracing.provider.name": "envoy.tracers.opentelemetry",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
 	})

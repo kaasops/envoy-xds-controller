@@ -109,14 +109,16 @@ func statusPropagationContext() {
 		// from previous tests to settle.
 		time.Sleep(5 * time.Second)
 
+		// nolint: lll
 		// Instead of checking entire snapshot equality (which can have timestamp/version changes),
 		// verify that the specific VirtualService route config hasn't changed
-		initialRouteConfig := gjson.Get(string(initialConfigDump), "configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config").String()
+		const routeConfigFilter = "configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config"
+		initialRouteConfig := gjson.Get(string(initialConfigDump), routeConfigFilter).String()
 
 		// Verify the route config remains stable
 		Consistently(func() string {
 			dump := fixture.GetEnvoyConfigDump("")
-			return gjson.Get(string(dump), "configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config").String()
+			return gjson.Get(string(dump), routeConfigFilter).String()
 		}, 5*time.Second, 1*time.Second).Should(Equal(initialRouteConfig),
 			"VirtualService route config should remain stable when VS becomes invalid")
 
