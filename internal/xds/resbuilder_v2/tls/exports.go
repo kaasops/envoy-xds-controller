@@ -5,6 +5,6 @@ import (
 )
 
 // NewTLSBuilder creates a new instance of the TLSBuilder interface
-func NewTLSBuilder(store *store.LegacyStore) *Builder {
+func NewTLSBuilder(store store.Store) *Builder {
 	return NewBuilder(store)
 }

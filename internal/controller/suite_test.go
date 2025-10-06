@@ -113,7 +113,7 @@ var _ = AfterSuite(func() {
 })
 
 func testStore() (store.Store, error) {
-	cacheStore := store.NewStoreAdapter()
+	cacheStore := store.New()
 
 	listener := &envoyv1alpha1.Listener{}
 	listener.Name = "http"

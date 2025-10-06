@@ -126,7 +126,7 @@ func (m *MockClusterExtractor) ExtractClustersFromTracingRef(vs *v1alpha1.Virtua
 // TestNewBuilder creates a test-specific builder that accepts our mock implementations
 func TestNewBuilder(t *testing.T) {
 	// We'll create a real store.Store for testing
-	storeInstance := store.NewStoreAdapter()
+	storeInstance := store.New()
 
 	// Create all mock component builders
 	mockHTTPFilterBuilder := &MockHTTPFilterBuilder{}

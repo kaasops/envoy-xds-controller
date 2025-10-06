@@ -57,6 +57,9 @@ type OptimizedStore struct {
 	specClusters  map[string]*v1alpha1.Cluster
 	domainSecrets map[string]*corev1.Secret
 	nodeDomains   map[string]map[string]struct{}
+
+	// Status storage - separate from VS objects for immutability
+	vsStatusStorage *StatusStorage
 }
 
 // NewOptimizedStore creates a new truly optimized store
@@ -76,6 +79,9 @@ func NewOptimizedStore() Store {
 
 		// Template index
 		templateToVS: make(map[helpers.NamespacedName][]*v1alpha1.VirtualService, 100),
+
+		// Status storage
+		vsStatusStorage: NewStatusStorage(),
 
 		// All resource types
 		virtualServiceTemplates:      make(map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate, 100),
@@ -158,6 +164,8 @@ func (s *OptimizedStore) DeleteVirtualService(name helpers.NamespacedName) {
 		delete(s.virtualServices, name)
 		delete(s.uidToVS, string(vs.UID))
 		s.removeFromTemplateIndex(vs)
+		// Clean up status storage
+		s.DeleteVirtualServiceStatus(name)
 	}
 }
 
@@ -259,10 +267,14 @@ func (s *OptimizedStore) Copy() Store {
 		specClusters:  make(map[string]*v1alpha1.Cluster, len(s.specClusters)),
 		domainSecrets: make(map[string]*corev1.Secret, len(s.domainSecrets)),
 		nodeDomains:   make(map[string]map[string]struct{}, len(s.nodeDomains)),
+
+		// Copy status storage
+		vsStatusStorage: s.vsStatusStorage.Copy(),
 	}
 
-	// Copy VirtualServices - shallow copy is now safe with immutable pattern
-	// buildSnapshots no longer mutates VirtualServices directly, statuses are applied separately
+	// Copy VirtualServices - shallow copy is safe with immutable pattern
+	// Statuses are stored separately in vsStatusStorage (not in VS objects)
+	// This maintains full immutability: VS objects are never mutated after creation
 	for k, v := range s.virtualServices {
 		newStore.virtualServices[k] = v
 	}
@@ -1423,4 +1435,39 @@ func (s *OptimizedStore) updateDomainSecretsMap() {
 		}
 	}
 	s.domainSecrets = m
+}
+
+// VirtualService Status methods
+
+// SetVirtualServiceStatus sets the status for a VirtualService without mutating the VS object
+func (s *OptimizedStore) SetVirtualServiceStatus(nn helpers.NamespacedName, invalid bool, message string) {
+	// No need to lock - StatusStorage has its own mutex
+	s.vsStatusStorage.SetStatus(nn, invalid, message)
+}
+
+// GetVirtualServiceStatus retrieves the status for a VirtualService
+func (s *OptimizedStore) GetVirtualServiceStatus(nn helpers.NamespacedName) VirtualServiceStatus {
+	return s.vsStatusStorage.GetStatus(nn)
+}
+
+// GetVirtualServiceWithStatus returns a VirtualService with its status applied
+// This creates a copy of the VS with status populated - used for syncing to Kubernetes
+func (s *OptimizedStore) GetVirtualServiceWithStatus(nn helpers.NamespacedName) *v1alpha1.VirtualService {
+	s.mu.RLock()
+	vs := s.virtualServices[nn]
+	s.mu.RUnlock()
+
+	if vs == nil {
+		return nil
+	}
+
+	// Create a copy to avoid mutating the stored VS
+	vsCopy := vs.DeepCopy()
+	s.vsStatusStorage.ApplyStatusToVS(vsCopy)
+	return vsCopy
+}
+
+// DeleteVirtualServiceStatus removes status when VS is deleted
+func (s *OptimizedStore) DeleteVirtualServiceStatus(nn helpers.NamespacedName) {
+	s.vsStatusStorage.DeleteStatus(nn)
 }

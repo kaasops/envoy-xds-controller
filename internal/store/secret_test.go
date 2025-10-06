@@ -15,7 +15,6 @@ func TestMapDomainSecrets_ReturnsPointers(t *testing.T) {
 		store Store
 	}{
 		{"OptimizedStore", NewOptimizedStore()},
-		{"LegacyStore", &StoreAdapter{LegacyStore: New()}},
 	}
 
 	for _, tt := range tests {

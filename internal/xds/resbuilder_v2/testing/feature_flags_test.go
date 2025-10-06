@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
-	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/config"
 	"github.com/stretchr/testify/assert"
@@ -21,14 +20,13 @@ func TestEnableMainBuilder(t *testing.T) {
 	}
 
 	// Create a test store and setup required resources
-	legacyStore := CreateTestStore()
-	s := store.NewStoreAdapterFromLegacy(legacyStore)
+	s := CreateTestStore()
 
 	// Create the necessary listeners in the test store
-	AddTestListener(legacyStore, "test-listener", "default")
+	AddTestListener(s, "test-listener", "default")
 
 	// Add test cluster
-	AddTestCluster(legacyStore, "test-cluster", "default")
+	AddTestCluster(s, "test-cluster", "default")
 
 	// Create virtual services for testing
 	vs1 := CreateTestVirtualService()
@@ -36,8 +34,8 @@ func TestEnableMainBuilder(t *testing.T) {
 	vs2 := CreateTestVirtualService()
 	vs2.ObjectMeta.Name = "test-vs-2"
 
-	AddTestVirtualService(legacyStore, vs1)
-	AddTestVirtualService(legacyStore, vs2)
+	AddTestVirtualService(s, vs1)
+	AddTestVirtualService(s, vs2)
 
 	// Create two ResourceBuilder instances to test both implementations
 	rbOriginal := resbuilder_v2.NewResourceBuilder(s)
@@ -151,8 +149,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 	}()
 
 	// Create a test store
-	legacyStore := CreateTestStore()
-	s := store.NewStoreAdapterFromLegacy(legacyStore)
+	s := CreateTestStore()
 
 	// Create a ResourceBuilder
 	rb := resbuilder_v2.NewResourceBuilder(s)
@@ -168,7 +165,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 		vs := CreateTestVirtualService()
 		vs.Name = vs.Name + "-" + strconv.Itoa(i)
 		vs.Namespace = defaultNamespace
-		AddTestVirtualService(legacyStore, vs)
+		AddTestVirtualService(s, vs)
 
 		assert.False(t, config.ShouldUseMainBuilder(config.GetFeatureFlags(), vs.Name+"-"+vs.Namespace),
 			"Should not use MainBuilder with 0% rollout")
@@ -182,7 +179,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 		vs := CreateTestVirtualService()
 		vs.Name = vs.Name + "-" + strconv.Itoa(i)
 		vs.Namespace = defaultNamespace
-		AddTestVirtualService(legacyStore, vs)
+		AddTestVirtualService(s, vs)
 
 		assert.True(t, config.ShouldUseMainBuilder(config.GetFeatureFlags(), vs.Name+"-"+vs.Namespace),
 			"Should always use MainBuilder with 100% rollout")
@@ -197,7 +194,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 		vs := CreateTestVirtualService()
 		vs.Name = vs.Name + "-" + strconv.Itoa(i)
 		vs.Namespace = defaultNamespace
-		AddTestVirtualService(legacyStore, vs)
+		AddTestVirtualService(s, vs)
 
 		if config.ShouldUseMainBuilder(config.GetFeatureFlags(), vs.Name+"-"+vs.Namespace) {
 			usedMainBuilder++
@@ -213,8 +210,7 @@ func TestGradualRolloutStrategy(t *testing.T) {
 // TestErrorPropagation tests that errors are properly propagated in both implementations
 func TestErrorPropagation(t *testing.T) {
 	// Create a test store
-	legacyStore := CreateTestStore()
-	s := store.NewStoreAdapterFromLegacy(legacyStore)
+	s := CreateTestStore()
 
 	// Create a VirtualService with an error (missing listener)
 	vs := &v1alpha1.VirtualService{

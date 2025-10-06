@@ -76,11 +76,6 @@ ui:
 # if not set - watch all namespaces!
 watchNamespaces: []
 
-# Store optimization settings
-store:
-  # Enable optimized store implementation
-  useOptimized: true  # Set to true by default
-
 replicaCount: 1
 
 image:

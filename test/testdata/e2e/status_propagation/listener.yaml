@@ -1,0 +1,11 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Listener
+metadata:
+  name: http-listener
+  namespace: envoy-xds-controller
+spec:
+  name: http
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 10080

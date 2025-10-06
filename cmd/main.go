@@ -260,14 +260,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create store based on STORE_USE_OPTIMIZED feature flag
-	useOptimized := os.Getenv("STORE_USE_OPTIMIZED") == "true"
-	if useOptimized {
-		setupLog.Info("Using optimized store implementation")
-	} else {
-		setupLog.Info("Using standard store implementation")
-	}
-	resStore := store.NewStoreAdapter() // Will internally check the flag
+	// Create store
+	resStore := store.New()
 
 	snapshotCache := cache.NewSnapshotCache()
 	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)

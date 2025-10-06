@@ -17,132 +17,7 @@ const (
 	nsStaging    = "staging"
 )
 
-// Benchmark baseline LegacyStore performance
-
-func BenchmarkLegacyStore_Copy(b *testing.B) {
-	store := New()
-
-	// Populate with production-scale data: 10k secrets, 200 VS, 50 other resources
-	populateStoreProductionSimple(store)
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		_ = store.Copy()
-	}
-}
-
-func BenchmarkLegacyStore_SetVirtualService(b *testing.B) {
-	store := New()
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		vs := &v1alpha1.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vs",
-				Namespace: nsDefault,
-				UID:       types.UID("uid-test"),
-			},
-		}
-		store.SetVirtualService(vs)
-	}
-}
-
-func BenchmarkLegacyStore_GetVirtualServiceByUID(b *testing.B) {
-	store := New()
-
-	// Pre-populate
-	for i := 0; i < 1000; i++ {
-		vs := &v1alpha1.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vs-" + string(rune(i+65)),
-				Namespace: nsDefault,
-				UID:       types.UID("uid-" + string(rune(i+65))),
-			},
-		}
-		store.SetVirtualService(vs)
-	}
-
-	targetUID := "uid-" + string(rune(500+65))
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		_ = store.GetVirtualServiceByUID(targetUID)
-	}
-}
-
-func BenchmarkLegacyStore_FillFromKubernetes_Simulation(b *testing.B) {
-	store := New()
-
-	// Simulate what FillFromKubernetes would do
-	createResources := func() {
-		// Create 100 VirtualServices (simplified to avoid UnmarshalV3 issues)
-		for i := 0; i < 100; i++ {
-			vs := &v1alpha1.VirtualService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "vs-" + string(rune(i+65)),
-					Namespace: nsDefault,
-					UID:       types.UID("vs-uid-" + string(rune(i+65))),
-				},
-			}
-			store.SetVirtualService(vs)
-		}
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		store = New() // Reset store
-		createResources()
-	}
-}
-
-func BenchmarkLegacyStore_ConcurrentReads(b *testing.B) {
-	store := New()
-
-	// Pre-populate
-	for i := 0; i < 100; i++ {
-		vs := &v1alpha1.VirtualService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-vs-" + string(rune(i+65)),
-				Namespace: nsDefault,
-				UID:       types.UID("uid-" + string(rune(i+65))),
-			},
-		}
-		store.SetVirtualService(vs)
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			_ = store.MapVirtualServices()
-		}
-	})
-}
-
-func BenchmarkLegacyStore_MemoryFootprint(b *testing.B) {
-	b.ReportAllocs()
-
-	for i := 0; i < b.N; i++ {
-		store := New()
-
-		// Add production scale resources
-		populateStoreProductionSimple(store)
-
-		// Force allocation tracking
-		_ = store.Copy()
-	}
-}
-
-// Benchmark RealOptimizedStore vs LegacyStore
+// Benchmark OptimizedStore performance
 
 func BenchmarkOptimizedStore_Copy(b *testing.B) {
 	store := NewOptimizedStore().(*OptimizedStore)
@@ -242,9 +117,9 @@ func BenchmarkOptimizedStore_MemoryFootprint(b *testing.B) {
 
 // Helper functions for production-scale data population
 
-// populateStoreProductionSimple fills LegacyStore with production-scale data without problematic clusters:
+// populateStoreProductionSimple fills OptimizedStore with production-scale data without problematic clusters:
 // 10,000 secrets, 200 VirtualServices, 50 of other resources (no clusters due to UnmarshalV3 issues)
-func populateStoreProductionSimple(store *LegacyStore) {
+func populateStoreProductionSimple(store *OptimizedStore) {
 	// Add 10,000 secrets with realistic names
 	for i := 0; i < 10000; i++ {
 		namespace := nsDefault
