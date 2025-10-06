@@ -1,12 +1,15 @@
 package e2e
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/kaasops/envoy-xds-controller/test/e2e/fixtures"
 	"github.com/kaasops/envoy-xds-controller/test/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/tidwall/gjson"
 )
 
 // templatesEnvoyContext contains tests for VirtualServiceTemplate functionality
@@ -39,34 +42,50 @@ func templatesEnvoyContext() {
 		fixture.ApplyManifests(manifests...)
 
 		// nolint: lll
+		// Use gjson filters to find resources by name instead of index to avoid conflicts with previous tests
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/https\").active_state.listener"
+		routePath := "configs.4.dynamic_route_configs.#(route_config.name==\"default/virtual-service\").route_config"
+
 		expectations := map[string]string{
-			"configs.0.bootstrap.node.id":                                                                                                  "test",
-			"configs.0.bootstrap.node.cluster":                                                                                             "e2e",
-			"configs.0.bootstrap.admin.address.socket_address.port_value":                                                                  "19000",
-			"configs.2.dynamic_listeners.0.name":                                                                                           "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.name":                                                                     "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                                        "443",
-			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.name":                                                  "envoy.filters.listener.tls_inspector",
-			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.typed_config.@type":                                    "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filter_chain_match.server_names.0":                        "exc.kaasops.io",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.http_filters.0.name":               "envoy.filters.http.router",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.http_filters.0.typed_config.@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.stat_prefix":                       "default/virtual-service",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.access_log.0.typed_config.@type":   "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
-			"configs.4.dynamic_route_configs.0.route_config.name":                                                                          "default/virtual-service",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.#":                                                               "2",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.domains.#":                                                     "1",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.domains.#":                                                     "1",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.domains.0":                                                     "*",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.name":                                                          "421vh",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.1.routes.0.direct_response.status":                               "421",
+			"configs.0.bootstrap.node.id":                                                              "test",
+			"configs.0.bootstrap.node.cluster":                                                         "e2e",
+			"configs.0.bootstrap.admin.address.socket_address.port_value":                              "19000",
+			listenerPath + ".name":                                                                     "default/https",
+			listenerPath + ".address.socket_address.port_value":                                        "443",
+			listenerPath + ".listener_filters.0.name":                                                  "envoy.filters.listener.tls_inspector",
+			listenerPath + ".listener_filters.0.typed_config.@type":                                    "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
+			listenerPath + ".filter_chains.0.filter_chain_match.server_names.0":                        "exc.kaasops.io",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.http_filters.0.name":               "envoy.filters.http.router",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.http_filters.0.typed_config.@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.stat_prefix":                       "default/virtual-service",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.access_log.0.typed_config.@type":   "type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog",
+			routePath + ".name":                                            "default/virtual-service",
+			routePath + ".virtual_hosts.#":                                 "2",
+			routePath + ".virtual_hosts.0.domains.#":                       "1",
+			routePath + ".virtual_hosts.1.domains.#":                       "1",
+			routePath + ".virtual_hosts.1.domains.0":                       "*",
+			routePath + ".virtual_hosts.1.name":                            "421vh",
+			routePath + ".virtual_hosts.1.routes.0.direct_response.status": "421",
 		}
 
-		By("waiting for Envoy config to match expected template configuration")
-		fixture.WaitEnvoyConfigMatches(expectations)
+		By("waiting for Envoy config to change")
+		fixture.WaitEnvoyConfigChanged()
 
-		By("verifying Envoy configuration")
-		fixture.VerifyEnvoyConfig(expectations)
+		By("verifying Envoy configuration with retries")
+		// Use Eventually to allow for potential delays in configuration propagation
+		Eventually(func() error {
+			// Refresh config dump on each retry
+			fixture.ConfigDump = fixture.GetEnvoyConfigDump("")
+			dump := string(fixture.ConfigDump)
+
+			for path, expectedValue := range expectations {
+				actualValue := gjson.Get(dump, path).String()
+				if actualValue != expectedValue {
+					return fmt.Errorf("path %s: expected %q, got %q", path, expectedValue, actualValue)
+				}
+			}
+			return nil
+		}, 60*time.Second, 3*time.Second).Should(Succeed(), "Envoy config should match expectations")
 
 		By("ensuring the envoy returns expected response")
 		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:443/")
@@ -98,25 +117,41 @@ func templatesEnvoyContext() {
 		fixture.ApplyManifests(manifests...)
 
 		// nolint: lll
+		// Use gjson filters to find resources by name instead of index to avoid conflicts with previous tests
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/https\").active_state.listener"
+		routePath := "configs.4.dynamic_route_configs.#(route_config.name==\"default/virtual-service\").route_config"
+
 		expectations := map[string]string{
-			"configs.0.bootstrap.node.id":                                                                                "test",
-			"configs.0.bootstrap.node.cluster":                                                                           "e2e",
-			"configs.2.dynamic_listeners.0.name":                                                                         "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.name":                                                   "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                      "443",
-			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.name":                                "envoy.filters.listener.tls_inspector",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filter_chain_match.server_names.0":      "exc.kaasops.io",
-			"configs.4.dynamic_route_configs.0.route_config.name":                                                        "default/virtual-service",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.domains.0":                                   "exc.kaasops.io",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.routes.0.direct_response.body.inline_string": "{\"message\":\"Hi!\"}",
-			"configs.4.dynamic_route_configs.0.route_config.virtual_hosts.0.routes.0.direct_response.status":             "200",
+			"configs.0.bootstrap.node.id":                                              "test",
+			"configs.0.bootstrap.node.cluster":                                         "e2e",
+			listenerPath + ".name":                                                     "default/https",
+			listenerPath + ".address.socket_address.port_value":                        "443",
+			listenerPath + ".listener_filters.0.name":                                  "envoy.filters.listener.tls_inspector",
+			listenerPath + ".filter_chains.0.filter_chain_match.server_names.0":        "exc.kaasops.io",
+			routePath + ".name":                                                        "default/virtual-service",
+			routePath + ".virtual_hosts.0.domains.0":                                   "exc.kaasops.io",
+			routePath + ".virtual_hosts.0.routes.0.direct_response.body.inline_string": "{\"message\":\"Hi!\"}",
+			routePath + ".virtual_hosts.0.routes.0.direct_response.status":             "200",
 		}
 
-		By("waiting for Envoy config to match expected extra fields configuration")
-		fixture.WaitEnvoyConfigMatches(expectations)
+		By("waiting for Envoy config to change")
+		fixture.WaitEnvoyConfigChanged()
 
-		By("verifying Envoy configuration")
-		fixture.VerifyEnvoyConfig(expectations)
+		By("verifying Envoy configuration with retries")
+		// Use Eventually to allow for potential delays in configuration propagation
+		Eventually(func() error {
+			// Refresh config dump on each retry
+			fixture.ConfigDump = fixture.GetEnvoyConfigDump("")
+			dump := string(fixture.ConfigDump)
+
+			for path, expectedValue := range expectations {
+				actualValue := gjson.Get(dump, path).String()
+				if actualValue != expectedValue {
+					return fmt.Errorf("path %s: expected %q, got %q", path, expectedValue, actualValue)
+				}
+			}
+			return nil
+		}, 60*time.Second, 3*time.Second).Should(Succeed(), "Envoy config should match expectations")
 
 		By("ensuring the envoy returns expected response with default extraField value")
 		response := fixture.FetchDataFromEnvoy("https://exc.kaasops.io:443/")

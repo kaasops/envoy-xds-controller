@@ -41,15 +41,70 @@ func (f *EnvoyFixture) Setup() {
 
 // Teardown cleans up resources created during tests
 func (f *EnvoyFixture) Teardown() {
-	// Clean up any manifests that were applied
+	if len(f.AppliedManifests) == 0 {
+		return
+	}
+
+	By(fmt.Sprintf("cleaning up %d applied manifests", len(f.AppliedManifests)))
+
+	// Delete manifests in reverse order
+	var deletedCount int
 	for i := len(f.AppliedManifests) - 1; i >= 0; i-- {
 		manifest := f.AppliedManifests[i]
 		err := utils.DeleteManifests(manifest)
 		if err != nil {
-			_, _ = fmt.Fprintf(GinkgoWriter, "Warning: Failed to delete manifest: %s, error: %v\n", manifest, err)
+			// Only warn on non-NotFound errors
+			if !strings.Contains(err.Error(), "NotFound") && !strings.Contains(err.Error(), "not found") {
+				_, _ = fmt.Fprintf(GinkgoWriter, "Warning: Failed to delete manifest: %s, error: %v\n", manifest, err)
+			}
+		} else {
+			deletedCount++
 		}
 	}
 	f.AppliedManifests = []string{}
+
+	// Wait for Envoy to stabilize after deletions if any resources were deleted
+	// Only wait if we actually deleted resources
+	if deletedCount > 0 {
+		By(fmt.Sprintf("waiting for Envoy to process %d resource deletions", deletedCount))
+		// Give Envoy time to process the deletions
+		time.Sleep(2 * time.Second)
+	}
+}
+
+// WaitForCleanState waits for Envoy config to stabilize after resource deletion
+// It's more lenient than checking for completely empty state, as some tests
+// may run with overlapping resources
+func (f *EnvoyFixture) WaitForCleanState() {
+	By("waiting for Envoy config to stabilize after deletion")
+
+	// Take a snapshot before waiting
+	initialDump := f.GetEnvoyConfigDump("")
+
+	// Wait for config to stabilize (stop changing)
+	var lastDump json.RawMessage
+	Eventually(func() bool {
+		currentDump := f.GetEnvoyConfigDump("")
+
+		// If this is the first check after initial, save it
+		if lastDump == nil {
+			lastDump = currentDump
+			return false
+		}
+
+		// Check if config has stabilized (hasn't changed in last 2 polls)
+		stable := jsonMessagesEqual(currentDump, lastDump)
+		lastDump = currentDump
+
+		// Also verify it's different from initial (deletion was processed)
+		changed := !jsonMessagesEqual(currentDump, initialDump)
+
+		return stable && changed
+	}, 30*time.Second, 2*time.Second).Should(BeTrue(),
+		"Envoy config should stabilize after resource deletion")
+
+	// Update stored config
+	f.ConfigDump = lastDump
 }
 
 // IsManifestApplied checks if a manifest is already in the applied manifests list
@@ -102,9 +157,14 @@ func (f *EnvoyFixture) DeleteManifests(manifests ...string) {
 
 // GetEnvoyConfigDump retrieves the Envoy config dump with optional query parameters
 func (f *EnvoyFixture) GetEnvoyConfigDump(queryParams string) json.RawMessage {
-	podName := "curl-config-dump"
+	// Use unique pod name to avoid conflicts between parallel tests
+	podName := fmt.Sprintf("curl-config-dump-%d", time.Now().UnixNano())
+
+	// Ensure cleanup even on panic
 	defer func() {
-		cmd := exec.Command("kubectl", "delete", "pod", podName, "--ignore-not-found=true")
+		By(fmt.Sprintf("cleaning up pod %s", podName))
+		cmd := exec.Command("kubectl", "delete", "pod", podName,
+			"--ignore-not-found=true", "--wait=false")
 		_, _ = utils.Run(cmd)
 	}()
 
@@ -118,14 +178,14 @@ func (f *EnvoyFixture) GetEnvoyConfigDump(queryParams string) json.RawMessage {
 	_, err := utils.Run(cmd)
 	Expect(err).NotTo(HaveOccurred(), "Failed to create curl-config-dump pod")
 
-	Eventually(func() string {
+	// Wait for pod with timeout and better error message
+	Eventually(func(g Gomega) {
 		cmd := exec.Command("kubectl", "get", "pods", podName, "-o", "jsonpath={.status.phase}")
 		output, err := utils.Run(cmd)
-		if err != nil {
-			return ""
-		}
-		return output
-	}, 30*time.Second).Should(Equal("Succeeded"))
+		g.Expect(err).NotTo(HaveOccurred(), "Failed to get pod status")
+		g.Expect(output).To(Equal("Succeeded"), "Pod should complete successfully")
+	}, 60*time.Second, 2*time.Second).Should(Succeed(),
+		"Timed out waiting for config dump pod to complete")
 
 	cmd = exec.Command("kubectl", "logs", podName)
 	data, err := utils.Run(cmd)
@@ -137,18 +197,41 @@ func (f *EnvoyFixture) GetEnvoyConfigDump(queryParams string) json.RawMessage {
 }
 
 // WaitEnvoyConfigChanged waits for the Envoy config to change from the current state
-func (f *EnvoyFixture) WaitEnvoyConfigChanged() {
+// Optionally verifies specific expectations in the changed config for more robust waiting
+func (f *EnvoyFixture) WaitEnvoyConfigChanged(optionalExpectations ...map[string]string) {
 	By("waiting for Envoy config to change")
-	Eventually(func() bool {
+
+	var expectations map[string]string
+	if len(optionalExpectations) > 0 {
+		expectations = optionalExpectations[0]
+	}
+
+	Eventually(func() error {
 		cfgDump := f.GetEnvoyConfigDump("")
+
+		// First check: config must be different
 		if jsonMessagesEqual(cfgDump, f.ConfigDump) {
-			return false
+			return fmt.Errorf("config has not changed yet")
 		}
+
+		// Second check: if expectations provided, verify them
+		if expectations != nil {
+			dump := string(cfgDump)
+			for path, expectedValue := range expectations {
+				actualValue := gjson.Get(dump, path).String()
+				if actualValue != expectedValue {
+					return fmt.Errorf("path %s: expected %q, got %q", path, expectedValue, actualValue)
+				}
+			}
+		}
+
+		// Config changed and matches expectations - update stored config
 		_ = os.WriteFile("/tmp/prev-dump.json", f.ConfigDump, 0644)
 		f.ConfigDump = cfgDump
 		_ = os.WriteFile("/tmp/actual-dump.json", f.ConfigDump, 0644)
-		return true
-	}, LongTimeout, DefaultPollingInterval).Should(BeTrue())
+
+		return nil
+	}, LongTimeout, DefaultPollingInterval).Should(Succeed())
 }
 
 // WaitEnvoyConfigMatches waits for the Envoy config to match expected values
@@ -187,9 +270,12 @@ func (f *EnvoyFixture) VerifyEnvoyConfig(expectations map[string]string) {
 
 // FetchDataFromEnvoy sends a request to Envoy and returns the response
 func (f *EnvoyFixture) FetchDataFromEnvoy(address string) string {
-	podName := "curl-fetch-data"
+	// Use unique pod name to avoid conflicts
+	podName := fmt.Sprintf("curl-fetch-data-%d", time.Now().UnixNano())
 	defer func() {
-		cmd := exec.Command("kubectl", "delete", "pod", podName, "--ignore-not-found=true")
+		By(fmt.Sprintf("cleaning up pod %s", podName))
+		cmd := exec.Command("kubectl", "delete", "pod", podName,
+			"--ignore-not-found=true", "--wait=false")
 		_, _ = utils.Run(cmd)
 	}()
 

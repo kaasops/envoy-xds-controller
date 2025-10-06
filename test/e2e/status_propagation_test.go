@@ -66,23 +66,21 @@ func statusPropagationContext() {
 			"message": "",
 		}))
 
+		// Wait for config to stabilize after applying valid VS
+		// This ensures we capture a stable baseline before applying invalid VS
+		By("Waiting for config to stabilize")
+		time.Sleep(3 * time.Second)
+
 		// Store the current snapshot version for comparison
-		initialConfigDump := fixture.ConfigDump
+		initialConfigDump := fixture.GetEnvoyConfigDump("")
 
-		By("Step 2: Apply invalid VirtualService (missing domains) and verify status changes")
-		// Apply invalid VS - this should be rejected by webhook if enabled,
-		// or accepted but marked invalid in status if webhook is disabled
+		By("Step 2: Apply invalid VirtualService (with skip-validation annotation) and verify status changes")
+		// Apply invalid VS with skip-validation annotation to bypass webhook
+		// This allows testing status propagation even when webhooks are enabled
 		err := utils.ApplyManifests("test/testdata/e2e/status_propagation/vs-invalid.yaml")
+		Expect(err).NotTo(HaveOccurred(), "Failed to apply invalid VS with skip-validation annotation")
 
-		// Check if webhook rejected it (webhook enabled case)
-		if err != nil {
-			By("Webhook rejected invalid VS (expected if webhook is enabled)")
-			Expect(err.Error()).To(ContainSubstring("invalid VirtualHost.Domains"))
-			// Skip the rest of this test case since webhook prevents invalid VS from being stored
-			Skip("Webhook is enabled - cannot test status propagation for invalid VS")
-		}
-
-		// Webhook is disabled - verify status is marked as invalid
+		// Verify status is marked as invalid by the controller
 		By("Verifying VirtualService status is now invalid")
 		Eventually(func() bool {
 			cmd := exec.Command("kubectl", "get", "virtualservice", "test-status-vs", "-n", "envoy-xds-controller", "-o", "json")
@@ -106,13 +104,21 @@ func statusPropagationContext() {
 		}, 30*time.Second, 2*time.Second).Should(BeTrue())
 
 		By("Verifying snapshot has NOT changed (invalid VS should not update Envoy config)")
-		// Give some time for controller to potentially update (it shouldn't)
+		// Give controller time to process the invalid VS and mark status as invalid
+		// but NOT update the Envoy snapshot. Also wait for any pending reconciliations
+		// from previous tests to settle.
 		time.Sleep(5 * time.Second)
 
-		currentConfigDump := fixture.GetEnvoyConfigDump("")
-		// Snapshots should remain the same
-		Expect(string(currentConfigDump)).To(Equal(string(initialConfigDump)),
-			"Snapshot should not change when VS becomes invalid")
+		// Instead of checking entire snapshot equality (which can have timestamp/version changes),
+		// verify that the specific VirtualService route config hasn't changed
+		initialRouteConfig := gjson.Get(string(initialConfigDump), "configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config").String()
+
+		// Verify the route config remains stable
+		Consistently(func() string {
+			dump := fixture.GetEnvoyConfigDump("")
+			return gjson.Get(string(dump), "configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config").String()
+		}, 5*time.Second, 1*time.Second).Should(Equal(initialRouteConfig),
+			"VirtualService route config should remain stable when VS becomes invalid")
 
 		By("Step 3: Apply valid VirtualService again and verify status and snapshot update")
 		fixture.ApplyManifests("test/testdata/e2e/status_propagation/vs-valid-updated.yaml")
