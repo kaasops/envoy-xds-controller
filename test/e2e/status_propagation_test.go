@@ -36,11 +36,12 @@ func statusPropagationContext() {
 		// Verify that the snapshot contains the valid VirtualService configuration
 		// Note: Route config name is formatted as "namespace/virtualservice-name"
 		// configs.4 is the dynamic_route_configs section
+		routeConfigPath := "configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\")"
 		expectations := map[string]string{
 			// Check that route config exists with correct name
-			"configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config.name": "envoy-xds-controller/test-status-vs",
+			routeConfigPath + ".route_config.name": "envoy-xds-controller/test-status-vs",
 			// Check that virtual host has the correct domain
-			"configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config.virtual_hosts.0.domains.0": "example.local",
+			routeConfigPath + ".route_config.virtual_hosts.0.domains.0": "example.local",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
 
@@ -143,9 +144,9 @@ func statusPropagationContext() {
 		// Verify that the snapshot has been updated with new configuration
 		newExpectations := map[string]string{
 			// Check that route config still exists
-			"configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config.name": "envoy-xds-controller/test-status-vs",
+			routeConfigPath + ".route_config.name": "envoy-xds-controller/test-status-vs",
 			// Check that virtual host has the updated domain
-			"configs.4.dynamic_route_configs.#(route_config.name==\"envoy-xds-controller/test-status-vs\").route_config.virtual_hosts.0.domains.0": "updated.local",
+			routeConfigPath + ".route_config.virtual_hosts.0.domains.0": "updated.local",
 		}
 		fixture.VerifyEnvoyConfig(newExpectations)
 
