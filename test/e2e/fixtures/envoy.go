@@ -68,7 +68,7 @@ func (f *EnvoyFixture) Teardown() {
 	if deletedCount > 0 {
 		By(fmt.Sprintf("waiting for Envoy to process %d resource deletions", deletedCount))
 		// Give Envoy time to process the deletions
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 }
 

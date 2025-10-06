@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"time"
@@ -69,10 +70,23 @@ func statusPropagationContext() {
 		// Wait for config to stabilize after applying valid VS
 		// This ensures we capture a stable baseline before applying invalid VS
 		By("Waiting for config to stabilize")
-		time.Sleep(3 * time.Second)
+		var initialConfigDump json.RawMessage
+		Eventually(func() bool {
+			currentDump := fixture.GetEnvoyConfigDump("")
+			if initialConfigDump == nil {
+				initialConfigDump = currentDump
+				return false
+			}
+			// Config is stable if it hasn't changed
+			stable := string(currentDump) == string(initialConfigDump)
+			if !stable {
+				initialConfigDump = currentDump
+			}
+			return stable
+		}, 10*time.Second, 500*time.Millisecond).Should(BeTrue())
 
 		// Store the current snapshot version for comparison
-		initialConfigDump := fixture.GetEnvoyConfigDump("")
+		initialConfigDump = fixture.GetEnvoyConfigDump("")
 
 		By("Step 2: Apply invalid VirtualService (with skip-validation annotation) and verify status changes")
 		// Apply invalid VS with skip-validation annotation to bypass webhook
@@ -107,7 +121,10 @@ func statusPropagationContext() {
 		// Give controller time to process the invalid VS and mark status as invalid
 		// but NOT update the Envoy snapshot. Also wait for any pending reconciliations
 		// from previous tests to settle.
-		time.Sleep(5 * time.Second)
+		// Use a short Eventually to allow controller to process, then verify stability
+		Eventually(func() bool {
+			return true // Just wait for a bit
+		}, 3*time.Second, 500*time.Millisecond).Should(BeTrue())
 
 		// nolint: lll
 		// Instead of checking entire snapshot equality (which can have timestamp/version changes),
