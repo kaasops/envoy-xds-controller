@@ -5,6 +5,7 @@ metadata:
   namespace: envoy-xds-controller
   annotations:
     envoy.kaasops.io/node-id: "test"
+    envoy.kaasops.io/skip-validation: "true"  # Allow invalid VS for testing status propagation
 spec:
   listener:
     name: http-listener

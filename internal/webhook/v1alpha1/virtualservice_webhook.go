@@ -42,7 +42,14 @@ type WebhookConfig struct {
 	DryRunTimeoutMS   int
 	LightDryRun       bool
 	ValidationIndices bool
+	DevMode           bool
 }
+
+// Annotation key for skipping validation (testing only)
+const (
+	skipValidationAnnotation = "envoy.kaasops.io/skip-validation"
+	annotationValueTrue      = "true"
+)
 
 // nolint:unused
 // log is for logging in this package.
@@ -89,6 +96,14 @@ func (v *VirtualServiceCustomValidator) ValidateCreate(ctx context.Context, obj 
 	}
 	virtualservicelog.Info("Validation for VirtualService upon creation", "name", virtualservice.GetLabelName())
 
+	// Allow skipping validation for testing purposes (only in dev mode)
+	if v.Config.DevMode && virtualservice.Annotations != nil {
+		if skip, exists := virtualservice.Annotations[skipValidationAnnotation]; exists && skip == annotationValueTrue {
+			virtualservicelog.Info("Skipping validation due to annotation (dev mode)", "name", virtualservice.GetLabelName())
+			return admission.Warnings{"Validation skipped via annotation - only available in development mode"}, nil
+		}
+	}
+
 	if err := v.validateVirtualService(ctx, virtualservice, nil); err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
 	}
@@ -116,6 +131,14 @@ func (v *VirtualServiceCustomValidator) ValidateUpdate(ctx context.Context, oldO
 	}
 
 	virtualservicelog.Info("Validation for VirtualService upon update", "name", virtualservice.GetLabelName())
+
+	// Allow skipping validation for testing purposes (only in dev mode)
+	if v.Config.DevMode && virtualservice.Annotations != nil {
+		if skip, exists := virtualservice.Annotations[skipValidationAnnotation]; exists && skip == annotationValueTrue {
+			virtualservicelog.Info("Skipping validation due to annotation (dev mode)", "name", virtualservice.GetLabelName())
+			return admission.Warnings{"Validation skipped via annotation - only available in development mode"}, nil
+		}
+	}
 
 	if err := v.validateVirtualService(ctx, virtualservice, prevVS); err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)

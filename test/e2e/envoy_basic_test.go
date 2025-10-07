@@ -38,20 +38,23 @@ func basicEnvoyContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		By("verifying Envoy configuration")
+		// Use gjson filters to find resources by name instead of index to avoid conflicts with previous tests
+		// nolint: lll,goconst
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/https\").active_state.listener"
+
 		// nolint: lll
 		expectations := map[string]string{
-			"configs.0.bootstrap.node.id":                                                                                                  "test",
-			"configs.0.bootstrap.node.cluster":                                                                                             "e2e",
-			"configs.0.bootstrap.admin.address.socket_address.port_value":                                                                  "19000",
-			"configs.2.dynamic_listeners.0.name":                                                                                           "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.name":                                                                     "default/https",
-			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value":                                        "443",
-			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.name":                                                  "envoy.filters.listener.tls_inspector",
-			"configs.2.dynamic_listeners.0.active_state.listener.listener_filters.0.typed_config.@type":                                    "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filter_chain_match.server_names.0":                        "exc.kaasops.io",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.http_filters.0.name":               "envoy.filters.http.router",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.http_filters.0.typed_config.@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.stat_prefix":                       "default/virtual-service",
+			"configs.0.bootstrap.node.id":                                                              "test",
+			"configs.0.bootstrap.node.cluster":                                                         "e2e",
+			"configs.0.bootstrap.admin.address.socket_address.port_value":                              "19000",
+			listenerPath + ".name":                                                                     "default/https",
+			listenerPath + ".address.socket_address.port_value":                                        "443",
+			listenerPath + ".listener_filters.0.name":                                                  "envoy.filters.listener.tls_inspector",
+			listenerPath + ".listener_filters.0.typed_config.@type":                                    "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
+			listenerPath + ".filter_chains.0.filter_chain_match.server_names.0":                        "exc.kaasops.io",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.http_filters.0.name":               "envoy.filters.http.router",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.http_filters.0.typed_config.@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.stat_prefix":                       "default/virtual-service",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
 	})
@@ -91,10 +94,14 @@ func basicEnvoyContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		By("verifying access log config in Envoy")
+		// Use gjson filter to find listener by name
+		// nolint: lll,goconst
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/https\").active_state.listener"
+
 		// nolint: lll
 		expectations := map[string]string{
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.access_log.0.typed_config.@type": "type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog",
-			"configs.2.dynamic_listeners.0.active_state.listener.filter_chains.0.filters.0.typed_config.access_log.0.typed_config.path":  "/tmp/virtual-service.log",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.access_log.0.typed_config.@type": "type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog",
+			listenerPath + ".filter_chains.0.filters.0.typed_config.access_log.0.typed_config.path":  "/tmp/virtual-service.log",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
 	})
@@ -110,9 +117,13 @@ func basicEnvoyContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		By("verifying Envoy configuration")
+		// nolint: goconst
+		// Use gjson filter to find listener by name
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/http\").active_state.listener"
+
 		expectations := map[string]string{
-			"configs.2.dynamic_listeners.0.name":                                                    "default/http",
-			"configs.2.dynamic_listeners.0.active_state.listener.address.socket_address.port_value": "8080",
+			listenerPath + ".name":                              "default/http",
+			listenerPath + ".address.socket_address.port_value": "8080",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
 

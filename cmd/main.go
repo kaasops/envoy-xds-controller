@@ -435,6 +435,7 @@ func main() {
 			DryRunTimeoutMS:   cfg.Webhook.DryRunTimeoutMS,
 			LightDryRun:       cfg.Webhook.LightDryRun,
 			ValidationIndices: cfg.Webhook.ValidationIndices,
+			DevMode:           devMode,
 		}
 		if err = webhookenvoyv1alpha1.SetupVirtualServiceWebhookWithManager(mgr, cacheUpdater, webhookConfig); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "VirtualService")

@@ -17,8 +17,8 @@ const (
 	MetricsRoleBindingName = "envoy-xds-controller-metrics-binding"
 
 	// Default timeouts
-	DefaultTimeout         = 2 * time.Minute
-	DefaultPollingInterval = 1 * time.Second
-	LongTimeout            = 5 * time.Minute
-	ShortTimeout           = 60 * time.Second
+	DefaultTimeout         = 1 * time.Minute
+	DefaultPollingInterval = 500 * time.Millisecond
+	LongTimeout            = 2 * time.Minute
+	ShortTimeout           = 30 * time.Second
 )
