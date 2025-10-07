@@ -42,6 +42,7 @@ type WebhookConfig struct {
 	DryRunTimeoutMS   int
 	LightDryRun       bool
 	ValidationIndices bool
+	DevMode           bool
 }
 
 // Annotation key for skipping validation (testing only)
@@ -95,11 +96,11 @@ func (v *VirtualServiceCustomValidator) ValidateCreate(ctx context.Context, obj 
 	}
 	virtualservicelog.Info("Validation for VirtualService upon creation", "name", virtualservice.GetLabelName())
 
-	// Allow skipping validation for testing purposes
-	if virtualservice.Annotations != nil {
+	// Allow skipping validation for testing purposes (only in dev mode)
+	if v.Config.DevMode && virtualservice.Annotations != nil {
 		if skip, exists := virtualservice.Annotations[skipValidationAnnotation]; exists && skip == annotationValueTrue {
-			virtualservicelog.Info("Skipping validation due to annotation", "name", virtualservice.GetLabelName())
-			return admission.Warnings{"Validation skipped via annotation - use only for testing"}, nil
+			virtualservicelog.Info("Skipping validation due to annotation (dev mode)", "name", virtualservice.GetLabelName())
+			return admission.Warnings{"Validation skipped via annotation - only available in development mode"}, nil
 		}
 	}
 
@@ -131,11 +132,11 @@ func (v *VirtualServiceCustomValidator) ValidateUpdate(ctx context.Context, oldO
 
 	virtualservicelog.Info("Validation for VirtualService upon update", "name", virtualservice.GetLabelName())
 
-	// Allow skipping validation for testing purposes
-	if virtualservice.Annotations != nil {
+	// Allow skipping validation for testing purposes (only in dev mode)
+	if v.Config.DevMode && virtualservice.Annotations != nil {
 		if skip, exists := virtualservice.Annotations[skipValidationAnnotation]; exists && skip == annotationValueTrue {
-			virtualservicelog.Info("Skipping validation due to annotation", "name", virtualservice.GetLabelName())
-			return admission.Warnings{"Validation skipped via annotation - use only for testing"}, nil
+			virtualservicelog.Info("Skipping validation due to annotation (dev mode)", "name", virtualservice.GetLabelName())
+			return admission.Warnings{"Validation skipped via annotation - only available in development mode"}, nil
 		}
 	}
 

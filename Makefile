@@ -439,6 +439,7 @@ deploy-e2e: manifests
 		--set initCert.image.tag=$(TAG) \
  		--set cacheAPI.enabled=true \
  		--set resourceAPI.enabled=true \
+ 		--set development=true \
  		--namespace envoy-xds-controller \
  		--create-namespace ./helm/charts/envoy-xds-controller \
  		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
