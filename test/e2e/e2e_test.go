@@ -141,8 +141,8 @@ var _ = Describe("Manager", Ordered, func() {
 		}
 	})
 
-	SetDefaultEventuallyTimeout(2 * time.Minute)
-	SetDefaultEventuallyPollingInterval(time.Second)
+	SetDefaultEventuallyTimeout(1 * time.Minute)
+	SetDefaultEventuallyPollingInterval(500 * time.Millisecond)
 
 	Context("Manager", managerContext(controllerPodName))
 

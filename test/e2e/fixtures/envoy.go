@@ -231,7 +231,7 @@ func (f *EnvoyFixture) WaitEnvoyConfigChanged(optionalExpectations ...map[string
 		_ = os.WriteFile("/tmp/actual-dump.json", f.ConfigDump, 0644)
 
 		return nil
-	}, LongTimeout, DefaultPollingInterval).Should(Succeed())
+	}, ShortTimeout, DefaultPollingInterval).Should(Succeed())
 }
 
 // WaitEnvoyConfigMatches waits for the Envoy config to match expected values
@@ -256,7 +256,7 @@ func (f *EnvoyFixture) WaitEnvoyConfigMatches(expectations map[string]string) {
 		_ = os.WriteFile("/tmp/actual-dump.json", f.ConfigDump, 0644)
 
 		return nil
-	}, LongTimeout, DefaultPollingInterval).Should(Succeed())
+	}, ShortTimeout, DefaultPollingInterval).Should(Succeed())
 }
 
 // VerifyEnvoyConfig verifies that the Envoy config contains the expected values

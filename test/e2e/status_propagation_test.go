@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"encoding/json"
 	"fmt"
 	"os/exec"
 	"time"
@@ -67,26 +66,12 @@ func statusPropagationContext() {
 			"message": "",
 		}))
 
-		// Wait for config to stabilize after applying valid VS
-		// This ensures we capture a stable baseline before applying invalid VS
-		By("Waiting for config to stabilize")
-		var initialConfigDump json.RawMessage
-		Eventually(func() bool {
-			currentDump := fixture.GetEnvoyConfigDump("")
-			if initialConfigDump == nil {
-				initialConfigDump = currentDump
-				return false
-			}
-			// Config is stable if it hasn't changed
-			stable := string(currentDump) == string(initialConfigDump)
-			if !stable {
-				initialConfigDump = currentDump
-			}
-			return stable
-		}, 10*time.Second, 500*time.Millisecond).Should(BeTrue())
+		// Wait briefly for config to propagate to Envoy
+		By("Waiting for config to propagate")
+		time.Sleep(5 * time.Second)
 
 		// Store the current snapshot version for comparison
-		initialConfigDump = fixture.GetEnvoyConfigDump("")
+		initialConfigDump := fixture.GetEnvoyConfigDump("")
 
 		By("Step 2: Apply invalid VirtualService (with skip-validation annotation) and verify status changes")
 		// Apply invalid VS with skip-validation annotation to bypass webhook
