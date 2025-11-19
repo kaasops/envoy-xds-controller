@@ -1,0 +1,71 @@
+{{- if and .Values.ui.enabled .Values.ui.nginxConfigMap.enabled -}}
+{{- $nginx := .Values.ui.nginxConfigMap | default dict -}}
+{{- $proxySetHeader := $nginx.proxySetHeader | default dict -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "chart.fullname" . }}-ui-nginx-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "chart.labels-ui" . | nindent 4 }}
+data:
+  template.conf: |
+    server {
+        # Dynamic config
+        listen {{ .Values.ui.port }};
+        server_name _;
+        root   /usr/share/nginx/html;
+
+        # Increase buffer sizes for large JWT tokens (users with many OIDC groups)
+        # Default is 4 8k, but tokens with 100+ groups can exceed 8KB
+        large_client_header_buffers {{ $nginx.largeClientHeaderBuffers | default "8 32k" }};
+        proxy_buffer_size {{ $nginx.proxyBufferSize | default "32k" }};
+        proxy_buffers {{ $nginx.proxyBuffers | default "8 32k" }};
+        proxy_busy_buffers_size {{ $nginx.proxyBusyBuffersSize | default "64k" }};
+
+        # Proxy timeouts
+        proxy_connect_timeout {{ $nginx.proxyConnectTimeout | default "60s" }};
+        proxy_read_timeout {{ $nginx.proxyReadTimeout | default "60s" }};
+        proxy_send_timeout {{ $nginx.proxySendTimeout | default "60s" }};
+
+        location = / {
+            return 301 /nodeIDs;
+        }
+        location /nodeIDs {
+            index  index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+        location /accessGroups {
+            index  index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+        location /callback {
+            index  index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
+        location /api/v1 {
+            {{- if $proxySetHeader.xRealIP | default false }}
+            proxy_set_header X-Real-IP $remote_addr;
+            {{- end }}
+            {{- if $proxySetHeader.xForwardedFor | default false }}
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            {{- end }}
+            {{- if $proxySetHeader.xForwardedProto | default false }}
+            proxy_set_header X-Forwarded-Proto $scheme;
+            {{- end }}
+            proxy_pass {{ .Values.ui.cacheAPI }};
+        }
+        location /grpc-api/ {
+            {{- if $proxySetHeader.xRealIP | default false }}
+            proxy_set_header X-Real-IP $remote_addr;
+            {{- end }}
+            {{- if $proxySetHeader.xForwardedFor | default false }}
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            {{- end }}
+            {{- if $proxySetHeader.xForwardedProto | default false }}
+            proxy_set_header X-Forwarded-Proto $scheme;
+            {{- end }}
+            proxy_pass {{ .Values.ui.resourceAPI }}/;
+        }
+    }
+{{- end }}

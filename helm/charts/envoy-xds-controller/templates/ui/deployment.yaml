@@ -36,11 +36,21 @@ spec:
         {{- toYaml . | nindent 8 }}
     {{- end }}
       serviceAccountName: {{ include "chart.serviceAccountName" . }}
+      {{- if .Values.ui.nginxConfigMap.enabled }}
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: {{ include "chart.fullname" . }}-ui-nginx-config
+      {{- end }}
       containers:
       - image: {{ .Values.ui.image.repository }}:{{ default .Chart.AppVersion .Values.ui.image.tag }}
-        {{- if .Values.ui.args }}
-        args:
-          {{- toYaml .Values.ui.args | nindent 10 }}
+        name: envoy-xds-controller-ui
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if .Values.ui.nginxConfigMap.enabled }}
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/templates/nginx.conf
+          subPath: template.conf
         {{- end }}
         env:
           - name: API_PROXY_PASS
@@ -85,8 +95,6 @@ spec:
           - name: http
             containerPort: {{ .Values.ui.port }}
             protocol: TCP
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
-        name: envoy-xds-controller-ui
         resources:
 {{ toYaml .Values.ui.resources | indent 12 }}
 {{- end }}

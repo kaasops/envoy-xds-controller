@@ -46,7 +46,6 @@ ui:
     repository: kaasops/envoy-xds-controller-ui
     tag: "" # rewrites Chart.AppVersion
     pullPolicy: IfNotPresent
-  args: []
   envs: {}
   cacheAPI: "http://exc-envoy-xds-controller-cache-api:9999"
   resourceAPI: "http://exc-envoy-xds-controller-resource-api:10000"
@@ -58,6 +57,30 @@ ui:
       cpu: 100m
       memory: 50Mi
   port: 8080
+  # Nginx configuration via ConfigMap
+  # When enabled: nginx config is managed via ConfigMap (allows runtime configuration)
+  # When disabled: uses embedded config from Docker image (default)
+  nginxConfigMap:
+    enabled: false
+    # Buffer sizes for large client headers (e.g., JWT tokens with many OIDC groups)
+    # Format: <number> <size> where size is the max size of ONE header line
+    # Each header line (e.g., Cookie with JWT) must fit in ONE buffer!
+    # For 180 groups × 40 chars = ~7KB groups → JWT token ~15-25KB → need 32k per buffer
+    # Default nginx: 4 8k (each header max 8KB)
+    largeClientHeaderBuffers: "8 32k"
+    proxyBufferSize: "32k"
+    proxyBuffers: "8 32k"
+
+    proxyBusyBuffersSize: "64k"
+    # Proxy timeouts for backend API requests
+    proxyConnectTimeout: "60s"
+    proxyReadTimeout: "60s"
+    proxySendTimeout: "60s"
+    # Proxy headers (useful when UI is behind Ingress/Load Balancer)
+    proxySetHeader:
+      xRealIP: true
+      xForwardedFor: true
+      xForwardedProto: true
   ingress:
     enabled: false
     annotations:
