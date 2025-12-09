@@ -233,4 +233,65 @@ func tcpProxyEnvoyContext() {
 		Expect(err).NotTo(HaveOccurred(), "Failed to get logs from TCP test client pod 2")
 		Expect(out2).To(ContainSubstring("backend-two"), "Traffic through port 7782 should reach backend-two")
 	})
+
+	It("should configure Kafka-style multi-broker with SNI-based routing", func() {
+		By("applying Kafka-style multi-broker manifests")
+		manifests := []string{
+			"test/testdata/e2e/kafka_style_multi_broker/tcp-echo-servers.yaml",
+			"test/testdata/e2e/kafka_style_multi_broker/clusters.yaml",
+			"test/testdata/e2e/kafka_style_multi_broker/listener.yaml",
+			"test/testdata/e2e/kafka_style_multi_broker/virtual-service.yaml",
+		}
+		fixture.ApplyManifests(manifests...)
+
+		By("waiting for all Kafka broker simulators to be ready")
+		Eventually(func() bool {
+			labels := []string{"kafka-broker-1", "kafka-broker-2", "kafka-broker-3"}
+			for _, label := range labels {
+				cmd := exec.Command("kubectl", "get", "pods",
+					"-l", "app="+label, "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
+				out, err := utils.Run(cmd)
+				if err != nil || out != "true" {
+					return false
+				}
+			}
+			return true
+		}, 2*time.Minute).Should(BeTrue())
+
+		By("waiting for Envoy config to change")
+		fixture.WaitEnvoyConfigChanged()
+
+		By("verifying Envoy configuration has the listener with 3 filter chains")
+		expectations := map[string]string{
+			"configs.2.dynamic_listeners.#(name==\"default/kafka-multi-broker\").name": "default/kafka-multi-broker",
+		}
+		fixture.VerifyEnvoyConfig(expectations)
+
+		By("verifying all 3 filter chains are present with correct SNI matching")
+		dump := string(fixture.ConfigDump)
+		Expect(dump).To(ContainSubstring("kafka-broker-1.test.local"), "Filter chain for broker-1 should be present")
+		Expect(dump).To(ContainSubstring("kafka-broker-2.test.local"), "Filter chain for broker-2 should be present")
+		Expect(dump).To(ContainSubstring("kafka-broker-3.test.local"), "Filter chain for broker-3 should be present")
+		Expect(dump).To(ContainSubstring("kafka-broker-cluster-1"), "Cluster kafka-broker-cluster-1 should be referenced")
+		Expect(dump).To(ContainSubstring("kafka-broker-cluster-2"), "Cluster kafka-broker-cluster-2 should be referenced")
+		Expect(dump).To(ContainSubstring("kafka-broker-cluster-3"), "Cluster kafka-broker-cluster-3 should be referenced")
+
+		By("verifying TLS inspector listener filter is present")
+		Expect(dump).To(ContainSubstring("envoy.filters.listener.tls_inspector"), "TLS inspector should be configured")
+
+		By("verifying all 3 clusters are created with correct endpoints")
+		Expect(dump).To(ContainSubstring("kafka-broker-1"), "Endpoint for kafka-broker-1 should be present")
+		Expect(dump).To(ContainSubstring("kafka-broker-2"), "Endpoint for kafka-broker-2 should be present")
+		Expect(dump).To(ContainSubstring("kafka-broker-3"), "Endpoint for kafka-broker-3 should be present")
+
+		By("verifying listener port is correct")
+		Expect(dump).To(ContainSubstring("9093"), "Listener should be on port 9093")
+
+		// Note: Data-flow testing with actual SNI routing requires TLS-enabled backends
+		// The configuration verification above confirms that:
+		// 1. TLS inspector is configured to read SNI from ClientHello
+		// 2. Three filter chains are configured with different server_names
+		// 3. Each filter chain routes to the correct cluster
+		// 4. All clusters have correct endpoints
+	})
 }

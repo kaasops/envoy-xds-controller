@@ -1,0 +1,9 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: kafka-multi-broker
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  listener:
+    name: kafka-multi-broker

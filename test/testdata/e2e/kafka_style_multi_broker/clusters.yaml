@@ -1,0 +1,56 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: kafka-broker-cluster-1
+spec:
+  name: kafka-broker-cluster-1
+  connect_timeout: 30s
+  type: LOGICAL_DNS
+  dns_lookup_family: V4_ONLY
+  load_assignment:
+    cluster_name: kafka-broker-cluster-1
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: kafka-broker-1
+                  port_value: 9092
+---
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: kafka-broker-cluster-2
+spec:
+  name: kafka-broker-cluster-2
+  connect_timeout: 30s
+  type: LOGICAL_DNS
+  dns_lookup_family: V4_ONLY
+  load_assignment:
+    cluster_name: kafka-broker-cluster-2
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: kafka-broker-2
+                  port_value: 9092
+---
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: kafka-broker-cluster-3
+spec:
+  name: kafka-broker-cluster-3
+  connect_timeout: 30s
+  type: LOGICAL_DNS
+  dns_lookup_family: V4_ONLY
+  load_assignment:
+    cluster_name: kafka-broker-cluster-3
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: kafka-broker-3
+                  port_value: 9092
