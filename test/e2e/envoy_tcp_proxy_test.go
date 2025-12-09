@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/kaasops/envoy-xds-controller/test/e2e/fixtures"
@@ -82,5 +83,154 @@ func tcpProxyEnvoyContext() {
 		out, err := utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to get logs from TCP test client pod")
 		Expect(out).To(ContainSubstring("hello world"), "TCP proxy did not return expected response")
+	})
+
+	It("should support multiple filter chains with SNI-based routing", func() {
+		By("applying TCP echo servers and multi-chain proxy manifests")
+		manifests := []string{
+			"test/testdata/e2e/tcp_proxy_multi_chain/tcp-echo-servers.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain/clusters.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain/listener.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain/virtual-service.yaml",
+		}
+		fixture.ApplyManifests(manifests...)
+
+		By("waiting for TCP echo servers to be ready")
+		Eventually(func() bool {
+			cmd := exec.Command("kubectl", "get", "pods",
+				"-l", "app=tcp-echo-1", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
+			out1, err := utils.Run(cmd)
+			if err != nil || out1 != "true" {
+				return false
+			}
+			cmd = exec.Command("kubectl", "get", "pods",
+				"-l", "app=tcp-echo-2", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
+			out2, err := utils.Run(cmd)
+			if err != nil || out2 != "true" {
+				return false
+			}
+			return true
+		}, time.Minute).Should(BeTrue())
+
+		By("waiting for Envoy config to change")
+		fixture.WaitEnvoyConfigChanged()
+
+		By("verifying Envoy configuration has the listener with multiple filter chains")
+		expectations := map[string]string{
+			"configs.2.dynamic_listeners.#(name==\"default/tcp-proxy-multi-chain\").name": "default/tcp-proxy-multi-chain",
+		}
+		fixture.VerifyEnvoyConfig(expectations)
+
+		By("verifying that both filter chains are present in the listener")
+		dump := string(fixture.ConfigDump)
+		Expect(dump).To(ContainSubstring("server1.test.local"), "Filter chain for server1 should be present")
+		Expect(dump).To(ContainSubstring("server2.test.local"), "Filter chain for server2 should be present")
+		Expect(dump).To(ContainSubstring("tcp-echo-cluster-1"), "Cluster tcp-echo-cluster-1 should be referenced")
+		Expect(dump).To(ContainSubstring("tcp-echo-cluster-2"), "Cluster tcp-echo-cluster-2 should be referenced")
+
+		By("verifying clusters are created in Envoy config")
+		Expect(dump).To(ContainSubstring("tcp-echo-1"), "Cluster endpoint for tcp-echo-1 should be present")
+		Expect(dump).To(ContainSubstring("tcp-echo-2"), "Cluster endpoint for tcp-echo-2 should be present")
+	})
+
+	It("should route traffic through multiple TCP proxy listeners with data flow verification", func() {
+		By("applying TCP echo servers and multi-listener proxy manifests")
+		manifests := []string{
+			"test/testdata/e2e/tcp_proxy_multi_chain_dataflow/tcp-echo-servers.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain_dataflow/clusters.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain_dataflow/listener-1.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain_dataflow/listener-2.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain_dataflow/virtual-service-1.yaml",
+			"test/testdata/e2e/tcp_proxy_multi_chain_dataflow/virtual-service-2.yaml",
+		}
+		fixture.ApplyManifests(manifests...)
+
+		By("waiting for TCP echo servers to be ready")
+		Eventually(func() bool {
+			cmd := exec.Command("kubectl", "get", "pods",
+				"-l", "app=tcp-echo-df-1", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
+			out1, err := utils.Run(cmd)
+			if err != nil || out1 != "true" {
+				return false
+			}
+			cmd = exec.Command("kubectl", "get", "pods",
+				"-l", "app=tcp-echo-df-2", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
+			out2, err := utils.Run(cmd)
+			if err != nil || out2 != "true" {
+				return false
+			}
+			return true
+		}, time.Minute).Should(BeTrue())
+
+		By("waiting for Envoy config to change")
+		fixture.WaitEnvoyConfigChanged()
+
+		By("verifying both listeners are configured in Envoy")
+		dump := string(fixture.ConfigDump)
+		Expect(dump).To(ContainSubstring("tcp-proxy-df-1"), "Listener tcp-proxy-df-1 should be present")
+		Expect(dump).To(ContainSubstring("tcp-proxy-df-2"), "Listener tcp-proxy-df-2 should be present")
+		Expect(dump).To(ContainSubstring("tcp-echo-df-cluster-1"), "Cluster tcp-echo-df-cluster-1 should be present")
+		Expect(dump).To(ContainSubstring("tcp-echo-df-cluster-2"), "Cluster tcp-echo-df-cluster-2 should be present")
+
+		By("getting Envoy pod IP for direct connection")
+		cmd := exec.Command("kubectl", "get", "pods", "-l", "app.kubernetes.io/name=envoy",
+			"-o", "jsonpath={.items[0].status.podIP}")
+		envoyIP, err := utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to get Envoy pod IP")
+		envoyIP = strings.TrimSpace(envoyIP)
+
+		By("testing data flow through first listener (port 7781) to backend-one")
+		podName1 := "tcp-df-test-client-1"
+		defer func() {
+			cmd := exec.Command("kubectl", "delete", "pod", podName1, "--ignore-not-found=true")
+			_, _ = utils.Run(cmd)
+		}()
+
+		// Send traffic through Envoy listener on port 7781 -> should reach backend-one
+		cmd = exec.Command("kubectl", "run", "--restart=Never", podName1,
+			"--image=busybox", "--", "sh", "-c", "echo test | nc "+envoyIP+" 7781")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to create TCP test client pod 1")
+
+		Eventually(func() string {
+			cmd := exec.Command("kubectl", "get", "pods", podName1, "-o", "jsonpath={.status.phase}")
+			out, err := utils.Run(cmd)
+			if err != nil {
+				return ""
+			}
+			return out
+		}, time.Minute).Should(Equal("Succeeded"))
+
+		cmd = exec.Command("kubectl", "logs", podName1)
+		out1, err := utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to get logs from TCP test client pod 1")
+		Expect(out1).To(ContainSubstring("backend-one"), "Traffic through port 7781 should reach backend-one")
+
+		By("testing data flow through second listener (port 7782) to backend-two")
+		podName2 := "tcp-df-test-client-2"
+		defer func() {
+			cmd := exec.Command("kubectl", "delete", "pod", podName2, "--ignore-not-found=true")
+			_, _ = utils.Run(cmd)
+		}()
+
+		// Send traffic through Envoy listener on port 7782 -> should reach backend-two
+		cmd = exec.Command("kubectl", "run", "--restart=Never", podName2,
+			"--image=busybox", "--", "sh", "-c", "echo test | nc "+envoyIP+" 7782")
+		_, err = utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to create TCP test client pod 2")
+
+		Eventually(func() string {
+			cmd := exec.Command("kubectl", "get", "pods", podName2, "-o", "jsonpath={.status.phase}")
+			out, err := utils.Run(cmd)
+			if err != nil {
+				return ""
+			}
+			return out
+		}, time.Minute).Should(Equal("Succeeded"))
+
+		cmd = exec.Command("kubectl", "logs", podName2)
+		out2, err := utils.Run(cmd)
+		Expect(err).NotTo(HaveOccurred(), "Failed to get logs from TCP test client pod 2")
+		Expect(out2).To(ContainSubstring("backend-two"), "Traffic through port 7782 should reach backend-two")
 	})
 }

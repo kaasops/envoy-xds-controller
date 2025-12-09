@@ -131,10 +131,6 @@ func buildResourcesFromExistingFilterChains(vs *v1alpha1.VirtualService, xdsList
 		return nil, err
 	}
 
-	if len(xdsListener.FilterChains) > 1 {
-		return nil, fmt.Errorf("multiple filter chains found")
-	}
-
 	// Extract clusters from filter chains
 	clusters, err := extractClustersFromFilterChains(xdsListener.FilterChains, store)
 	if err != nil {

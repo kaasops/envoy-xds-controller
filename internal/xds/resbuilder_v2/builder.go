@@ -286,10 +286,6 @@ func (rb *ResourceBuilder) buildResourcesFromExistingFilterChains(vs *v1alpha1.V
 		return nil, err
 	}
 
-	if len(xdsListener.FilterChains) > 1 {
-		return nil, fmt.Errorf("multiple filter chains found")
-	}
-
 	// Extract clusters from filter chains
 	clusters, err := clusters.ExtractClustersFromFilterChains(xdsListener.FilterChains, rb.store)
 	if err != nil {

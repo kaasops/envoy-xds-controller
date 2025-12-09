@@ -317,10 +317,6 @@ func (b *Builder) buildResourcesFromExistingFilterChains(
 		return nil, fmt.Errorf("filter chain conflicts: %w", err)
 	}
 
-	if len(xdsListener.FilterChains) > 1 {
-		return nil, fmt.Errorf("multiple filter chains found in listener %s", listenerNN.String())
-	}
-
 	// Extract clusters from filter chains
 	clusters, err := b.clusterExtractor.ExtractClustersFromFilterChains(xdsListener.FilterChains)
 	if err != nil {

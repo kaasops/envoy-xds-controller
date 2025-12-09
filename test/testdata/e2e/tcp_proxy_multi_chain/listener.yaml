@@ -1,0 +1,35 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Listener
+metadata:
+  name: tcp-proxy-multi-chain
+spec:
+  name: tcp-proxy-multi-chain
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 7778
+  listener_filters:
+    - name: envoy.filters.listener.tls_inspector
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+  filter_chains:
+    # Filter chain for server1
+    - filter_chain_match:
+        server_names:
+          - server1.test.local
+      filters:
+        - name: envoy.filters.network.tcp_proxy
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+            stat_prefix: tcp-echo-1
+            cluster: tcp-echo-cluster-1
+    # Filter chain for server2
+    - filter_chain_match:
+        server_names:
+          - server2.test.local
+      filters:
+        - name: envoy.filters.network.tcp_proxy
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+            stat_prefix: tcp-echo-2
+            cluster: tcp-echo-cluster-2
