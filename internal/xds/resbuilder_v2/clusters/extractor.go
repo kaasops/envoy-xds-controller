@@ -12,6 +12,9 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // ExtractClustersFromFilterChains extracts all cluster references from listener filter chains
@@ -200,10 +203,25 @@ func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, erro
 		return make([]string, 0), nil
 	}
 
+	// Convert protobuf Any to JSON using protojson
+	// This properly handles protobuf-encoded data in the Any message
+	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
+	if err != nil {
+		// If we can't unmarshal the message (e.g., unknown type), return empty list
+		// This is not an error - just means we can't extract clusters from this filter
+		return make([]string, 0), nil
+	}
+
+	// Marshal the protobuf message to JSON
+	jsonBytes, err := protojson.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal filter config to JSON: %w", err)
+	}
+
 	// Convert to generic data structure for searching
 	var data interface{}
-	if err := json.Unmarshal(typedConfig.Value, &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal filter config: %w", err)
+	if err := json.Unmarshal(jsonBytes, &data); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
 	// Search for common cluster field names

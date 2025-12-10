@@ -151,6 +151,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("Basic Functionality", basicEnvoyContext)
 		Context("Validation", validationEnvoyContext)
 		Context("TCP Proxy", tcpProxyEnvoyContext)
+		Context("Kafka Broker Filter", kafkaBrokerFilterEnvoyContext)
 		Context("Templates", templatesEnvoyContext)
 		Context("Tracing", tracingEnvoyContext)
 		Context("Status Propagation", statusPropagationContext)

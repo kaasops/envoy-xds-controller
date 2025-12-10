@@ -1,0 +1,21 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Listener
+metadata:
+  name: kafka-broker-listener
+spec:
+  name: kafka-broker-listener
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 19092
+  filter_chains:
+    - filters:
+        - name: envoy.filters.network.kafka_broker
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.kafka_broker.v3.KafkaBroker
+            stat_prefix: exampleprefix
+        - name: envoy.filters.network.tcp_proxy
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+            stat_prefix: tcp
+            cluster: localkafka

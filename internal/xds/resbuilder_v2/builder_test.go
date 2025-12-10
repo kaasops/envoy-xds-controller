@@ -322,6 +322,50 @@ func TestExtractClustersFromFilterChains(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Empty(t, result)
 	})
+
+	t.Run("Filter chain with kafka_broker before tcp_proxy", func(t *testing.T) {
+		// Kafka broker filter collects statistics (no cluster reference)
+		// TCP proxy filter provides cluster routing
+		// This test verifies that BOTH filters can coexist in the chain
+		// and cluster is correctly extracted from tcp_proxy
+		mockStore := store.New()
+		createClusterInStore(mockStore, "kafka-cluster")
+
+		// Kafka broker filter (first - for statistics, no cluster field)
+		kafkaBrokerConfig := &anypb.Any{
+			TypeUrl: "type.googleapis.com/envoy.extensions.filters.network.kafka_broker.v3.KafkaBroker",
+			Value:   []byte(`{"stat_prefix": "kafka"}`),
+		}
+
+		// TCP proxy filter (last - terminal, contains cluster reference)
+		tcpProxy := &tcpProxyv3.TcpProxy{
+			StatPrefix: "tcp",
+			ClusterSpecifier: &tcpProxyv3.TcpProxy_Cluster{
+				Cluster: "kafka-cluster",
+			},
+		}
+		tcpProxyConfig, err := anypb.New(tcpProxy)
+		require.NoError(t, err)
+
+		filterChains := []*listenerv3.FilterChain{{
+			Filters: []*listenerv3.Filter{
+				{
+					Name:       "envoy.filters.network.kafka_broker",
+					ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: kafkaBrokerConfig},
+				},
+				{
+					Name:       "envoy.filters.network.tcp_proxy",
+					ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: tcpProxyConfig},
+				},
+			},
+		}}
+
+		result, err := clusters.ExtractClustersFromFilterChains(filterChains, mockStore)
+
+		assert.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, "kafka-cluster", result[0].Name)
+	})
 }
 
 func TestGetWildcardDomain(t *testing.T) {
