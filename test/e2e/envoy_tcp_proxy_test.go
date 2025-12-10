@@ -40,7 +40,7 @@ func tcpProxyEnvoyContext() {
 				return ""
 			}
 			return out
-		}, time.Minute).Should(Equal("true"))
+		}, time.Minute).Should(Equal(trueStr))
 
 		By("waiting for Envoy config to change")
 		fixture.WaitEnvoyConfigChanged()
@@ -100,13 +100,13 @@ func tcpProxyEnvoyContext() {
 			cmd := exec.Command("kubectl", "get", "pods",
 				"-l", "app=tcp-echo-1", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
 			out1, err := utils.Run(cmd)
-			if err != nil || out1 != "true" {
+			if err != nil || out1 != trueStr {
 				return false
 			}
 			cmd = exec.Command("kubectl", "get", "pods",
 				"-l", "app=tcp-echo-2", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
 			out2, err := utils.Run(cmd)
-			if err != nil || out2 != "true" {
+			if err != nil || out2 != trueStr {
 				return false
 			}
 			return true
@@ -150,13 +150,13 @@ func tcpProxyEnvoyContext() {
 			cmd := exec.Command("kubectl", "get", "pods",
 				"-l", "app=tcp-echo-df-1", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
 			out1, err := utils.Run(cmd)
-			if err != nil || out1 != "true" {
+			if err != nil || out1 != trueStr {
 				return false
 			}
 			cmd = exec.Command("kubectl", "get", "pods",
 				"-l", "app=tcp-echo-df-2", "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
 			out2, err := utils.Run(cmd)
-			if err != nil || out2 != "true" {
+			if err != nil || out2 != trueStr {
 				return false
 			}
 			return true
@@ -251,7 +251,7 @@ func tcpProxyEnvoyContext() {
 				cmd := exec.Command("kubectl", "get", "pods",
 					"-l", "app="+label, "-o", "jsonpath={.items[*].status.containerStatuses[0].ready}")
 				out, err := utils.Run(cmd)
-				if err != nil || out != "true" {
+				if err != nil || out != trueStr {
 					return false
 				}
 			}
