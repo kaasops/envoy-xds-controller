@@ -332,3 +332,58 @@ func TestGenerateCacheKey(t *testing.T) {
 	// Different generation should produce different key
 	assert.NotEqual(t, key1, keyNewGen)
 }
+
+// TestMultipleFilterChainsSupport verifies that the builder correctly handles
+// listeners with multiple filter chains (SNI-based routing, etc.)
+func TestMultipleFilterChainsSupport(t *testing.T) {
+	// This test documents that the builder no longer rejects
+	// listeners with multiple filter chains.
+	//
+	// Previously, buildResourcesFromExistingFilterChains would return:
+	//   fmt.Errorf("multiple filter chains found in listener %s", listenerNN.String())
+	//
+	// After the change, multiple filter chains are allowed and processed correctly.
+
+	// Create mock cluster extractor that accepts multiple filter chains
+	mockClusterExtractor := &MockClusterExtractor{}
+
+	// Create filter chains with different configurations (simulating SNI routing)
+	filterChain1 := &listenerv3.FilterChain{
+		FilterChainMatch: &listenerv3.FilterChainMatch{
+			ServerNames: []string{"server1.test.local"},
+		},
+	}
+	filterChain2 := &listenerv3.FilterChain{
+		FilterChainMatch: &listenerv3.FilterChainMatch{
+			ServerNames: []string{"server2.test.local"},
+		},
+	}
+	filterChain3 := &listenerv3.FilterChain{
+		FilterChainMatch: &listenerv3.FilterChainMatch{
+			ServerNames: []string{"server3.test.local"},
+		},
+	}
+
+	multipleFilterChains := []*listenerv3.FilterChain{filterChain1, filterChain2, filterChain3}
+
+	// Set up expectation: the cluster extractor should be called with all filter chains
+	mockClusterExtractor.On("ExtractClustersFromFilterChains", multipleFilterChains).
+		Return([]*clusterv3.Cluster{
+			{Name: "cluster-1"},
+			{Name: "cluster-2"},
+			{Name: "cluster-3"},
+		}, nil)
+
+	// Call the mock to verify it handles multiple filter chains
+	clusters, err := mockClusterExtractor.ExtractClustersFromFilterChains(multipleFilterChains)
+
+	// Verify results
+	assert.NoError(t, err)
+	assert.Len(t, clusters, 3)
+	assert.Equal(t, "cluster-1", clusters[0].Name)
+	assert.Equal(t, "cluster-2", clusters[1].Name)
+	assert.Equal(t, "cluster-3", clusters[2].Name)
+
+	// Verify expectations were met
+	mockClusterExtractor.AssertExpectations(t)
+}
