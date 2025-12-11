@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/klog/v2"
 )
 
 // ExtractClustersFromFilterChains extracts all cluster references from listener filter chains
@@ -175,8 +176,12 @@ func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, erro
 	// This properly handles protobuf-encoded data in the Any message
 	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
 	if err != nil {
-		// If we can't unmarshal the message (e.g., unknown type), return empty list
-		// This is not an error - just means we can't extract clusters from this filter
+		// If we can't unmarshal the message (e.g., unknown type), skip cluster extraction.
+		// This is expected for filters not registered in go-control-plane.
+		klog.V(4).InfoS("cannot unmarshal filter config, skipping cluster extraction",
+			"filter", filter.Name,
+			"typeUrl", typedConfig.TypeUrl,
+			"error", err.Error())
 		return nil, nil
 	}
 
@@ -218,6 +223,10 @@ func extractClustersFromHTTPFilter(httpFilter *hcmv3.HttpFilter) []string {
 	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
 	if err != nil {
 		// Unknown filter type - skip cluster extraction
+		klog.V(4).InfoS("cannot unmarshal HTTP filter config, skipping cluster extraction",
+			"filter", httpFilter.Name,
+			"typeUrl", typedConfig.TypeUrl,
+			"error", err.Error())
 		return nil
 	}
 
@@ -254,6 +263,10 @@ func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, e
 	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
 	if err != nil {
 		// Unknown access log type - skip cluster extraction
+		klog.V(4).InfoS("cannot unmarshal access log config, skipping cluster extraction",
+			"accessLog", accessLog.Name,
+			"typeUrl", typedConfig.TypeUrl,
+			"error", err.Error())
 		return nil, nil
 	}
 
