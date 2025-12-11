@@ -366,6 +366,153 @@ func TestExtractClustersFromFilterChains(t *testing.T) {
 		assert.Len(t, result, 1)
 		assert.Equal(t, "kafka-cluster", result[0].Name)
 	})
+
+	t.Run("Filter chain with empty filters list", func(t *testing.T) {
+		mockStore := store.New()
+
+		filterChains := []*listenerv3.FilterChain{{
+			Filters: []*listenerv3.Filter{}, // empty filters list
+		}}
+
+		result, err := clusters.ExtractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
+	t.Run("Filter with nil ConfigType", func(t *testing.T) {
+		mockStore := store.New()
+
+		filterChains := []*listenerv3.FilterChain{{
+			Filters: []*listenerv3.Filter{
+				{
+					Name:       "envoy.filters.network.tcp_proxy",
+					ConfigType: nil, // nil ConfigType
+				},
+			},
+		}}
+
+		result, err := clusters.ExtractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		assert.Empty(t, result)
+	})
+
+	t.Run("TCP proxy with weighted clusters", func(t *testing.T) {
+		mockStore := store.New()
+		createClusterInStore(mockStore, "cluster-a")
+		createClusterInStore(mockStore, "cluster-b")
+
+		tcpProxy := &tcpProxyv3.TcpProxy{
+			StatPrefix: "weighted",
+			ClusterSpecifier: &tcpProxyv3.TcpProxy_WeightedClusters{
+				WeightedClusters: &tcpProxyv3.TcpProxy_WeightedCluster{
+					Clusters: []*tcpProxyv3.TcpProxy_WeightedCluster_ClusterWeight{
+						{Name: "cluster-a", Weight: 80},
+						{Name: "cluster-b", Weight: 20},
+					},
+				},
+			},
+		}
+		tcpProxyConfig, err := anypb.New(tcpProxy)
+		require.NoError(t, err)
+
+		filterChains := []*listenerv3.FilterChain{{
+			Filters: []*listenerv3.Filter{
+				{
+					Name:       "envoy.filters.network.tcp_proxy",
+					ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: tcpProxyConfig},
+				},
+			},
+		}}
+
+		result, err := clusters.ExtractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		assert.Len(t, result, 2)
+
+		clusterNames := make([]string, len(result))
+		for i, c := range result {
+			clusterNames[i] = c.Name
+		}
+		assert.Contains(t, clusterNames, "cluster-a")
+		assert.Contains(t, clusterNames, "cluster-b")
+	})
+
+	t.Run("Duplicate cluster references are deduplicated", func(t *testing.T) {
+		mockStore := store.New()
+		createClusterInStore(mockStore, "shared-cluster")
+
+		tcpProxy := &tcpProxyv3.TcpProxy{
+			StatPrefix: "test",
+			ClusterSpecifier: &tcpProxyv3.TcpProxy_Cluster{
+				Cluster: "shared-cluster",
+			},
+		}
+		tcpProxyConfig, err := anypb.New(tcpProxy)
+		require.NoError(t, err)
+
+		// Two filter chains referencing the same cluster
+		filterChains := []*listenerv3.FilterChain{
+			{
+				FilterChainMatch: &listenerv3.FilterChainMatch{
+					ServerNames: []string{"server1.test.local"},
+				},
+				Filters: []*listenerv3.Filter{
+					{
+						Name:       "envoy.filters.network.tcp_proxy",
+						ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: tcpProxyConfig},
+					},
+				},
+			},
+			{
+				FilterChainMatch: &listenerv3.FilterChainMatch{
+					ServerNames: []string{"server2.test.local"},
+				},
+				Filters: []*listenerv3.Filter{
+					{
+						Name:       "envoy.filters.network.tcp_proxy",
+						ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: tcpProxyConfig},
+					},
+				},
+			},
+		}
+
+		result, err := clusters.ExtractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		// Should return only one cluster despite being referenced twice
+		assert.Len(t, result, 1)
+		assert.Equal(t, "shared-cluster", result[0].Name)
+	})
+
+	t.Run("Filter chain with default match (no FilterChainMatch)", func(t *testing.T) {
+		mockStore := store.New()
+		createClusterInStore(mockStore, "default-cluster")
+
+		tcpProxy := &tcpProxyv3.TcpProxy{
+			StatPrefix: "default",
+			ClusterSpecifier: &tcpProxyv3.TcpProxy_Cluster{
+				Cluster: "default-cluster",
+			},
+		}
+		tcpProxyConfig, err := anypb.New(tcpProxy)
+		require.NoError(t, err)
+
+		// Filter chain without FilterChainMatch (default/fallback chain)
+		filterChains := []*listenerv3.FilterChain{
+			{
+				// No FilterChainMatch - this is the default chain
+				Filters: []*listenerv3.Filter{
+					{
+						Name:       "envoy.filters.network.tcp_proxy",
+						ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: tcpProxyConfig},
+					},
+				},
+			},
+		}
+
+		result, err := clusters.ExtractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		assert.Len(t, result, 1)
+		assert.Equal(t, "default-cluster", result[0].Name)
+	})
 }
 
 func TestGetWildcardDomain(t *testing.T) {

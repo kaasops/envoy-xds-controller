@@ -69,61 +69,38 @@ func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, sto
 	return result, nil
 }
 
-// extractClustersFromFilter extracts cluster names from a specific listener filter
+// extractClustersFromFilter extracts cluster names from a specific listener filter.
+// Note: The returned slice is safe to use directly - no copy needed here since
+// the final copy is made in ExtractClustersFromFilterChains before returning to caller.
 func extractClustersFromFilter(filter *listenerv3.Filter) ([]string, error) {
-	// Use pooled string slice for results
-	namesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(namesPtr)
-	// We're not using the pooled slice directly in this function,
-	// but we still need to acquire and release it properly
-
-	var err error
-	var extractedNames []string
-
 	switch filter.Name {
 	case wellknown.HTTPConnectionManager:
-		extractedNames, err = extractClustersFromHCMFilter(filter)
-		if err != nil {
-			return nil, err
-		}
+		return extractClustersFromHCMFilter(filter)
 
 	case wellknown.TCPProxy:
-		extractedNames, err = extractClustersFromTCPProxyFilter(filter)
-		if err != nil {
-			return nil, err
-		}
+		return extractClustersFromTCPProxyFilter(filter)
 
 	default:
 		// For other filter types, try generic JSON-based extraction as fallback
-		extractedNames, err = extractClustersFromGenericFilter(filter)
-		if err != nil {
-			return nil, err
-		}
+		return extractClustersFromGenericFilter(filter)
 	}
-
-	// Create a new slice to return to the caller
-	result := make([]string, len(extractedNames))
-	copy(result, extractedNames)
-
-	return result, nil
 }
 
-// extractClustersFromHCMFilter extracts cluster names from HTTP Connection Manager filter
+// extractClustersFromHCMFilter extracts cluster names from HTTP Connection Manager filter.
+// Note: Returns slice directly without copying - caller handles final copy.
 func extractClustersFromHCMFilter(filter *listenerv3.Filter) ([]string, error) {
-	// Use pooled string slice for results
-	namesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(namesPtr)
-	names := *namesPtr
-
 	typedConfig := filter.GetTypedConfig()
 	if typedConfig == nil {
-		return make([]string, 0), nil
+		return nil, nil
 	}
 
 	var hcm hcmv3.HttpConnectionManager
 	if err := typedConfig.UnmarshalTo(&hcm); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal HCM config: %w", err)
 	}
+
+	// Pre-allocate with estimated capacity
+	names := make([]string, 0, len(hcm.HttpFilters)+len(hcm.AccessLog)+2)
 
 	// Extract clusters from HTTP filters (OAuth2, etc.)
 	for _, httpFilter := range hcm.HttpFilters {
@@ -149,23 +126,15 @@ func extractClustersFromHCMFilter(filter *listenerv3.Filter) ([]string, error) {
 		names = append(names, tracingNames...)
 	}
 
-	// Create a new slice to return to the caller
-	result := make([]string, len(names))
-	copy(result, names)
-
-	return result, nil
+	return names, nil
 }
 
-// extractClustersFromTCPProxyFilter extracts cluster names from TCP Proxy filter
+// extractClustersFromTCPProxyFilter extracts cluster names from TCP Proxy filter.
+// Note: Returns slice directly without copying - caller handles final copy.
 func extractClustersFromTCPProxyFilter(filter *listenerv3.Filter) ([]string, error) {
-	// Use pooled string slice for results
-	namesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(namesPtr)
-	names := *namesPtr
-
 	typedConfig := filter.GetTypedConfig()
 	if typedConfig == nil {
-		return make([]string, 0), nil
+		return nil, nil
 	}
 
 	var tcpProxy tcpProxyv3.TcpProxy
@@ -177,30 +146,29 @@ func extractClustersFromTCPProxyFilter(filter *listenerv3.Filter) ([]string, err
 	switch clusterSpec := tcpProxy.ClusterSpecifier.(type) {
 	case *tcpProxyv3.TcpProxy_Cluster:
 		if clusterSpec.Cluster != "" {
-			names = append(names, clusterSpec.Cluster)
+			return []string{clusterSpec.Cluster}, nil
 		}
 	case *tcpProxyv3.TcpProxy_WeightedClusters:
 		if clusterSpec.WeightedClusters != nil {
+			names := make([]string, 0, len(clusterSpec.WeightedClusters.Clusters))
 			for _, wc := range clusterSpec.WeightedClusters.Clusters {
 				if wc.Name != "" {
 					names = append(names, wc.Name)
 				}
 			}
+			return names, nil
 		}
 	}
 
-	// Create a new slice to return to the caller
-	result := make([]string, len(names))
-	copy(result, names)
-
-	return result, nil
+	return nil, nil
 }
 
-// extractClustersFromGenericFilter provides fallback JSON-based extraction for unknown filter types
+// extractClustersFromGenericFilter provides fallback JSON-based extraction for unknown filter types.
+// Note: Returns slice directly without copying - caller handles final copy.
 func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, error) {
 	typedConfig := filter.GetTypedConfig()
 	if typedConfig == nil {
-		return make([]string, 0), nil
+		return nil, nil
 	}
 
 	// Convert protobuf Any to JSON using protojson
@@ -209,7 +177,7 @@ func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, erro
 	if err != nil {
 		// If we can't unmarshal the message (e.g., unknown type), return empty list
 		// This is not an error - just means we can't extract clusters from this filter
-		return make([]string, 0), nil
+		return nil, nil
 	}
 
 	// Marshal the protobuf message to JSON
@@ -225,101 +193,96 @@ func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, erro
 	}
 
 	// Search for common cluster field names
-	// Use pooled string slice for collecting names
-	allNamesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(allNamesPtr)
-	allNames := *allNamesPtr
-
 	commonClusterFields := []string{"cluster", "cluster_name", "collector_cluster"}
+	allNames := make([]string, 0, 4)
 
 	for _, fieldName := range commonClusterFields {
 		fieldNames := utils.FindClusterNames(data, fieldName)
 		allNames = append(allNames, fieldNames...)
 	}
 
-	// Remove duplicates and create a new slice to return
-	uniqueNames := removeDuplicateStrings(allNames)
-
-	// Create a new slice to return to the caller
-	result := make([]string, len(uniqueNames))
-	copy(result, uniqueNames)
-
-	return result, nil
+	// Remove duplicates - this creates a new slice
+	return removeDuplicateStrings(allNames), nil
 }
 
-// extractClustersFromHTTPFilter extracts cluster names from HTTP filters (OAuth2, etc.)
+// extractClustersFromHTTPFilter extracts cluster names from HTTP filters (OAuth2, etc.).
+// Note: Returns slice directly without copying - caller handles final copy.
 func extractClustersFromHTTPFilter(httpFilter *hcmv3.HttpFilter) []string {
-	// Use pooled string slice for results
-	namesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(namesPtr)
-	names := *namesPtr
-
 	typedConfig := httpFilter.GetTypedConfig()
 	if typedConfig == nil {
-		return make([]string, 0)
+		return nil
 	}
 
-	// Convert to generic data structure for searching
+	// typedConfig is *anypb.Any containing serialized protobuf, not JSON
+	// We need to unmarshal it properly using protojson
+	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
+	if err != nil {
+		// Unknown filter type - skip cluster extraction
+		return nil
+	}
+
+	jsonBytes, err := protojson.Marshal(msg)
+	if err != nil {
+		return nil
+	}
+
 	var data interface{}
-	if err := json.Unmarshal(typedConfig.Value, &data); err != nil {
-		return make([]string, 0)
+	if err := json.Unmarshal(jsonBytes, &data); err != nil {
+		return nil
 	}
 
 	// Search for cluster references in various formats
 	clusterFields := []string{"cluster", "cluster_name", "token_cluster", "authorization_cluster"}
+	names := make([]string, 0, 4)
 	for _, field := range clusterFields {
 		fieldNames := utils.FindClusterNames(data, field)
 		names = append(names, fieldNames...)
 	}
 
-	// Create a new slice to return to the caller
-	result := make([]string, len(names))
-	copy(result, names)
-
-	return result
+	return names
 }
 
-// extractClustersFromAccessLog extracts cluster names from access log configurations
+// extractClustersFromAccessLog extracts cluster names from access log configurations.
+// Note: Returns slice directly without copying - caller handles final copy.
 func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, error) {
-	// Use pooled string slice for results
-	namesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(namesPtr)
-	names := *namesPtr
-
 	typedConfig := accessLog.GetTypedConfig()
 	if typedConfig == nil {
-		return make([]string, 0), nil
+		return nil, nil
 	}
 
-	// Convert to generic data structure for searching
+	// typedConfig is *anypb.Any containing serialized protobuf, not JSON
+	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
+	if err != nil {
+		// Unknown access log type - skip cluster extraction
+		return nil, nil
+	}
+
+	jsonBytes, err := protojson.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal access log config to JSON: %w", err)
+	}
+
 	var data interface{}
-	if err := json.Unmarshal(typedConfig.Value, &data); err != nil {
+	if err := json.Unmarshal(jsonBytes, &data); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal access log config: %w", err)
 	}
 
 	// Search for cluster references (e.g., in HTTP grpc access log service)
 	clusterFields := []string{"cluster_name", "cluster"}
+	names := make([]string, 0, 2)
 	for _, field := range clusterFields {
 		fieldNames := utils.FindClusterNames(data, field)
 		names = append(names, fieldNames...)
 	}
 
-	// Create a new slice to return to the caller
-	result := make([]string, len(names))
-	copy(result, names)
-
-	return result, nil
+	return names, nil
 }
 
-// extractClustersFromTracing extracts cluster names from tracing configuration
+// extractClustersFromTracing extracts cluster names from tracing configuration.
+// Note: Returns slice directly without copying - caller handles final copy.
 func extractClustersFromTracing(tracing *hcmv3.HttpConnectionManager_Tracing) ([]string, error) {
-	// Use pooled string slice for results
-	namesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(namesPtr)
-	names := *namesPtr
-
-	// Convert tracing config to generic data for searching
-	jsonData, err := json.Marshal(tracing)
+	// Use protojson for protobuf messages to ensure correct field names
+	jsonData, err := protojson.Marshal(tracing)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal tracing config: %w", err)
 	}
@@ -331,16 +294,13 @@ func extractClustersFromTracing(tracing *hcmv3.HttpConnectionManager_Tracing) ([
 
 	// Search for cluster references in tracing providers
 	clusterFields := []string{"cluster_name", "collector_cluster"}
+	names := make([]string, 0, 2)
 	for _, field := range clusterFields {
 		fieldNames := utils.FindClusterNames(data, field)
 		names = append(names, fieldNames...)
 	}
 
-	// Create a new slice to return to the caller
-	result := make([]string, len(names))
-	copy(result, names)
-
-	return result, nil
+	return names, nil
 }
 
 // removeDuplicateStrings removes duplicate entries from a string slice
