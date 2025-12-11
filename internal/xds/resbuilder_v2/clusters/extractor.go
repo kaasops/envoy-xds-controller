@@ -185,8 +185,9 @@ func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, erro
 		return nil, nil
 	}
 
-	// Marshal the protobuf message to JSON
-	jsonBytes, err := protojson.Marshal(msg)
+	// Marshal the protobuf message to JSON using proto field names (snake_case)
+	// to ensure consistent field name matching in FindClusterNames
+	jsonBytes, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal filter config to JSON: %w", err)
 	}
@@ -230,17 +231,24 @@ func extractClustersFromHTTPFilter(httpFilter *hcmv3.HttpFilter) []string {
 		return nil
 	}
 
-	jsonBytes, err := protojson.Marshal(msg)
+	// Use proto field names (snake_case) to ensure consistent field name matching
+	jsonBytes, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
+		klog.V(4).InfoS("failed to marshal HTTP filter config to JSON, skipping cluster extraction",
+			"filter", httpFilter.Name,
+			"error", err.Error())
 		return nil
 	}
 
 	var data interface{}
 	if err := json.Unmarshal(jsonBytes, &data); err != nil {
+		klog.V(4).InfoS("failed to unmarshal HTTP filter JSON, skipping cluster extraction",
+			"filter", httpFilter.Name,
+			"error", err.Error())
 		return nil
 	}
 
-	// Search for cluster references in various formats
+	// Search for cluster references in various formats (using snake_case proto names)
 	clusterFields := []string{"cluster", "cluster_name", "token_cluster", "authorization_cluster"}
 	names := make([]string, 0, 4)
 	for _, field := range clusterFields {
@@ -270,7 +278,8 @@ func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, e
 		return nil, nil
 	}
 
-	jsonBytes, err := protojson.Marshal(msg)
+	// Use proto field names (snake_case) to ensure consistent field name matching
+	jsonBytes, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(msg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal access log config to JSON: %w", err)
 	}
@@ -280,7 +289,7 @@ func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, e
 		return nil, fmt.Errorf("failed to unmarshal access log config: %w", err)
 	}
 
-	// Search for cluster references (e.g., in HTTP grpc access log service)
+	// Search for cluster references (e.g., in HTTP grpc access log service, using snake_case proto names)
 	clusterFields := []string{"cluster_name", "cluster"}
 	names := make([]string, 0, 2)
 	for _, field := range clusterFields {
@@ -294,8 +303,8 @@ func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, e
 // extractClustersFromTracing extracts cluster names from tracing configuration.
 // Note: Returns slice directly without copying - caller handles final copy.
 func extractClustersFromTracing(tracing *hcmv3.HttpConnectionManager_Tracing) ([]string, error) {
-	// Use protojson for protobuf messages to ensure correct field names
-	jsonData, err := protojson.Marshal(tracing)
+	// Use protojson with proto field names (snake_case) to ensure consistent field name matching
+	jsonData, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(tracing)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal tracing config: %w", err)
 	}
@@ -305,7 +314,7 @@ func extractClustersFromTracing(tracing *hcmv3.HttpConnectionManager_Tracing) ([
 		return nil, fmt.Errorf("failed to unmarshal tracing config: %w", err)
 	}
 
-	// Search for cluster references in tracing providers
+	// Search for cluster references in tracing providers (using snake_case proto names)
 	clusterFields := []string{"cluster_name", "collector_cluster"}
 	names := make([]string, 0, 2)
 	for _, field := range clusterFields {

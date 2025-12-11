@@ -99,9 +99,23 @@ func ExtractClusterNamesFromRoute(route *routev3.Route) []string {
 	return names
 }
 
+// maxRecursionDepth limits the recursion depth for FindClusterNames
+// to prevent stack overflow on deeply nested or malformed configurations
+const maxRecursionDepth = 50
+
 // FindClusterNames recursively searches for cluster names in configuration data
 // This is a utility function for JSON-based cluster extraction
 func FindClusterNames(data interface{}, clusterField string) []string {
+	return findClusterNamesWithDepth(data, clusterField, 0)
+}
+
+// findClusterNamesWithDepth is the internal recursive implementation with depth tracking
+func findClusterNamesWithDepth(data interface{}, clusterField string, depth int) []string {
+	// Prevent stack overflow on deeply nested structures
+	if depth >= maxRecursionDepth {
+		return nil
+	}
+
 	var names []string
 
 	switch v := data.(type) {
@@ -112,12 +126,12 @@ func FindClusterNames(data interface{}, clusterField string) []string {
 					names = append(names, str)
 				}
 			} else {
-				names = append(names, FindClusterNames(value, clusterField)...)
+				names = append(names, findClusterNamesWithDepth(value, clusterField, depth+1)...)
 			}
 		}
 	case []interface{}:
 		for _, item := range v {
-			names = append(names, FindClusterNames(item, clusterField)...)
+			names = append(names, findClusterNamesWithDepth(item, clusterField, depth+1)...)
 		}
 	}
 
