@@ -333,3 +333,233 @@ func TestRemoveDuplicateStrings(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveDuplicateResults(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []clusterExtractionResult
+		expected []clusterExtractionResult
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name:     "empty input",
+			input:    []clusterExtractionResult{},
+			expected: nil,
+		},
+		{
+			name: "no duplicates",
+			input: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+				{name: "b", isRequired: false},
+			},
+			expected: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+				{name: "b", isRequired: false},
+			},
+		},
+		{
+			name: "duplicate with same isRequired",
+			input: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+				{name: "a", isRequired: true},
+			},
+			expected: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+			},
+		},
+		{
+			name: "duplicate upgrades to required",
+			input: []clusterExtractionResult{
+				{name: "a", isRequired: false},
+				{name: "a", isRequired: true},
+			},
+			expected: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+			},
+		},
+		{
+			name: "required first, optional second stays required",
+			input: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+				{name: "a", isRequired: false},
+			},
+			expected: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+			},
+		},
+		{
+			name: "empty name filtered",
+			input: []clusterExtractionResult{
+				{name: "", isRequired: true},
+				{name: "a", isRequired: true},
+			},
+			expected: []clusterExtractionResult{
+				{name: "a", isRequired: true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := removeDuplicateResults(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractClustersFromFilterChains_GenericFilterFalsePositive(t *testing.T) {
+	// Test that generic filter extraction handles false positives gracefully
+	// A filter with a "cluster" field that doesn't reference an actual Envoy cluster
+	// should not cause an error
+	mockStore := store.New()
+	createClusterInStore(mockStore, "real-cluster")
+
+	// Create a TCP proxy filter with a real cluster (required)
+	tcpProxy := &tcpProxyv3.TcpProxy{
+		StatPrefix: "tcp",
+		ClusterSpecifier: &tcpProxyv3.TcpProxy_Cluster{
+			Cluster: "real-cluster",
+		},
+	}
+	tcpProxyConfig, err := anypb.New(tcpProxy)
+	require.NoError(t, err)
+
+	// Create a generic filter with unknown type (will be extracted as optional)
+	// The filter has a "cluster" field that is NOT an Envoy cluster
+	unknownFilterConfig := &anypb.Any{
+		TypeUrl: "type.googleapis.com/some.unknown.Filter",
+		Value:   []byte{}, // Empty config - can't be unmarshaled
+	}
+
+	filterChains := []*listenerv3.FilterChain{{
+		Filters: []*listenerv3.Filter{
+			{
+				Name:       "some.unknown.filter",
+				ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: unknownFilterConfig},
+			},
+			{
+				Name:       "envoy.filters.network.tcp_proxy",
+				ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: tcpProxyConfig},
+			},
+		},
+	}}
+
+	// Should succeed - the unknown filter should be skipped gracefully
+	result, err := ExtractClustersFromFilterChains(filterChains, mockStore)
+	assert.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "real-cluster", result[0].Name)
+}
+
+func TestExtractClustersFromFilterChains_OnlyGenericFilterMissingCluster(t *testing.T) {
+	// Test that when ONLY generic filter extraction finds clusters
+	// and they don't exist in store, it's treated as optional and skipped
+	mockStore := store.New()
+	// Don't add any clusters to store
+
+	// Create an unknown filter that can't be unmarshaled
+	unknownFilterConfig := &anypb.Any{
+		TypeUrl: "type.googleapis.com/some.unknown.Filter",
+		Value:   []byte{}, // Empty config
+	}
+
+	filterChains := []*listenerv3.FilterChain{{
+		Filters: []*listenerv3.Filter{
+			{
+				Name:       "some.unknown.filter",
+				ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: unknownFilterConfig},
+			},
+		},
+	}}
+
+	// Should succeed with empty result - unknown filter is skipped
+	result, err := ExtractClustersFromFilterChains(filterChains, mockStore)
+	assert.NoError(t, err)
+	assert.Empty(t, result)
+}
+
+func TestToRequiredResults(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []clusterExtractionResult
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name:     "empty input",
+			input:    []string{},
+			expected: nil,
+		},
+		{
+			name:  "single element",
+			input: []string{"cluster-a"},
+			expected: []clusterExtractionResult{
+				{name: "cluster-a", isRequired: true},
+			},
+		},
+		{
+			name:  "multiple elements",
+			input: []string{"cluster-a", "cluster-b"},
+			expected: []clusterExtractionResult{
+				{name: "cluster-a", isRequired: true},
+				{name: "cluster-b", isRequired: true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toRequiredResults(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestToOptionalResults(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []string
+		expected []clusterExtractionResult
+	}{
+		{
+			name:     "nil input",
+			input:    nil,
+			expected: nil,
+		},
+		{
+			name:     "empty input",
+			input:    []string{},
+			expected: nil,
+		},
+		{
+			name:  "single element",
+			input: []string{"cluster-a"},
+			expected: []clusterExtractionResult{
+				{name: "cluster-a", isRequired: false},
+			},
+		},
+		{
+			name:  "multiple elements",
+			input: []string{"cluster-a", "cluster-b"},
+			expected: []clusterExtractionResult{
+				{name: "cluster-a", isRequired: false},
+				{name: "cluster-b", isRequired: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := toOptionalResults(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

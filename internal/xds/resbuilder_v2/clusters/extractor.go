@@ -18,31 +18,35 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// clusterExtractionResult holds results from cluster name extraction with source information
+type clusterExtractionResult struct {
+	name       string
+	isRequired bool // true for known filter types (TCP Proxy, HCM), false for generic extraction
+}
+
 // ExtractClustersFromFilterChains extracts all cluster references from listener filter chains
 // This function provides optimized cluster extraction from existing listener configurations
 func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store store.Store) ([]*cluster.Cluster, error) {
-	// Use pooled string slice for cluster names
-	namesPtr := utils.GetStringSlice()
-	defer utils.PutStringSlice(namesPtr)
-	names := *namesPtr
+	// Use pooled slice for cluster extraction results
+	results := make([]clusterExtractionResult, 0, 8)
 
 	// Extract cluster names from all filter chains
 	for _, filterChain := range filterChains {
 		for _, filter := range filterChain.Filters {
-			filterNames, err := extractClustersFromFilter(filter)
+			filterResults, err := extractClustersFromFilter(filter)
 			if err != nil {
 				return nil, fmt.Errorf("failed to extract clusters from filter %s: %w", filter.Name, err)
 			}
-			names = append(names, filterNames...)
+			results = append(results, filterResults...)
 		}
 	}
 
-	if len(names) == 0 {
+	if len(results) == 0 {
 		return nil, nil
 	}
 
-	// Remove duplicates
-	uniqueNames := removeDuplicateStrings(names)
+	// Remove duplicates while preserving isRequired flag (required takes precedence)
+	uniqueResults := removeDuplicateResults(results)
 
 	// Use pooled cluster slice for results
 	clustersPtr := utils.GetClusterSlice()
@@ -50,41 +54,121 @@ func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, sto
 	clusters := *clustersPtr
 
 	// Resolve clusters from store
-	for _, clusterName := range uniqueNames {
-		cl := store.GetSpecCluster(clusterName)
+	for _, result := range uniqueResults {
+		cl := store.GetSpecCluster(result.name)
 		if cl == nil {
-			return nil, fmt.Errorf("cluster %s not found", clusterName)
+			if result.isRequired {
+				return nil, fmt.Errorf("cluster %s not found", result.name)
+			}
+			// For optional clusters (from generic extraction), skip with warning
+			// This handles false positives where a field named "cluster" doesn't
+			// actually reference an Envoy cluster
+			klog.V(2).InfoS("cluster from generic extraction not found in store, skipping",
+				"cluster", result.name)
+			continue
 		}
 		xdsCluster, err := cl.UnmarshalV3AndValidate()
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
+			return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", result.name, err)
 		}
 		clusters = append(clusters, xdsCluster)
 	}
 
 	// Create a new slice to return to the caller
 	// We can't return the pooled slice directly as it would be reused
-	result := make([]*cluster.Cluster, len(clusters))
-	copy(result, clusters)
+	resultSlice := make([]*cluster.Cluster, len(clusters))
+	copy(resultSlice, clusters)
 
-	return result, nil
+	return resultSlice, nil
+}
+
+// removeDuplicateResults removes duplicate cluster names while preserving isRequired flag
+// If a cluster appears both as required and optional, required takes precedence
+func removeDuplicateResults(results []clusterExtractionResult) []clusterExtractionResult {
+	if len(results) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]bool, len(results)) // value: isRequired
+	uniqueResults := make([]clusterExtractionResult, 0, len(results))
+
+	for _, r := range results {
+		if r.name == "" {
+			continue
+		}
+		if isRequired, exists := seen[r.name]; exists {
+			// If current is required, update the existing entry
+			if r.isRequired && !isRequired {
+				seen[r.name] = true
+				// Update in-place in uniqueResults
+				for i := range uniqueResults {
+					if uniqueResults[i].name == r.name {
+						uniqueResults[i].isRequired = true
+						break
+					}
+				}
+			}
+		} else {
+			seen[r.name] = r.isRequired
+			uniqueResults = append(uniqueResults, r)
+		}
+	}
+
+	return uniqueResults
 }
 
 // extractClustersFromFilter extracts cluster names from a specific listener filter.
-// Note: The returned slice is safe to use directly - no copy needed here since
-// the final copy is made in ExtractClustersFromFilterChains before returning to caller.
-func extractClustersFromFilter(filter *listenerv3.Filter) ([]string, error) {
+// Returns clusterExtractionResult with isRequired=true for known filter types (TCP Proxy, HCM)
+// and isRequired=false for generic extraction (unknown filter types).
+func extractClustersFromFilter(filter *listenerv3.Filter) ([]clusterExtractionResult, error) {
 	switch filter.Name {
 	case wellknown.HTTPConnectionManager:
-		return extractClustersFromHCMFilter(filter)
+		names, err := extractClustersFromHCMFilter(filter)
+		if err != nil {
+			return nil, err
+		}
+		return toRequiredResults(names), nil
 
 	case wellknown.TCPProxy:
-		return extractClustersFromTCPProxyFilter(filter)
+		names, err := extractClustersFromTCPProxyFilter(filter)
+		if err != nil {
+			return nil, err
+		}
+		return toRequiredResults(names), nil
 
 	default:
 		// For other filter types, try generic JSON-based extraction as fallback
-		return extractClustersFromGenericFilter(filter)
+		// Results are marked as optional (isRequired=false) to handle false positives
+		names, err := extractClustersFromGenericFilter(filter)
+		if err != nil {
+			return nil, err
+		}
+		return toOptionalResults(names), nil
 	}
+}
+
+// toRequiredResults converts string slice to clusterExtractionResult with isRequired=true
+func toRequiredResults(names []string) []clusterExtractionResult {
+	if len(names) == 0 {
+		return nil
+	}
+	results := make([]clusterExtractionResult, len(names))
+	for i, name := range names {
+		results[i] = clusterExtractionResult{name: name, isRequired: true}
+	}
+	return results
+}
+
+// toOptionalResults converts string slice to clusterExtractionResult with isRequired=false
+func toOptionalResults(names []string) []clusterExtractionResult {
+	if len(names) == 0 {
+		return nil
+	}
+	results := make([]clusterExtractionResult, len(names))
+	for i, name := range names {
+		results[i] = clusterExtractionResult{name: name, isRequired: false}
+	}
+	return results
 }
 
 // extractClustersFromHCMFilter extracts cluster names from HTTP Connection Manager filter.
@@ -178,10 +262,10 @@ func extractClustersFromGenericFilter(filter *listenerv3.Filter) ([]string, erro
 	if err != nil {
 		// If we can't unmarshal the message (e.g., unknown type), skip cluster extraction.
 		// This is expected for filters not registered in go-control-plane.
-		klog.V(4).InfoS("cannot unmarshal filter config, skipping cluster extraction",
+		// Log at V(2) for visibility in production debugging.
+		klog.V(2).InfoS("unknown filter type, skipping cluster extraction (filter type not registered in go-control-plane)",
 			"filter", filter.Name,
-			"typeUrl", typedConfig.TypeUrl,
-			"error", err.Error())
+			"typeUrl", typedConfig.TypeUrl)
 		return nil, nil
 	}
 
@@ -223,11 +307,11 @@ func extractClustersFromHTTPFilter(httpFilter *hcmv3.HttpFilter) []string {
 	// We need to unmarshal it properly using protojson
 	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
 	if err != nil {
-		// Unknown filter type - skip cluster extraction
-		klog.V(4).InfoS("cannot unmarshal HTTP filter config, skipping cluster extraction",
+		// Unknown HTTP filter type - skip cluster extraction
+		// Log at V(2) for visibility in production debugging.
+		klog.V(2).InfoS("unknown HTTP filter type, skipping cluster extraction",
 			"filter", httpFilter.Name,
-			"typeUrl", typedConfig.TypeUrl,
-			"error", err.Error())
+			"typeUrl", typedConfig.TypeUrl)
 		return nil
 	}
 
@@ -271,10 +355,10 @@ func extractClustersFromAccessLog(accessLog *accesslogv3.AccessLog) ([]string, e
 	msg, err := anypb.UnmarshalNew(typedConfig, proto.UnmarshalOptions{})
 	if err != nil {
 		// Unknown access log type - skip cluster extraction
-		klog.V(4).InfoS("cannot unmarshal access log config, skipping cluster extraction",
+		// Log at V(2) for visibility in production debugging.
+		klog.V(2).InfoS("unknown access log type, skipping cluster extraction",
 			"accessLog", accessLog.Name,
-			"typeUrl", typedConfig.TypeUrl,
-			"error", err.Error())
+			"typeUrl", typedConfig.TypeUrl)
 		return nil, nil
 	}
 
