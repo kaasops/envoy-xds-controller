@@ -1,0 +1,45 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Listener
+metadata:
+  name: kafka-multi-broker
+spec:
+  name: kafka-multi-broker
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9093
+  listener_filters:
+    - name: envoy.filters.listener.tls_inspector
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+  filter_chains:
+    # Broker 1
+    - filter_chain_match:
+        server_names:
+          - kafka-broker-1.test.local
+      filters:
+        - name: envoy.filters.network.tcp_proxy
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+            stat_prefix: kafka-broker-1
+            cluster: kafka-broker-cluster-1
+    # Broker 2
+    - filter_chain_match:
+        server_names:
+          - kafka-broker-2.test.local
+      filters:
+        - name: envoy.filters.network.tcp_proxy
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+            stat_prefix: kafka-broker-2
+            cluster: kafka-broker-cluster-2
+    # Broker 3
+    - filter_chain_match:
+        server_names:
+          - kafka-broker-3.test.local
+      filters:
+        - name: envoy.filters.network.tcp_proxy
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+            stat_prefix: kafka-broker-3
+            cluster: kafka-broker-cluster-3

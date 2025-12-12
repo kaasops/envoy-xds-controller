@@ -1,18 +1,14 @@
 package adapters
 
 import (
-	"fmt"
-
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/clusters"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/interfaces"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -30,53 +26,12 @@ func NewClusterExtractorAdapter(builder *clusters.Builder, store store.Store) in
 	}
 }
 
-// ExtractClustersFromFilterChains extracts clusters from filter chains
+// ExtractClustersFromFilterChains extracts clusters from filter chains.
+// Delegates to clusters.ExtractClustersFromFilterChains which supports
+// multiple filter types including TCP Proxy, HTTP Connection Manager,
+// and generic filters (like Kafka Broker) via JSON-based extraction.
 func (a *ClusterExtractorAdapter) ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain) ([]*cluster.Cluster, error) {
-	// Get a slice from the object pool
-	clustersPtr := utils.GetClusterSlice()
-	defer utils.PutClusterSlice(clustersPtr)
-
-	// Process each filter chain
-	for _, fc := range filterChains {
-		for _, filter := range fc.Filters {
-			if tc := filter.GetTypedConfig(); tc != nil {
-				// Check if this is a TCP proxy filter
-				if tc.TypeUrl != utils.TypeURLTCPProxy {
-					return nil, fmt.Errorf("unexpected filter type: %s", tc.TypeUrl)
-				}
-
-				// Unmarshal the TCP proxy configuration
-				var tcpProxy tcpProxyv3.TcpProxy
-				if err := tc.UnmarshalTo(&tcpProxy); err != nil {
-					return nil, fmt.Errorf("failed to unmarshal TCP proxy config: %w", err)
-				}
-
-				// Extract the cluster name
-				clusterName := tcpProxy.GetCluster()
-
-				// Get the cluster from the store
-				cl := a.store.GetSpecCluster(clusterName)
-				if cl == nil {
-					return nil, fmt.Errorf("cluster %s not found", clusterName)
-				}
-
-				// Unmarshal and validate the cluster
-				xdsCluster, err := cl.UnmarshalV3AndValidate()
-				if err != nil {
-					return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-				}
-
-				// Add the cluster to the result collection
-				*clustersPtr = append(*clustersPtr, xdsCluster)
-			}
-		}
-	}
-
-	// Create a new slice to return to the caller - we can't return the pooled slice directly
-	result := make([]*cluster.Cluster, len(*clustersPtr))
-	copy(result, *clustersPtr)
-
-	return result, nil
+	return clusters.ExtractClustersFromFilterChains(filterChains, a.store)
 }
 
 // ExtractClustersFromVirtualHost extracts clusters from a virtual host

@@ -1,0 +1,37 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: tcp-echo-df-cluster-1
+spec:
+  name: tcp-echo-df-cluster-1
+  connect_timeout: 30s
+  type: LOGICAL_DNS
+  dns_lookup_family: V4_ONLY
+  load_assignment:
+    cluster_name: tcp-echo-df-cluster-1
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: tcp-echo-df-1
+                  port_value: 9001
+---
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Cluster
+metadata:
+  name: tcp-echo-df-cluster-2
+spec:
+  name: tcp-echo-df-cluster-2
+  connect_timeout: 30s
+  type: LOGICAL_DNS
+  dns_lookup_family: V4_ONLY
+  load_assignment:
+    cluster_name: tcp-echo-df-cluster-2
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: tcp-echo-df-2
+                  port_value: 9001

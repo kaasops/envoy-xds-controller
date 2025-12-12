@@ -3,9 +3,13 @@ package resbuilder
 import (
 	"testing"
 
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/anypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -181,13 +185,183 @@ func TestCheckFilterChainsConflicts(t *testing.T) {
 }
 
 func TestExtractClustersFromFilterChains(t *testing.T) {
-	// This test would require mocking the listenerv3.FilterChain and store.Store
-	// For simplicity, we'll just test the error cases
+	// Helper function to create a TCP proxy filter chain
+	createTCPProxyFilterChain := func(clusterName string) *listenerv3.FilterChain {
+		tcpProxy := &tcpProxyv3.TcpProxy{
+			StatPrefix: "test",
+			ClusterSpecifier: &tcpProxyv3.TcpProxy_Cluster{
+				Cluster: clusterName,
+			},
+		}
+		tcpProxyAny, err := anypb.New(tcpProxy)
+		require.NoError(t, err)
+
+		return &listenerv3.FilterChain{
+			Filters: []*listenerv3.Filter{
+				{
+					Name: "envoy.filters.network.tcp_proxy",
+					ConfigType: &listenerv3.Filter_TypedConfig{
+						TypedConfig: tcpProxyAny,
+					},
+				},
+			},
+		}
+	}
+
+	// Helper function to create a cluster in store
+	createClusterInStore := func(mockStore store.Store, name string) {
+		cluster := &v1alpha1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "default",
+			},
+			Spec: &runtime.RawExtension{
+				Raw: []byte(`{
+					"name": "` + name + `",
+					"connect_timeout": "30s",
+					"type": "LOGICAL_DNS",
+					"load_assignment": {
+						"cluster_name": "` + name + `",
+						"endpoints": [{
+							"lb_endpoints": [{
+								"endpoint": {
+									"address": {
+										"socket_address": {
+											"address": "localhost",
+											"port_value": 8080
+										}
+									}
+								}
+							}]
+						}]
+					}
+				}`),
+			},
+		}
+		mockStore.SetCluster(cluster)
+	}
+
 	t.Run("Empty filter chains", func(t *testing.T) {
 		mockStore := store.New()
 		clusters, err := extractClustersFromFilterChains(nil, mockStore)
 		assert.NoError(t, err)
 		assert.Empty(t, clusters)
+	})
+
+	t.Run("Single filter chain with TCP proxy", func(t *testing.T) {
+		mockStore := store.New()
+		createClusterInStore(mockStore, "cluster-1")
+
+		filterChains := []*listenerv3.FilterChain{
+			createTCPProxyFilterChain("cluster-1"),
+		}
+
+		clusters, err := extractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		assert.Len(t, clusters, 1)
+		assert.Equal(t, "cluster-1", clusters[0].Name)
+	})
+
+	t.Run("Multiple filter chains with TCP proxy", func(t *testing.T) {
+		mockStore := store.New()
+		createClusterInStore(mockStore, "cluster-1")
+		createClusterInStore(mockStore, "cluster-2")
+		createClusterInStore(mockStore, "cluster-3")
+
+		filterChains := []*listenerv3.FilterChain{
+			createTCPProxyFilterChain("cluster-1"),
+			createTCPProxyFilterChain("cluster-2"),
+			createTCPProxyFilterChain("cluster-3"),
+		}
+
+		clusters, err := extractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		assert.Len(t, clusters, 3)
+
+		clusterNames := make([]string, len(clusters))
+		for i, c := range clusters {
+			clusterNames[i] = c.Name
+		}
+		assert.Contains(t, clusterNames, "cluster-1")
+		assert.Contains(t, clusterNames, "cluster-2")
+		assert.Contains(t, clusterNames, "cluster-3")
+	})
+
+	t.Run("Cluster not found in store", func(t *testing.T) {
+		mockStore := store.New()
+		// Don't add cluster to store
+
+		filterChains := []*listenerv3.FilterChain{
+			createTCPProxyFilterChain("non-existent-cluster"),
+		}
+
+		clusters, err := extractClustersFromFilterChains(filterChains, mockStore)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+		assert.Nil(t, clusters)
+	})
+
+	t.Run("Filter chain without typed config", func(t *testing.T) {
+		mockStore := store.New()
+
+		filterChains := []*listenerv3.FilterChain{
+			{
+				Filters: []*listenerv3.Filter{
+					{
+						Name: "envoy.filters.network.tcp_proxy",
+						// No TypedConfig
+					},
+				},
+			},
+		}
+
+		clusters, err := extractClustersFromFilterChains(filterChains, mockStore)
+		assert.NoError(t, err)
+		assert.Empty(t, clusters)
+	})
+
+	t.Run("Filter chain with kafka_broker before tcp_proxy", func(t *testing.T) {
+		// Kafka broker filter collects statistics (no cluster reference)
+		// TCP proxy filter provides cluster routing
+		// This test verifies that BOTH filters can coexist in the chain
+		// and cluster is correctly extracted from tcp_proxy
+		mockStore := store.New()
+		createClusterInStore(mockStore, "kafka-cluster")
+
+		// Kafka broker filter (first - for statistics, no cluster field)
+		kafkaBrokerConfig := &anypb.Any{
+			TypeUrl: "type.googleapis.com/envoy.extensions.filters.network.kafka_broker.v3.KafkaBroker",
+			Value:   []byte(`{"stat_prefix": "kafka"}`),
+		}
+
+		// TCP proxy filter (last - terminal, contains cluster reference)
+		tcpProxy := &tcpProxyv3.TcpProxy{
+			StatPrefix: "tcp",
+			ClusterSpecifier: &tcpProxyv3.TcpProxy_Cluster{
+				Cluster: "kafka-cluster",
+			},
+		}
+		tcpProxyConfig, err := anypb.New(tcpProxy)
+		require.NoError(t, err)
+
+		filterChains := []*listenerv3.FilterChain{{
+			Filters: []*listenerv3.Filter{
+				{
+					Name:       "envoy.filters.network.kafka_broker",
+					ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: kafkaBrokerConfig},
+				},
+				{
+					Name:       "envoy.filters.network.tcp_proxy",
+					ConfigType: &listenerv3.Filter_TypedConfig{TypedConfig: tcpProxyConfig},
+				},
+			},
+		}}
+
+		clusters, err := extractClustersFromFilterChains(filterChains, mockStore)
+
+		assert.NoError(t, err)
+		assert.Len(t, clusters, 1)
+		assert.Equal(t, "kafka-cluster", clusters[0].Name)
 	})
 }
 

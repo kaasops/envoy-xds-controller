@@ -1,0 +1,9 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: tcp-proxy-df-1
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  listener:
+    name: tcp-proxy-df-1

@@ -16,13 +16,13 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2/clusters"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
@@ -131,10 +131,6 @@ func buildResourcesFromExistingFilterChains(vs *v1alpha1.VirtualService, xdsList
 		return nil, err
 	}
 
-	if len(xdsListener.FilterChains) > 1 {
-		return nil, fmt.Errorf("multiple filter chains found")
-	}
-
 	// Extract clusters from filter chains
 	clusters, err := extractClustersFromFilterChains(xdsListener.FilterChains, store)
 	if err != nil {
@@ -178,39 +174,11 @@ func checkFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
 	return nil
 }
 
-// extractClustersFromFilterChains extracts clusters from filter chains
+// extractClustersFromFilterChains extracts clusters from filter chains.
+// Delegates to clusters.ExtractClustersFromFilterChains for unified behavior
+// across all builder implementations.
 func extractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store store.Store) ([]*cluster.Cluster, error) {
-	clusters := make([]*cluster.Cluster, 0)
-
-	for _, fc := range filterChains {
-		for _, filter := range fc.Filters {
-			if tc := filter.GetTypedConfig(); tc != nil {
-				if tc.TypeUrl != "type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy" {
-					return nil, fmt.Errorf("unexpected filter type: %s", tc.TypeUrl)
-				}
-
-				var tcpProxy tcpProxyv3.TcpProxy
-				if err := tc.UnmarshalTo(&tcpProxy); err != nil {
-					return nil, err
-				}
-
-				clusterName := tcpProxy.GetCluster()
-				cl := store.GetSpecCluster(clusterName)
-				if cl == nil {
-					return nil, fmt.Errorf("cluster %s not found", clusterName)
-				}
-
-				xdsCluster, err := cl.UnmarshalV3AndValidate()
-				if err != nil {
-					return nil, fmt.Errorf("failed to unmarshal cluster %s: %w", clusterName, err)
-				}
-
-				clusters = append(clusters, xdsCluster)
-			}
-		}
-	}
-
-	return clusters, nil
+	return clusters.ExtractClustersFromFilterChains(filterChains, store)
 }
 
 // buildResourcesFromVirtualService builds resources from virtual service configuration

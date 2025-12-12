@@ -28,13 +28,15 @@ import (
 	"github.com/kaasops/envoy-xds-controller/test/utils"
 )
 
+const trueStr = "true"
+
 var (
 	// Optional Environment Variables:
 	// - PROMETHEUS_INSTALL_SKIP=true: Skips Prometheus Operator installation during test setup.
 	// - CERT_MANAGER_INSTALL_SKIP=true: Skips CertManager installation during test setup.
 	// These variables are useful if Prometheus or CertManager is already installed, avoiding
 	// re-installation and conflicts.
-	skipPrometheusInstall = os.Getenv("PROMETHEUS_INSTALL_SKIP") == "true"
+	skipPrometheusInstall = os.Getenv("PROMETHEUS_INSTALL_SKIP") == trueStr
 	// isPrometheusOperatorAlreadyInstalled will be set true when prometheus CRDs be found on the cluster
 	isPrometheusOperatorAlreadyInstalled = false
 	// isCertManagerAlreadyInstalled will be set true when CertManager CRDs be found on the cluster
