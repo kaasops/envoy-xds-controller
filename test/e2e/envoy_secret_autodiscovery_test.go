@@ -92,7 +92,8 @@ func secretAutodiscoveryFallbackContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		By("verifying VirtualService is configured correctly")
-		listenerJsonPath := "configs.2.dynamic_listeners.#(name==\"default/https-autodiscovery-fallback\").active_state.listener"
+		listenerJsonPath := "configs.2.dynamic_listeners." +
+			"#(name==\"default/https-autodiscovery-fallback\").active_state.listener"
 		expectations := map[string]string{
 			listenerJsonPath + ".name": "default/https-autodiscovery-fallback",
 			listenerJsonPath + ".filter_chains.0.filter_chain_match.server_names.0": "autodiscovery-fallback.kaasops.io",
@@ -173,9 +174,10 @@ func secretAutodiscoveryFallbackContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		By("verifying VirtualService is configured correctly")
-		listenerJsonPath := "configs.2.dynamic_listeners.#(name==\"default/https-autodiscovery-fallback\").active_state.listener"
+		listenerJsonPath := "configs.2.dynamic_listeners." +
+			"#(name==\"default/https-autodiscovery-fallback\").active_state.listener"
 		expectations := map[string]string{
-			listenerJsonPath + ".name":                                           "default/https-autodiscovery-fallback",
+			listenerJsonPath + ".name": "default/https-autodiscovery-fallback",
 			listenerJsonPath + ".filter_chains.0.filter_chain_match.server_names.0": "autodiscovery-fallback.kaasops.io",
 		}
 		fixture.VerifyEnvoyConfig(expectations)

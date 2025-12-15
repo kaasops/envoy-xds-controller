@@ -45,7 +45,7 @@ func (a *TLSAdapter) GetSecretNameToDomains(vs *v1alpha1.VirtualService, domains
 	case utils.SecretRefType:
 		return a.getSecretNameToDomainsViaSecretRef(vs.Spec.TlsConfig.SecretRef, vs.Namespace, domains), nil
 	case utils.AutoDiscoveryType:
-		return a.getSecretNameToDomainsViaAutoDiscovery(domains, a.store.MapDomainSecrets())
+		return a.getSecretNameToDomainsViaAutoDiscovery(domains, a.store.MapDomainSecretsForNamespace(vs.Namespace))
 	default:
 		return nil, fmt.Errorf("unknown TLS type: %s", tlsType)
 	}

@@ -352,7 +352,7 @@ func buildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedNa
 		case SecretRefType:
 			filterChainParams.SecretNameToDomains = getSecretNameToDomainsViaSecretRef(vs.Spec.TlsConfig.SecretRef, vs.Namespace, virtualHost.Domains)
 		case AutoDiscoveryType:
-			filterChainParams.SecretNameToDomains, err = getSecretNameToDomainsViaAutoDiscovery(virtualHost.Domains, store.MapDomainSecrets())
+			filterChainParams.SecretNameToDomains, err = getSecretNameToDomainsViaAutoDiscovery(virtualHost.Domains, store.MapDomainSecretsForNamespace(vs.Namespace))
 			if err != nil {
 				return nil, err
 			}

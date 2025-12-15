@@ -3,6 +3,7 @@ package store
 import (
 	"testing"
 
+	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,4 +106,161 @@ func TestMapDomainSecrets_OptimizedStore_SamePointers(t *testing.T) {
 	// OptimizedStore returns same pointer for performance (secrets are immutable in store)
 	assert.Same(t, map1["test.com"], map2["test.com"],
 		"OptimizedStore should return same secret pointer for performance")
+}
+
+// TestMapDomainSecretsForNamespace_PrefersMatchingNamespace verifies namespace preference
+func TestMapDomainSecretsForNamespace_PrefersMatchingNamespace(t *testing.T) {
+	store := NewOptimizedStore()
+
+	// Create two secrets for same domain in different namespaces
+	secretNs1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-secret",
+			Namespace: "ns1",
+			Annotations: map[string]string{
+				"envoy.kaasops.io/domains": "example.com",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte("cert-ns1"),
+			"tls.key": []byte("key-ns1"),
+		},
+	}
+
+	secretNs2 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-secret",
+			Namespace: "ns2",
+			Annotations: map[string]string{
+				"envoy.kaasops.io/domains": "example.com",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte("cert-ns2"),
+			"tls.key": []byte("key-ns2"),
+		},
+	}
+
+	store.SetSecret(secretNs1)
+	store.SetSecret(secretNs2)
+
+	// Get domain secrets with ns1 preference
+	mapNs1 := store.MapDomainSecretsForNamespace("ns1")
+	assert.Len(t, mapNs1, 1)
+	assert.Equal(t, "ns1", mapNs1["example.com"].Namespace,
+		"Should prefer secret from ns1 when preferredNamespace is ns1")
+
+	// Get domain secrets with ns2 preference
+	mapNs2 := store.MapDomainSecretsForNamespace("ns2")
+	assert.Len(t, mapNs2, 1)
+	assert.Equal(t, "ns2", mapNs2["example.com"].Namespace,
+		"Should prefer secret from ns2 when preferredNamespace is ns2")
+
+	// Get domain secrets with no preference (should return alphabetically first)
+	mapNoPreference := store.MapDomainSecretsForNamespace("")
+	assert.Len(t, mapNoPreference, 1)
+	assert.Equal(t, "ns1", mapNoPreference["example.com"].Namespace,
+		"Should return alphabetically first namespace when no preference")
+}
+
+// TestMapDomainSecretsForNamespace_FallbackAfterDelete verifies fallback works after primary secret deletion
+func TestMapDomainSecretsForNamespace_FallbackAfterDelete(t *testing.T) {
+	store := NewOptimizedStore()
+
+	// Create two secrets for same domain in different namespaces
+	secretNs1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-secret",
+			Namespace: "ns1",
+			Annotations: map[string]string{
+				"envoy.kaasops.io/domains": "example.com",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte("cert-ns1"),
+			"tls.key": []byte("key-ns1"),
+		},
+	}
+
+	secretNs2 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-secret",
+			Namespace: "ns2",
+			Annotations: map[string]string{
+				"envoy.kaasops.io/domains": "example.com",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte("cert-ns2"),
+			"tls.key": []byte("key-ns2"),
+		},
+	}
+
+	store.SetSecret(secretNs1)
+	store.SetSecret(secretNs2)
+
+	// Verify both secrets are indexed
+	mapBefore := store.MapDomainSecretsForNamespace("ns1")
+	assert.Len(t, mapBefore, 1)
+	assert.Equal(t, "ns1", mapBefore["example.com"].Namespace)
+
+	// Delete the first secret
+	store.DeleteSecret(helpers.NamespacedName{Namespace: secretNs1.Namespace, Name: secretNs1.Name})
+
+	// Should fallback to ns2 secret
+	mapAfter := store.MapDomainSecretsForNamespace("ns1")
+	assert.Len(t, mapAfter, 1, "Should still have a secret for example.com after deletion")
+	assert.Equal(t, "ns2", mapAfter["example.com"].Namespace,
+		"Should fallback to ns2 secret after ns1 secret is deleted")
+}
+
+// TestGetDomainSecretForNamespace_DirectLookup verifies direct domain secret lookup with namespace preference
+func TestGetDomainSecretForNamespace_DirectLookup(t *testing.T) {
+	store := NewOptimizedStore()
+
+	// Create two secrets for same domain in different namespaces
+	secretNs1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-secret",
+			Namespace: "ns1",
+			Annotations: map[string]string{
+				"envoy.kaasops.io/domains": "example.com",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte("cert-ns1"),
+			"tls.key": []byte("key-ns1"),
+		},
+	}
+
+	secretNs2 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cert-secret",
+			Namespace: "ns2",
+			Annotations: map[string]string{
+				"envoy.kaasops.io/domains": "example.com",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte("cert-ns2"),
+			"tls.key": []byte("key-ns2"),
+		},
+	}
+
+	store.SetSecret(secretNs1)
+	store.SetSecret(secretNs2)
+
+	// Lookup with ns1 preference
+	secret := store.GetDomainSecretForNamespace("example.com", "ns1")
+	assert.NotNil(t, secret)
+	assert.Equal(t, "ns1", secret.Namespace)
+
+	// Lookup with ns2 preference
+	secret = store.GetDomainSecretForNamespace("example.com", "ns2")
+	assert.NotNil(t, secret)
+	assert.Equal(t, "ns2", secret.Namespace)
+
+	// Lookup non-existent domain
+	secret = store.GetDomainSecretForNamespace("nonexistent.com", "ns1")
+	assert.Nil(t, secret)
 }

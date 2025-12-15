@@ -33,7 +33,9 @@ type SecretDomainEntry struct {
 	NotAfter       time.Time // Certificate expiration time, zero if parsing failed
 }
 
-// DomainSecretsIndex maps domains to sets of secrets
+// DomainSecretsIndex maps domains to sets of secrets.
+// This structure is NOT thread-safe. All operations must be performed
+// under OptimizedStore's mutex to ensure safe concurrent access.
 type DomainSecretsIndex map[string]map[helpers.NamespacedName]SecretDomainEntry
 
 // NewDomainSecretsIndex creates a new empty index

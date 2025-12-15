@@ -181,7 +181,8 @@ func GetTLSType(tlsConfig *v1alpha1.TlsConfig) (string, error) {
 }
 
 // ValidateTLSConfiguration validates TLS configuration without building secrets
-func (b *Builder) ValidateTLSConfiguration(tlsConfig *v1alpha1.TlsConfig, domains []string, store store.Store) error {
+// vsNamespace is the namespace of the VirtualService, used for secret preference in auto-discovery
+func (b *Builder) ValidateTLSConfiguration(tlsConfig *v1alpha1.TlsConfig, domains []string, store store.Store, vsNamespace string) error {
 	if tlsConfig == nil {
 		return nil // TLS is optional
 	}
@@ -195,7 +196,7 @@ func (b *Builder) ValidateTLSConfiguration(tlsConfig *v1alpha1.TlsConfig, domain
 	case utils.SecretRefType:
 		return b.validateSecretRefConfiguration(tlsConfig.SecretRef, store)
 	case utils.AutoDiscoveryType:
-		return b.validateAutoDiscoveryConfiguration(domains, store)
+		return b.validateAutoDiscoveryConfiguration(domains, store, vsNamespace)
 	default:
 		return fmt.Errorf("unknown TLS configuration type: %s", tlsType)
 	}
@@ -231,12 +232,13 @@ func (b *Builder) validateSecretRefConfiguration(secretRef *v1alpha1.ResourceRef
 }
 
 // validateAutoDiscoveryConfiguration validates auto-discovery configuration
-func (b *Builder) validateAutoDiscoveryConfiguration(domains []string, store store.Store) error {
+// vsNamespace is the namespace of the VirtualService, used for secret preference
+func (b *Builder) validateAutoDiscoveryConfiguration(domains []string, store store.Store, vsNamespace string) error {
 	if len(domains) == 0 {
 		return fmt.Errorf("no domains specified for auto-discovery")
 	}
 
-	domainSecretsMap := store.MapDomainSecrets()
+	domainSecretsMap := store.MapDomainSecretsForNamespace(vsNamespace)
 	if len(domainSecretsMap) == 0 {
 		return fmt.Errorf("no domain-secret mappings available for auto-discovery")
 	}
