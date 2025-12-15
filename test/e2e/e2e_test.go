@@ -155,6 +155,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("Templates", templatesEnvoyContext)
 		Context("Tracing", tracingEnvoyContext)
 		Context("Status Propagation", statusPropagationContext)
+		Context("Secret Autodiscovery Fallback", secretAutodiscoveryFallbackContext)
 	})
 
 	Context("GRPC_API", grpcAPIContext)

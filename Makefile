@@ -432,7 +432,7 @@ dev-backend: set-local docker-build docker-push docker-build-init-cert docker-pu
 .PHONY: deploy-e2e
 deploy-e2e: manifests
 	helm install exc-e2e --set metrics.address=:8443 \
- 		--set 'watchNamespaces={default}' \
+ 		--set 'watchNamespaces={default,exc-secrets-ns1,exc-secrets-ns2}' \
  		--set image.repository=$(IMG_WITHOUT_TAG) \
  		--set image.tag=$(TAG) \
 		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
