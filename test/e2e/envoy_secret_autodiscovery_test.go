@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"os/exec"
 	"time"
 
 	"github.com/kaasops/envoy-xds-controller/test/e2e/fixtures"
@@ -40,15 +41,21 @@ func secretAutodiscoveryFallbackContext() {
 		DeferCleanup(fixture.Teardown)
 
 		By("creating test namespaces")
+		// Ensure any pending deletions from previous tests are complete
+		time.Sleep(2 * time.Second)
 		err := utils.ApplyManifests(namespace1Path)
 		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace-1")
 		err = utils.ApplyManifests(namespace2Path)
 		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace-2")
+		// Wait for namespaces to be fully ready
+		time.Sleep(1 * time.Second)
 
 		DeferCleanup(func() {
 			By("cleaning up test namespaces")
-			_ = utils.DeleteManifests(namespace2Path)
-			_ = utils.DeleteManifests(namespace1Path)
+			// Use --timeout to prevent hanging on namespace deletion with finalizers
+			cmd := exec.Command("kubectl", "delete", "ns", "exc-secrets-ns1", "exc-secrets-ns2",
+				"--ignore-not-found=true", "--timeout=30s", "--wait=false")
+			_, _ = utils.Run(cmd)
 		})
 	})
 
@@ -113,7 +120,8 @@ func secretAutodiscoveryFallbackContext() {
 				"If this fails with 'secret not found for domain', the bug is reproduced.")
 
 		By("verifying the VirtualService is still working with the fallback secret from ns2")
-		fixture.WaitEnvoyConfigChanged()
+		// Note: we don't call WaitEnvoyConfigChanged here because the config should remain the same
+		// (both explicit ns2 reference and autodiscovery now select the same ns2 secret)
 		fixture.VerifyEnvoyConfig(expectations)
 
 		By("cleaning up secrets")
@@ -145,7 +153,10 @@ func secretAutodiscoveryFallbackContext() {
 
 		By("deleting VirtualService to allow secret deletion")
 		fixture.DeleteManifests(virtualServicePath)
-		time.Sleep(2 * time.Second)
+		// Give controller time to process deletion and update config baseline
+		time.Sleep(3 * time.Second)
+		// Capture current config as baseline for WaitEnvoyConfigChanged
+		fixture.ConfigDump = fixture.GetEnvoyConfigDump("")
 
 		By("deleting ns2 secret (simulating duplicate removal)")
 		err = utils.DeleteManifests(secretNs2Path)
@@ -156,11 +167,18 @@ func secretAutodiscoveryFallbackContext() {
 		By("recreating VirtualService with autoDiscovery - should find ns1 secret")
 		// With the bug: this will FAIL because domainSecrets index lost the domain
 		// After fix: this should SUCCEED because ns1 secret should still work
-		err = utils.ApplyManifests(virtualServicePath)
-		Expect(err).NotTo(HaveOccurred(),
-			"BUG REPRODUCED: VirtualService creation failed because autodiscovery "+
-				"couldn't find the secret from ns1 after ns2 secret was deleted. "+
-				"The domainSecrets index was not updated to use the fallback secret.")
+		fixture.ApplyManifests(virtualServicePath)
+
+		By("waiting for config to be applied with ns1 secret")
+		fixture.WaitEnvoyConfigChanged()
+
+		By("verifying VirtualService is configured correctly")
+		listenerJsonPath := "configs.2.dynamic_listeners.#(name==\"default/https-autodiscovery-fallback\").active_state.listener"
+		expectations := map[string]string{
+			listenerJsonPath + ".name":                                           "default/https-autodiscovery-fallback",
+			listenerJsonPath + ".filter_chains.0.filter_chain_match.server_names.0": "autodiscovery-fallback.kaasops.io",
+		}
+		fixture.VerifyEnvoyConfig(expectations)
 
 		By("cleaning up")
 		_ = utils.DeleteManifests(secretNs1Path)

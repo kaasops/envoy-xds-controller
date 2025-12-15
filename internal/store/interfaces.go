@@ -83,6 +83,8 @@ type Store interface {
 	IsExistingSecret(name helpers.NamespacedName) bool
 	MapSecrets() map[helpers.NamespacedName]*corev1.Secret
 	MapDomainSecrets() map[string]*corev1.Secret
+	MapDomainSecretsForNamespace(preferredNamespace string) map[string]*corev1.Secret
+	GetDomainSecretForNamespace(domain string, preferredNamespace string) *corev1.Secret
 
 	// Tracing
 	GetTracing(name helpers.NamespacedName) *v1alpha1.Tracing
