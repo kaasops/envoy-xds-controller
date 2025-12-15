@@ -63,12 +63,26 @@ func (idx DomainSecretsIndex) Remove(domain string, nn helpers.NamespacedName) {
 	}
 }
 
+// validityPriority represents certificate validity states with priority ordering.
+// Higher values indicate higher priority in secret selection.
+type validityPriority int
+
+const (
+	validityExpired validityPriority = iota // Known expired certificate - lowest priority
+	validityUnknown                         // Could not parse certificate - medium priority (better than nothing)
+	validityValid                           // Known valid (non-expired) certificate - highest priority
+)
+
 // GetBestSecret returns the best secret for a domain with preference for the given namespace.
 // Selection logic:
-// 1. If only one secret exists - return it
-// 2. Filter to valid (non-expired) secrets
-// 3. Among valid: prefer same namespace, then alphabetically by namespace/name
-// 4. If all expired: prefer same namespace, then alphabetically
+// 1. If only one secret exists - return it (if it exists in secrets map)
+// 2. Priority by validity: valid > unknown > expired
+// 3. Among same validity: prefer same namespace
+// 4. Final tie-breaker: alphabetically by namespace/name
+//
+// Note: Secrets with unparseable certificates (validityUnknown) are ranked below valid
+// certificates but above expired ones. This ensures we prefer known-good certificates
+// while still providing fallback behavior when certificate parsing fails.
 func (idx DomainSecretsIndex) GetBestSecret(domain string, preferredNamespace string, secrets map[helpers.NamespacedName]*corev1.Secret) *corev1.Secret {
 	entries, exists := idx[domain]
 	if !exists || len(entries) == 0 {
@@ -78,7 +92,11 @@ func (idx DomainSecretsIndex) GetBestSecret(domain string, preferredNamespace st
 	// Fast path: single secret
 	if len(entries) == 1 {
 		for nn := range entries {
-			return secrets[nn]
+			// Defensive nil check for consistency between index and secrets map
+			if secret := secrets[nn]; secret != nil {
+				return secret
+			}
+			return nil
 		}
 	}
 
@@ -88,28 +106,51 @@ func (idx DomainSecretsIndex) GetBestSecret(domain string, preferredNamespace st
 	type candidateEntry struct {
 		nn       helpers.NamespacedName
 		notAfter time.Time
-		isValid  bool
+		validity validityPriority
 		isSameNs bool
 	}
 
 	candidates := make([]candidateEntry, 0, len(entries))
 	for nn, entry := range entries {
+		// Skip entries that don't exist in the secrets map (defensive check)
+		if secrets[nn] == nil {
+			continue
+		}
+
+		var validity validityPriority
+		switch {
+		case entry.NotAfter.IsZero():
+			// Certificate parsing failed - treat as unknown validity
+			validity = validityUnknown
+		case entry.NotAfter.After(now):
+			// Certificate is valid (not expired)
+			validity = validityValid
+		default:
+			// Certificate is expired
+			validity = validityExpired
+		}
+
 		candidates = append(candidates, candidateEntry{
 			nn:       nn,
 			notAfter: entry.NotAfter,
-			isValid:  entry.NotAfter.IsZero() || entry.NotAfter.After(now),
+			validity: validity,
 			isSameNs: nn.Namespace == preferredNamespace,
 		})
 	}
 
+	// No valid candidates found
+	if len(candidates) == 0 {
+		return nil
+	}
+
 	// Sort candidates by priority:
-	// 1. Valid secrets first
+	// 1. Higher validity priority first (valid > unknown > expired)
 	// 2. Same namespace first
 	// 3. Alphabetically by namespace/name
 	sort.Slice(candidates, func(i, j int) bool {
-		// Valid secrets first
-		if candidates[i].isValid != candidates[j].isValid {
-			return candidates[i].isValid
+		// Higher validity priority first
+		if candidates[i].validity != candidates[j].validity {
+			return candidates[i].validity > candidates[j].validity
 		}
 		// Same namespace first
 		if candidates[i].isSameNs != candidates[j].isSameNs {
