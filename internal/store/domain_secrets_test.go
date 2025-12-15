@@ -17,6 +17,12 @@ limitations under the License.
 package store
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"testing"
 	"time"
 
@@ -26,6 +32,30 @@ import (
 
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 )
+
+// generateTestCertificate creates a self-signed test certificate with the given expiration time
+func generateTestCertificate(notAfter time.Time) []byte {
+	privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "test",
+		},
+		NotBefore: time.Now().Add(-time.Hour),
+		NotAfter:  notAfter,
+		KeyUsage:  x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+	}
+
+	certDER, _ := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
+
+	certPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certDER,
+	})
+
+	return certPEM
+}
 
 func TestDomainSecretsIndex_AddAndRemove(t *testing.T) {
 	idx := NewDomainSecretsIndex(10)
@@ -218,4 +248,112 @@ func TestDomainSecretsIndex_GetAnySecret(t *testing.T) {
 	// GetAnySecret should return alphabetically first (aaa)
 	result := idx.GetAnySecret("example.com", secrets)
 	assert.Equal(t, secretA, result)
+}
+
+func TestParseCertificateNotAfter_NilSecret(t *testing.T) {
+	result := ParseCertificateNotAfter(nil)
+	assert.True(t, result.IsZero(), "Should return zero time for nil secret")
+}
+
+func TestParseCertificateNotAfter_MissingCertKey(t *testing.T) {
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			"other-key": []byte("data"),
+		},
+	}
+	result := ParseCertificateNotAfter(secret)
+	assert.True(t, result.IsZero(), "Should return zero time when tls.crt is missing")
+}
+
+func TestParseCertificateNotAfter_EmptyCertData(t *testing.T) {
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			corev1.TLSCertKey: {},
+		},
+	}
+	result := ParseCertificateNotAfter(secret)
+	assert.True(t, result.IsZero(), "Should return zero time for empty certificate data")
+}
+
+func TestParseCertificateNotAfter_InvalidPEM(t *testing.T) {
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			corev1.TLSCertKey: []byte("not valid PEM data"),
+		},
+	}
+	result := ParseCertificateNotAfter(secret)
+	assert.True(t, result.IsZero(), "Should return zero time for invalid PEM data")
+}
+
+func TestParseCertificateNotAfter_SingleCertificate(t *testing.T) {
+	// Generate a certificate that expires in 365 days
+	expectedExpiration := time.Now().Add(365 * 24 * time.Hour)
+	testCert := generateTestCertificate(expectedExpiration)
+
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			corev1.TLSCertKey: testCert,
+		},
+	}
+	result := ParseCertificateNotAfter(secret)
+
+	// Should parse the certificate and return the NotAfter date
+	assert.False(t, result.IsZero(), "Should parse single certificate successfully")
+	// Allow 1 second tolerance for timing differences
+	assert.WithinDuration(t, expectedExpiration, result, time.Second, "Should return correct expiration time")
+}
+
+func TestParseCertificateNotAfter_CertificateChain_ReturnsMinimum(t *testing.T) {
+	// End-entity certificate expires in 30 days (shorter validity)
+	endEntityExpiration := time.Now().Add(30 * 24 * time.Hour)
+	endEntityCert := generateTestCertificate(endEntityExpiration)
+
+	// Intermediate certificate expires in 365 days (longer validity)
+	intermediateExpiration := time.Now().Add(365 * 24 * time.Hour)
+	intermediateCert := generateTestCertificate(intermediateExpiration)
+
+	// Create a chain with the intermediate first (non-standard order)
+	// This tests that we find the MINIMUM expiration regardless of order
+	chainData := append(intermediateCert, '\n')
+	chainData = append(chainData, endEntityCert...)
+
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			corev1.TLSCertKey: chainData,
+		},
+	}
+	result := ParseCertificateNotAfter(secret)
+
+	// Should return the minimum (end-entity's 30 days), not the intermediate's 365 days
+	assert.False(t, result.IsZero(), "Should parse certificate chain successfully")
+	// Allow 1 second tolerance for timing differences
+	assert.WithinDuration(t, endEntityExpiration, result, time.Second, "Should return minimum expiration from chain")
+}
+
+func TestParseCertificateNotAfter_SkipsNonCertificateBlocks(t *testing.T) {
+	// Generate a certificate that expires in 365 days
+	expectedExpiration := time.Now().Add(365 * 24 * time.Hour)
+	cert := generateTestCertificate(expectedExpiration)
+
+	// Add a private key block that should be skipped
+	privateKey := []byte(`-----BEGIN RSA PRIVATE KEY-----
+MIIBOgIBAAJBALoAQ0fM+W0GfzJMr3TyZhHVrWKxZ/A7JfEfSKQJWUxuOTuKHiLZ
+xrSVqQ==
+-----END RSA PRIVATE KEY-----`)
+
+	// Mix private key and certificate (private key first)
+	mixedData := append(privateKey, '\n')
+	mixedData = append(mixedData, cert...)
+
+	secret := &corev1.Secret{
+		Data: map[string][]byte{
+			corev1.TLSCertKey: mixedData,
+		},
+	}
+	result := ParseCertificateNotAfter(secret)
+
+	// Should parse only the certificate, skipping the private key block
+	assert.False(t, result.IsZero(), "Should parse certificate while skipping private key")
+	// Allow 1 second tolerance for timing differences
+	assert.WithinDuration(t, expectedExpiration, result, time.Second, "Should return certificate expiration time")
 }

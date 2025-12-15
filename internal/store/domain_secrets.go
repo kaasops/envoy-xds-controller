@@ -133,8 +133,11 @@ func (idx DomainSecretsIndex) GetAnySecret(domain string, secrets map[helpers.Na
 	return idx.GetBestSecret(domain, "", secrets)
 }
 
-// ParseCertificateNotAfter extracts the NotAfter time from a TLS secret
-// Returns zero time if parsing fails
+// ParseCertificateNotAfter extracts the minimum NotAfter time from a TLS secret.
+// For certificate chains (containing multiple certificates), returns the earliest
+// expiration time to ensure we consider the most restrictive validity period.
+// This handles cases where the end-entity certificate expires before intermediate/root CAs.
+// Returns zero time if no valid certificates could be parsed.
 func ParseCertificateNotAfter(secret *corev1.Secret) time.Time {
 	if secret == nil {
 		return time.Time{}
@@ -145,15 +148,32 @@ func ParseCertificateNotAfter(secret *corev1.Secret) time.Time {
 		return time.Time{}
 	}
 
-	block, _ := pem.Decode(certData)
-	if block == nil {
-		return time.Time{}
+	var minNotAfter time.Time
+	rest := certData
+
+	// Parse all PEM blocks in the certificate chain
+	for {
+		block, remaining := pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		rest = remaining
+
+		// Skip non-certificate blocks (e.g., private keys that might be included)
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			continue
+		}
+
+		// Track the minimum (earliest) NotAfter time
+		if minNotAfter.IsZero() || cert.NotAfter.Before(minNotAfter) {
+			minNotAfter = cert.NotAfter
+		}
 	}
 
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return time.Time{}
-	}
-
-	return cert.NotAfter
+	return minNotAfter
 }

@@ -27,6 +27,11 @@ func NewUtilsService(s store.Store) *UtilsService {
 	return &UtilsService{store: s}
 }
 
+// VerifyDomains checks if valid TLS certificates exist for the given domains.
+// Note: This intentionally uses MapDomainSecrets() without namespace preference
+// because verification checks domain-level certificate availability, not
+// VirtualService-specific secret binding. For VirtualService-specific binding,
+// see MapDomainSecretsForNamespace() which considers namespace affinity.
 func (s *UtilsService) VerifyDomains(_ context.Context, req *connect.Request[v1.VerifyDomainsRequest]) (*connect.Response[v1.VerifyDomainsResponse], error) {
 	results := make([]*v1.DomainVerificationResult, 0, len(req.Msg.Domains))
 	for _, domain := range req.Msg.Domains {
