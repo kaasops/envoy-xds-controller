@@ -54,9 +54,9 @@ type OptimizedStore struct {
 	tracingsByUID map[string]*v1alpha1.Tracing
 
 	// Additional indices
-	specClusters  map[string]*v1alpha1.Cluster
-	domainSecrets map[string]*corev1.Secret
-	nodeDomains   map[string]map[string]struct{}
+	specClusters       map[string]*v1alpha1.Cluster
+	domainSecretsIndex DomainSecretsIndex
+	nodeDomains        map[string]map[string]struct{}
 
 	// Status storage - separate from VS objects for immutability
 	vsStatusStorage *StatusStorage
@@ -105,9 +105,9 @@ func NewOptimizedStore() Store {
 		tracingsByUID: make(map[string]*v1alpha1.Tracing, 50),
 
 		// Additional indices
-		specClusters:  make(map[string]*v1alpha1.Cluster, 500),
-		domainSecrets: make(map[string]*corev1.Secret, 200),
-		nodeDomains:   make(map[string]map[string]struct{}, 100),
+		specClusters:       make(map[string]*v1alpha1.Cluster, 500),
+		domainSecretsIndex: NewDomainSecretsIndex(200),
+		nodeDomains:        make(map[string]map[string]struct{}, 100),
 	}
 }
 
@@ -264,9 +264,9 @@ func (s *OptimizedStore) Copy() Store {
 		tracingsByUID: make(map[string]*v1alpha1.Tracing, len(s.tracingsByUID)),
 
 		// Additional indices
-		specClusters:  make(map[string]*v1alpha1.Cluster, len(s.specClusters)),
-		domainSecrets: make(map[string]*corev1.Secret, len(s.domainSecrets)),
-		nodeDomains:   make(map[string]map[string]struct{}, len(s.nodeDomains)),
+		specClusters:       make(map[string]*v1alpha1.Cluster, len(s.specClusters)),
+		domainSecretsIndex: NewDomainSecretsIndex(len(s.domainSecretsIndex)),
+		nodeDomains:        make(map[string]map[string]struct{}, len(s.nodeDomains)),
 
 		// Copy status storage
 		vsStatusStorage: s.vsStatusStorage.Copy(),
@@ -358,8 +358,12 @@ func (s *OptimizedStore) Copy() Store {
 		newStore.specClusters[k] = v
 	}
 
-	for k, v := range s.domainSecrets {
-		newStore.domainSecrets[k] = v
+	// Deep copy domainSecretsIndex
+	for domain, entries := range s.domainSecretsIndex {
+		newStore.domainSecretsIndex[domain] = make(map[helpers.NamespacedName]SecretDomainEntry, len(entries))
+		for nn, entry := range entries {
+			newStore.domainSecretsIndex[domain][nn] = entry
+		}
 	}
 
 	for nodeID, domains := range s.nodeDomains {
@@ -1260,10 +1264,23 @@ func (s *OptimizedStore) GetAccessLogByUID(uid string) *v1alpha1.AccessLogConfig
 
 // GetDomainSecret returns the secret for a given domain
 // Returns nil if not found
+// Deprecated: Use GetDomainSecretForNamespace for better secret selection
 func (s *OptimizedStore) GetDomainSecret(domain string) *corev1.Secret {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.domainSecrets[domain]
+	return s.domainSecretsIndex.GetAnySecret(domain, s.secrets)
+}
+
+// GetDomainSecretForNamespace returns the best secret for a domain with preference for the given namespace.
+// Selection logic:
+// 1. If only one secret exists - return it
+// 2. Filter to valid (non-expired) secrets
+// 3. Among valid: prefer same namespace as preferredNamespace, then alphabetically
+// 4. If all expired: prefer same namespace, then alphabetically
+func (s *OptimizedStore) GetDomainSecretForNamespace(domain string, preferredNamespace string) *corev1.Secret {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.domainSecretsIndex.GetBestSecret(domain, preferredNamespace, s.secrets)
 }
 
 func (s *OptimizedStore) GetSpecCluster(name string) *v1alpha1.Cluster {
@@ -1303,9 +1320,28 @@ func (s *OptimizedStore) MapDomainSecrets() map[string]*corev1.Secret {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	result := make(map[string]*corev1.Secret, len(s.domainSecrets))
-	for k, v := range s.domainSecrets {
-		result[k] = v // v is already a pointer now
+	result := make(map[string]*corev1.Secret, len(s.domainSecretsIndex))
+	for domain := range s.domainSecretsIndex {
+		// Return the best secret for each domain (valid, alphabetically first)
+		secret := s.domainSecretsIndex.GetAnySecret(domain, s.secrets)
+		if secret != nil {
+			result[domain] = secret
+		}
+	}
+	return result
+}
+
+// MapDomainSecretsForNamespace returns a map of domain to secret with preference for the given namespace
+func (s *OptimizedStore) MapDomainSecretsForNamespace(preferredNamespace string) map[string]*corev1.Secret {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make(map[string]*corev1.Secret, len(s.domainSecretsIndex))
+	for domain := range s.domainSecretsIndex {
+		secret := s.domainSecretsIndex.GetBestSecret(domain, preferredNamespace, s.secrets)
+		if secret != nil {
+			result[domain] = secret
+		}
 	}
 	return result
 }
@@ -1376,16 +1412,19 @@ func (s *OptimizedStore) addDomainSecretsForSecret(secret *corev1.Secret) {
 		return
 	}
 
+	// Parse certificate expiration once per secret
+	notAfter := ParseCertificateNotAfter(secret)
+	nn := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+
 	for _, domain := range strings.Split(domainsAnnotation, ",") {
 		domain = strings.TrimSpace(domain)
 		if domain == "" {
 			continue
 		}
-		if _, exists := s.domainSecrets[domain]; exists {
-			// TODO: domain already exists in another secret! Need to create error case
-			continue
-		}
-		s.domainSecrets[domain] = secret
+		s.domainSecretsIndex.Add(domain, SecretDomainEntry{
+			NamespacedName: nn,
+			NotAfter:       notAfter,
+		})
 	}
 }
 
@@ -1399,19 +1438,22 @@ func (s *OptimizedStore) removeDomainSecretsForSecret(secret *corev1.Secret) {
 		return
 	}
 
+	nn := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+
 	for _, domain := range strings.Split(domainsAnnotation, ",") {
 		domain = strings.TrimSpace(domain)
 		if domain == "" {
 			continue
 		}
-		delete(s.domainSecrets, domain)
+		// Remove only this secret from the domain index, not the entire domain
+		s.domainSecretsIndex.Remove(domain, nn)
 	}
 }
 
 // updateDomainSecretsMap rebuilds the entire domain to secret mapping from all secrets
 // This is used only during FillFromKubernetes for initial population
 func (s *OptimizedStore) updateDomainSecretsMap() {
-	m := make(map[string]*corev1.Secret)
+	idx := NewDomainSecretsIndex(len(s.secrets))
 
 	for _, secret := range s.secrets {
 		if secret.Annotations == nil {
@@ -1422,19 +1464,22 @@ func (s *OptimizedStore) updateDomainSecretsMap() {
 			continue
 		}
 
+		// Parse certificate expiration once per secret
+		notAfter := ParseCertificateNotAfter(secret)
+		nn := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+
 		for _, domain := range strings.Split(domainsAnnotation, ",") {
 			domain = strings.TrimSpace(domain)
 			if domain == "" {
 				continue
 			}
-			if _, ok := m[domain]; ok {
-				// TODO: domain already exists in another secret! Need to create error case
-				continue
-			}
-			m[domain] = secret
+			idx.Add(domain, SecretDomainEntry{
+				NamespacedName: nn,
+				NotAfter:       notAfter,
+			})
 		}
 	}
-	s.domainSecrets = m
+	s.domainSecretsIndex = idx
 }
 
 // VirtualService Status methods

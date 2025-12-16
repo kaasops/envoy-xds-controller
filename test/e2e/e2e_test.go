@@ -90,7 +90,9 @@ var _ = Describe("Manager", Ordered, func() {
 		_, _ = utils.Run(cmd)
 
 		By("removing manager namespace")
-		cmd = exec.Command("kubectl", "delete", "ns", namespace)
+		// Use --timeout and --wait=false to prevent hanging when namespace has resources with finalizers
+		// that can't be processed (controller already stopped)
+		cmd = exec.Command("kubectl", "delete", "ns", namespace, "--timeout=60s", "--wait=false")
 		_, _ = utils.Run(cmd)
 
 		By("removing metrics role binding")
@@ -155,6 +157,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("Templates", templatesEnvoyContext)
 		Context("Tracing", tracingEnvoyContext)
 		Context("Status Propagation", statusPropagationContext)
+		Context("Secret Autodiscovery Fallback", secretAutodiscoveryFallbackContext)
 	})
 
 	Context("GRPC_API", grpcAPIContext)

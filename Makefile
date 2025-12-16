@@ -128,7 +128,7 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 		echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 		exit 1; \
 	}
-	go test ./test/e2e/ -v -ginkgo.v
+	go test ./test/e2e/ -v -ginkgo.v -timeout 15m
 
 E2E_REPORTS_DIR ?= .e2e-reports
 
@@ -145,7 +145,7 @@ test-e2e-report: manifests generate fmt vet ## Run the e2e tests with report sav
 	@mkdir -p $(E2E_REPORTS_DIR)
 	@REPORT_FILE="$(E2E_REPORTS_DIR)/e2e-test-$$(date +%Y%m%d-%H%M%S).log"; \
 	echo "Running e2e tests with report saved to $$REPORT_FILE"; \
-	go test ./test/e2e/ -v -ginkgo.v -ginkgo.no-color 2>&1 | tee $$REPORT_FILE; \
+	go test ./test/e2e/ -v -ginkgo.v -timeout 15m -ginkgo.no-color 2>&1 | tee $$REPORT_FILE; \
 	TEST_EXIT_CODE=$${PIPEFAIL[0]}; \
 	echo ""; \
 	echo "Report saved to: $$REPORT_FILE"; \
@@ -432,7 +432,7 @@ dev-backend: set-local docker-build docker-push docker-build-init-cert docker-pu
 .PHONY: deploy-e2e
 deploy-e2e: manifests
 	helm install exc-e2e --set metrics.address=:8443 \
- 		--set 'watchNamespaces={default}' \
+ 		--set 'watchNamespaces={default,exc-secrets-ns1,exc-secrets-ns2}' \
  		--set image.repository=$(IMG_WITHOUT_TAG) \
  		--set image.tag=$(TAG) \
 		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
