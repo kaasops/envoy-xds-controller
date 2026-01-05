@@ -15,7 +15,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/grpcapi"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
 	v1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -252,7 +252,7 @@ func (s *VirtualServiceStore) buildAndCreateVirtualService(
 	vs *v1alpha1.VirtualService,
 ) error {
 	tmpStore := s.cacheUpdater.CopyStore()
-	if _, err := resbuilder_v2.BuildResources(vs, tmpStore); err != nil {
+	if _, err := resbuilder.BuildResources(vs, tmpStore); err != nil {
 		return err
 	}
 	return s.client.Create(ctx, vs)
