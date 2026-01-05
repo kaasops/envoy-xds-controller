@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	oauth2v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/oauth2/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -359,4 +360,32 @@ func (b *Builder) generateTracingRefCacheKey(vs *v1alpha1.VirtualService) string
 	}
 
 	return fmt.Sprintf("tracing_ref_%x", hasher.Sum(nil))
+}
+
+// ClusterExtractor interface implementation
+// These methods implement the interfaces.ClusterExtractor interface
+
+// ExtractClustersFromFilterChains extracts clusters from filter chains
+func (b *Builder) ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain) ([]*cluster.Cluster, error) {
+	return ExtractClustersFromFilterChains(filterChains, b.store)
+}
+
+// ExtractClustersFromVirtualHost extracts clusters from a virtual host
+func (b *Builder) ExtractClustersFromVirtualHost(virtualHost *routev3.VirtualHost) ([]*cluster.Cluster, error) {
+	return b.FromVirtualHostRoutes(virtualHost)
+}
+
+// ExtractClustersFromHTTPFilters extracts clusters from HTTP filters
+func (b *Builder) ExtractClustersFromHTTPFilters(httpFilters []*hcmv3.HttpFilter) ([]*cluster.Cluster, error) {
+	return b.FromOAuth2HTTPFilters(httpFilters)
+}
+
+// ExtractClustersFromTracingRaw extracts clusters from inline tracing configuration
+func (b *Builder) ExtractClustersFromTracingRaw(tr *runtime.RawExtension) ([]*cluster.Cluster, error) {
+	return b.FromTracingRaw(tr)
+}
+
+// ExtractClustersFromTracingRef extracts clusters from tracing reference
+func (b *Builder) ExtractClustersFromTracingRef(vs *v1alpha1.VirtualService) ([]*cluster.Cluster, error) {
+	return b.FromTracingRef(vs)
 }

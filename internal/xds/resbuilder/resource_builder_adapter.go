@@ -13,7 +13,6 @@ func UpdateResourceBuilder(rb *ResourceBuilder) {
 	routingAdapter := adapters.NewRoutingAdapter(rb.routesBuilder)
 	accessLogAdapter := rb.filtersBuilder
 	tlsAdapter := adapters.NewTLSAdapter(rb.store)
-	clusterExtractorAdapter := adapters.NewClusterExtractorAdapter(rb.clustersBuilder, rb.store)
 
 	builder := main_builder.NewMainBuilder(rb.store)
 	builder.SetComponents(
@@ -22,7 +21,7 @@ func UpdateResourceBuilder(rb *ResourceBuilder) {
 		routingAdapter,
 		accessLogAdapter,
 		tlsAdapter,
-		clusterExtractorAdapter,
+		rb.clustersBuilder, // clusters.Builder now implements ClusterExtractor interface
 	)
 
 	rb.mainBuilder = builder
