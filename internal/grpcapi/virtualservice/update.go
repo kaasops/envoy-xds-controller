@@ -6,7 +6,7 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/kaasops/envoy-xds-controller/internal/grpcapi"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder_v2"
 	v1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service/v1"
 )
 
@@ -77,7 +77,7 @@ func (s *VirtualServiceStore) UpdateVirtualService(ctx context.Context, req *con
 		vs.Spec.UseRemoteAddress = req.Msg.UseRemoteAddress
 	}
 
-	if _, err := resbuilder.BuildResources(vs, s.store); err != nil {
+	if _, err := resbuilder_v2.BuildResources(vs, s.store); err != nil {
 		return nil, err
 	}
 

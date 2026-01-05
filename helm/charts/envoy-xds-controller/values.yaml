@@ -133,14 +133,6 @@ podSecurityContext: {}
 
 envs: {}
 
-# ResourceBuilder configuration options
-resourceBuilder:
-  # Enable MainBuilder implementation (more efficient and modular)
-  enableMainBuilder: true
-  # Percentage of requests that use MainBuilder (0-100)
-  # Only used if enableMainBuilder is false
-  mainBuilderPercentage: 100
-
 tolerations: {}
 
 resources:
