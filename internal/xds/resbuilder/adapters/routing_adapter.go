@@ -29,44 +29,20 @@ func (a *RoutingAdapter) BuildRouteConfiguration(
 	xdsListener *listenerv3.Listener,
 	nn helpers.NamespacedName,
 ) (*routev3.VirtualHost, *routev3.RouteConfiguration, error) {
-	// First build the virtual host
 	virtualHost, err := a.BuildVirtualHost(vs, nn)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// Then build the route configuration
 	routeConfig, err := a.builder.BuildRouteConfiguration(vs, nn)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	// For TLS listeners, add a fallback virtual host if needed
+	// Add fallback virtual host for TLS listeners if needed
 	listenerIsTLS := utils.IsTLSListener(xdsListener)
-	if listenerIsTLS && !(len(virtualHost.Domains) == 1 && virtualHost.Domains[0] == "*") && utils.ListenerHasPort443(xdsListener) {
-		// Build a fallback virtual host
-		fallbackVH := &routev3.VirtualHost{
-			Name:    "421vh",
-			Domains: []string{"*"},
-			Routes: []*routev3.Route{
-				{
-					Match: &routev3.RouteMatch{
-						PathSpecifier: &routev3.RouteMatch_Prefix{
-							Prefix: "/",
-						},
-					},
-					Action: &routev3.Route_DirectResponse{
-						DirectResponse: &routev3.DirectResponseAction{
-							Status: 421,
-						},
-					},
-				},
-			},
-		}
-
-		// Add the fallback virtual host to the route configuration
-		routeConfig.VirtualHosts = append(routeConfig.VirtualHosts, fallbackVH)
-	}
+	hasPort443 := utils.ListenerHasPort443(xdsListener)
+	a.builder.AddFallbackVirtualHostIfNeeded(routeConfig, virtualHost, listenerIsTLS, hasPort443)
 
 	return virtualHost, routeConfig, nil
 }
