@@ -11,18 +11,15 @@ The implementation follows a modular component-based architecture:
 ```
 resbuilder/
 ├── main_builder/      # Core orchestration component
-├── clusters/          # Cluster building and extraction
-├── filters/           # HTTP filter construction
-├── filter_chains/     # Filter chain building
-├── routes/            # Route configuration
-├── routing/           # Advanced routing logic
-├── secrets/           # TLS secret management
-├── tls/               # TLS configuration utilities
-├── adapters/          # Component integration
-├── logging/           # Access log configuration
+├── clusters/          # Cluster building and extraction (implements ClusterExtractor)
+├── filters/           # HTTP filter construction (implements HTTPFilterBuilder, AccessLogBuilder)
+├── filter_chains/     # Filter chain building (implements FilterChainBuilder)
+├── routes/            # Route configuration (implements RoutingBuilder)
+├── secrets/           # TLS secret management (implements TLSBuilder)
 ├── utils/             # Shared utilities and object pools
-├── interfaces/        # Component contracts
-└── testing/           # Testing infrastructure
+├── interfaces/        # Component contracts for dependency injection
+├── builder.go         # ResourceBuilder - main entry point
+└── init.go            # Component initialization
 ```
 
 ### Key Components
