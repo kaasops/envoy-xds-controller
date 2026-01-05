@@ -31,43 +31,6 @@ func NewBuilder(store store.Store) *Builder {
 	}
 }
 
-// BuildClusters builds all clusters needed for a VirtualService
-func (b *Builder) BuildClusters(vs *v1alpha1.VirtualService, virtualHost *routev3.VirtualHost, httpFilters []*hcmv3.HttpFilter) ([]*cluster.Cluster, error) {
-	// Estimate capacity: routes typically have 1-3 clusters, plus potential OAuth2, tracing clusters
-	estimatedCapacity := len(virtualHost.Routes) + len(httpFilters)/2 + 2 // conservative estimate
-	clusters := make([]*cluster.Cluster, 0, estimatedCapacity)
-
-	// 1. Clusters referenced in routes
-	routeClusters, err := b.FromVirtualHostRoutes(virtualHost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract clusters from routes: %w", err)
-	}
-	clusters = append(clusters, routeClusters...)
-
-	// 2. Clusters referenced in OAuth2 HTTP filters
-	filterClusters, err := b.FromOAuth2HTTPFilters(httpFilters)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract clusters from OAuth2 filters: %w", err)
-	}
-	clusters = append(clusters, filterClusters...)
-
-	// 3. Clusters referenced by inline tracing config
-	tracingClusters, err := b.FromTracingRaw(vs.Spec.Tracing)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract clusters from inline tracing: %w", err)
-	}
-	clusters = append(clusters, tracingClusters...)
-
-	// 4. Clusters referenced by tracing ref
-	tracingRefClusters, err := b.FromTracingRef(vs)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract clusters from tracing ref: %w", err)
-	}
-	clusters = append(clusters, tracingRefClusters...)
-
-	return clusters, nil
-}
-
 // FromVirtualHostRoutes extracts clusters referenced by routes inside the given VirtualHost
 func (b *Builder) FromVirtualHostRoutes(virtualHost *routev3.VirtualHost) ([]*cluster.Cluster, error) {
 	var clusterNames []string
