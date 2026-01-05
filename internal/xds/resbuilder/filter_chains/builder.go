@@ -16,6 +16,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/interfaces"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/secrets"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -35,7 +36,7 @@ func NewBuilder(store store.Store) *Builder {
 }
 
 // BuildFilterChains builds multiple filter chains from the provided parameters
-func (b *Builder) BuildFilterChains(params *Params) ([]*listenerv3.FilterChain, error) {
+func (b *Builder) BuildFilterChains(params *interfaces.FilterChainsParams) ([]*listenerv3.FilterChain, error) {
 	var filterChains []*listenerv3.FilterChain
 
 	if len(params.SecretNameToDomains) > 0 {
@@ -75,7 +76,7 @@ func (b *Builder) BuildFilterChains(params *Params) ([]*listenerv3.FilterChain, 
 }
 
 // buildFilterChain builds a single filter chain from the provided parameters
-func (b *Builder) buildFilterChain(params *Params) (*listenerv3.FilterChain, error) {
+func (b *Builder) buildFilterChain(params *interfaces.FilterChainsParams) (*listenerv3.FilterChain, error) {
 	httpConnectionManager := &hcmv3.HttpConnectionManager{
 		CodecType:  hcmv3.HttpConnectionManager_AUTO,
 		StatPrefix: params.StatPrefix,
@@ -170,8 +171,8 @@ func (b *Builder) BuildFilterChainParams(
 	httpFilters []*hcmv3.HttpFilter,
 	listenerIsTLS bool,
 	virtualHost *routev3.VirtualHost,
-) (*Params, error) {
-	params := &Params{
+) (*interfaces.FilterChainsParams, error) {
+	params := &interfaces.FilterChainsParams{
 		VSName:            nn.String(),
 		UseRemoteAddress:  helpers.BoolFromPtr(vs.Spec.UseRemoteAddress),
 		RouteConfigName:   nn.String(),
@@ -406,7 +407,7 @@ func (b *Builder) processAccessLogConfigRefs(vs *v1alpha1.VirtualService) ([]*ac
 }
 
 // configureTLS handles TLS configuration for the filter chain
-func (b *Builder) configureTLS(vs *v1alpha1.VirtualService, listenerIsTLS bool, virtualHost *routev3.VirtualHost, params *Params) error {
+func (b *Builder) configureTLS(vs *v1alpha1.VirtualService, listenerIsTLS bool, virtualHost *routev3.VirtualHost, params *interfaces.FilterChainsParams) error {
 	if err := b.validateTLSConfiguration(vs, listenerIsTLS); err != nil {
 		return err
 	}
