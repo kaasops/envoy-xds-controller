@@ -272,3 +272,75 @@ func (b *Builder) validateAutoDiscoveryConfiguration(domains []string, store sto
 
 	return nil
 }
+
+// TLSBuilder interface implementation
+// These methods implement the interfaces.TLSBuilder interface
+
+// GetTLSType determines the TLS configuration type from TlsConfig
+func (b *Builder) GetTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error) {
+	return GetTLSType(vsTLSConfig)
+}
+
+// GetSecretNameToDomains maps domains to secrets based on the VirtualService's TLS configuration
+func (b *Builder) GetSecretNameToDomains(vs *v1alpha1.VirtualService, domains []string) (map[helpers.NamespacedName][]string, error) {
+	if vs.Spec.TlsConfig == nil {
+		return nil, fmt.Errorf("TLS configuration is missing in VirtualService")
+	}
+
+	tlsType, err := GetTLSType(vs.Spec.TlsConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	switch tlsType {
+	case utils.SecretRefType:
+		return b.getSecretNameToDomainsViaSecretRef(vs.Spec.TlsConfig.SecretRef, vs.Namespace, domains), nil
+	case utils.AutoDiscoveryType:
+		return b.getSecretNameToDomainsViaAutoDiscovery(domains, b.store.MapDomainSecretsForNamespace(vs.Namespace))
+	default:
+		return nil, fmt.Errorf("unknown TLS type: %s", tlsType)
+	}
+}
+
+// getSecretNameToDomainsViaSecretRef maps domains to a single secret for secretRef type
+func (b *Builder) getSecretNameToDomainsViaSecretRef(
+	secretRef *v1alpha1.ResourceRef,
+	vsNamespace string,
+	domains []string,
+) map[helpers.NamespacedName][]string {
+	m := make(map[helpers.NamespacedName][]string)
+
+	var secretNamespace string
+	if secretRef.Namespace != nil {
+		secretNamespace = *secretRef.Namespace
+	} else {
+		secretNamespace = vsNamespace
+	}
+
+	m[helpers.NamespacedName{Namespace: secretNamespace, Name: secretRef.Name}] = domains
+	return m
+}
+
+// getSecretNameToDomainsViaAutoDiscovery maps domains to secrets based on auto-discovery
+func (b *Builder) getSecretNameToDomainsViaAutoDiscovery(
+	domains []string,
+	domainToSecretMap map[string]*v1.Secret,
+) (map[helpers.NamespacedName][]string, error) {
+	m := make(map[helpers.NamespacedName][]string)
+
+	for _, domain := range domains {
+		var secret *v1.Secret
+		secret, ok := domainToSecretMap[domain]
+		if !ok {
+			secret, ok = domainToSecretMap[utils.GetWildcardDomain(domain)]
+			if !ok {
+				return nil, fmt.Errorf("can't find secret for domain %s", domain)
+			}
+		}
+
+		nn := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+		m[nn] = append(m[nn], domain)
+	}
+
+	return m, nil
+}

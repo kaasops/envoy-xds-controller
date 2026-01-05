@@ -14,6 +14,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/filter_chains"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/interfaces"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/secrets"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -320,15 +321,15 @@ func (a *FilterChainAdapter) configureTLS(vs *v1alpha1.VirtualService, listenerI
 		return nil
 	}
 
-	tlsAdapter := NewTLSAdapter(a.store)
+	tlsBuilder := secrets.NewBuilder(a.store)
 	// Validate TLS configuration type
-	if _, err := tlsAdapter.GetTLSType(vs.Spec.TlsConfig); err != nil {
+	if _, err := tlsBuilder.GetTLSType(vs.Spec.TlsConfig); err != nil {
 		return err
 	}
 
 	// Get SecretNameToDomains mapping based on TLS configuration
 	var err error
-	params.SecretNameToDomains, err = tlsAdapter.GetSecretNameToDomains(vs, virtualHost.Domains)
+	params.SecretNameToDomains, err = tlsBuilder.GetSecretNameToDomains(vs, virtualHost.Domains)
 	return err
 }
 

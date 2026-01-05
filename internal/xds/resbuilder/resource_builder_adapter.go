@@ -12,7 +12,6 @@ func UpdateResourceBuilder(rb *ResourceBuilder) {
 	filterChainAdapter := adapters.NewFilterChainAdapter(filter_chains.NewFilterChainBuilder(rb.store), rb.store)
 	routingAdapter := adapters.NewRoutingAdapter(rb.routesBuilder)
 	accessLogAdapter := rb.filtersBuilder
-	tlsAdapter := adapters.NewTLSAdapter(rb.store)
 
 	builder := main_builder.NewMainBuilder(rb.store)
 	builder.SetComponents(
@@ -20,7 +19,7 @@ func UpdateResourceBuilder(rb *ResourceBuilder) {
 		filterChainAdapter,
 		routingAdapter,
 		accessLogAdapter,
-		tlsAdapter,
+		rb.secretsBuilder,  // secrets.Builder now implements TLSBuilder interface
 		rb.clustersBuilder, // clusters.Builder now implements ClusterExtractor interface
 	)
 
