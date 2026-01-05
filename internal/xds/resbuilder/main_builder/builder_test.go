@@ -13,7 +13,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/interfaces"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/filter_chains"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -40,15 +40,15 @@ type MockFilterChainBuilder struct {
 	mock.Mock
 }
 
-func (m *MockFilterChainBuilder) BuildFilterChains(params *interfaces.FilterChainsParams) ([]*listenerv3.FilterChain, error) {
+func (m *MockFilterChainBuilder) BuildFilterChains(params *filter_chains.FilterChainsParams) ([]*listenerv3.FilterChain, error) {
 	args := m.Called(params)
 	return args.Get(0).([]*listenerv3.FilterChain), args.Error(1)
 }
 
 func (m *MockFilterChainBuilder) BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName,
-	httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost) (*interfaces.FilterChainsParams, error) {
+	httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost) (*filter_chains.FilterChainsParams, error) {
 	args := m.Called(vs, nn, httpFilters, listenerIsTLS, virtualHost)
-	return args.Get(0).(*interfaces.FilterChainsParams), args.Error(1)
+	return args.Get(0).(*filter_chains.FilterChainsParams), args.Error(1)
 }
 
 func (m *MockFilterChainBuilder) CheckFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
