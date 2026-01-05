@@ -18,7 +18,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/main_builder"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/routes"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/secrets"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/utils"
 )
 
 type FilterChainsParams struct {
@@ -142,76 +141,4 @@ func BuildResources(vs *v1alpha1.VirtualService, store store.Store) (*Resources,
 
 	// Delegate to the modular BuildResources method
 	return builder.BuildResources(vs)
-}
-
-// applyVirtualServiceTemplate applies a template to the virtual service if specified
-func (rb *ResourceBuilder) applyVirtualServiceTemplate(vs *v1alpha1.VirtualService) (*v1alpha1.VirtualService, error) {
-	if vs.Spec.Template == nil {
-		return vs, nil
-	}
-
-	templateNamespace := helpers.GetNamespace(vs.Spec.Template.Namespace, vs.Namespace)
-	templateName := vs.Spec.Template.Name
-	templateNN := helpers.NamespacedName{Namespace: templateNamespace, Name: templateName}
-
-	vst := rb.store.GetVirtualServiceTemplate(templateNN)
-	if vst == nil {
-		return nil, fmt.Errorf("virtual service template %s/%s not found", templateNamespace, templateName)
-	}
-
-	vsCopy := vs.DeepCopy()
-	if err := vsCopy.FillFromTemplate(vst, vs.Spec.TemplateOptions...); err != nil {
-		return nil, err
-	}
-
-	return vsCopy, nil
-}
-
-// checkFilterChainsConflicts checks for conflicts between existing filter chains and virtual service configuration
-func checkFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
-	conflicts := []struct {
-		condition bool
-		message   string
-	}{
-		{vs.Spec.VirtualHost != nil, "virtual host is set, but filter chains are found in listener"},
-		{len(vs.Spec.AdditionalRoutes) > 0, "additional routes are set, but filter chains are found in listener"},
-		{len(vs.Spec.HTTPFilters) > 0, "http filters are set, but filter chains are found in listener"},
-		{len(vs.Spec.AdditionalHttpFilters) > 0, "additional http filters are set, but filter chains are found in listener"},
-		{vs.Spec.TlsConfig != nil, "tls config is set, but filter chains are found in listener"},
-		{vs.Spec.RBAC != nil, "rbac is set, but filter chains are found in listener"},
-		{vs.Spec.UseRemoteAddress != nil, "use remote address is set, but filter chains are found in listener"},
-		{vs.Spec.XFFNumTrustedHops != nil, "xff_num_trusted_hops is set, but filter chains are found in listener"},
-		{vs.Spec.UpgradeConfigs != nil, "upgrade configs is set, but filter chains are found in listener"},
-		{vs.Spec.AccessLog != nil, "access log is set, but filter chains are found in listener"},
-		{vs.Spec.AccessLogConfig != nil, "access log config is set, but filter chains are found in listener"},
-		{len(vs.Spec.AccessLogs) > 0, "access logs are set, but filter chains are found in listener"},
-		{len(vs.Spec.AccessLogConfigs) > 0, "access log configs are set, but filter chains are found in listener"},
-	}
-
-	for _, conflict := range conflicts {
-		if conflict.condition {
-			return fmt.Errorf("conflict: %s", conflict.message)
-		}
-	}
-
-	return nil
-}
-
-func getTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error) {
-	if vsTLSConfig == nil {
-		return "", fmt.Errorf("TLS configuration is missing: please provide TLS parameters")
-	}
-	if vsTLSConfig.SecretRef != nil {
-		if vsTLSConfig.AutoDiscovery != nil && *vsTLSConfig.AutoDiscovery {
-			return "", fmt.Errorf("TLS configuration conflict: cannot use both secretRef and autoDiscovery simultaneously")
-		}
-		return utils.SecretRefType, nil
-	}
-	if vsTLSConfig.AutoDiscovery != nil {
-		if !*vsTLSConfig.AutoDiscovery {
-			return "", fmt.Errorf("invalid TLS configuration: cannot use autoDiscovery=false without specifying secretRef")
-		}
-		return utils.AutoDiscoveryType, nil
-	}
-	return "", fmt.Errorf("empty TLS configuration: either secretRef or autoDiscovery must be specified")
 }
