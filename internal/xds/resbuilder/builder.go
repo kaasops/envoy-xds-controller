@@ -57,90 +57,61 @@ func NewResourceBuilder(store store.Store) *ResourceBuilder {
 		secretsBuilder:  secrets.NewBuilder(store),
 	}
 
-	// Initialize MainBuilder
 	UpdateResourceBuilder(rb)
 
 	return rb
 }
 
-// EnableMainBuilder is kept for backward compatibility but is now a no-op
-// MainBuilder is always used
-func (rb *ResourceBuilder) EnableMainBuilder(enable bool) {
-	// No-op: MainBuilder is always enabled
-}
-
-// BuildResources builds all Envoy resources using MainBuilder
+// BuildResources builds all Envoy resources
 func (rb *ResourceBuilder) BuildResources(vs *v1alpha1.VirtualService) (*Resources, error) {
-	return rb.buildResourcesWithMainBuilder(vs)
-}
-
-// buildResourcesWithMainBuilder builds resources using the MainBuilder implementation
-func (rb *ResourceBuilder) buildResourcesWithMainBuilder(vs *v1alpha1.VirtualService) (*Resources, error) {
 	// Input validation
 	if vs == nil {
 		return nil, fmt.Errorf("virtual service cannot be nil")
 	}
 
-	// Make sure MainBuilder is initialized
+	// Ensure builder is initialized
 	if rb.mainBuilder == nil {
 		UpdateResourceBuilder(rb)
-
-		// Double-check initialization was successful
 		if rb.mainBuilder == nil {
-			return nil, fmt.Errorf("failed to initialize MainBuilder")
+			return nil, fmt.Errorf("failed to initialize builder")
 		}
 	}
 
-	// Call MainBuilder.BuildResources with timeout and panic recovery
+	// Build resources with panic recovery
 	var result interface{}
 	var err error
 
-	// Use panic recovery to handle any unexpected panics in the MainBuilder
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				err = fmt.Errorf("panic in MainBuilder.BuildResources: %v", r)
+				err = fmt.Errorf("panic in BuildResources: %v", r)
 			}
 		}()
-
 		result, err = rb.mainBuilder.BuildResources(vs)
 	}()
 
-	// Check for errors from BuildResources or from panic recovery
 	if err != nil {
-		return nil, fmt.Errorf("MainBuilder.BuildResources failed: %w", err)
+		return nil, fmt.Errorf("BuildResources failed: %w", err)
 	}
 
-	// Check for nil result
 	if result == nil {
-		return nil, fmt.Errorf("MainBuilder.BuildResources returned nil result")
+		return nil, fmt.Errorf("BuildResources returned nil result")
 	}
 
-	// Convert result from interface{} to *main_builder.Resources
-	// Type assertion to get the concrete type
 	mainResources, ok := result.(*main_builder.Resources)
 	if !ok {
-		return nil, fmt.Errorf("unexpected result type from MainBuilder: %T", result)
+		return nil, fmt.Errorf("unexpected result type: %T", result)
 	}
 
 	// Validate required fields
 	if mainResources.Listener.Name == "" {
-		return nil, fmt.Errorf("invalid result from MainBuilder: Listener name is empty")
+		return nil, fmt.Errorf("invalid result: Listener name is empty")
 	}
-
 	if len(mainResources.FilterChain) == 0 {
-		return nil, fmt.Errorf("invalid result from MainBuilder: FilterChain is empty")
+		return nil, fmt.Errorf("invalid result: FilterChain is empty")
 	}
 
-	// Optional fields validation with warnings
-	if mainResources.RouteConfig == nil && len(mainResources.Clusters) == 0 {
-		// This is a warning rather than an error because some configurations might be valid without these
-		// But it's unusual enough to log
-		fmt.Printf("Warning: MainBuilder returned resources without RouteConfig and Clusters for %s\n",
-			mainResources.Listener.String())
-	}
-
-	// Convert from main_builder.Resources to resbuilder_v2.Resources
+	// Convert to Resources
 	resources := &Resources{
 		Listener:    mainResources.Listener,
 		FilterChain: mainResources.FilterChain,
