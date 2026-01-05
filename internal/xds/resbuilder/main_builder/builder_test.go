@@ -12,7 +12,6 @@ import (
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
-	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/filter_chains"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -121,42 +120,6 @@ func (m *MockClusterExtractor) ExtractClustersFromTracingRaw(tr *runtime.RawExte
 func (m *MockClusterExtractor) ExtractClustersFromTracingRef(vs *v1alpha1.VirtualService) ([]*clusterv3.Cluster, error) {
 	args := m.Called(vs)
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
-}
-
-// TestNewBuilder creates a test-specific builder that accepts our mock implementations
-func TestNewBuilder(t *testing.T) {
-	// We'll create a real store.Store for testing
-	storeInstance := store.New()
-
-	// Create all mock component builders
-	mockHTTPFilterBuilder := &MockHTTPFilterBuilder{}
-	mockFilterChainBuilder := &MockFilterChainBuilder{}
-	mockRoutingBuilder := &MockRoutingBuilder{}
-	mockAccessLogBuilder := &MockAccessLogBuilder{}
-	mockTLSBuilder := &MockTLSBuilder{}
-	mockClusterExtractor := &MockClusterExtractor{}
-
-	// Create the builder
-	builder := NewBuilder(
-		storeInstance,
-		mockHTTPFilterBuilder,
-		mockFilterChainBuilder,
-		mockRoutingBuilder,
-		mockAccessLogBuilder,
-		mockTLSBuilder,
-		mockClusterExtractor,
-	)
-
-	// Verify builder was created correctly
-	assert.NotNil(t, builder)
-	assert.Equal(t, storeInstance, builder.store)
-	assert.Equal(t, mockHTTPFilterBuilder, builder.httpFilterBuilder)
-	assert.Equal(t, mockFilterChainBuilder, builder.filterChainBuilder)
-	assert.Equal(t, mockRoutingBuilder, builder.routingBuilder)
-	assert.Equal(t, mockAccessLogBuilder, builder.accessLogBuilder)
-	assert.Equal(t, mockTLSBuilder, builder.tlsBuilder)
-	assert.Equal(t, mockClusterExtractor, builder.clusterExtractor)
-	assert.NotNil(t, builder.cache)
 }
 
 func TestResourcesCacheGetSet(t *testing.T) {

@@ -176,28 +176,6 @@ type Builder struct {
 	cache              *resourcesCache
 }
 
-// NewBuilder creates a new Builder with the provided dependencies
-func NewBuilder(
-	store store.Store,
-	httpFilterBuilder interfaces.HTTPFilterBuilder,
-	filterChainBuilder interfaces.FilterChainBuilder,
-	routingBuilder interfaces.RoutingBuilder,
-	accessLogBuilder interfaces.AccessLogBuilder,
-	tlsBuilder interfaces.TLSBuilder,
-	clusterExtractor interfaces.ClusterExtractor,
-) *Builder {
-	return &Builder{
-		store:              store,
-		httpFilterBuilder:  httpFilterBuilder,
-		filterChainBuilder: filterChainBuilder,
-		routingBuilder:     routingBuilder,
-		accessLogBuilder:   accessLogBuilder,
-		tlsBuilder:         tlsBuilder,
-		clusterExtractor:   clusterExtractor,
-		cache:              newResourcesCache(),
-	}
-}
-
 // BuildResources is the main entry point for building Envoy resources for a VirtualService
 // It returns an interface{} that is actually a *Resources to match the MainBuilder interface
 func (b *Builder) BuildResources(vs *v1alpha1.VirtualService) (interface{}, error) {
