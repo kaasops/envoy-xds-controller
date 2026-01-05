@@ -83,7 +83,7 @@ var (
 			Help:    "Time spent processing different resource types",
 			Buckets: prometheus.ExponentialBuckets(0.0001, 2, 12), // From 0.1ms to ~0.4s
 		},
-		[]string{"resource_type", "operation", "implementation"}, // implementation can be "original" or "mainbuilder"
+		[]string{"resource_type", "operation"},
 	)
 
 	// Memory metrics
@@ -112,7 +112,7 @@ var (
 			Name: "envoy_xds_resbuilder_resources_created_total",
 			Help: "Total number of resources created by resbuilder",
 		},
-		[]string{"resource_type", "implementation"}, // implementation can be "original" or "mainbuilder"
+		[]string{"resource_type"},
 	)
 
 	// MemoryUsage estimates memory usage for large operations
@@ -121,7 +121,7 @@ var (
 			Name: "envoy_xds_resbuilder_memory_usage_bytes",
 			Help: "Estimated memory usage for large operations in bytes",
 		},
-		[]string{"operation", "implementation"}, // implementation can be "original" or "mainbuilder"
+		[]string{"operation"},
 	)
 
 	// ResourceCardinality tracks the number of items in various collections
@@ -130,16 +130,7 @@ var (
 			Name: "envoy_xds_resbuilder_resource_cardinality",
 			Help: "Number of items in various resource collections",
 		},
-		[]string{"collection_type", "resource_type", "implementation"}, // implementation can be "original" or "mainbuilder"
-	)
-
-	// FeatureFlagMetrics tracks feature flag usage
-	FeatureFlagMetrics = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "envoy_xds_resbuilder_feature_flag_usage_total",
-			Help: "Usage counts for feature flags",
-		},
-		[]string{"flag_name", "value"},
+		[]string{"collection_type", "resource_type"},
 	)
 )
 
@@ -178,7 +169,7 @@ func RecordObjectPoolPut(poolType string) {
 	ObjectPoolPuts.WithLabelValues(poolType).Inc()
 }
 
-// RecordResourceCreation increments the resource creation counter for the specified resource type and implementation
-func RecordResourceCreation(resourceType string, implementation string) {
-	ResourceCounts.WithLabelValues(resourceType, implementation).Inc()
+// RecordResourceCreation increments the resource creation counter for the specified resource type
+func RecordResourceCreation(resourceType string) {
+	ResourceCounts.WithLabelValues(resourceType).Inc()
 }

@@ -255,7 +255,7 @@ func (b *Builder) BuildResources(vs *v1alpha1.VirtualService) (interface{}, erro
 	}
 
 	// Record resource creation
-	utils.RecordResourceCreation("virtual_service", "mainbuilder")
+	utils.RecordResourceCreation("virtual_service")
 
 	// Record build duration
 	buildDuration := time.Since(startTime).Seconds()
