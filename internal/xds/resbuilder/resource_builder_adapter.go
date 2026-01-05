@@ -8,17 +8,15 @@ import (
 
 // UpdateResourceBuilder initializes the internal builder with all required adapters
 func UpdateResourceBuilder(rb *ResourceBuilder) {
-	httpFilterAdapter := adapters.NewHTTPFilterAdapter(rb.filtersBuilder, rb.store)
 	filterChainAdapter := adapters.NewFilterChainAdapter(filter_chains.NewFilterChainBuilder(rb.store), rb.store)
 	routingAdapter := adapters.NewRoutingAdapter(rb.routesBuilder)
-	accessLogAdapter := rb.filtersBuilder
 
 	builder := main_builder.NewMainBuilder(rb.store)
 	builder.SetComponents(
-		httpFilterAdapter,
+		rb.filtersBuilder, // filters.Builder now implements HTTPFilterBuilder interface
 		filterChainAdapter,
 		routingAdapter,
-		accessLogAdapter,
+		rb.filtersBuilder,  // filters.Builder also implements AccessLogBuilder interface
 		rb.secretsBuilder,  // secrets.Builder now implements TLSBuilder interface
 		rb.clustersBuilder, // clusters.Builder now implements ClusterExtractor interface
 	)

@@ -77,7 +77,7 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 	defer utils.PutHTTPFilterSlice(httpFiltersPtr)
 	httpFilters := *httpFiltersPtr
 
-	rbacF, err := b.buildRBACFilter(vs)
+	rbacF, err := b.BuildRBACFilter(vs)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +151,9 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 	return httpFilters, nil
 }
 
-// buildRBACFilter builds RBAC filter if RBAC is configured
-func (b *Builder) buildRBACFilter(vs *v1alpha1.VirtualService) (*rbacFilter.RBAC, error) {
+// BuildRBACFilter builds RBAC filter if RBAC is configured
+// Implements the interfaces.HTTPFilterBuilder interface
+func (b *Builder) BuildRBACFilter(vs *v1alpha1.VirtualService) (*rbacFilter.RBAC, error) {
 	if vs.Spec.RBAC == nil {
 		return nil, nil
 	}
