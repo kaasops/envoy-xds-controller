@@ -51,7 +51,10 @@ func (b *Builder) BuildRouteConfiguration(
 }
 
 // buildRouteConfigurationInternal builds a complete route configuration from VirtualService
-func (b *Builder) buildRouteConfigurationInternal(vs *v1alpha1.VirtualService, nn helpers.NamespacedName) (*routev3.RouteConfiguration, error) {
+func (b *Builder) buildRouteConfigurationInternal(
+	vs *v1alpha1.VirtualService,
+	nn helpers.NamespacedName,
+) (*routev3.RouteConfiguration, error) {
 	virtualHost, err := b.BuildVirtualHost(vs, nn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build virtual host: %w", err)
@@ -70,7 +73,10 @@ func (b *Builder) buildRouteConfigurationInternal(vs *v1alpha1.VirtualService, n
 }
 
 // BuildVirtualHost builds a VirtualHost from VirtualService specification
-func (b *Builder) BuildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName) (*routev3.VirtualHost, error) {
+func (b *Builder) BuildVirtualHost(
+	vs *v1alpha1.VirtualService,
+	nn helpers.NamespacedName,
+) (*routev3.VirtualHost, error) {
 	if vs.Spec.VirtualHost == nil {
 		return nil, fmt.Errorf("virtual host is empty")
 	}
@@ -110,7 +116,10 @@ func (b *Builder) BuildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.Names
 }
 
 // buildAdditionalRoutes builds routes from references
-func (b *Builder) buildAdditionalRoutes(routeRefs []*v1alpha1.ResourceRef, vsNamespace string) ([]*routev3.Route, error) {
+func (b *Builder) buildAdditionalRoutes(
+	routeRefs []*v1alpha1.ResourceRef,
+	vsNamespace string,
+) ([]*routev3.Route, error) {
 	var allRoutes []*routev3.Route
 
 	for _, routeRef := range routeRefs {
@@ -132,7 +141,10 @@ func (b *Builder) buildAdditionalRoutes(routeRefs []*v1alpha1.ResourceRef, vsNam
 }
 
 // buildRoutesFromSpec builds route objects from route specifications
-func (b *Builder) buildRoutesFromSpec(routeSpecs []*runtime.RawExtension, namespace, routeName string) ([]*routev3.Route, error) {
+func (b *Builder) buildRoutesFromSpec(
+	routeSpecs []*runtime.RawExtension,
+	namespace, routeName string,
+) ([]*routev3.Route, error) {
 	routes := make([]*routev3.Route, 0, len(routeSpecs))
 
 	for idx, routeSpec := range routeSpecs {
@@ -259,7 +271,11 @@ func (b *Builder) BuildFallbackVirtualHost() *routev3.VirtualHost {
 }
 
 // AddFallbackVirtualHostIfNeeded adds a fallback virtual host to route configuration if needed
-func (b *Builder) AddFallbackVirtualHostIfNeeded(routeConfig *routev3.RouteConfiguration, virtualHost *routev3.VirtualHost, isTLSListener, hasPort443 bool) {
+func (b *Builder) AddFallbackVirtualHostIfNeeded(
+	routeConfig *routev3.RouteConfiguration,
+	virtualHost *routev3.VirtualHost,
+	isTLSListener, hasPort443 bool,
+) {
 	// Add fallback route for TLS listeners
 	// https://github.com/envoyproxy/envoy/issues/37810
 	shouldAddFallback := isTLSListener &&

@@ -18,7 +18,7 @@ func main() {
 	validateCmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Validate configurations by scanning for YAML files and running validation checks",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			if path == "" {
 				fmt.Println("Error: --path is required")
 				os.Exit(1)

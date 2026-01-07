@@ -66,26 +66,6 @@ var (
 		[]string{"resource_type", "operation"},
 	)
 
-	// ComponentDuration tracks the time spent in specific components
-	ComponentDuration = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "envoy_xds_resbuilder_component_duration_seconds",
-			Help:    "Time spent in specific components of the build process",
-			Buckets: prometheus.ExponentialBuckets(0.0001, 2, 12), // From 0.1ms to ~0.4s
-		},
-		[]string{"component", "method", "status"}, // status can be "success" or "error"
-	)
-
-	// ResourceProcessingTime tracks the time spent processing different resource types
-	ResourceProcessingTime = promauto.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "envoy_xds_resbuilder_resource_processing_seconds",
-			Help:    "Time spent processing different resource types",
-			Buckets: prometheus.ExponentialBuckets(0.0001, 2, 12), // From 0.1ms to ~0.4s
-		},
-		[]string{"resource_type", "operation"},
-	)
-
 	// Memory metrics
 
 	// ObjectPoolGets tracks the number of objects retrieved from pools
@@ -113,24 +93,6 @@ var (
 			Help: "Total number of resources created by resbuilder",
 		},
 		[]string{"resource_type"},
-	)
-
-	// MemoryUsage estimates memory usage for large operations
-	MemoryUsage = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "envoy_xds_resbuilder_memory_usage_bytes",
-			Help: "Estimated memory usage for large operations in bytes",
-		},
-		[]string{"operation"},
-	)
-
-	// ResourceCardinality tracks the number of items in various collections
-	ResourceCardinality = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "envoy_xds_resbuilder_resource_cardinality",
-			Help: "Number of items in various resource collections",
-		},
-		[]string{"collection_type", "resource_type"},
 	)
 )
 

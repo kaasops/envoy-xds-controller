@@ -40,6 +40,7 @@ type VirtualServiceTemplateReconciler struct {
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservicetemplates,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservicetemplates/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=envoy.kaasops.io,resources=virtualservicetemplates/finalizers,verbs=update
@@ -55,7 +56,8 @@ type VirtualServiceTemplateReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.19.1/pkg/reconcile
 func (r *VirtualServiceTemplateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	<-r.CacheReadyChan
-	rlog := log.FromContext(ctx).WithName("virtualServiceTemplate-reconciler").WithValues("virtualServiceTemplate", req.NamespacedName)
+	rlog := log.FromContext(ctx).WithName("virtualServiceTemplate-reconciler").
+		WithValues("virtualServiceTemplate", req.NamespacedName)
 	rlog.Info("Reconciling VirtualServiceTemplate")
 
 	var vst envoyv1alpha1.VirtualServiceTemplate

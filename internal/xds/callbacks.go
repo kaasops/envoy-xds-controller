@@ -92,14 +92,23 @@ func (cb *Callbacks) OnStreamRequest(id int64, req *discovery.DiscoveryRequest) 
 	return nil
 }
 
-func (cb *Callbacks) OnStreamResponse(_ context.Context, id int64, req *discovery.DiscoveryRequest, _ *discovery.DiscoveryResponse) {
+func (cb *Callbacks) OnStreamResponse(
+	_ context.Context,
+	id int64,
+	req *discovery.DiscoveryRequest,
+	_ *discovery.DiscoveryResponse,
+) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.Responses++
 	cb.log.Info("responding to stream request", "typeUrl", req.GetTypeUrl(), "id", id, "nodeId", req.Node.Id)
 }
 
-func (cb *Callbacks) OnStreamDeltaResponse(id int64, req *discovery.DeltaDiscoveryRequest, res *discovery.DeltaDiscoveryResponse) {
+func (cb *Callbacks) OnStreamDeltaResponse(
+	id int64,
+	req *discovery.DeltaDiscoveryRequest,
+	_ *discovery.DeltaDiscoveryResponse,
+) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.DeltaResponses++

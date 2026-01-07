@@ -60,7 +60,14 @@ func createTestVirtualService() *v1alpha1.VirtualService {
 // makeListenerCR creates a test listener CR with given port
 func makeListenerCR() *v1alpha1.Listener {
 	l := &listenerv3.Listener{
-		Address: &corev3.Address{Address: &corev3.Address_SocketAddress{SocketAddress: &corev3.SocketAddress{Address: "127.0.0.1", PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: 8080}}}},
+		Address: &corev3.Address{
+			Address: &corev3.Address_SocketAddress{
+				SocketAddress: &corev3.SocketAddress{
+					Address:       "127.0.0.1",
+					PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: 8080},
+				},
+			},
+		},
 	}
 	b, _ := protoutil.Marshaler.Marshal(l)
 	return &v1alpha1.Listener{
@@ -78,13 +85,30 @@ func createTestStore() store.Store {
 	store.SetListener(listener)
 
 	// Add test cluster required by the VirtualHost routes
+	clusterJSON := `{
+		"name":"test-cluster",
+		"connect_timeout":"5s",
+		"type":"STATIC",
+		"load_assignment":{
+			"cluster_name":"test-cluster",
+			"endpoints":[{
+				"lb_endpoints":[{
+					"endpoint":{
+						"address":{
+							"socket_address":{"address":"127.0.0.1","port_value":8080}
+						}
+					}
+				}]
+			}]
+		}
+	}`
 	testCluster := &v1alpha1.Cluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-cluster",
 			Namespace: "default",
 		},
 		Spec: &runtime.RawExtension{
-			Raw: []byte(`{"name":"test-cluster","connect_timeout":"5s","type":"STATIC","load_assignment":{"cluster_name":"test-cluster","endpoints":[{"lb_endpoints":[{"endpoint":{"address":{"socket_address":{"address":"127.0.0.1","port_value":8080}}}}]}]}}`),
+			Raw: []byte(clusterJSON),
 		},
 	}
 	store.SetCluster(testCluster)

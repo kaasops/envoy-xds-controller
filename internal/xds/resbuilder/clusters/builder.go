@@ -310,7 +310,8 @@ func (b *Builder) generateTracingRefCacheKey(vs *v1alpha1.VirtualService) string
 	hasher.Write([]byte(fmt.Sprintf("%s/%s", tracingRefNs, vs.Spec.TracingRef.Name)))
 
 	// Include the actual tracing content if available
-	if tracing := b.store.GetTracing(helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name}); tracing != nil {
+	tracingNN := helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name}
+	if tracing := b.store.GetTracing(tracingNN); tracing != nil {
 		if tracing.Spec != nil {
 			if tracing.Spec.Raw != nil {
 				hasher.Write(tracing.Spec.Raw)

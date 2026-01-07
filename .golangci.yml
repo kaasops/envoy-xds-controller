@@ -15,7 +15,6 @@ issues:
     - path: "internal/*"
       linters:
         - dupl
-        - lll
 linters:
   disable-all: true
   enable:
@@ -45,3 +44,4 @@ linters-settings:
   revive:
     rules:
       - name: comment-spacings
+      - name: unused-parameter

@@ -47,6 +47,7 @@ func SetupAccessLogConfigWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-accesslogconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=accesslogconfigs,verbs=create;update;delete,versions=v1alpha1,name=vaccesslogconfig-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // AccessLogConfigCustomValidator struct is responsible for validating the AccessLogConfig resource
@@ -60,8 +61,11 @@ type AccessLogConfigCustomValidator struct {
 
 var _ webhook.CustomValidator = &AccessLogConfigCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type AccessLogConfig.
-func (v *AccessLogConfigCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *AccessLogConfigCustomValidator) ValidateCreate(
+	_ context.Context,
+	obj runtime.Object,
+) (admission.Warnings, error) {
 	accesslogconfig, ok := obj.(*envoyv1alpha1.AccessLogConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected a AccessLogConfig object but got %T", obj)
@@ -74,8 +78,11 @@ func (v *AccessLogConfigCustomValidator) ValidateCreate(ctx context.Context, obj
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type AccessLogConfig.
-func (v *AccessLogConfigCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *AccessLogConfigCustomValidator) ValidateUpdate(
+	_ context.Context,
+	_, newObj runtime.Object,
+) (admission.Warnings, error) {
 	accesslogconfig, ok := newObj.(*envoyv1alpha1.AccessLogConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected a AccessLogConfig object for the newObj but got %T", newObj)
@@ -88,8 +95,11 @@ func (v *AccessLogConfigCustomValidator) ValidateUpdate(ctx context.Context, old
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type AccessLogConfig.
-func (v *AccessLogConfigCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *AccessLogConfigCustomValidator) ValidateDelete(
+	ctx context.Context,
+	obj runtime.Object,
+) (admission.Warnings, error) {
 	accesslogconfig, ok := obj.(*envoyv1alpha1.AccessLogConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected a AccessLogConfig object but got %T", obj)
@@ -133,10 +143,9 @@ func (v *AccessLogConfigCustomValidator) ValidateDelete(ctx context.Context, obj
 			}
 		}
 		if len(refVstNames) > 0 {
-			return nil, fmt.Errorf("cannot delete AccessLogConfig %s because it is still referenced by VirtualServiceTemplate(s) %s",
-				accesslogconfig.GetName(),
-				refVstNames,
-			)
+			return nil, fmt.Errorf(
+				"cannot delete AccessLogConfig %s because it is still referenced by VirtualServiceTemplate(s) %s",
+				accesslogconfig.GetName(), refVstNames)
 		}
 	}
 

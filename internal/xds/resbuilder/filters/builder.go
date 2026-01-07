@@ -170,7 +170,10 @@ func (b *Builder) BuildRBACFilter(vs *v1alpha1.VirtualService) (*rbacFilter.RBAC
 		return nil, fmt.Errorf("rbac policies is empty")
 	}
 
-	rules := &rbacv3.RBAC{Action: rbacv3.RBAC_Action(action), Policies: make(map[string]*rbacv3.Policy, len(vs.Spec.RBAC.Policies))}
+	rules := &rbacv3.RBAC{
+		Action:   rbacv3.RBAC_Action(action),
+		Policies: make(map[string]*rbacv3.Policy, len(vs.Spec.RBAC.Policies)),
+	}
 	for policyName, rawPolicy := range vs.Spec.RBAC.Policies {
 		policy := &rbacv3.Policy{}
 		if err := protoutil.Unmarshaler.Unmarshal(rawPolicy.Raw, policy); err != nil {
@@ -254,7 +257,8 @@ func (b *Builder) BuildAccessLogConfigs(vs *v1alpha1.VirtualService) ([]*accessl
 	if vs.Spec.AccessLogConfig != nil {
 		vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
 		accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
-		accessLogConfig := b.store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name})
+		nn := helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name}
+		accessLogConfig := b.store.GetAccessLog(nn)
 		if accessLogConfig == nil {
 			return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, vs.Spec.AccessLogConfig.Name)
 		}

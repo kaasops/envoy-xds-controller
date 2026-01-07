@@ -39,13 +39,20 @@ type MockFilterChainBuilder struct {
 	mock.Mock
 }
 
-func (m *MockFilterChainBuilder) BuildFilterChains(params *filter_chains.FilterChainsParams) ([]*listenerv3.FilterChain, error) {
+func (m *MockFilterChainBuilder) BuildFilterChains(
+	params *filter_chains.FilterChainsParams,
+) ([]*listenerv3.FilterChain, error) {
 	args := m.Called(params)
 	return args.Get(0).([]*listenerv3.FilterChain), args.Error(1)
 }
 
-func (m *MockFilterChainBuilder) BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName,
-	httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost) (*filter_chains.FilterChainsParams, error) {
+func (m *MockFilterChainBuilder) BuildFilterChainParams(
+	vs *v1alpha1.VirtualService,
+	nn helpers.NamespacedName,
+	httpFilters []*hcmv3.HttpFilter,
+	listenerIsTLS bool,
+	virtualHost *routev3.VirtualHost,
+) (*filter_chains.FilterChainsParams, error) {
 	args := m.Called(vs, nn, httpFilters, listenerIsTLS, virtualHost)
 	return args.Get(0).(*filter_chains.FilterChainsParams), args.Error(1)
 }
@@ -59,13 +66,19 @@ type MockRoutingBuilder struct {
 	mock.Mock
 }
 
-func (m *MockRoutingBuilder) BuildRouteConfiguration(vs *v1alpha1.VirtualService, xdsListener *listenerv3.Listener,
-	nn helpers.NamespacedName) (*routev3.VirtualHost, *routev3.RouteConfiguration, error) {
+func (m *MockRoutingBuilder) BuildRouteConfiguration(
+	vs *v1alpha1.VirtualService,
+	xdsListener *listenerv3.Listener,
+	nn helpers.NamespacedName,
+) (*routev3.VirtualHost, *routev3.RouteConfiguration, error) {
 	args := m.Called(vs, xdsListener, nn)
 	return args.Get(0).(*routev3.VirtualHost), args.Get(1).(*routev3.RouteConfiguration), args.Error(2)
 }
 
-func (m *MockRoutingBuilder) BuildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName) (*routev3.VirtualHost, error) {
+func (m *MockRoutingBuilder) BuildVirtualHost(
+	vs *v1alpha1.VirtualService,
+	nn helpers.NamespacedName,
+) (*routev3.VirtualHost, error) {
 	args := m.Called(vs, nn)
 	return args.Get(0).(*routev3.VirtualHost), args.Error(1)
 }
@@ -88,7 +101,10 @@ func (m *MockTLSBuilder) GetTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, er
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockTLSBuilder) GetSecretNameToDomains(vs *v1alpha1.VirtualService, domains []string) (map[helpers.NamespacedName][]string, error) {
+func (m *MockTLSBuilder) GetSecretNameToDomains(
+	vs *v1alpha1.VirtualService,
+	domains []string,
+) (map[helpers.NamespacedName][]string, error) {
 	args := m.Called(vs, domains)
 	return args.Get(0).(map[helpers.NamespacedName][]string), args.Error(1)
 }
@@ -97,17 +113,23 @@ type MockClusterExtractor struct {
 	mock.Mock
 }
 
-func (m *MockClusterExtractor) ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain) ([]*clusterv3.Cluster, error) {
+func (m *MockClusterExtractor) ExtractClustersFromFilterChains(
+	filterChains []*listenerv3.FilterChain,
+) ([]*clusterv3.Cluster, error) {
 	args := m.Called(filterChains)
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
 }
 
-func (m *MockClusterExtractor) ExtractClustersFromVirtualHost(virtualHost *routev3.VirtualHost) ([]*clusterv3.Cluster, error) {
+func (m *MockClusterExtractor) ExtractClustersFromVirtualHost(
+	virtualHost *routev3.VirtualHost,
+) ([]*clusterv3.Cluster, error) {
 	args := m.Called(virtualHost)
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
 }
 
-func (m *MockClusterExtractor) ExtractClustersFromHTTPFilters(httpFilters []*hcmv3.HttpFilter) ([]*clusterv3.Cluster, error) {
+func (m *MockClusterExtractor) ExtractClustersFromHTTPFilters(
+	httpFilters []*hcmv3.HttpFilter,
+) ([]*clusterv3.Cluster, error) {
 	args := m.Called(httpFilters)
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
 }
@@ -117,7 +139,9 @@ func (m *MockClusterExtractor) ExtractClustersFromTracingRaw(tr *runtime.RawExte
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
 }
 
-func (m *MockClusterExtractor) ExtractClustersFromTracingRef(vs *v1alpha1.VirtualService) ([]*clusterv3.Cluster, error) {
+func (m *MockClusterExtractor) ExtractClustersFromTracingRef(
+	vs *v1alpha1.VirtualService,
+) ([]*clusterv3.Cluster, error) {
 	args := m.Called(vs)
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
 }

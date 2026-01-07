@@ -24,9 +24,12 @@ type clusterExtractionResult struct {
 	isRequired bool // true for known filter types (TCP Proxy, HCM), false for generic extraction
 }
 
-// ExtractClustersFromFilterChains extracts all cluster references from listener filter chains
-// This function provides optimized cluster extraction from existing listener configurations
-func ExtractClustersFromFilterChains(filterChains []*listenerv3.FilterChain, store store.Store) ([]*cluster.Cluster, error) {
+// ExtractClustersFromFilterChains extracts all cluster references from listener filter chains.
+// This function provides optimized cluster extraction from existing listener configurations.
+func ExtractClustersFromFilterChains(
+	filterChains []*listenerv3.FilterChain,
+	store store.Store,
+) ([]*cluster.Cluster, error) {
 	// Use pooled slice for cluster extraction results
 	results := make([]clusterExtractionResult, 0, 8)
 

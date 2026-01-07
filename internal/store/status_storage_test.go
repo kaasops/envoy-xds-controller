@@ -104,6 +104,8 @@ func TestStatusStorage_ConcurrentAccess(t *testing.T) {
 	}()
 
 	wg.Wait()
+	// Test passes if no race conditions or deadlocks occurred
+	t.Log("concurrent access completed without race conditions")
 }
 
 // TestStatusStorage_CopyIsolation tests that copied status storage is isolated

@@ -335,7 +335,8 @@ func TestOptimizedStore_CopyUIDIndices(t *testing.T) {
 	// Verify copy is independent - delete from original
 	store.DeleteHTTPFilter(helpers.NamespacedName{Namespace: "default", Name: "test-filter"})
 	assert.Nil(t, store.GetHTTPFilterByUID("filter-uid-456"), "Original should not have filter after delete")
-	assert.Equal(t, httpFilter, storeCopy.GetHTTPFilterByUID("filter-uid-456"), "Copy should still have filter after delete from original")
+	assert.Equal(t, httpFilter, storeCopy.GetHTTPFilterByUID("filter-uid-456"),
+		"Copy should still have filter after delete from original")
 
 	// Also verify that policies UID index was copied (this was the critical bug)
 	policy := &v1alpha1.Policy{
@@ -396,8 +397,9 @@ func TestOptimizedStore_ConcurrentAccess(t *testing.T) {
 	assert.NotNil(t, vs)
 }
 
-// TestOptimizedStore_CopyShallowBehavior verifies shallow copy behavior with immutable pattern
-// With immutable pattern, mutations through copy affect original (but that's OK since we don't mutate in buildSnapshots)
+// TestOptimizedStore_CopyShallowBehavior verifies shallow copy behavior with immutable pattern.
+// With immutable pattern, mutations through copy affect original
+// (but that's OK since we don't mutate in buildSnapshots).
 func TestOptimizedStore_CopyShallowBehavior(t *testing.T) {
 	original := NewOptimizedStore()
 
@@ -613,11 +615,13 @@ func TestOptimizedStore_DryRunPatterns(t *testing.T) {
 		storeCopy.SetVirtualServiceTemplate(candidateTemplate)
 
 		// Verify isolation
-		assert.Nil(t, original.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "candidate-template"}),
+		candidateNN := helpers.NamespacedName{Namespace: "default", Name: "candidate-template"}
+		existingNN := helpers.NamespacedName{Namespace: "default", Name: "existing-template"}
+		assert.Nil(t, original.GetVirtualServiceTemplate(candidateNN),
 			"Original doesn't have candidate template")
-		assert.NotNil(t, storeCopy.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "candidate-template"}),
+		assert.NotNil(t, storeCopy.GetVirtualServiceTemplate(candidateNN),
 			"Copy has candidate template")
-		assert.NotNil(t, storeCopy.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: "default", Name: "existing-template"}),
+		assert.NotNil(t, storeCopy.GetVirtualServiceTemplate(existingNN),
 			"Copy has existing template")
 	})
 
@@ -832,7 +836,11 @@ func TestOptimizedStore_ConcurrentDryRuns(t *testing.T) {
 			assert.NotNil(t, storeCopy.GetCluster(helpers.NamespacedName{Namespace: "default", Name: "cluster"}))
 
 			// Verify candidate exists in this copy
-			assert.NotNil(t, storeCopy.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("candidate-%d", id)}))
+			candidateNN := helpers.NamespacedName{
+				Namespace: "default",
+				Name:      fmt.Sprintf("candidate-%d", id),
+			}
+			assert.NotNil(t, storeCopy.GetVirtualService(candidateNN))
 
 			done <- true
 		}(i)
@@ -846,13 +854,15 @@ func TestOptimizedStore_ConcurrentDryRuns(t *testing.T) {
 	// Verify: Original unchanged
 	assert.Equal(t, 50, len(original.MapVirtualServices()), "Original should still have 50 VS")
 	for i := 0; i < 50; i++ {
-		assert.NotNil(t, original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("vs-%d", i)}),
+		vsNN := helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("vs-%d", i)}
+		assert.NotNil(t, original.GetVirtualService(vsNN),
 			fmt.Sprintf("Original should have vs-%d", i))
 	}
 
 	// Verify: No candidates leaked to original
 	for i := 0; i < 10; i++ {
-		assert.Nil(t, original.GetVirtualService(helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("candidate-%d", i)}),
+		candNN := helpers.NamespacedName{Namespace: "default", Name: fmt.Sprintf("candidate-%d", i)}
+		assert.Nil(t, original.GetVirtualService(candNN),
 			fmt.Sprintf("Original should not have candidate-%d", i))
 	}
 

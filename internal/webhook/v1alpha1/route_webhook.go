@@ -47,6 +47,7 @@ func SetupRouteWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-route,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=routes,verbs=create;update;delete,versions=v1alpha1,name=vroute-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // RouteCustomValidator struct is responsible for validating the Route resource
@@ -61,7 +62,7 @@ type RouteCustomValidator struct {
 var _ webhook.CustomValidator = &RouteCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Route.
-func (v *RouteCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *RouteCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	route, ok := obj.(*envoyv1alpha1.Route)
 	if !ok {
 		return nil, fmt.Errorf("expected a Route object but got %T", obj)
@@ -77,8 +78,11 @@ func (v *RouteCustomValidator) ValidateCreate(ctx context.Context, obj runtime.O
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Route.
-func (v *RouteCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *RouteCustomValidator) ValidateUpdate(
+	_ context.Context,
+	_, newObj runtime.Object,
+) (admission.Warnings, error) {
 	route, ok := newObj.(*envoyv1alpha1.Route)
 	if !ok {
 		return nil, fmt.Errorf("expected a Route object for the newObj but got %T", newObj)
