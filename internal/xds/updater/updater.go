@@ -90,9 +90,15 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, 
 // full snapshots. It builds resources only for the specified VS, checks for duplicate domains within the VS,
 // verifies listener address uniqueness across all Listeners in the store, and validates that the VS domains
 // do not collide with existing domains present in the current snapshot cache for the relevant nodeIDs.
-// Note: For updates of an existing VS, comparing to the current cache may lead to false positives if
-// the same VS already contributes the same domains. Prefer using this on Create, or fall back to heavy dry-run on Update.
-func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v1alpha1.VirtualService, prevVS *v1alpha1.VirtualService, validationIndices bool) error {
+// Note: For updates of an existing VS, comparing to the current cache may lead to false positives
+// if the same VS already contributes the same domains. Prefer using this on Create, or fall back
+// to heavy dry-run on Update.
+func (c *CacheUpdater) DryValidateVirtualServiceLight(
+	ctx context.Context,
+	vs *v1alpha1.VirtualService,
+	prevVS *v1alpha1.VirtualService,
+	validationIndices bool,
+) error {
 	// Honor cancellation upfront
 	if err := ctx.Err(); err != nil {
 		return err
@@ -149,7 +155,10 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *v
 	return nil
 }
 
-func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *v1alpha1.VirtualServiceTemplate) error {
+func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(
+	ctx context.Context,
+	vst *v1alpha1.VirtualServiceTemplate,
+) error {
 	rlog := log.FromContext(ctx).WithName("cache-updater")
 
 	// Always log webhook validation start for diagnostics
@@ -174,7 +183,8 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.C
 	c.mx.RLock()
 	lockAcquireDuration := time.Since(lockStart)
 	if lockAcquireDuration > 100*time.Millisecond {
-		rlog.Info("DryBuildSnapshots: lock contention detected", "template", vst.Name, "lockWaitDuration", lockAcquireDuration.String())
+		rlog.Info("DryBuildSnapshots: lock contention detected",
+			"template", vst.Name, "lockWaitDuration", lockAcquireDuration.String())
 	}
 
 	start := time.Now()
@@ -652,7 +662,10 @@ func (c *CacheUpdater) GetMarshaledStore() ([]byte, error) {
 	return json.MarshalIndent(data, "", "\t")
 }
 
-func updateSnapshot(prevSnapshot cache.ResourceSnapshot, resources map[resource.Type][]types.Resource) (*cache.Snapshot, bool, error) {
+func updateSnapshot(
+	prevSnapshot cache.ResourceSnapshot,
+	resources map[resource.Type][]types.Resource,
+) (*cache.Snapshot, bool, error) {
 	if prevSnapshot == nil {
 		return nil, false, errors.New("snapshot is nil")
 	}
@@ -752,7 +765,11 @@ func validateDomainsWithinVS(domains []string) error {
 // validateListenerAddresses validates that listener addresses are unique within each nodeID (snapshot).
 // This replaces the previous global validation approach which incorrectly prevented
 // the same address:port from being used across different nodeIDs (different snapshots).
-func validateListenerAddresses(storeCopy store.Store, snapshotCache *wrapped.SnapshotCache, validationIndices bool) error {
+func validateListenerAddresses(
+	storeCopy store.Store,
+	snapshotCache *wrapped.SnapshotCache,
+	validationIndices bool,
+) error {
 	// Build mapping of listeners to nodeIDs
 	listenerToNodeIDs := buildListenerToNodeIDsMapping(storeCopy, snapshotCache)
 
@@ -772,7 +789,10 @@ func validateListenerAddresses(storeCopy store.Store, snapshotCache *wrapped.Sna
 // buildListenerToNodeIDsMapping creates a mapping of listener names to the nodeIDs that use them.
 // This is determined by analyzing which VirtualServices reference each listener and what nodeIDs
 // those VirtualServices target. For common VirtualServices (nodeID = "*"), expands to all actual nodeIDs.
-func buildListenerToNodeIDsMapping(storeCopy store.Store, snapshotCache *wrapped.SnapshotCache) map[helpers.NamespacedName][]string {
+func buildListenerToNodeIDsMapping(
+	storeCopy store.Store,
+	snapshotCache *wrapped.SnapshotCache,
+) map[helpers.NamespacedName][]string {
 	mapping := make(map[helpers.NamespacedName][]string)
 
 	// Iterate through all VirtualServices to find which listeners they use
@@ -815,7 +835,10 @@ func buildListenerToNodeIDsMapping(storeCopy store.Store, snapshotCache *wrapped
 }
 
 // validateListenerAddressesPerNodeID validates listener addresses using indices, but per nodeID.
-func validateListenerAddressesPerNodeID(storeCopy store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
+func validateListenerAddressesPerNodeID(
+	storeCopy store.Store,
+	listenerToNodeIDs map[helpers.NamespacedName][]string,
+) error {
 	// Group listeners by nodeID
 	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
 	for listenerNN, nodeIDs := range listenerToNodeIDs {
@@ -860,7 +883,10 @@ func validateListenerAddressesPerNodeID(storeCopy store.Store, listenerToNodeIDs
 }
 
 // validateListenerAddressesUniquePerNodeID performs thorough validation of listener addresses per nodeID.
-func validateListenerAddressesUniquePerNodeID(storeCopy store.Store, listenerToNodeIDs map[helpers.NamespacedName][]string) error {
+func validateListenerAddressesUniquePerNodeID(
+	storeCopy store.Store,
+	listenerToNodeIDs map[helpers.NamespacedName][]string,
+) error {
 	// Group listeners by nodeID
 	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
 	for listenerNN, nodeIDs := range listenerToNodeIDs {
@@ -910,7 +936,12 @@ func validateListenerAddressesUniquePerNodeID(storeCopy store.Store, listenerToN
 }
 
 // buildExistingDomainsMap builds a map of existing domains per node from either indices or snapshot cache.
-func (c *CacheUpdater) buildExistingDomainsMap(ctx context.Context, targetNodeIDs []string, storeCopy store.Store, validationIndices bool) (map[string]map[string]struct{}, error) {
+func (c *CacheUpdater) buildExistingDomainsMap(
+	ctx context.Context,
+	targetNodeIDs []string,
+	storeCopy store.Store,
+	validationIndices bool,
+) (map[string]map[string]struct{}, error) {
 	existingByNode := make(map[string]map[string]struct{})
 	if validationIndices {
 		// Prefer Store-backed index when available; ensures O(1) lookup
@@ -950,7 +981,12 @@ func (c *CacheUpdater) buildExistingDomainsMap(ctx context.Context, targetNodeID
 }
 
 // excludePreviousVSDomains removes previous VirtualService domains from the existing domains map.
-func (c *CacheUpdater) excludePreviousVSDomains(ctx context.Context, prevVS *v1alpha1.VirtualService, targetNodeIDs []string, existingByNode map[string]map[string]struct{}) error {
+func (c *CacheUpdater) excludePreviousVSDomains(
+	ctx context.Context,
+	prevVS *v1alpha1.VirtualService,
+	targetNodeIDs []string,
+	existingByNode map[string]map[string]struct{},
+) error {
 	// Build resources for previous VS using the original store state
 	c.mx.RLock()
 	origStoreCopy := c.store.Copy()
@@ -985,7 +1021,11 @@ func (c *CacheUpdater) excludePreviousVSDomains(ctx context.Context, prevVS *v1a
 }
 
 // checkDomainCollisions validates that candidate domains don't collide with existing ones per node.
-func checkDomainCollisions(candidateDomains []string, targetNodeIDs []string, existingByNode map[string]map[string]struct{}) error {
+func checkDomainCollisions(
+	candidateDomains []string,
+	targetNodeIDs []string,
+	existingByNode map[string]map[string]struct{},
+) error {
 	for _, nodeID := range targetNodeIDs {
 		set := existingByNode[nodeID]
 		if len(set) == 0 {

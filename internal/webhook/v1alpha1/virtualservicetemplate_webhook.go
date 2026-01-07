@@ -44,10 +44,19 @@ import (
 // log is for logging in this package.
 var virtualservicetemplatelog = logf.Log.WithName("virtualservicetemplate-resource")
 
-// SetupVirtualServiceTemplateWebhookWithManager registers the webhook for VirtualServiceTemplate in the manager.
-func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.CacheUpdater, config WebhookConfig) error {
+// SetupVirtualServiceTemplateWebhookWithManager registers the webhook in the manager.
+func SetupVirtualServiceTemplateWebhookWithManager(
+	mgr ctrl.Manager,
+	cacheUpdater *updater.CacheUpdater,
+	config WebhookConfig,
+) error {
+	validator := &VirtualServiceTemplateCustomValidator{
+		Client:       mgr.GetClient(),
+		cacheUpdater: cacheUpdater,
+		Config:       config,
+	}
 	return ctrl.NewWebhookManagedBy(mgr).For(&envoyv1alpha1.VirtualServiceTemplate{}).
-		WithValidator(&VirtualServiceTemplateCustomValidator{Client: mgr.GetClient(), cacheUpdater: cacheUpdater, Config: config}).
+		WithValidator(validator).
 		Complete()
 }
 
@@ -56,6 +65,7 @@ func SetupVirtualServiceTemplateWebhookWithManager(mgr ctrl.Manager, cacheUpdate
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-virtualservicetemplate,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=virtualservicetemplates,verbs=create;update;delete,versions=v1alpha1,name=vvirtualservicetemplate-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 type contextKey string
@@ -80,13 +90,17 @@ type VirtualServiceTemplateCustomValidator struct {
 
 var _ webhook.CustomValidator = &VirtualServiceTemplateCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type VirtualServiceTemplate.
-func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(
+	ctx context.Context,
+	obj runtime.Object,
+) (admission.Warnings, error) {
 	virtualservicetemplate, ok := obj.(*envoyv1alpha1.VirtualServiceTemplate)
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", obj)
 	}
-	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon creation", "name", virtualservicetemplate.GetName())
+	vstName := virtualservicetemplate.GetName()
+	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon creation", "name", vstName)
 
 	// Validate that all extraFields are used in the template
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
@@ -99,14 +113,17 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateCreate(ctx context.Conte
 	defer cancelTracing()
 	if err := validateTemplateTracing(ctxTracing, v.Client, virtualservicetemplate); err != nil {
 		if errors.Is(ctxTracing.Err(), context.DeadlineExceeded) {
-			virtualservicetemplatelog.Error(err, "Tracing validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout())
-			return nil, fmt.Errorf("tracing validation timed out after %s; please check Kubernetes API availability", v.getDryRunTimeout())
+			virtualservicetemplatelog.Error(err, "Tracing validation timed out",
+				"name", vstName, "timeout", v.getDryRunTimeout())
+			return nil, fmt.Errorf(
+				"tracing validation timed out after %s; please check Kubernetes API availability",
+				v.getDryRunTimeout())
 		}
-		virtualservicetemplatelog.Error(err, "Tracing validation failed", "name", virtualservicetemplate.GetName())
+		virtualservicetemplatelog.Error(err, "Tracing validation failed", "name", vstName)
 		return nil, err
 	}
 
-	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed", "name", virtualservicetemplate.GetName())
+	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed", "name", vstName)
 
 	return nil, nil
 }
@@ -173,14 +190,19 @@ func validateExtraFieldsUsage(vst *envoyv1alpha1.VirtualServiceTemplate) error {
 
 	// Return an error if there are unused extraFields
 	if len(unusedFields) > 0 {
-		return fmt.Errorf("the following extraFields are defined but not used in the template: %s", strings.Join(unusedFields, ", "))
+		return fmt.Errorf(
+			"the following extraFields are defined but not used in the template: %s",
+			strings.Join(unusedFields, ", "))
 	}
 
 	return nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type VirtualServiceTemplate.
-func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(
+	ctx context.Context,
+	oldObj, newObj runtime.Object,
+) (admission.Warnings, error) {
 	virtualservicetemplate, ok := newObj.(*envoyv1alpha1.VirtualServiceTemplate)
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", newObj)
@@ -190,11 +212,14 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	validationID := generateValidationID()
 	ctx = context.WithValue(ctx, validationIDKey, validationID)
 
-	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update", "name", virtualservicetemplate.GetName(), "validationID", validationID)
+	vstName := virtualservicetemplate.GetName()
+	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon update",
+		"name", vstName, "validationID", validationID)
 
 	// Validate that all extraFields are used in the template
 	if err := validateExtraFieldsUsage(virtualservicetemplate); err != nil {
-		virtualservicetemplatelog.Error(err, "ExtraFields validation failed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
+		virtualservicetemplatelog.Error(err, "ExtraFields validation failed",
+			"name", vstName, "validationID", validationID)
 		return nil, err
 	}
 
@@ -203,58 +228,74 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(ctx context.Conte
 	defer cancelTracing()
 	if err := validateTemplateTracing(ctxTracing, v.Client, virtualservicetemplate); err != nil {
 		if errors.Is(ctxTracing.Err(), context.DeadlineExceeded) {
-			virtualservicetemplatelog.Error(err, "Tracing validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout(), "validationID", validationID)
-			return nil, fmt.Errorf("tracing validation timed out after %s; please check Kubernetes API availability", v.getDryRunTimeout())
+			virtualservicetemplatelog.Error(err, "Tracing validation timed out",
+				"name", vstName, "timeout", v.getDryRunTimeout(), "validationID", validationID)
+			return nil, fmt.Errorf(
+				"tracing validation timed out after %s; please check Kubernetes API availability",
+				v.getDryRunTimeout())
 		}
-		virtualservicetemplatelog.Error(err, "Tracing validation failed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
+		virtualservicetemplatelog.Error(err, "Tracing validation failed",
+			"name", vstName, "validationID", validationID)
 		return nil, err
 	}
 
 	// Apply timeout for heavy dry-run path when updating template
-	virtualservicetemplatelog.Info("Starting dry-run validation", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout(), "validationID", validationID)
+	virtualservicetemplatelog.Info("Starting dry-run validation",
+		"name", vstName, "timeout", v.getDryRunTimeout(), "validationID", validationID)
 	ctxTO, cancel := context.WithTimeout(ctx, v.getDryRunTimeout())
 	defer cancel()
 	if err := v.cacheUpdater.DryBuildSnapshotsWithVirtualServiceTemplate(ctxTO, virtualservicetemplate); err != nil {
 		if errors.Is(ctxTO.Err(), context.DeadlineExceeded) {
-			virtualservicetemplatelog.Error(err, "Dry-run validation timed out", "name", virtualservicetemplate.GetName(), "timeout", v.getDryRunTimeout(), "validationID", validationID)
-			return nil, fmt.Errorf("validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS", v.getDryRunTimeout())
+			virtualservicetemplatelog.Error(err, "Dry-run validation timed out",
+				"name", vstName, "timeout", v.getDryRunTimeout(), "validationID", validationID)
+			return nil, fmt.Errorf(
+				"validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS",
+				v.getDryRunTimeout())
 		}
-		virtualservicetemplatelog.Error(err, "Dry-run validation failed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
+		virtualservicetemplatelog.Error(err, "Dry-run validation failed",
+			"name", vstName, "validationID", validationID)
 		return nil, fmt.Errorf("failed to apply VirtualServiceTemplate: %w", err)
 	}
 
-	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed", "name", virtualservicetemplate.GetName(), "validationID", validationID)
+	virtualservicetemplatelog.Info("VirtualServiceTemplate validation completed",
+		"name", vstName, "validationID", validationID)
 
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type VirtualServiceTemplate.
-func (v *VirtualServiceTemplateCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *VirtualServiceTemplateCustomValidator) ValidateDelete(
+	ctx context.Context,
+	obj runtime.Object,
+) (admission.Warnings, error) {
 	virtualservicetemplate, ok := obj.(*envoyv1alpha1.VirtualServiceTemplate)
 	if !ok {
 		return nil, fmt.Errorf("expected a VirtualServiceTemplate object but got %T", obj)
 	}
-	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon deletion", "name", virtualservicetemplate.GetName())
+	vstName := virtualservicetemplate.GetName()
+	virtualservicetemplatelog.Info("Validation for VirtualServiceTemplate upon deletion", "name", vstName)
 
 	var virtualServiceList envoyv1alpha1.VirtualServiceList
-	if err := v.Client.List(ctx, &virtualServiceList, client.InNamespace(virtualservicetemplate.Namespace)); err != nil {
-		virtualservicetemplatelog.Error(err, "Failed to list VirtualService resources", "name", virtualservicetemplate.GetName(), "namespace", virtualservicetemplate.Namespace)
+	listOpts := client.InNamespace(virtualservicetemplate.Namespace)
+	if err := v.Client.List(ctx, &virtualServiceList, listOpts); err != nil {
+		virtualservicetemplatelog.Error(err, "Failed to list VirtualService resources",
+			"name", vstName, "namespace", virtualservicetemplate.Namespace)
 		return nil, fmt.Errorf("failed to list VirtualService resources: %w", err)
 	}
 
 	if len(virtualServiceList.Items) > 0 {
 		var refVsNames []string
 		for _, vs := range virtualServiceList.Items {
-			if vs.Spec.Template != nil && vs.Spec.Template.Name == virtualservicetemplate.GetName() {
+			if vs.Spec.Template != nil && vs.Spec.Template.Name == vstName {
 				refVsNames = append(refVsNames, vs.GetLabelName())
 			}
 		}
 		if len(refVsNames) > 0 {
-			virtualservicetemplatelog.Info("Cannot delete VirtualServiceTemplate: still referenced", "name", virtualservicetemplate.GetName(), "referencedBy", refVsNames)
-			return nil, fmt.Errorf("cannot delete VirtualServiceTemplate %s because it is still referenced by VirtualService(s) %s",
-				virtualservicetemplate.GetName(),
-				refVsNames,
-			)
+			virtualservicetemplatelog.Info("Cannot delete VirtualServiceTemplate: still referenced",
+				"name", vstName, "referencedBy", refVsNames)
+			return nil, fmt.Errorf(
+				"cannot delete VirtualServiceTemplate %s because it is referenced by VirtualService(s) %s",
+				vstName, refVsNames)
 		}
 	}
 
@@ -287,10 +328,12 @@ func validateTemplateTracing(ctx context.Context, cl client.Client, vst *envoyv1
 		}
 
 		var tracing envoyv1alpha1.Tracing
-		if err := cl.Get(ctx, types.NamespacedName{Namespace: ns, Name: spec.TracingRef.Name}, &tracing); err != nil {
+		tracingNN := types.NamespacedName{Namespace: ns, Name: spec.TracingRef.Name}
+		if err := cl.Get(ctx, tracingNN, &tracing); err != nil {
 			// Check if it's a context timeout/cancellation
 			if ctxErr := ctx.Err(); ctxErr != nil {
-				virtualservicetemplatelog.Error(ctxErr, "Tracing lookup timed out", "name", vst.GetName(), "tracingName", spec.TracingRef.Name, "tracingNamespace", ns)
+				virtualservicetemplatelog.Error(ctxErr, "Tracing lookup timed out",
+					"name", vst.GetName(), "tracingName", spec.TracingRef.Name, "tracingNamespace", ns)
 				return fmt.Errorf("context error during Tracing lookup: %w", ctxErr)
 			}
 			return fmt.Errorf("referenced Tracing %s/%s not found or not accessible: %w", ns, spec.TracingRef.Name, err)

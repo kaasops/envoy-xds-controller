@@ -29,7 +29,14 @@ func makeVS(name string, nodeIDs []string) *v1alpha1.VirtualService {
 // helper to create Listener CR with given host:port
 func makeListenerCR(ns, name, host string, port uint32) *v1alpha1.Listener {
 	l := &listenerv3.Listener{
-		Address: &corev3.Address{Address: &corev3.Address_SocketAddress{SocketAddress: &corev3.SocketAddress{Address: host, PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: port}}}},
+		Address: &corev3.Address{
+			Address: &corev3.Address_SocketAddress{
+				SocketAddress: &corev3.SocketAddress{
+					Address:       host,
+					PortSpecifier: &corev3.SocketAddress_PortValue{PortValue: port},
+				},
+			},
+		},
 	}
 	b, _ := protoutil.Marshaler.Marshal(l)
 	return &v1alpha1.Listener{
@@ -59,7 +66,10 @@ func makeVSWithListener(name string, nodeIDs []string, listenerName string) *v1a
 	return vs
 }
 
-func withStubbedBuilder(t *testing.T, f func(vs *v1alpha1.VirtualService, store store.Store) (*resbuilder.Resources, error)) func() {
+func withStubbedBuilder(
+	t *testing.T,
+	f func(vs *v1alpha1.VirtualService, store store.Store) (*resbuilder.Resources, error),
+) func() {
 	t.Helper()
 	prev := buildVSResources
 	buildVSResources = f
@@ -78,7 +88,8 @@ func TestLightValidator_CoverageMiss_WithIndices(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); !errors.Is(err, ErrLightValidationInsufficientCoverage) {
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	if !errors.Is(err, ErrLightValidationInsufficientCoverage) {
 		t.Fatalf("expected ErrLightValidationInsufficientCoverage, got %v", err)
 	}
 }
@@ -96,7 +107,8 @@ func TestLightValidator_DuplicateWithinVS(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err == nil || err.Error() != "duplicate domain 'a.com' within VirtualService" {
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	if err == nil || err.Error() != "duplicate domain 'a.com' within VirtualService" {
 		t.Fatalf("expected duplicate within VS error, got %v", err)
 	}
 }

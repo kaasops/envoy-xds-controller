@@ -47,6 +47,7 @@ func SetupHttpFilterWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-httpfilter,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=httpfilters,verbs=create;update;delete,versions=v1alpha1,name=vhttpfilter-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // HttpFilterCustomValidator struct is responsible for validating the HttpFilter resource
@@ -60,8 +61,11 @@ type HttpFilterCustomValidator struct {
 
 var _ webhook.CustomValidator = &HttpFilterCustomValidator{}
 
-// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type HttpFilter.
-func (v *HttpFilterCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *HttpFilterCustomValidator) ValidateCreate(
+	ctx context.Context,
+	obj runtime.Object,
+) (admission.Warnings, error) {
 	httpfilter, ok := obj.(*envoyv1alpha1.HttpFilter)
 	if !ok {
 		return nil, fmt.Errorf("expected a HttpFilter object but got %T", obj)
@@ -77,8 +81,11 @@ func (v *HttpFilterCustomValidator) ValidateCreate(ctx context.Context, obj runt
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type HttpFilter.
-func (v *HttpFilterCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *HttpFilterCustomValidator) ValidateUpdate(
+	ctx context.Context,
+	oldObj, newObj runtime.Object,
+) (admission.Warnings, error) {
 	httpfilter, ok := newObj.(*envoyv1alpha1.HttpFilter)
 	if !ok {
 		return nil, fmt.Errorf("expected a HttpFilter object for the newObj but got %T", newObj)
@@ -94,8 +101,11 @@ func (v *HttpFilterCustomValidator) ValidateUpdate(ctx context.Context, oldObj, 
 	return nil, nil
 }
 
-// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type HttpFilter.
-func (v *HttpFilterCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *HttpFilterCustomValidator) ValidateDelete(
+	ctx context.Context,
+	obj runtime.Object,
+) (admission.Warnings, error) {
 	httpfilter, ok := obj.(*envoyv1alpha1.HttpFilter)
 	if !ok {
 		return nil, fmt.Errorf("expected a HttpFilter object but got %T", obj)

@@ -15,7 +15,12 @@ type stubUpdater struct {
 	lightErr error
 }
 
-func (s *stubUpdater) DryValidateVirtualServiceLight(ctx context.Context, vs *envoyv1alpha1.VirtualService, prevVS *envoyv1alpha1.VirtualService, validationIndices bool) error {
+func (s *stubUpdater) DryValidateVirtualServiceLight(
+	ctx context.Context,
+	vs *envoyv1alpha1.VirtualService,
+	prevVS *envoyv1alpha1.VirtualService,
+	validationIndices bool,
+) error {
 	return s.lightErr
 }
 

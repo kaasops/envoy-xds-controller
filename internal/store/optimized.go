@@ -243,8 +243,10 @@ func (s *OptimizedStore) Copy() Store {
 		templateToVS: make(map[helpers.NamespacedName][]*v1alpha1.VirtualService, len(s.templateToVS)),
 
 		// All resource types
-		virtualServiceTemplates:      make(map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate, len(s.virtualServiceTemplates)),
-		virtualServiceTemplatesByUID: make(map[string]*v1alpha1.VirtualServiceTemplate, len(s.virtualServiceTemplatesByUID)),
+		virtualServiceTemplates: make(
+			map[helpers.NamespacedName]*v1alpha1.VirtualServiceTemplate, len(s.virtualServiceTemplates)),
+		virtualServiceTemplatesByUID: make(
+			map[string]*v1alpha1.VirtualServiceTemplate, len(s.virtualServiceTemplatesByUID)),
 
 		routes:      make(map[helpers.NamespacedName]*v1alpha1.Route, len(s.routes)),
 		routesByUID: make(map[string]*v1alpha1.Route, len(s.routesByUID)),

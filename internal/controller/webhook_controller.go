@@ -46,6 +46,7 @@ import (
 )
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;update;create;watch
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 
 const (
@@ -83,7 +84,10 @@ func (r *WebhookReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}, namesMatchingPredicate(r.TLSSecretName)).
-		Watches(&admissionregistrationv1.ValidatingWebhookConfiguration{}, enqueueFn, namesMatchingPredicate(r.ValidationWebhookName)).
+		Watches(
+			&admissionregistrationv1.ValidatingWebhookConfiguration{},
+			enqueueFn,
+			namesMatchingPredicate(r.ValidationWebhookName)).
 		Complete(r)
 }
 
@@ -121,7 +125,8 @@ func (r *WebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecret *corev1.Secret) error {
 
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: certSecret.Namespace, Name: certSecret.Name}, certSecret); err != nil {
+	nn := types.NamespacedName{Namespace: certSecret.Namespace, Name: certSecret.Name}
+	if err := r.Client.Get(ctx, nn, certSecret); err != nil {
 		if err := r.Client.Create(ctx, certSecret); err != nil {
 			return fmt.Errorf("failed to create secret: %w", err)
 		}
@@ -135,7 +140,8 @@ func (r *WebhookReconciler) ReconcileCertificates(ctx context.Context, certSecre
 			return fmt.Errorf("failed to generate certificate authority: %w", err)
 		}
 
-		opts := cert.NewCertOpts(time.Now().Add(certificateValidity), fmt.Sprintf("envoy-xds-controller-webhook-service.%s.svc", r.Namespace))
+		dnsName := fmt.Sprintf("envoy-xds-controller-webhook-service.%s.svc", r.Namespace)
+		opts := cert.NewCertOpts(time.Now().Add(certificateValidity), dnsName)
 
 		crt, key, err := ca.GenerateCertificate(opts)
 		if err != nil {
@@ -179,7 +185,8 @@ func (r *WebhookReconciler) shouldUpdateCertificate(secret *corev1.Secret) bool 
 		return true
 	}
 
-	certificate, key, err := cert.GetCertificateWithPrivateKeyFromBytes(secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey])
+	certificate, key, err := cert.GetCertificateWithPrivateKeyFromBytes(
+		secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey])
 	if err != nil {
 		return true
 	}

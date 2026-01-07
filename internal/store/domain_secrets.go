@@ -83,7 +83,11 @@ const (
 // Note: Secrets with unparseable certificates (validityUnknown) are ranked below valid
 // certificates but above expired ones. This ensures we prefer known-good certificates
 // while still providing fallback behavior when certificate parsing fails.
-func (idx DomainSecretsIndex) GetBestSecret(domain string, preferredNamespace string, secrets map[helpers.NamespacedName]*corev1.Secret) *corev1.Secret {
+func (idx DomainSecretsIndex) GetBestSecret(
+	domain string,
+	preferredNamespace string,
+	secrets map[helpers.NamespacedName]*corev1.Secret,
+) *corev1.Secret {
 	entries, exists := idx[domain]
 	if !exists || len(entries) == 0 {
 		return nil
@@ -170,7 +174,10 @@ func (idx DomainSecretsIndex) GetBestSecret(domain string, preferredNamespace st
 
 // GetAnySecret returns any valid secret for a domain (for backward compatibility)
 // Uses empty string as preferred namespace, so it just picks alphabetically first valid secret
-func (idx DomainSecretsIndex) GetAnySecret(domain string, secrets map[helpers.NamespacedName]*corev1.Secret) *corev1.Secret {
+func (idx DomainSecretsIndex) GetAnySecret(
+	domain string,
+	secrets map[helpers.NamespacedName]*corev1.Secret,
+) *corev1.Secret {
 	return idx.GetBestSecret(domain, "", secrets)
 }
 

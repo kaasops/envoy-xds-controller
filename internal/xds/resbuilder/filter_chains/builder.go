@@ -228,7 +228,9 @@ func (b *Builder) configureTracing(vs *v1alpha1.VirtualService) (*hcmv3.HttpConn
 }
 
 // unmarshalInlineTracing unmarshals inline tracing configuration
-func (b *Builder) unmarshalInlineTracing(tracingSpec *runtime.RawExtension) (*hcmv3.HttpConnectionManager_Tracing, error) {
+func (b *Builder) unmarshalInlineTracing(
+	tracingSpec *runtime.RawExtension,
+) (*hcmv3.HttpConnectionManager_Tracing, error) {
 	tracing := &hcmv3.HttpConnectionManager_Tracing{}
 	if err := protoutil.Unmarshaler.Unmarshal(tracingSpec.Raw, tracing); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal tracing: %w", err)
@@ -254,7 +256,9 @@ func (b *Builder) resolveTracingRef(vs *v1alpha1.VirtualService) (*hcmv3.HttpCon
 }
 
 // configureUpgradeConfigs handles upgrade configurations
-func (b *Builder) configureUpgradeConfigs(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpConnectionManager_UpgradeConfig, error) {
+func (b *Builder) configureUpgradeConfigs(
+	vs *v1alpha1.VirtualService,
+) ([]*hcmv3.HttpConnectionManager_UpgradeConfig, error) {
 	if vs.Spec.UpgradeConfigs == nil {
 		return nil, nil
 	}
@@ -362,7 +366,8 @@ func (b *Builder) processDeprecatedAccessLog(vs *v1alpha1.VirtualService) ([]*ac
 func (b *Builder) processDeprecatedAccessLogConfig(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
 	vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
 	accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
-	accessLogConfig := b.store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name})
+	nn := helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name}
+	accessLogConfig := b.store.GetAccessLog(nn)
 	if accessLogConfig == nil {
 		return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, vs.Spec.AccessLogConfig.Name)
 	}
@@ -406,7 +411,12 @@ func (b *Builder) processAccessLogConfigRefs(vs *v1alpha1.VirtualService) ([]*ac
 }
 
 // configureTLS handles TLS configuration for the filter chain
-func (b *Builder) configureTLS(vs *v1alpha1.VirtualService, listenerIsTLS bool, virtualHost *routev3.VirtualHost, params *FilterChainsParams) error {
+func (b *Builder) configureTLS(
+	vs *v1alpha1.VirtualService,
+	listenerIsTLS bool,
+	virtualHost *routev3.VirtualHost,
+	params *FilterChainsParams,
+) error {
 	if err := b.validateTLSConfiguration(vs, listenerIsTLS); err != nil {
 		return err
 	}

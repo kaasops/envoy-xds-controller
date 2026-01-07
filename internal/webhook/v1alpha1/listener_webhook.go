@@ -47,6 +47,7 @@ func SetupListenerWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-listener,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=listeners,verbs=create;update;delete,versions=v1alpha1,name=vlistener-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // ListenerCustomValidator struct is responsible for validating the Listener resource
@@ -77,8 +78,11 @@ func (v *ListenerCustomValidator) ValidateCreate(ctx context.Context, obj runtim
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Listener.
-func (v *ListenerCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *ListenerCustomValidator) ValidateUpdate(
+	ctx context.Context,
+	oldObj, newObj runtime.Object,
+) (admission.Warnings, error) {
 	listener, ok := newObj.(*envoyv1alpha1.Listener)
 	if !ok {
 		return nil, fmt.Errorf("expected a Listener object for the newObj but got %T", newObj)

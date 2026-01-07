@@ -33,7 +33,11 @@ func (m *Mixer) Add(nodeID string, resourceType resource.Type, resource types.Re
 	}
 }
 
-func (m *Mixer) AddListenerParams(listenerNamespacedName helpers.NamespacedName, fcs []*listenerv3.FilterChain, nodeID string) {
+func (m *Mixer) AddListenerParams(
+	listenerNamespacedName helpers.NamespacedName,
+	fcs []*listenerv3.FilterChain,
+	nodeID string,
+) {
 	if m.listeners[listenerNamespacedName] == nil {
 		m.listeners[listenerNamespacedName] = make(map[string][]*listenerv3.FilterChain)
 	}

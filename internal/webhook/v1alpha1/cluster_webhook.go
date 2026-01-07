@@ -50,6 +50,7 @@ func SetupClusterWebhookWithManager(mgr ctrl.Manager, cacheUpdater *updater.Cach
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-cluster,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=clusters,verbs=create;update;delete,versions=v1alpha1,name=vcluster-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // ClusterCustomValidator struct is responsible for validating the Cluster resource
@@ -87,8 +88,11 @@ func (v *ClusterCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Cluster.
-func (v *ClusterCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *ClusterCustomValidator) ValidateUpdate(
+	ctx context.Context,
+	oldObj, newObj runtime.Object,
+) (admission.Warnings, error) {
 	cluster, ok := newObj.(*envoyv1alpha1.Cluster)
 	if !ok {
 		return nil, fmt.Errorf("expected a Cluster object for the newObj but got %T", newObj)
@@ -129,7 +133,10 @@ func (v *ClusterCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 		for _, routeV3 := range routesV3 {
 			if routeAction := routeV3.GetRoute(); routeAction != nil {
 				if routeAction.GetCluster() == clusterV3.Name {
-					return nil, fmt.Errorf("route for cluster %s/%s is still in use in Route %s", cluster.Namespace, cluster.Name, route.Name) // TODO: all routes
+					// TODO: all routes
+					return nil, fmt.Errorf(
+						"route for cluster %s/%s is still in use in Route %s",
+						cluster.Namespace, cluster.Name, route.Name)
 				}
 			}
 		}
@@ -163,7 +170,9 @@ func (v *ClusterCustomValidator) ValidateDelete(ctx context.Context, obj runtime
 		}
 	}
 	if len(refTracingNames) > 0 {
-		return nil, fmt.Errorf("cannot delete Cluster %s/%s because it is still referenced by Tracing(s) %v", cluster.Namespace, cluster.Name, refTracingNames)
+		return nil, fmt.Errorf(
+			"cannot delete Cluster %s/%s because it is still referenced by Tracing(s) %v",
+			cluster.Namespace, cluster.Name, refTracingNames)
 	}
 
 	return nil, nil

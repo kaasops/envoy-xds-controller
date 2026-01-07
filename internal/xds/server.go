@@ -41,7 +41,8 @@ func RunServer(srv server.Server, port int) error {
 	// gRPC golang library sets a very small upper bound for the number gRPC/h2
 	// streams over a single TCP connection. If a proxy multiplexes requests over
 	// a single connection to the management server, then it might lead to
-	// availability problems. Keepalive timeouts based on connection_keepalive parameter https://www.envoyproxy.io/docs/envoy/latest/configuration/overview/examples#dynamic
+	// availability problems. Keepalive timeouts based on connection_keepalive parameter:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/overview/examples#dynamic
 	var grpcOptions []grpc.ServerOption
 	grpcOptions = append(grpcOptions,
 		grpc.MaxConcurrentStreams(grpcMaxConcurrentStreams),

@@ -47,6 +47,7 @@ func SetupPolicyWebhookWithManager(mgr ctrl.Manager) error {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
+//nolint:lll // kubebuilder marker must be on single line
 // +kubebuilder:webhook:path=/validate-envoy-kaasops-io-v1alpha1-policy,mutating=false,failurePolicy=fail,sideEffects=None,groups=envoy.kaasops.io,resources=policies,verbs=create;update;delete,versions=v1alpha1,name=vpolicy-v1alpha1.envoy.kaasops.io,admissionReviewVersions=v1
 
 // PolicyCustomValidator struct is responsible for validating the Policy resource
@@ -77,8 +78,11 @@ func (v *PolicyCustomValidator) ValidateCreate(ctx context.Context, obj runtime.
 	return nil, nil
 }
 
-// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type Policy.
-func (v *PolicyCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+// ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
+func (v *PolicyCustomValidator) ValidateUpdate(
+	ctx context.Context,
+	oldObj, newObj runtime.Object,
+) (admission.Warnings, error) {
 	policy, ok := newObj.(*envoyv1alpha1.Policy)
 	if !ok {
 		return nil, fmt.Errorf("expected a Policy object for the newObj but got %T", newObj)
