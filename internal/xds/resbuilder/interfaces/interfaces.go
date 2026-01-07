@@ -3,6 +3,7 @@ package interfaces
 import (
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/filter_chains"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -11,25 +12,7 @@ import (
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 )
-
-// FilterChainsParams holds parameters for building filter chains
-type FilterChainsParams struct {
-	VSName               string
-	UseRemoteAddress     bool
-	XFFNumTrustedHops    *uint32
-	RouteConfigName      string
-	StatPrefix           string
-	HTTPFilters          []*hcmv3.HttpFilter
-	UpgradeConfigs       []*hcmv3.HttpConnectionManager_UpgradeConfig
-	AccessLogs           []*accesslogv3.AccessLog
-	Domains              []string
-	DownstreamTLSContext *tlsv3.DownstreamTlsContext
-	SecretNameToDomains  map[helpers.NamespacedName][]string
-	IsTLS                bool
-	Tracing              *hcmv3.HttpConnectionManager_Tracing
-}
 
 // HTTPFilterBuilder is responsible for building HTTP filters
 type HTTPFilterBuilder interface {
@@ -39,10 +22,10 @@ type HTTPFilterBuilder interface {
 
 // FilterChainBuilder is responsible for building filter chains
 type FilterChainBuilder interface {
-	BuildFilterChains(params *FilterChainsParams) ([]*listenerv3.FilterChain, error)
+	BuildFilterChains(params *filter_chains.FilterChainsParams) ([]*listenerv3.FilterChain, error)
 	BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName,
 		httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool,
-		virtualHost *routev3.VirtualHost) (*FilterChainsParams, error)
+		virtualHost *routev3.VirtualHost) (*filter_chains.FilterChainsParams, error)
 	CheckFilterChainsConflicts(vs *v1alpha1.VirtualService) error
 }
 

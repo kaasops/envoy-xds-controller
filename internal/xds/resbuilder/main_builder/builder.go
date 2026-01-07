@@ -44,20 +44,6 @@ func newResourcesCache() *resourcesCache {
 	}
 }
 
-// SetTTL sets the time-to-live duration for cache entries
-func (c *resourcesCache) SetTTL(ttl time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.ttl = ttl
-}
-
-// SetMaxSize sets the maximum number of entries in the cache
-func (c *resourcesCache) SetMaxSize(maxSize int) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.maxSize = maxSize
-}
-
 // get retrieves a resource from the cache if it exists and is not expired
 func (c *resourcesCache) get(key string) (*Resources, bool) {
 	c.mu.Lock() // Using write lock since we update accessTimes and LRU
@@ -174,28 +160,6 @@ type Builder struct {
 	tlsBuilder         interfaces.TLSBuilder
 	clusterExtractor   interfaces.ClusterExtractor
 	cache              *resourcesCache
-}
-
-// NewBuilder creates a new Builder with the provided dependencies
-func NewBuilder(
-	store store.Store,
-	httpFilterBuilder interfaces.HTTPFilterBuilder,
-	filterChainBuilder interfaces.FilterChainBuilder,
-	routingBuilder interfaces.RoutingBuilder,
-	accessLogBuilder interfaces.AccessLogBuilder,
-	tlsBuilder interfaces.TLSBuilder,
-	clusterExtractor interfaces.ClusterExtractor,
-) *Builder {
-	return &Builder{
-		store:              store,
-		httpFilterBuilder:  httpFilterBuilder,
-		filterChainBuilder: filterChainBuilder,
-		routingBuilder:     routingBuilder,
-		accessLogBuilder:   accessLogBuilder,
-		tlsBuilder:         tlsBuilder,
-		clusterExtractor:   clusterExtractor,
-		cache:              newResourcesCache(),
-	}
 }
 
 // BuildResources is the main entry point for building Envoy resources for a VirtualService

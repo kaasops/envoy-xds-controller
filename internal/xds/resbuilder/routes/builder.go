@@ -3,6 +3,7 @@ package routes
 import (
 	"fmt"
 
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -24,8 +25,33 @@ func NewBuilder(store store.Store) *Builder {
 	}
 }
 
-// BuildRouteConfiguration builds a complete route configuration from VirtualService
-func (b *Builder) BuildRouteConfiguration(vs *v1alpha1.VirtualService, nn helpers.NamespacedName) (*routev3.RouteConfiguration, error) {
+// BuildRouteConfiguration implements the RoutingBuilder interface.
+// It builds both VirtualHost and RouteConfiguration, adding fallback virtual host if needed.
+func (b *Builder) BuildRouteConfiguration(
+	vs *v1alpha1.VirtualService,
+	xdsListener *listenerv3.Listener,
+	nn helpers.NamespacedName,
+) (*routev3.VirtualHost, *routev3.RouteConfiguration, error) {
+	virtualHost, err := b.BuildVirtualHost(vs, nn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	routeConfig, err := b.buildRouteConfigurationInternal(vs, nn)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Add fallback virtual host for TLS listeners if needed
+	listenerIsTLS := utils.IsTLSListener(xdsListener)
+	hasPort443 := utils.ListenerHasPort443(xdsListener)
+	b.AddFallbackVirtualHostIfNeeded(routeConfig, virtualHost, listenerIsTLS, hasPort443)
+
+	return virtualHost, routeConfig, nil
+}
+
+// buildRouteConfigurationInternal builds a complete route configuration from VirtualService
+func (b *Builder) buildRouteConfigurationInternal(vs *v1alpha1.VirtualService, nn helpers.NamespacedName) (*routev3.RouteConfiguration, error) {
 	virtualHost, err := b.BuildVirtualHost(vs, nn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build virtual host: %w", err)
@@ -244,34 +270,4 @@ func (b *Builder) AddFallbackVirtualHostIfNeeded(routeConfig *routev3.RouteConfi
 		fallbackVH := b.BuildFallbackVirtualHost()
 		routeConfig.VirtualHosts = append(routeConfig.VirtualHosts, fallbackVH)
 	}
-}
-
-// ValidateRouteConfiguration performs additional validation on route configuration
-func (b *Builder) ValidateRouteConfiguration(routeConfig *routev3.RouteConfiguration) error {
-	if routeConfig == nil {
-		return fmt.Errorf("route configuration is nil")
-	}
-
-	if routeConfig.Name == "" {
-		return fmt.Errorf("route configuration name is empty")
-	}
-
-	if len(routeConfig.VirtualHosts) == 0 {
-		return fmt.Errorf("route configuration has no virtual hosts")
-	}
-
-	// Validate each virtual host
-	for i, vh := range routeConfig.VirtualHosts {
-		if vh.Name == "" {
-			return fmt.Errorf("virtual host[%d] name is empty", i)
-		}
-		if len(vh.Domains) == 0 {
-			return fmt.Errorf("virtual host[%d] has no domains", i)
-		}
-		if len(vh.Routes) == 0 {
-			return fmt.Errorf("virtual host[%d] has no routes", i)
-		}
-	}
-
-	return nil
 }

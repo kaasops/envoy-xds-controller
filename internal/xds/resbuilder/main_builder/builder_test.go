@@ -12,8 +12,7 @@ import (
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
-	"github.com/kaasops/envoy-xds-controller/internal/store"
-	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/interfaces"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/filter_chains"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -40,15 +39,15 @@ type MockFilterChainBuilder struct {
 	mock.Mock
 }
 
-func (m *MockFilterChainBuilder) BuildFilterChains(params *interfaces.FilterChainsParams) ([]*listenerv3.FilterChain, error) {
+func (m *MockFilterChainBuilder) BuildFilterChains(params *filter_chains.FilterChainsParams) ([]*listenerv3.FilterChain, error) {
 	args := m.Called(params)
 	return args.Get(0).([]*listenerv3.FilterChain), args.Error(1)
 }
 
 func (m *MockFilterChainBuilder) BuildFilterChainParams(vs *v1alpha1.VirtualService, nn helpers.NamespacedName,
-	httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost) (*interfaces.FilterChainsParams, error) {
+	httpFilters []*hcmv3.HttpFilter, listenerIsTLS bool, virtualHost *routev3.VirtualHost) (*filter_chains.FilterChainsParams, error) {
 	args := m.Called(vs, nn, httpFilters, listenerIsTLS, virtualHost)
-	return args.Get(0).(*interfaces.FilterChainsParams), args.Error(1)
+	return args.Get(0).(*filter_chains.FilterChainsParams), args.Error(1)
 }
 
 func (m *MockFilterChainBuilder) CheckFilterChainsConflicts(vs *v1alpha1.VirtualService) error {
@@ -121,42 +120,6 @@ func (m *MockClusterExtractor) ExtractClustersFromTracingRaw(tr *runtime.RawExte
 func (m *MockClusterExtractor) ExtractClustersFromTracingRef(vs *v1alpha1.VirtualService) ([]*clusterv3.Cluster, error) {
 	args := m.Called(vs)
 	return args.Get(0).([]*clusterv3.Cluster), args.Error(1)
-}
-
-// TestNewBuilder creates a test-specific builder that accepts our mock implementations
-func TestNewBuilder(t *testing.T) {
-	// We'll create a real store.Store for testing
-	storeInstance := store.New()
-
-	// Create all mock component builders
-	mockHTTPFilterBuilder := &MockHTTPFilterBuilder{}
-	mockFilterChainBuilder := &MockFilterChainBuilder{}
-	mockRoutingBuilder := &MockRoutingBuilder{}
-	mockAccessLogBuilder := &MockAccessLogBuilder{}
-	mockTLSBuilder := &MockTLSBuilder{}
-	mockClusterExtractor := &MockClusterExtractor{}
-
-	// Create the builder
-	builder := NewBuilder(
-		storeInstance,
-		mockHTTPFilterBuilder,
-		mockFilterChainBuilder,
-		mockRoutingBuilder,
-		mockAccessLogBuilder,
-		mockTLSBuilder,
-		mockClusterExtractor,
-	)
-
-	// Verify builder was created correctly
-	assert.NotNil(t, builder)
-	assert.Equal(t, storeInstance, builder.store)
-	assert.Equal(t, mockHTTPFilterBuilder, builder.httpFilterBuilder)
-	assert.Equal(t, mockFilterChainBuilder, builder.filterChainBuilder)
-	assert.Equal(t, mockRoutingBuilder, builder.routingBuilder)
-	assert.Equal(t, mockAccessLogBuilder, builder.accessLogBuilder)
-	assert.Equal(t, mockTLSBuilder, builder.tlsBuilder)
-	assert.Equal(t, mockClusterExtractor, builder.clusterExtractor)
-	assert.NotNil(t, builder.cache)
 }
 
 func TestResourcesCacheGetSet(t *testing.T) {

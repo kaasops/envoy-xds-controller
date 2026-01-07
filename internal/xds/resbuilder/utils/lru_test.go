@@ -6,7 +6,7 @@ import (
 )
 
 func TestLRUCache_BasicOperations(t *testing.T) {
-	cache := NewLRUCache(5, 0) // No TTL
+	cache := NewTypedLRUCache(5, 0, "test") // No TTL
 
 	// Test Set and Get
 	cache.Set("key1", "value1")
@@ -59,7 +59,7 @@ func TestLRUCache_BasicOperations(t *testing.T) {
 }
 
 func TestLRUCache_LRUEviction(t *testing.T) {
-	cache := NewLRUCache(3, 0) // Capacity of 3, no TTL
+	cache := NewTypedLRUCache(3, 0, "test") // Capacity of 3, no TTL
 
 	// Fill the cache
 	cache.Set("key1", "value1")
@@ -94,7 +94,7 @@ func TestLRUCache_LRUEviction(t *testing.T) {
 }
 
 func TestLRUCache_TTL(t *testing.T) {
-	cache := NewLRUCache(5, 100*time.Millisecond) // Short TTL for testing
+	cache := NewTypedLRUCache(5, 100*time.Millisecond, "test") // Short TTL for testing
 
 	// Add a key
 	cache.Set("key1", "value1")
@@ -116,7 +116,7 @@ func TestLRUCache_TTL(t *testing.T) {
 }
 
 func TestLRUCache_RemoveExpired(t *testing.T) {
-	cache := NewLRUCache(5, 100*time.Millisecond) // Short TTL for testing
+	cache := NewTypedLRUCache(5, 100*time.Millisecond, "test") // Short TTL for testing
 
 	// Add keys
 	cache.Set("key1", "value1")
@@ -167,7 +167,7 @@ func TestLRUCache_RemoveExpired(t *testing.T) {
 }
 
 func TestLRUCache_ThreadSafety(t *testing.T) {
-	cache := NewLRUCache(100, 0) // No TTL
+	cache := NewTypedLRUCache(100, 0, "test") // No TTL
 	done := make(chan bool)
 
 	// Writer goroutine

@@ -15,7 +15,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/utils"
 	"google.golang.org/protobuf/types/known/anypb"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // Builder handles filter building operations
@@ -77,7 +76,7 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 	defer utils.PutHTTPFilterSlice(httpFiltersPtr)
 	httpFilters := *httpFiltersPtr
 
-	rbacF, err := b.buildRBACFilter(vs)
+	rbacF, err := b.BuildRBACFilter(vs)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +150,9 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 	return httpFilters, nil
 }
 
-// buildRBACFilter builds RBAC filter if RBAC is configured
-func (b *Builder) buildRBACFilter(vs *v1alpha1.VirtualService) (*rbacFilter.RBAC, error) {
+// BuildRBACFilter builds RBAC filter if RBAC is configured
+// Implements the interfaces.HTTPFilterBuilder interface
+func (b *Builder) BuildRBACFilter(vs *v1alpha1.VirtualService) (*rbacFilter.RBAC, error) {
 	if vs.Spec.RBAC == nil {
 		return nil, nil
 	}
@@ -202,23 +202,6 @@ func (b *Builder) buildRBACFilter(vs *v1alpha1.VirtualService) (*rbacFilter.RBAC
 	}
 
 	return &rbacFilter.RBAC{Rules: rules}, nil
-}
-
-// BuildUpgradeConfigs builds upgrade configurations
-func (b *Builder) BuildUpgradeConfigs(rawUpgradeConfigs []*runtime.RawExtension) ([]*hcmv3.HttpConnectionManager_UpgradeConfig, error) {
-	upgradeConfigs := make([]*hcmv3.HttpConnectionManager_UpgradeConfig, 0, len(rawUpgradeConfigs))
-	for _, upgradeConfig := range rawUpgradeConfigs {
-		uc := &hcmv3.HttpConnectionManager_UpgradeConfig{}
-		if err := protoutil.Unmarshaler.Unmarshal(upgradeConfig.Raw, uc); err != nil {
-			return upgradeConfigs, err
-		}
-		if err := uc.ValidateAll(); err != nil {
-			return upgradeConfigs, err
-		}
-		upgradeConfigs = append(upgradeConfigs, uc)
-	}
-
-	return upgradeConfigs, nil
 }
 
 // BuildAccessLogConfigs builds access log configurations

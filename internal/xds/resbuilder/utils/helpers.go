@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 )
 
 // IsTLSListener checks if a listener has TLS configuration enabled
@@ -61,42 +60,6 @@ func CheckAllDomainsUnique(domains []string) error {
 	}
 
 	return nil
-}
-
-// ExtractClusterNamesFromRoute directly extracts cluster names from a single route configuration
-func ExtractClusterNamesFromRoute(route *routev3.Route) []string {
-	var names []string
-
-	if route == nil || route.Action == nil {
-		return names
-	}
-
-	switch action := route.Action.(type) {
-	case *routev3.Route_Route:
-		if action.Route == nil {
-			break
-		}
-		switch cluster := action.Route.ClusterSpecifier.(type) {
-		case *routev3.RouteAction_Cluster:
-			if cluster.Cluster != "" {
-				names = append(names, cluster.Cluster)
-			}
-		case *routev3.RouteAction_WeightedClusters:
-			if cluster.WeightedClusters != nil {
-				for _, wc := range cluster.WeightedClusters.Clusters {
-					if wc.Name != "" {
-						names = append(names, wc.Name)
-					}
-				}
-			}
-		}
-	case *routev3.Route_DirectResponse:
-		// Direct responses don't reference clusters
-	case *routev3.Route_Redirect:
-		// Redirects don't reference clusters
-	}
-
-	return names
 }
 
 // maxRecursionDepth limits the recursion depth for FindClusterNames

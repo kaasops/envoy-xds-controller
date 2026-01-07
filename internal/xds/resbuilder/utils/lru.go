@@ -23,18 +23,6 @@ type LRUCache struct {
 	cacheType string                   // type of cache for metrics (e.g., "cluster", "http_filter")
 }
 
-// NewLRUCache creates a new LRU cache with the specified capacity and TTL
-// If ttl is 0, items will not expire based on time
-func NewLRUCache(capacity int, ttl time.Duration) *LRUCache {
-	return &LRUCache{
-		capacity:  capacity,
-		ll:        list.New(),
-		cache:     make(map[string]*list.Element),
-		ttl:       ttl,
-		cacheType: "generic_lru", // default cache type
-	}
-}
-
 // NewTypedLRUCache creates a new LRU cache with the specified capacity, TTL, and cache type
 // The cache type is used for metrics identification
 func NewTypedLRUCache(capacity int, ttl time.Duration, cacheType string) *LRUCache {
