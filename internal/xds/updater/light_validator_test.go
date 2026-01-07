@@ -82,7 +82,7 @@ func TestLightValidator_CoverageMiss_WithIndices(t *testing.T) {
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
 	// Stub builder to return one domain without touching listener/template/etc.
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"example.com"}}, nil
 	})
 	defer restore()
@@ -101,7 +101,7 @@ func TestLightValidator_DuplicateWithinVS(t *testing.T) {
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"nodeA": {}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"a.com", "a.com"}}, nil
 	})
 	defer restore()
@@ -119,7 +119,7 @@ func TestLightValidator_DomainCollisionAcrossNodes(t *testing.T) {
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"nodeA": {"b.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"b.com"}}, nil
 	})
 	defer restore()
@@ -138,7 +138,7 @@ func TestLightValidator_UpdatePrevVSExcluded(t *testing.T) {
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"node1": {"b.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		// Return domains based on VS name to differentiate prev/new
 		switch vs.Name {
 		case "prev":
@@ -175,7 +175,7 @@ func TestLightValidator_ListenerDuplicateDetected(t *testing.T) {
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
 	// Stub builder to return any domain (not important here)
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"x"}}, nil
 	})
 	defer restore()
@@ -238,7 +238,7 @@ func TestLightValidator_CommonVS_NoCollision_OK(t *testing.T) {
 	_ = cu.snapshotCache.SetSnapshot(context.Background(), "n1", &cachev3.Snapshot{})
 	_ = cu.snapshotCache.SetSnapshot(context.Background(), "n2", &cachev3.Snapshot{})
 
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"a.com"}}, nil
 	})
 	defer restore()
@@ -257,7 +257,7 @@ func TestLightValidator_CommonVS_DomainCollisionDetected(t *testing.T) {
 	_ = cu.snapshotCache.SetSnapshot(context.Background(), "n1", &cachev3.Snapshot{})
 	_ = cu.snapshotCache.SetSnapshot(context.Background(), "n2", &cachev3.Snapshot{})
 
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"a.com"}}, nil
 	})
 	defer restore()
@@ -276,7 +276,7 @@ func TestLightValidator_MultiNode_UpdatePrevExclusionPerNode(t *testing.T) {
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"n1": {"x.com": {}}, "n2": {"x.com": {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"x.com"}}, nil
 	})
 	defer restore()
@@ -295,7 +295,7 @@ func TestLightValidator_NoFalseFallback_WithEmptyNodes(t *testing.T) {
 	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"a": {}, "b": {}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
-	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, st store.Store) (*resbuilder.Resources, error) {
+	restore := withStubbedBuilder(t, func(_ *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		return &resbuilder.Resources{Domains: []string{"z.com"}}, nil
 	})
 	defer restore()

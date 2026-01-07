@@ -62,7 +62,7 @@ type RouteCustomValidator struct {
 var _ webhook.CustomValidator = &RouteCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Route.
-func (v *RouteCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *RouteCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	route, ok := obj.(*envoyv1alpha1.Route)
 	if !ok {
 		return nil, fmt.Errorf("expected a Route object but got %T", obj)
@@ -80,8 +80,8 @@ func (v *RouteCustomValidator) ValidateCreate(ctx context.Context, obj runtime.O
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *RouteCustomValidator) ValidateUpdate(
-	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_ context.Context,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	route, ok := newObj.(*envoyv1alpha1.Route)
 	if !ok {

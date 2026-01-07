@@ -548,7 +548,7 @@ func main() {
 			go func() {
 				dLog := log.FromContext(ctx).WithName("debug-server")
 
-				http.HandleFunc("/debug/store", func(w http.ResponseWriter, r *http.Request) {
+				http.HandleFunc("/debug/store", func(w http.ResponseWriter, _ *http.Request) {
 					data, err := cacheUpdater.GetMarshaledStore()
 					if err != nil {
 						dLog.Error(err, "failed to marshal store")
@@ -557,7 +557,7 @@ func main() {
 					}
 					_, _ = w.Write(data)
 				})
-				http.HandleFunc("/debug/xds", func(w http.ResponseWriter, r *http.Request) {
+				http.HandleFunc("/debug/xds", func(w http.ResponseWriter, _ *http.Request) {
 					keys := snapshotCache.GetNodeIDsAsMap()
 					dump := make(map[string]any)
 					for key := range keys {
@@ -572,7 +572,7 @@ func main() {
 					}
 					_, _ = w.Write(data)
 				})
-				http.HandleFunc("/debug/used-secrets", func(w http.ResponseWriter, r *http.Request) {
+				http.HandleFunc("/debug/used-secrets", func(w http.ResponseWriter, _ *http.Request) {
 					secrets := cacheUpdater.GetUsedSecrets()
 					m := make(map[string]string, len(secrets))
 					for k, v := range secrets {
@@ -586,7 +586,7 @@ func main() {
 					}
 					_, _ = w.Write(data)
 				})
-				http.HandleFunc("/debug/connected-clients", func(w http.ResponseWriter, r *http.Request) {
+				http.HandleFunc("/debug/connected-clients", func(w http.ResponseWriter, _ *http.Request) {
 					data, err := json.MarshalIndent(connectedClients.List(), "", "\t")
 					if err != nil {
 						dLog.Error(err, "failed to marshal connected clients")
@@ -595,7 +595,7 @@ func main() {
 					}
 					_, _ = w.Write(data)
 				})
-				http.HandleFunc("/debug/buildinfo", func(w http.ResponseWriter, r *http.Request) {
+				http.HandleFunc("/debug/buildinfo", func(w http.ResponseWriter, _ *http.Request) {
 					data, err := json.MarshalIndent(buildinfo.GetInfo(), "", "\t")
 					if err != nil {
 						dLog.Error(err, "failed to marshal build information")

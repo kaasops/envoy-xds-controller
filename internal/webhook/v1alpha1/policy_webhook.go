@@ -62,7 +62,7 @@ type PolicyCustomValidator struct {
 var _ webhook.CustomValidator = &PolicyCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Policy.
-func (v *PolicyCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *PolicyCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	policy, ok := obj.(*envoyv1alpha1.Policy)
 	if !ok {
 		return nil, fmt.Errorf("expected a Policy object but got %T", obj)
@@ -80,8 +80,8 @@ func (v *PolicyCustomValidator) ValidateCreate(ctx context.Context, obj runtime.
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *PolicyCustomValidator) ValidateUpdate(
-	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_ context.Context,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	policy, ok := newObj.(*envoyv1alpha1.Policy)
 	if !ok {

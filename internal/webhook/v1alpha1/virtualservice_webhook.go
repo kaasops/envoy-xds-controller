@@ -167,8 +167,8 @@ func (v *VirtualServiceCustomValidator) ValidateUpdate(
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *VirtualServiceCustomValidator) ValidateDelete(
-	ctx context.Context,
-	obj runtime.Object,
+	_ context.Context,
+	_ runtime.Object,
 ) (admission.Warnings, error) {
 	return nil, nil
 }

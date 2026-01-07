@@ -66,7 +66,7 @@ type ClusterCustomValidator struct {
 var _ webhook.CustomValidator = &ClusterCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Cluster.
-func (v *ClusterCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *ClusterCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	cluster, ok := obj.(*envoyv1alpha1.Cluster)
 	if !ok {
 		return nil, fmt.Errorf("expected a Cluster object but got %T", obj)
@@ -90,8 +90,8 @@ func (v *ClusterCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *ClusterCustomValidator) ValidateUpdate(
-	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_ context.Context,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	cluster, ok := newObj.(*envoyv1alpha1.Cluster)
 	if !ok {

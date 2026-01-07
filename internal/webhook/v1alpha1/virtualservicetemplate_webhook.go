@@ -201,7 +201,7 @@ func validateExtraFieldsUsage(vst *envoyv1alpha1.VirtualServiceTemplate) error {
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(
 	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	virtualservicetemplate, ok := newObj.(*envoyv1alpha1.VirtualServiceTemplate)
 	if !ok {

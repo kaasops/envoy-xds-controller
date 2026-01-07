@@ -62,7 +62,7 @@ type ListenerCustomValidator struct {
 var _ webhook.CustomValidator = &ListenerCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Listener.
-func (v *ListenerCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *ListenerCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	listener, ok := obj.(*envoyv1alpha1.Listener)
 	if !ok {
 		return nil, fmt.Errorf("expected a Listener object but got %T", obj)
@@ -80,8 +80,8 @@ func (v *ListenerCustomValidator) ValidateCreate(ctx context.Context, obj runtim
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *ListenerCustomValidator) ValidateUpdate(
-	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_ context.Context,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	listener, ok := newObj.(*envoyv1alpha1.Listener)
 	if !ok {

@@ -16,15 +16,15 @@ type stubUpdater struct {
 }
 
 func (s *stubUpdater) DryValidateVirtualServiceLight(
-	ctx context.Context,
-	vs *envoyv1alpha1.VirtualService,
-	prevVS *envoyv1alpha1.VirtualService,
-	validationIndices bool,
+	_ context.Context,
+	_ *envoyv1alpha1.VirtualService,
+	_ *envoyv1alpha1.VirtualService,
+	_ bool,
 ) error {
 	return s.lightErr
 }
 
-func (s *stubUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, vs *envoyv1alpha1.VirtualService) error {
+func (s *stubUpdater) DryBuildSnapshotsWithVirtualService(_ context.Context, _ *envoyv1alpha1.VirtualService) error {
 	return s.heavyErr
 }
 

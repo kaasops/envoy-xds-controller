@@ -201,6 +201,8 @@ func TestLRUCache_ThreadSafety(t *testing.T) {
 	<-done
 	<-done
 	<-done
+	// Test passes if no race conditions or deadlocks occurred
+	t.Log("concurrent access completed without race conditions")
 
 	// The test passes if there are no race conditions or panics
 }

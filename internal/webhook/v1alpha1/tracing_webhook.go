@@ -61,7 +61,7 @@ type TracingCustomValidator struct {
 var _ webhook.CustomValidator = &TracingCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type Tracing.
-func (v *TracingCustomValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *TracingCustomValidator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	tracing, ok := obj.(*envoyv1alpha1.Tracing)
 	if !ok {
 		return nil, fmt.Errorf("expected a Tracing object but got %T", obj)
@@ -79,8 +79,8 @@ func (v *TracingCustomValidator) ValidateCreate(ctx context.Context, obj runtime
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *TracingCustomValidator) ValidateUpdate(
-	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_ context.Context,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	tracing, ok := newObj.(*envoyv1alpha1.Tracing)
 	if !ok {

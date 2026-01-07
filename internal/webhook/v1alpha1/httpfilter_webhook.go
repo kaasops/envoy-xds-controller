@@ -63,7 +63,7 @@ var _ webhook.CustomValidator = &HttpFilterCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *HttpFilterCustomValidator) ValidateCreate(
-	ctx context.Context,
+	_ context.Context,
 	obj runtime.Object,
 ) (admission.Warnings, error) {
 	httpfilter, ok := obj.(*envoyv1alpha1.HttpFilter)
@@ -83,8 +83,8 @@ func (v *HttpFilterCustomValidator) ValidateCreate(
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *HttpFilterCustomValidator) ValidateUpdate(
-	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_ context.Context,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	httpfilter, ok := newObj.(*envoyv1alpha1.HttpFilter)
 	if !ok {

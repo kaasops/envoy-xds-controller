@@ -63,7 +63,7 @@ var _ webhook.CustomValidator = &AccessLogConfigCustomValidator{}
 
 // ValidateCreate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *AccessLogConfigCustomValidator) ValidateCreate(
-	ctx context.Context,
+	_ context.Context,
 	obj runtime.Object,
 ) (admission.Warnings, error) {
 	accesslogconfig, ok := obj.(*envoyv1alpha1.AccessLogConfig)
@@ -80,8 +80,8 @@ func (v *AccessLogConfigCustomValidator) ValidateCreate(
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
 func (v *AccessLogConfigCustomValidator) ValidateUpdate(
-	ctx context.Context,
-	oldObj, newObj runtime.Object,
+	_ context.Context,
+	_, newObj runtime.Object,
 ) (admission.Warnings, error) {
 	accesslogconfig, ok := newObj.(*envoyv1alpha1.AccessLogConfig)
 	if !ok {

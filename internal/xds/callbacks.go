@@ -107,7 +107,7 @@ func (cb *Callbacks) OnStreamResponse(
 func (cb *Callbacks) OnStreamDeltaResponse(
 	id int64,
 	req *discovery.DeltaDiscoveryRequest,
-	res *discovery.DeltaDiscoveryResponse,
+	_ *discovery.DeltaDiscoveryResponse,
 ) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()

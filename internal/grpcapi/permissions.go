@@ -21,7 +21,7 @@ func NewPermissionsService(e *casbin.Enforcer, accessGroupSvc AccessGroupService
 	return &PermissionsService{e: e, accessGroupSvc: accessGroupSvc}
 }
 
-func (p *PermissionsService) ListPermissions(ctx context.Context, req *connect.Request[v1.ListPermissionsRequest]) (*connect.Response[v1.ListPermissionsResponse], error) {
+func (p *PermissionsService) ListPermissions(ctx context.Context, _ *connect.Request[v1.ListPermissionsRequest]) (*connect.Response[v1.ListPermissionsResponse], error) {
 	authorizer := GetAuthorizerFromContext(ctx)
 	availableAccessGroups := getAvailableAccessGroups(authorizer, p.accessGroupSvc)
 	accessGroupsPermissions := make([]*v1.AccessGroupPermissions, 0, len(availableAccessGroups))
