@@ -2,9 +2,7 @@ package main_builder
 
 import (
 	"testing"
-	"time"
 
-	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -81,15 +79,6 @@ func (m *MockRoutingBuilder) BuildVirtualHost(
 ) (*routev3.VirtualHost, error) {
 	args := m.Called(vs, nn)
 	return args.Get(0).(*routev3.VirtualHost), args.Error(1)
-}
-
-type MockAccessLogBuilder struct {
-	mock.Mock
-}
-
-func (m *MockAccessLogBuilder) BuildAccessLogConfigs(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
-	args := m.Called(vs)
-	return args.Get(0).([]*accesslogv3.AccessLog), args.Error(1)
 }
 
 type MockTLSBuilder struct {
@@ -173,10 +162,8 @@ func TestResourcesCacheGetSet(t *testing.T) {
 	assert.Equal(t, resource.Domains, result.Domains)
 
 	// Test cache eviction when max size is reached
-	// First, clear the cache to start fresh for eviction test
-	cache.cache = make(map[string]*cacheEntry)
-	cache.evictionLRU = make([]string, 0)
-	cache.accessTimes = make(map[string]time.Time)
+	// Create a fresh cache for eviction test
+	cache = newResourcesCache()
 
 	// Set maxSize to a small value for testing
 	cache.maxSize = 2
@@ -191,18 +178,19 @@ func TestResourcesCacheGetSet(t *testing.T) {
 	assert.True(t, exists1)
 	assert.True(t, exists2)
 
-	// Add one more value to trigger eviction
+	// Add one more value to trigger LRU eviction
 	cache.set("key3", resource)
 
-	// Verify new value is in cache and cache was cleared (eviction strategy)
+	// Verify new value is in cache
 	_, exists3 := cache.get("key3")
 	assert.True(t, exists3)
 
-	// The other keys should be gone due to our simple eviction strategy
+	// With LRU eviction, only the oldest entry (key1) should be evicted
+	// key2 should still exist since it was accessed more recently
 	_, exists1 = cache.get("key1")
 	_, exists2 = cache.get("key2")
-	assert.False(t, exists1)
-	assert.False(t, exists2)
+	assert.False(t, exists1, "key1 should be evicted as oldest entry")
+	assert.True(t, exists2, "key2 should still exist")
 }
 
 // TestBuildResources_DocumentedApproach documents the approach for testing BuildResources

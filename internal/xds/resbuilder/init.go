@@ -7,7 +7,7 @@ import (
 
 // UpdateResourceBuilder initializes the internal builder with all required components
 // All builders now directly implement their respective interfaces:
-// - filters.Builder implements HTTPFilterBuilder and AccessLogBuilder
+// - filters.Builder implements HTTPFilterBuilder
 // - filter_chains.Builder implements FilterChainBuilder
 // - routes.Builder implements RoutingBuilder
 // - secrets.Builder implements TLSBuilder
@@ -20,7 +20,6 @@ func UpdateResourceBuilder(rb *ResourceBuilder) {
 		rb.filtersBuilder,   // implements HTTPFilterBuilder
 		filterChainsBuilder, // implements FilterChainBuilder
 		rb.routesBuilder,    // implements RoutingBuilder
-		rb.filtersBuilder,   // implements AccessLogBuilder
 		rb.secretsBuilder,   // implements TLSBuilder
 		rb.clustersBuilder,  // implements ClusterExtractor
 	)

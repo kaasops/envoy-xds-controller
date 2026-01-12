@@ -37,39 +37,22 @@ func (b *Builder) BuildRouteConfiguration(
 		return nil, nil, err
 	}
 
-	routeConfig, err := b.buildRouteConfigurationInternal(vs, nn)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Add fallback virtual host for TLS listeners if needed
-	listenerIsTLS := utils.IsTLSListener(xdsListener)
-	hasPort443 := utils.ListenerHasPort443(xdsListener)
-	b.AddFallbackVirtualHostIfNeeded(routeConfig, virtualHost, listenerIsTLS, hasPort443)
-
-	return virtualHost, routeConfig, nil
-}
-
-// buildRouteConfigurationInternal builds a complete route configuration from VirtualService
-func (b *Builder) buildRouteConfigurationInternal(
-	vs *v1alpha1.VirtualService,
-	nn helpers.NamespacedName,
-) (*routev3.RouteConfiguration, error) {
-	virtualHost, err := b.BuildVirtualHost(vs, nn)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build virtual host: %w", err)
-	}
-
+	// Build route configuration using the already-built virtual host
 	routeConfiguration := &routev3.RouteConfiguration{
 		Name:         nn.String(),
 		VirtualHosts: []*routev3.VirtualHost{virtualHost},
 	}
 
 	if err := routeConfiguration.ValidateAll(); err != nil {
-		return nil, fmt.Errorf("failed to validate route configuration: %w", err)
+		return nil, nil, fmt.Errorf("failed to validate route configuration: %w", err)
 	}
 
-	return routeConfiguration, nil
+	// Add fallback virtual host for TLS listeners if needed
+	listenerIsTLS := utils.IsTLSListener(xdsListener)
+	hasPort443 := utils.ListenerHasPort443(xdsListener)
+	b.AddFallbackVirtualHostIfNeeded(routeConfiguration, virtualHost, listenerIsTLS, hasPort443)
+
+	return virtualHost, routeConfiguration, nil
 }
 
 // BuildVirtualHost builds a VirtualHost from VirtualService specification

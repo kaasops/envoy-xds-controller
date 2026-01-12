@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	rbacv3 "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	rbacFilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -71,10 +70,11 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 		return cached, nil
 	}
 
-	// Get a slice from the pool instead of using make
-	httpFiltersPtr := utils.GetHTTPFilterSlice()
-	defer utils.PutHTTPFilterSlice(httpFiltersPtr)
-	httpFilters := *httpFiltersPtr
+	// Pre-allocate slice with reasonable capacity
+	// Note: Previously used sync.Pool but it caused memory corruption when
+	// the pooled slice was cached and then returned to pool (BUG-001).
+	// Benchmarks showed pool overhead (57ns) exceeded direct allocation (0.25ns).
+	httpFilters := make([]*hcmv3.HttpFilter, 0, 8)
 
 	rbacF, err := b.BuildRBACFilter(vs)
 	if err != nil {
@@ -205,96 +205,4 @@ func (b *Builder) BuildRBACFilter(vs *v1alpha1.VirtualService) (*rbacFilter.RBAC
 	}
 
 	return &rbacFilter.RBAC{Rules: rules}, nil
-}
-
-// BuildAccessLogConfigs builds access log configurations
-func (b *Builder) BuildAccessLogConfigs(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
-	var i int
-
-	if vs.Spec.AccessLog != nil {
-		i++
-	}
-	if vs.Spec.AccessLogConfig != nil {
-		i++
-	}
-	if len(vs.Spec.AccessLogs) > 0 {
-		i++
-	}
-	if len(vs.Spec.AccessLogConfigs) > 0 {
-		i++
-	}
-	if i == 0 {
-		return nil, nil
-	}
-	if i > 1 {
-		return nil, fmt.Errorf("can't use accessLog, accessLogConfig, accessLogs and accessLogConfigs at the same time")
-	}
-
-	// Pre-allocate based on the configuration type
-	var capacity int
-	if vs.Spec.AccessLog != nil || vs.Spec.AccessLogConfig != nil {
-		capacity = 1
-	} else if len(vs.Spec.AccessLogs) > 0 {
-		capacity = len(vs.Spec.AccessLogs)
-	} else if len(vs.Spec.AccessLogConfigs) > 0 {
-		capacity = len(vs.Spec.AccessLogConfigs)
-	}
-	accessLogConfigs := make([]*accesslogv3.AccessLog, 0, capacity)
-
-	if vs.Spec.AccessLog != nil {
-		vs.UpdateStatus(false, "accessLog is deprecated, use accessLogs instead")
-		var accessLog accesslogv3.AccessLog
-		if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, &accessLog); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
-		}
-		if err := accessLog.ValidateAll(); err != nil {
-			return nil, err
-		}
-		accessLogConfigs = append(accessLogConfigs, &accessLog)
-		return accessLogConfigs, nil
-	}
-
-	if vs.Spec.AccessLogConfig != nil {
-		vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
-		accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
-		nn := helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name}
-		accessLogConfig := b.store.GetAccessLog(nn)
-		if accessLogConfig == nil {
-			return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, vs.Spec.AccessLogConfig.Name)
-		}
-		accessLog, err := accessLogConfig.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
-		if err != nil {
-			return nil, err
-		}
-		accessLogConfigs = append(accessLogConfigs, accessLog)
-		return accessLogConfigs, nil
-	}
-
-	if len(vs.Spec.AccessLogs) > 0 {
-		for _, accessLog := range vs.Spec.AccessLogs {
-			var accessLogV3 accesslogv3.AccessLog
-			if err := protoutil.Unmarshaler.Unmarshal(accessLog.Raw, &accessLogV3); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
-			}
-			if err := accessLogV3.ValidateAll(); err != nil {
-				return nil, err
-			}
-			accessLogConfigs = append(accessLogConfigs, &accessLogV3)
-		}
-		return accessLogConfigs, nil
-	}
-
-	for _, accessLogConfig := range vs.Spec.AccessLogConfigs {
-		accessLogNs := helpers.GetNamespace(accessLogConfig.Namespace, vs.Namespace)
-		accessLog := b.store.GetAccessLog(helpers.NamespacedName{Namespace: accessLogNs, Name: accessLogConfig.Name})
-		if accessLog == nil {
-			return nil, fmt.Errorf("can't find accessLogConfig %s/%s", accessLogNs, accessLogConfig.Name)
-		}
-		accessLogV3, err := accessLog.UnmarshalAndValidateV3(v1alpha1.WithAccessLogFileName(vs.Name))
-		if err != nil {
-			return nil, err
-		}
-		accessLogConfigs = append(accessLogConfigs, accessLogV3)
-	}
-	return accessLogConfigs, nil
 }

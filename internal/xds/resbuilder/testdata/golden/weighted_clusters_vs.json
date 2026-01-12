@@ -1,0 +1,20 @@
+{
+  "listener_name": "default/http-listener",
+  "filter_chain_count": 1,
+  "filter_chain_names": [
+    "default/weighted-vs"
+  ],
+  "has_route_config": true,
+  "route_config_name": "default/weighted-vs",
+  "virtual_host_count": 1,
+  "cluster_count": 2,
+  "cluster_names": [
+    "test-cluster",
+    "backend-cluster"
+  ],
+  "secret_count": 0,
+  "secret_names": null,
+  "domains": [
+    "canary.example.com"
+  ]
+}

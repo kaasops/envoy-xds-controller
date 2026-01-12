@@ -75,7 +75,7 @@ func (c *LRUCache) Get(key string) (interface{}, bool) {
 
 	// Move to front (most recently used)
 	c.ll.MoveToFront(element)
-	item.Timestamp = time.Now() // Update timestamp on access
+	// Note: Don't update Timestamp here - TTL should be based on creation time, not last access
 
 	// Record cache hit
 	RecordCacheHit(c.cacheType)
