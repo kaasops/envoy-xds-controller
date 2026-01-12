@@ -51,10 +51,10 @@ func ExtractClustersFromFilterChains(
 	// Remove duplicates while preserving isRequired flag (required takes precedence)
 	uniqueResults := removeDuplicateResults(results)
 
-	// Use pooled cluster slice for results
-	clustersPtr := utils.GetClusterSlice()
-	defer utils.PutClusterSlice(clustersPtr)
-	clusters := *clustersPtr
+	// Pre-allocate with capacity hint
+	// Note: Removed sync.Pool usage - benchmarks showed pool overhead (57ns)
+	// exceeded direct allocation (0.25ns) due to metrics recording.
+	clusters := make([]*cluster.Cluster, 0, len(uniqueResults))
 
 	// Resolve clusters from store
 	for _, result := range uniqueResults {
@@ -77,12 +77,7 @@ func ExtractClustersFromFilterChains(
 		clusters = append(clusters, xdsCluster)
 	}
 
-	// Create a new slice to return to the caller
-	// We can't return the pooled slice directly as it would be reused
-	resultSlice := make([]*cluster.Cluster, len(clusters))
-	copy(resultSlice, clusters)
-
-	return resultSlice, nil
+	return clusters, nil
 }
 
 // removeDuplicateResults removes duplicate cluster names while preserving isRequired flag

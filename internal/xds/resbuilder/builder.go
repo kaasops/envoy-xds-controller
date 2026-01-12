@@ -2,12 +2,11 @@ package resbuilder
 
 import (
 	"fmt"
+	"runtime/debug"
 
-	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -20,21 +19,8 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/secrets"
 )
 
-type FilterChainsParams struct {
-	VSName               string
-	UseRemoteAddress     bool
-	XFFNumTrustedHops    *uint32
-	RouteConfigName      string
-	StatPrefix           string
-	HTTPFilters          []*hcmv3.HttpFilter
-	UpgradeConfigs       []*hcmv3.HttpConnectionManager_UpgradeConfig
-	AccessLogs           []*accesslogv3.AccessLog
-	Domains              []string
-	DownstreamTLSContext *tlsv3.DownstreamTlsContext
-	SecretNameToDomains  map[helpers.NamespacedName][]string
-	IsTLS                bool
-	Tracing              *hcmv3.HttpConnectionManager_Tracing
-}
+// Note: FilterChainsParams is defined in filter_chains/params.go
+// This type alias is removed to avoid duplication (DUP-005)
 
 // ResourceBuilder provides a modular approach to building Envoy resources
 type ResourceBuilder struct {
@@ -83,7 +69,8 @@ func (rb *ResourceBuilder) BuildResources(vs *v1alpha1.VirtualService) (*Resourc
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				err = fmt.Errorf("panic in BuildResources: %v", r)
+				// Include stack trace for debugging (BUG-005 fix)
+				err = fmt.Errorf("panic in BuildResources: %v\nstack trace:\n%s", r, debug.Stack())
 			}
 		}()
 		result, err = rb.mainBuilder.BuildResources(vs)

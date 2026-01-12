@@ -6,7 +6,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/filter_chains"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -36,11 +35,6 @@ type RoutingBuilder interface {
 	BuildVirtualHost(vs *v1alpha1.VirtualService, nn helpers.NamespacedName) (*routev3.VirtualHost, error)
 }
 
-// AccessLogBuilder is responsible for building access log configuration
-type AccessLogBuilder interface {
-	BuildAccessLogConfigs(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error)
-}
-
 // TLSBuilder is responsible for building TLS configuration
 type TLSBuilder interface {
 	GetTLSType(vsTLSConfig *v1alpha1.TlsConfig) (string, error)
@@ -66,7 +60,6 @@ type MainBuilder interface {
 		httpFilterBuilder HTTPFilterBuilder,
 		filterChainBuilder FilterChainBuilder,
 		routingBuilder RoutingBuilder,
-		accessLogBuilder AccessLogBuilder,
 		tlsBuilder TLSBuilder,
 		clusterExtractor ClusterExtractor,
 	)

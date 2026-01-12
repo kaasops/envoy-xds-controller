@@ -1,0 +1,19 @@
+{
+  "listener_name": "default/http-listener",
+  "filter_chain_count": 1,
+  "filter_chain_names": [
+    "default/rbac-vs"
+  ],
+  "has_route_config": true,
+  "route_config_name": "default/rbac-vs",
+  "virtual_host_count": 1,
+  "cluster_count": 1,
+  "cluster_names": [
+    "test-cluster"
+  ],
+  "secret_count": 0,
+  "secret_names": null,
+  "domains": [
+    "api.example.com"
+  ]
+}

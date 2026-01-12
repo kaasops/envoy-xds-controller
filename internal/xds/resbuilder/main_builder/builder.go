@@ -1,6 +1,7 @@
 package main_builder
 
 import (
+	"container/list"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -18,63 +19,57 @@ import (
 )
 
 // Cache for BuildResources results to avoid expensive re-computation
+// Uses container/list for O(1) LRU operations (OPT-002)
 type resourcesCache struct {
-	mu          sync.RWMutex
-	cache       map[string]*cacheEntry
-	maxSize     int
-	ttl         time.Duration
-	evictionLRU []string             // LRU list of keys for eviction
-	accessTimes map[string]time.Time // Last access time for each key
+	mu       sync.RWMutex
+	maxSize  int
+	ttl      time.Duration
+	ll       *list.List               // doubly linked list for LRU ordering
+	elements map[string]*list.Element // map for O(1) lookups
 }
 
 // cacheEntry represents a cached item with metadata
 type cacheEntry struct {
-	resource    *Resources
-	createdAt   time.Time
-	accessCount int
+	key       string
+	resource  *Resources
+	createdAt time.Time
 }
 
 func newResourcesCache() *resourcesCache {
 	return &resourcesCache{
-		cache:       make(map[string]*cacheEntry),
-		maxSize:     100,             // Limit cache size
-		ttl:         5 * time.Minute, // Default TTL
-		evictionLRU: make([]string, 0, 100),
-		accessTimes: make(map[string]time.Time),
+		maxSize:  100,             // Limit cache size
+		ttl:      5 * time.Minute, // Default TTL
+		ll:       list.New(),
+		elements: make(map[string]*list.Element),
 	}
 }
 
 // get retrieves a resource from the cache if it exists and is not expired
 func (c *resourcesCache) get(key string) (*Resources, bool) {
-	c.mu.Lock() // Using write lock since we update accessTimes and LRU
+	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	entry, exists := c.cache[key]
+	element, exists := c.elements[key]
 	if !exists {
-		// Record cache miss
 		utils.RecordCacheMiss("main_builder")
 		return nil, false
 	}
+
+	entry := element.Value.(*cacheEntry)
 
 	// Check if the entry has expired
 	if time.Since(entry.createdAt) > c.ttl {
-		// Remove expired entry
-		delete(c.cache, key)
-		delete(c.accessTimes, key)
-		c.removeFromLRU(key)
+		// Remove expired entry - O(1) with container/list
+		c.ll.Remove(element)
+		delete(c.elements, key)
 		utils.RecordCacheEviction("main_builder", "ttl_expired")
 		utils.RecordCacheMiss("main_builder")
+		utils.UpdateCacheSize("main_builder", c.ll.Len())
 		return nil, false
 	}
 
-	// Update access metadata
-	now := time.Now()
-	c.accessTimes[key] = now
-	entry.accessCount++
-
-	// Update LRU list - move to end (most recently used)
-	c.removeFromLRU(key)
-	c.evictionLRU = append(c.evictionLRU, key)
+	// Move to front (most recently used) - O(1)
+	c.ll.MoveToFront(element)
 
 	// Record cache hit and item age
 	utils.RecordCacheHit("main_builder")
@@ -89,45 +84,37 @@ func (c *resourcesCache) set(key string, resource *Resources) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Simple eviction: if cache is full, clear it before adding new entry
-	if len(c.cache) >= c.maxSize {
-		// Clear all entries
-		for k := range c.cache {
-			delete(c.cache, k)
-			delete(c.accessTimes, k)
+	// If key already exists, update it and move to front - O(1)
+	if element, exists := c.elements[key]; exists {
+		c.ll.MoveToFront(element)
+		entry := element.Value.(*cacheEntry)
+		entry.resource = resource
+		entry.createdAt = time.Now()
+		return
+	}
+
+	// LRU eviction: if cache is full, remove the oldest entry - O(1)
+	if c.ll.Len() >= c.maxSize {
+		oldest := c.ll.Back()
+		if oldest != nil {
+			oldEntry := oldest.Value.(*cacheEntry)
+			c.ll.Remove(oldest)
+			delete(c.elements, oldEntry.key)
 			utils.RecordCacheEviction("main_builder", "lru_eviction")
 		}
-		// Reset LRU list
-		c.evictionLRU = make([]string, 0, c.maxSize)
-		c.accessTimes = make(map[string]time.Time)
 	}
 
-	// Create new entry
+	// Create new entry and add to front - O(1)
 	entry := &cacheEntry{
-		resource:    resource,
-		createdAt:   time.Now(),
-		accessCount: 0,
+		key:       key,
+		resource:  resource,
+		createdAt: time.Now(),
 	}
-
-	// Set the entry
-	c.cache[key] = entry
-	c.accessTimes[key] = time.Now()
-
-	// Add to LRU list
-	c.evictionLRU = append(c.evictionLRU, key)
+	element := c.ll.PushFront(entry)
+	c.elements[key] = element
 
 	// Update cache size metric
-	utils.UpdateCacheSize("main_builder", len(c.cache))
-}
-
-// removeFromLRU removes a key from the LRU list
-func (c *resourcesCache) removeFromLRU(key string) {
-	for i, k := range c.evictionLRU {
-		if k == key {
-			c.evictionLRU = append(c.evictionLRU[:i], c.evictionLRU[i+1:]...)
-			break
-		}
-	}
+	utils.UpdateCacheSize("main_builder", c.ll.Len())
 }
 
 // generateCacheKey creates a hash-based cache key for a VirtualService
@@ -156,7 +143,6 @@ type Builder struct {
 	httpFilterBuilder  interfaces.HTTPFilterBuilder
 	filterChainBuilder interfaces.FilterChainBuilder
 	routingBuilder     interfaces.RoutingBuilder
-	accessLogBuilder   interfaces.AccessLogBuilder
 	tlsBuilder         interfaces.TLSBuilder
 	clusterExtractor   interfaces.ClusterExtractor
 	cache              *resourcesCache

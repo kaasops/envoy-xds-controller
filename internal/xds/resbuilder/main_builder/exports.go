@@ -18,7 +18,6 @@ func NewMainBuilder(store store.Store) interfaces.MainBuilder {
 		httpFilterBuilder:  nil,                 // Will be set in the ResourceBuilder
 		filterChainBuilder: nil,                 // Will be set in the ResourceBuilder
 		routingBuilder:     nil,                 // Will be set in the ResourceBuilder
-		accessLogBuilder:   nil,                 // Will be set in the ResourceBuilder
 		tlsBuilder:         nil,                 // Will be set in the ResourceBuilder
 		clusterExtractor:   nil,                 // Will be set in the ResourceBuilder
 		cache:              newResourcesCache(), // Initialize cache
@@ -31,14 +30,12 @@ func (b *Builder) SetComponents(
 	httpFilterBuilder interfaces.HTTPFilterBuilder,
 	filterChainBuilder interfaces.FilterChainBuilder,
 	routingBuilder interfaces.RoutingBuilder,
-	accessLogBuilder interfaces.AccessLogBuilder,
 	tlsBuilder interfaces.TLSBuilder,
 	clusterExtractor interfaces.ClusterExtractor,
 ) {
 	b.httpFilterBuilder = httpFilterBuilder
 	b.filterChainBuilder = filterChainBuilder
 	b.routingBuilder = routingBuilder
-	b.accessLogBuilder = accessLogBuilder
 	b.tlsBuilder = tlsBuilder
 	b.clusterExtractor = clusterExtractor
 }

@@ -262,9 +262,11 @@ func (b *Builder) getClustersByNames(names []string) ([]*cluster.Cluster, error)
 }
 
 // generateOAuth2CacheKey creates a cache key for OAuth2 HTTP filters
+// It includes cluster generations to invalidate cache when referenced clusters change
 func (b *Builder) generateOAuth2CacheKey(httpFilters []*hcmv3.HttpFilter) string {
 	hasher := sha256.New()
 
+	var allClusterNames []string
 	for _, httpFilter := range httpFilters {
 		tc := httpFilter.GetTypedConfig()
 		if tc == nil || tc.TypeUrl != utils.TypeURLOAuth2 {
@@ -272,12 +274,27 @@ func (b *Builder) generateOAuth2CacheKey(httpFilters []*hcmv3.HttpFilter) string
 		}
 		// Use the raw TypedConfig data for consistent hashing
 		hasher.Write(tc.Value)
+
+		// Extract cluster names from OAuth2 config for generation tracking
+		var oauthCfg oauth2v3.OAuth2
+		if err := tc.UnmarshalTo(&oauthCfg); err == nil {
+			if jsonData, err := json.Marshal(oauthCfg.Config); err == nil {
+				var data interface{}
+				if err := json.Unmarshal(jsonData, &data); err == nil {
+					allClusterNames = append(allClusterNames, utils.FindClusterNames(data, "Cluster")...)
+				}
+			}
+		}
 	}
+
+	// Include referenced cluster generations in cache key (BUG-004 fix)
+	b.writeClusterGenerations(hasher, allClusterNames)
 
 	return fmt.Sprintf("oauth2_%x", hasher.Sum(nil))
 }
 
 // generateTracingRawCacheKey creates a cache key for inline tracing configuration
+// It includes cluster generations to invalidate cache when referenced clusters change
 func (b *Builder) generateTracingRawCacheKey(tr *runtime.RawExtension) string {
 	if tr == nil {
 		return "tracing_raw_nil"
@@ -294,10 +311,15 @@ func (b *Builder) generateTracingRawCacheKey(tr *runtime.RawExtension) string {
 		}
 	}
 
+	// Include referenced cluster generations in cache key (BUG-004 fix)
+	clusterNames := b.extractClusterNamesFromTracing(tr)
+	b.writeClusterGenerations(hasher, clusterNames)
+
 	return fmt.Sprintf("tracing_raw_%x", hasher.Sum(nil))
 }
 
 // generateTracingRefCacheKey creates a cache key for tracing reference configuration
+// It includes cluster generations to invalidate cache when referenced clusters change
 func (b *Builder) generateTracingRefCacheKey(vs *v1alpha1.VirtualService) string {
 	if vs.Spec.TracingRef == nil {
 		return "tracing_ref_nil"
@@ -311,7 +333,8 @@ func (b *Builder) generateTracingRefCacheKey(vs *v1alpha1.VirtualService) string
 
 	// Include the actual tracing content if available
 	tracingNN := helpers.NamespacedName{Namespace: tracingRefNs, Name: vs.Spec.TracingRef.Name}
-	if tracing := b.store.GetTracing(tracingNN); tracing != nil {
+	tracing := b.store.GetTracing(tracingNN)
+	if tracing != nil {
 		if tracing.Spec != nil {
 			if tracing.Spec.Raw != nil {
 				hasher.Write(tracing.Spec.Raw)
@@ -321,9 +344,51 @@ func (b *Builder) generateTracingRefCacheKey(vs *v1alpha1.VirtualService) string
 				}
 			}
 		}
+
+		// Include referenced cluster generations in cache key (BUG-004 fix)
+		clusterNames := b.extractClusterNamesFromTracing(tracing.Spec)
+		b.writeClusterGenerations(hasher, clusterNames)
 	}
 
 	return fmt.Sprintf("tracing_ref_%x", hasher.Sum(nil))
+}
+
+// extractClusterNamesFromTracing extracts cluster names from tracing configuration without resolving
+func (b *Builder) extractClusterNamesFromTracing(spec *runtime.RawExtension) []string {
+	if spec == nil {
+		return nil
+	}
+
+	var data interface{}
+	if spec.Raw != nil {
+		if err := json.Unmarshal(spec.Raw, &data); err != nil {
+			return nil
+		}
+	} else if spec.Object != nil {
+		jsonData, err := json.Marshal(spec.Object)
+		if err != nil {
+			return nil
+		}
+		if err := json.Unmarshal(jsonData, &data); err != nil {
+			return nil
+		}
+	} else {
+		return nil
+	}
+
+	var names []string
+	names = append(names, utils.FindClusterNames(data, "cluster_name")...)
+	names = append(names, utils.FindClusterNames(data, "collector_cluster")...)
+	return names
+}
+
+// writeClusterGenerations writes cluster generations to hasher for cache key
+func (b *Builder) writeClusterGenerations(hasher interface{ Write([]byte) (int, error) }, clusterNames []string) {
+	for _, name := range clusterNames {
+		if cl := b.store.GetSpecCluster(name); cl != nil {
+			_, _ = hasher.Write([]byte(fmt.Sprintf("%s:%d,", name, cl.Generation)))
+		}
+	}
 }
 
 // ClusterExtractor interface implementation
