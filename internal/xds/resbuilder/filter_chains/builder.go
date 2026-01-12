@@ -93,6 +93,16 @@ func (b *Builder) buildFilterChain(params *FilterChainsParams) (*listenerv3.Filt
 		HttpFilters:      params.HTTPFilters,
 	}
 
+	// Add HTTP/2 protocol options for TLS listeners (edge proxy best practices)
+	// See: https://www.envoyproxy.io/docs/envoy/latest/configuration/best_practices/edge
+	if params.IsTLS {
+		httpConnectionManager.Http2ProtocolOptions = &corev3.Http2ProtocolOptions{
+			MaxConcurrentStreams:        &wrapperspb.UInt32Value{Value: 100},
+			InitialStreamWindowSize:     &wrapperspb.UInt32Value{Value: 65536},   // 64 KiB
+			InitialConnectionWindowSize: &wrapperspb.UInt32Value{Value: 1048576}, // 1 MiB
+		}
+	}
+
 	// Add tracing configuration if provided
 	if params.Tracing != nil {
 		httpConnectionManager.Tracing = params.Tracing
