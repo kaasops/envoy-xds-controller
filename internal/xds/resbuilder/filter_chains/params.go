@@ -2,6 +2,7 @@ package filter_chains
 
 import (
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -22,4 +23,5 @@ type FilterChainsParams struct {
 	SecretNameToDomains  map[helpers.NamespacedName][]string
 	IsTLS                bool
 	Tracing              *hcmv3.HttpConnectionManager_Tracing
+	Http2ProtocolOptions *corev3.Http2ProtocolOptions
 }

@@ -93,9 +93,11 @@ func (b *Builder) buildFilterChain(params *FilterChainsParams) (*listenerv3.Filt
 		HttpFilters:      params.HTTPFilters,
 	}
 
-	// Add HTTP/2 protocol options for TLS listeners (edge proxy best practices)
+	// Add HTTP/2 protocol options: use custom if provided, otherwise use defaults for TLS listeners
 	// See: https://www.envoyproxy.io/docs/envoy/latest/configuration/best_practices/edge
-	if params.IsTLS {
+	if params.Http2ProtocolOptions != nil {
+		httpConnectionManager.Http2ProtocolOptions = params.Http2ProtocolOptions
+	} else if params.IsTLS {
 		httpConnectionManager.Http2ProtocolOptions = &corev3.Http2ProtocolOptions{
 			MaxConcurrentStreams:        &wrapperspb.UInt32Value{Value: 100},
 			InitialStreamWindowSize:     &wrapperspb.UInt32Value{Value: 65536},   // 64 KiB
@@ -217,6 +219,13 @@ func (b *Builder) BuildFilterChainParams(
 		return nil, err
 	}
 
+	// Handle HTTP/2 protocol options
+	h2opts, err := b.configureHttp2ProtocolOptions(vs)
+	if err != nil {
+		return nil, err
+	}
+	params.Http2ProtocolOptions = h2opts
+
 	return params, nil
 }
 
@@ -285,6 +294,22 @@ func (b *Builder) configureUpgradeConfigs(
 		upgradeConfigs = append(upgradeConfigs, uc)
 	}
 	return upgradeConfigs, nil
+}
+
+// configureHttp2ProtocolOptions handles HTTP/2 protocol options configuration
+func (b *Builder) configureHttp2ProtocolOptions(vs *v1alpha1.VirtualService) (*corev3.Http2ProtocolOptions, error) {
+	if vs.Spec.Http2ProtocolOptions == nil {
+		return nil, nil
+	}
+
+	h2opts := &corev3.Http2ProtocolOptions{}
+	if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.Http2ProtocolOptions.Raw, h2opts); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal http2ProtocolOptions: %w", err)
+	}
+	if err := h2opts.ValidateAll(); err != nil {
+		return nil, fmt.Errorf("failed to validate http2ProtocolOptions: %w", err)
+	}
+	return h2opts, nil
 }
 
 // configureAccessLogs handles access log configuration
@@ -474,6 +499,7 @@ func (b *Builder) CheckFilterChainsConflicts(vs *v1alpha1.VirtualService) error 
 		{vs.Spec.AccessLogConfig != nil, "access log config is set, but filter chains are found in listener"},
 		{len(vs.Spec.AccessLogs) > 0, "access logs are set, but filter chains are found in listener"},
 		{len(vs.Spec.AccessLogConfigs) > 0, "access log configs are set, but filter chains are found in listener"},
+		{vs.Spec.Http2ProtocolOptions != nil, "http2 protocol options are set, but filter chains are found in listener"},
 	}
 
 	for _, conflict := range conflicts {

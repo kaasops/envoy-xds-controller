@@ -105,6 +105,14 @@ spec:
                   - type
                   type: object
                 type: array
+              http2ProtocolOptions:
+                description: |-
+                  Http2ProtocolOptions provides inline HTTP/2 protocol configuration for the HttpConnectionManager.
+                  Applied only to TLS listeners. If not set, defaults are used (max_concurrent_streams: 100,
+                  initial_stream_window_size: 64KiB, initial_connection_window_size: 1MiB).
+                  See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#config-core-v3-http2protocoloptions
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               httpFilters:
                 description: HTTPFilters for use custom HTTP filters
                 items:

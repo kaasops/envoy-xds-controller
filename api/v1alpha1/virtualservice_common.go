@@ -45,6 +45,13 @@ type VirtualServiceCommonSpec struct {
 	// Only one of spec.tracing or spec.tracingRef may be set.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Tracing *runtime.RawExtension `json:"tracing,omitempty"`
+
+	// Http2ProtocolOptions provides inline HTTP/2 protocol configuration for the HttpConnectionManager.
+	// Applied only to TLS listeners. If not set, defaults are used (max_concurrent_streams: 100,
+	// initial_stream_window_size: 64KiB, initial_connection_window_size: 1MiB).
+	// See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#config-core-v3-http2protocoloptions
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Http2ProtocolOptions *runtime.RawExtension `json:"http2ProtocolOptions,omitempty"`
 }
 
 type TlsConfig struct {
