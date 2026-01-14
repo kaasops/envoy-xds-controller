@@ -1,5 +1,7 @@
 # Build the init-cert binary
-FROM golang:1.24 as builder
+FROM golang:1.24 AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -9,10 +11,12 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the go source
-COPY . .
+COPY cmd/init-cert/ cmd/init-cert/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o init-cert cmd/init-cert/main.go
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -o init-cert cmd/init-cert/main.go
 
 # Use distroless as minimal base image to package the init-cert binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
