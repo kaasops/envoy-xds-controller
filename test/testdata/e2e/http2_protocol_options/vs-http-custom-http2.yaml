@@ -1,0 +1,27 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vs-http-custom-http2
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  listener:
+    name: http
+  httpFilters:
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  http2ProtocolOptions:
+    max_concurrent_streams: 75
+    initial_stream_window_size: 262144
+    initial_connection_window_size: 4194304
+  virtualHost:
+    domains:
+      - http-custom.kaasops.io
+    routes:
+      - match:
+          prefix: "/"
+        direct_response:
+          status: 200
+          body:
+            inline_string: "{\"message\":\"http-custom-http2\"}\n"

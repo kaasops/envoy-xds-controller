@@ -156,6 +156,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("Kafka Broker Filter", kafkaBrokerFilterEnvoyContext)
 		Context("Templates", templatesEnvoyContext)
 		Context("Tracing", tracingEnvoyContext)
+		Context("HTTP2 Protocol Options", http2ProtocolOptionsEnvoyContext)
 		Context("Status Propagation", statusPropagationContext)
 		Context("Secret Autodiscovery Fallback", secretAutodiscoveryFallbackContext)
 	})
