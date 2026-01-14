@@ -26,7 +26,9 @@ COPY docs/api/cacheRestAPI docs/api/cacheRestAPI
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build \
     -ldflags "-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.Version=${VERSION} \
     -X github.com/kaasops/envoy-xds-controller/internal/buildinfo.CommitHash=${COMMIT_HASH} \
     -X github.com/kaasops/envoy-xds-controller/internal/buildinfo.BuildDate=${BUILD_DATE}" \
