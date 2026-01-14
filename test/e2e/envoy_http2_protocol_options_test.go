@@ -36,6 +36,31 @@ func http2ProtocolOptionsEnvoyContext() {
 		fixture.WaitEnvoyConfigMatches(expectations)
 	})
 
+	It("should disable defaults when empty http2ProtocolOptions is set (opt-out)", func() {
+		// Prepare: HTTPS listener + TLS cert + VS with empty http2ProtocolOptions: {}
+		fixture.ApplyManifests(
+			"test/testdata/e2e/basic_https_service/listener.yaml",
+			"test/testdata/e2e/basic_https_service/tls-cert.yaml",
+			"test/testdata/e2e/http2_protocol_options/vs-opt-out-http2.yaml",
+		)
+
+		// Verify HTTP/2 protocol options is empty object (controller defaults disabled).
+		// When http2ProtocolOptions: {} is set, Envoy receives empty object and uses its
+		// built-in defaults (max_concurrent_streams=1024, initial_stream_window_size=16MiB,
+		// initial_connection_window_size=24MiB) which are NOT shown in config_dump.
+		// nolint: lll
+		listenerPath := "configs.2.dynamic_listeners.#(name==\"default/https\").active_state.listener"
+		hcmPath := listenerPath + ".filter_chains.0.filters.0.typed_config"
+
+		// Empty object {} - no controller defaults applied, Envoy uses built-in values
+		expectations := map[string]string{
+			hcmPath + ".http2_protocol_options.max_concurrent_streams":         "",
+			hcmPath + ".http2_protocol_options.initial_stream_window_size":     "",
+			hcmPath + ".http2_protocol_options.initial_connection_window_size": "",
+		}
+		fixture.WaitEnvoyConfigMatches(expectations)
+	})
+
 	It("should apply custom HTTP/2 protocol options when specified", func() {
 		// Prepare: HTTPS listener + TLS cert + VS with custom http2ProtocolOptions
 		fixture.ApplyManifests(
