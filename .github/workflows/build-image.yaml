@@ -69,9 +69,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
-            ${{ matrix.build-args == 'true' && format('VERSION={0}', steps.tag.outputs.TAG) || '' }}
-            ${{ matrix.build-args == 'true' && format('COMMIT_HASH={0}', github.sha) || '' }}
-            ${{ matrix.build-args == 'true' && format('BUILD_DATE={0}', steps.date.outputs.BUILD_DATE) || '' }}
+            ${{ matrix.build-args && format('VERSION={0}', steps.tag.outputs.TAG) || '' }}
+            ${{ matrix.build-args && format('COMMIT_HASH={0}', github.sha) || '' }}
+            ${{ matrix.build-args && format('BUILD_DATE={0}', steps.date.outputs.BUILD_DATE) || '' }}
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:${{ steps.tag.outputs.TAG }},${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:latest
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}${{ matrix.suffix }}:buildcache,mode=max
