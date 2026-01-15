@@ -17,12 +17,6 @@ limitations under the License.
 package store
 
 import (
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"math/big"
 	"testing"
 	"time"
 
@@ -31,31 +25,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
+	"github.com/kaasops/envoy-xds-controller/internal/testutil"
 )
-
-// generateTestCertificate creates a self-signed test certificate with the given expiration time
-func generateTestCertificate(notAfter time.Time) []byte {
-	privateKey, _ := rsa.GenerateKey(rand.Reader, 2048)
-
-	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{
-			CommonName: "test",
-		},
-		NotBefore: time.Now().Add(-time.Hour),
-		NotAfter:  notAfter,
-		KeyUsage:  x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-	}
-
-	certDER, _ := x509.CreateCertificate(rand.Reader, &template, &template, &privateKey.PublicKey, privateKey)
-
-	certPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certDER,
-	})
-
-	return certPEM
-}
 
 func TestDomainSecretsIndex_AddAndRemove(t *testing.T) {
 	idx := NewDomainSecretsIndex(10)
@@ -288,7 +259,7 @@ func TestParseCertificateNotAfter_InvalidPEM(t *testing.T) {
 func TestParseCertificateNotAfter_SingleCertificate(t *testing.T) {
 	// Generate a certificate that expires in 365 days
 	expectedExpiration := time.Now().Add(365 * 24 * time.Hour)
-	testCert := generateTestCertificate(expectedExpiration)
+	testCert := testutil.GenerateTestCertificate(expectedExpiration)
 
 	secret := &corev1.Secret{
 		Data: map[string][]byte{
@@ -306,11 +277,11 @@ func TestParseCertificateNotAfter_SingleCertificate(t *testing.T) {
 func TestParseCertificateNotAfter_CertificateChain_ReturnsMinimum(t *testing.T) {
 	// End-entity certificate expires in 30 days (shorter validity)
 	endEntityExpiration := time.Now().Add(30 * 24 * time.Hour)
-	endEntityCert := generateTestCertificate(endEntityExpiration)
+	endEntityCert := testutil.GenerateTestCertificate(endEntityExpiration)
 
 	// Intermediate certificate expires in 365 days (longer validity)
 	intermediateExpiration := time.Now().Add(365 * 24 * time.Hour)
-	intermediateCert := generateTestCertificate(intermediateExpiration)
+	intermediateCert := testutil.GenerateTestCertificate(intermediateExpiration)
 
 	// Create a chain with the intermediate first (non-standard order)
 	// This tests that we find the MINIMUM expiration regardless of order
@@ -333,7 +304,7 @@ func TestParseCertificateNotAfter_CertificateChain_ReturnsMinimum(t *testing.T) 
 func TestParseCertificateNotAfter_SkipsNonCertificateBlocks(t *testing.T) {
 	// Generate a certificate that expires in 365 days
 	expectedExpiration := time.Now().Add(365 * 24 * time.Hour)
-	cert := generateTestCertificate(expectedExpiration)
+	cert := testutil.GenerateTestCertificate(expectedExpiration)
 
 	// Add a private key block that should be skipped
 	privateKey := []byte(`-----BEGIN RSA PRIVATE KEY-----
@@ -502,4 +473,114 @@ func TestDomainSecretsIndex_GetBestSecret_AllSecretsNilInMap(t *testing.T) {
 	// Should return nil because no secrets exist in secrets map
 	result := idx.GetBestSecret("example.com", "ns1", secrets)
 	assert.Nil(t, result, "Should return nil when all indexed secrets are missing from map")
+}
+
+// Tests for GetBestSecretWithValidity
+func TestDomainSecretsIndex_GetBestSecretWithValidity_Valid(t *testing.T) {
+	idx := NewDomainSecretsIndex(10)
+	secrets := make(map[helpers.NamespacedName]*corev1.Secret)
+
+	nn := helpers.NamespacedName{Namespace: "ns1", Name: "secret1"}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "secret1", Namespace: "ns1"},
+	}
+	secrets[nn] = secret
+
+	idx.Add("example.com", SecretDomainEntry{
+		NamespacedName: nn,
+		NotAfter:       time.Now().Add(24 * time.Hour), // valid
+	})
+
+	resultSecret, validity := idx.GetBestSecretWithValidity("example.com", "ns1", secrets)
+	assert.Equal(t, secret, resultSecret)
+	assert.Equal(t, validityValid, validity)
+}
+
+func TestDomainSecretsIndex_GetBestSecretWithValidity_Expired(t *testing.T) {
+	idx := NewDomainSecretsIndex(10)
+	secrets := make(map[helpers.NamespacedName]*corev1.Secret)
+
+	nn := helpers.NamespacedName{Namespace: "ns1", Name: "secret1"}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "secret1", Namespace: "ns1"},
+	}
+	secrets[nn] = secret
+
+	idx.Add("example.com", SecretDomainEntry{
+		NamespacedName: nn,
+		NotAfter:       time.Now().Add(-24 * time.Hour), // expired
+	})
+
+	resultSecret, validity := idx.GetBestSecretWithValidity("example.com", "ns1", secrets)
+	assert.Equal(t, secret, resultSecret)
+	assert.Equal(t, validityExpired, validity)
+}
+
+func TestDomainSecretsIndex_GetBestSecretWithValidity_Unknown(t *testing.T) {
+	idx := NewDomainSecretsIndex(10)
+	secrets := make(map[helpers.NamespacedName]*corev1.Secret)
+
+	nn := helpers.NamespacedName{Namespace: "ns1", Name: "secret1"}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "secret1", Namespace: "ns1"},
+	}
+	secrets[nn] = secret
+
+	idx.Add("example.com", SecretDomainEntry{
+		NamespacedName: nn,
+		NotAfter:       time.Time{}, // unknown (zero time)
+	})
+
+	resultSecret, validity := idx.GetBestSecretWithValidity("example.com", "ns1", secrets)
+	assert.Equal(t, secret, resultSecret)
+	assert.Equal(t, validityUnknown, validity)
+}
+
+func TestDomainSecretsIndex_GetBestSecretWithValidity_NotFound(t *testing.T) {
+	idx := NewDomainSecretsIndex(10)
+	secrets := make(map[helpers.NamespacedName]*corev1.Secret)
+
+	resultSecret, validity := idx.GetBestSecretWithValidity("nonexistent.com", "ns1", secrets)
+	assert.Nil(t, resultSecret)
+	assert.Equal(t, validityNotFound, validity)
+}
+
+// =============================================================================
+// ValidateDomainPattern tests
+// =============================================================================
+
+func TestValidateDomainPattern(t *testing.T) {
+	tests := []struct {
+		name      string
+		domain    string
+		wantValid bool
+	}{
+		// Valid patterns
+		{"exact domain", "example.com", true},
+		{"subdomain", "api.example.com", true},
+		{"deep subdomain", "a.b.c.example.com", true},
+		{"valid wildcard", "*.example.com", true},
+		{"valid wildcard subdomain", "*.api.example.com", true},
+
+		// Invalid patterns
+		{"empty", "", false},
+		{"wildcard without dot", "*example.com", false},
+		{"double wildcard", "**.example.com", false},
+		{"wildcard in middle", "api.*.example.com", false},
+		{"wildcard at end", "example.*", false},
+		{"standalone asterisk", "*", false},
+		{"asterisk dot only", "*.", false},
+		{"multiple wildcards", "*.*.example.com", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateDomainPattern(tt.domain)
+			if tt.wantValid {
+				assert.Empty(t, err, "Expected valid pattern for %q", tt.domain)
+			} else {
+				assert.NotEmpty(t, err, "Expected invalid pattern for %q", tt.domain)
+			}
+		})
+	}
 }

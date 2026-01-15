@@ -2,14 +2,20 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
+	"time"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // OptimizedStore is a truly optimized implementation with real performance improvements
@@ -447,6 +453,7 @@ func (s *OptimizedStore) GetCluster(name helpers.NamespacedName) *v1alpha1.Clust
 
 // resourceResult holds the results of concurrent resource loading
 type resourceResult struct {
+	mu          sync.Mutex
 	accessLogs  []v1alpha1.AccessLogConfig
 	clusters    []v1alpha1.Cluster
 	listeners   []v1alpha1.Listener
@@ -457,161 +464,141 @@ type resourceResult struct {
 	policies    []v1alpha1.Policy
 	tracings    []v1alpha1.Tracing
 	secrets     []corev1.Secret
-	err         error
 }
 
-// loadResourcesConcurrently loads all resources from Kubernetes in parallel
+// loadResourcesConcurrently loads all resources from Kubernetes in parallel.
+// Uses errgroup to properly handle context cancellation and ensure all goroutines
+// complete before returning, preventing goroutine leaks on errors.
 func (s *OptimizedStore) loadResourcesConcurrently(ctx context.Context, cl client.Client) (*resourceResult, error) {
-	resultChan := make(chan resourceResult, 10)
+	g, ctx := errgroup.WithContext(ctx)
+	result := &resourceResult{}
 
-	// Start 10 concurrent loaders
-	go s.loadVirtualServices(ctx, cl, resultChan)
-	go s.loadListeners(ctx, cl, resultChan)
-	go s.loadClusters(ctx, cl, resultChan)
-	go s.loadAccessLogs(ctx, cl, resultChan)
-	go s.loadRoutes(ctx, cl, resultChan)
-	go s.loadVirtualServiceTemplates(ctx, cl, resultChan)
-	go s.loadHttpFilters(ctx, cl, resultChan)
-	go s.loadPolicies(ctx, cl, resultChan)
-	go s.loadTracings(ctx, cl, resultChan)
-	go s.loadSecrets(ctx, cl, resultChan)
-
-	// Collect results
-	aggregated := &resourceResult{}
-	for i := 0; i < 10; i++ {
-		result := <-resultChan
-		if result.err != nil {
-			return nil, result.err
+	// Start all loaders concurrently
+	g.Go(func() error {
+		var list v1alpha1.VirtualServiceList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading VirtualServices: %w", err)
 		}
-		if len(result.accessLogs) > 0 {
-			aggregated.accessLogs = result.accessLogs
-		}
-		if len(result.vs) > 0 {
-			aggregated.vs = result.vs
-		}
-		if len(result.listeners) > 0 {
-			aggregated.listeners = result.listeners
-		}
-		if len(result.clusters) > 0 {
-			aggregated.clusters = result.clusters
-		}
-		if len(result.routes) > 0 {
-			aggregated.routes = result.routes
-		}
-		if len(result.vst) > 0 {
-			aggregated.vst = result.vst
-		}
-		if len(result.httpFilters) > 0 {
-			aggregated.httpFilters = result.httpFilters
-		}
-		if len(result.policies) > 0 {
-			aggregated.policies = result.policies
-		}
-		if len(result.tracings) > 0 {
-			aggregated.tracings = result.tracings
-		}
-		if len(result.secrets) > 0 {
-			aggregated.secrets = result.secrets
-		}
-	}
-	return aggregated, nil
-}
+		result.mu.Lock()
+		result.vs = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-// Resource loader helper functions
-func (s *OptimizedStore) loadVirtualServices(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.VirtualServiceList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{vs: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.ListenerList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading Listeners: %w", err)
+		}
+		result.mu.Lock()
+		result.listeners = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadListeners(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.ListenerList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{listeners: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.ClusterList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading Clusters: %w", err)
+		}
+		result.mu.Lock()
+		result.clusters = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadClusters(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.ClusterList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{clusters: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.AccessLogConfigList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading AccessLogConfigs: %w", err)
+		}
+		result.mu.Lock()
+		result.accessLogs = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadAccessLogs(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.AccessLogConfigList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{accessLogs: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.RouteList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading Routes: %w", err)
+		}
+		result.mu.Lock()
+		result.routes = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadRoutes(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.RouteList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{routes: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.VirtualServiceTemplateList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading VirtualServiceTemplates: %w", err)
+		}
+		result.mu.Lock()
+		result.vst = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadVirtualServiceTemplates(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.VirtualServiceTemplateList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{vst: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.HttpFilterList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading HttpFilters: %w", err)
+		}
+		result.mu.Lock()
+		result.httpFilters = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadHttpFilters(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.HttpFilterList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{httpFilters: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.PolicyList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading Policies: %w", err)
+		}
+		result.mu.Lock()
+		result.policies = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadPolicies(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.PolicyList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{policies: list.Items}
-}
+	g.Go(func() error {
+		var list v1alpha1.TracingList
+		if err := cl.List(ctx, &list); err != nil {
+			return fmt.Errorf("loading Tracings: %w", err)
+		}
+		result.mu.Lock()
+		result.tracings = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadTracings(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list v1alpha1.TracingList
-	if err := cl.List(ctx, &list); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{tracings: list.Items}
-}
+	g.Go(func() error {
+		var list corev1.SecretList
+		labelSelector := metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				"envoy.kaasops.io/secret-type": "sds-cached",
+			},
+		}
+		selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
+		if err != nil {
+			return fmt.Errorf("creating label selector: %w", err)
+		}
+		if err := cl.List(ctx, &list, &client.ListOptions{LabelSelector: selector}); err != nil {
+			return fmt.Errorf("loading Secrets: %w", err)
+		}
+		result.mu.Lock()
+		result.secrets = list.Items
+		result.mu.Unlock()
+		return nil
+	})
 
-func (s *OptimizedStore) loadSecrets(ctx context.Context, cl client.Client, ch chan<- resourceResult) {
-	var list corev1.SecretList
-	labelSelector := metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"envoy.kaasops.io/secret-type": "sds-cached",
-		},
+	// Wait for all goroutines to complete
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
-	selector, _ := metav1.LabelSelectorAsSelector(&labelSelector)
-	if err := cl.List(ctx, &list, &client.ListOptions{LabelSelector: selector}); err != nil {
-		ch <- resourceResult{err: err}
-		return
-	}
-	ch <- resourceResult{secrets: list.Items}
+
+	return result, nil
 }
 
 // FillFromKubernetes with optimized batch loading
@@ -991,6 +978,9 @@ func (s *OptimizedStore) DeletePolicy(name helpers.NamespacedName) {
 // SetSecret adds or updates a secret in the store
 // WARNING: This method mutates the input secret (name/namespace interning)
 func (s *OptimizedStore) SetSecret(secret *corev1.Secret) {
+	// Parse certificate expiration BEFORE acquiring lock (expensive operation)
+	notAfter := ParseCertificateNotAfter(secret)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -1006,8 +996,8 @@ func (s *OptimizedStore) SetSecret(secret *corev1.Secret) {
 
 	s.secrets[key] = secret
 
-	// Add new secret's domains to index
-	s.addDomainSecretsForSecret(secret)
+	// Add new secret's domains to index (uses pre-parsed notAfter)
+	s.addDomainSecretsForSecretWithNotAfter(secret, notAfter)
 }
 
 func (s *OptimizedStore) GetSecret(name helpers.NamespacedName) *corev1.Secret {
@@ -1285,6 +1275,106 @@ func (s *OptimizedStore) GetDomainSecretForNamespace(domain string, preferredNam
 	return s.domainSecretsIndex.GetBestSecret(domain, preferredNamespace, s.secrets)
 }
 
+// GetDomainSecretWithWildcardFallback returns the best secret for a domain,
+// falling back to wildcard if exact domain certificate is expired or unknown.
+// Selection logic:
+// 1. Get exact domain secret with validity
+// 2. If exact is valid - return it immediately
+// 3. If exact is expired/unknown - check wildcard
+// 4. If wildcard is valid - return wildcard (fallback)
+// 5. Otherwise return exact (more specific, even if expired)
+func (s *OptimizedStore) GetDomainSecretWithWildcardFallback(domain string, preferredNamespace string) *corev1.Secret {
+	result := s.GetDomainSecretWithWildcardFallbackInfo(domain, preferredNamespace)
+	return result.Secret
+}
+
+// GetDomainSecretWithWildcardFallbackInfo returns detailed information about secret lookup,
+// including whether a wildcard fallback was used and why.
+// This is useful for logging, metrics, and debugging.
+func (s *OptimizedStore) GetDomainSecretWithWildcardFallbackInfo(
+	domain string, preferredNamespace string,
+) SecretLookupResult {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := SecretLookupResult{}
+
+	// Get exact domain secret with validity in single traversal
+	exactSecret, exactValidity := s.domainSecretsIndex.GetBestSecretWithValidity(domain, preferredNamespace, s.secrets)
+
+	// Set exact validity info
+	result.ExactValidity = validityToString(exactValidity)
+	if exactSecret != nil {
+		result.ExactSecretName = exactSecret.Namespace + "/" + exactSecret.Name
+	}
+
+	// Fast path: if exact is valid, return immediately
+	if exactSecret != nil && exactValidity == validityValid {
+		result.Secret = exactSecret
+		// Set wildcard info to not_found since we didn't need to check
+		result.WildcardValidity = validityToString(validityNotFound)
+		return result
+	}
+
+	// Try wildcard fallback
+	wildcardDomain := utils.GetWildcardDomain(domain)
+	if wildcardDomain == "" {
+		// Can't create wildcard (e.g., single-part domain)
+		result.Secret = exactSecret
+		result.WildcardValidity = validityToString(validityNotFound)
+		return result
+	}
+
+	// Get wildcard secret with validity in single traversal
+	wildcardSecret, wildcardValidity := s.domainSecretsIndex.GetBestSecretWithValidity(
+		wildcardDomain, preferredNamespace, s.secrets)
+
+	// Set wildcard info
+	result.WildcardValidity = validityToString(wildcardValidity)
+	if wildcardSecret != nil {
+		result.WildcardSecretName = wildcardSecret.Namespace + "/" + wildcardSecret.Name
+	}
+
+	// If no exact secret exists, return wildcard (may be nil)
+	if exactSecret == nil {
+		result.Secret = wildcardSecret
+		if wildcardSecret != nil {
+			result.UsedWildcard = true
+		}
+		return result
+	}
+
+	// Fallback to valid wildcard if exact is expired/unknown
+	if wildcardSecret != nil && wildcardValidity == validityValid {
+		result.Secret = wildcardSecret
+		result.UsedWildcard = true
+		result.FallbackReason = validityToString(exactValidity)
+		return result
+	}
+
+	// Default: return exact (more specific, even if expired)
+	result.Secret = exactSecret
+	return result
+}
+
+// validityToString converts validityPriority to a human-readable string.
+// Returns a descriptive string for unexpected values to aid debugging if new
+// validity states are added without updating this function.
+func validityToString(v validityPriority) string {
+	switch v {
+	case validityValid:
+		return "valid"
+	case validityExpired:
+		return "expired"
+	case validityUnknown:
+		return "unknown"
+	case validityNotFound:
+		return "not_found"
+	default:
+		return fmt.Sprintf("unknown_validity_%d", v)
+	}
+}
+
 func (s *OptimizedStore) GetSpecCluster(name string) *v1alpha1.Cluster {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1404,8 +1494,13 @@ func (s *OptimizedStore) GetVirtualServicesByTemplateNN(nn helpers.NamespacedNam
 	return s.GetVirtualServicesByTemplate(nn)
 }
 
-// addDomainSecretsForSecret adds domains from a secret to the domain index
-func (s *OptimizedStore) addDomainSecretsForSecret(secret *corev1.Secret) {
+// addDomainSecretsForSecretWithNotAfter adds domains from a secret to the domain index
+// using a pre-parsed notAfter value. Parsing should be done before acquiring the lock
+// to minimize time spent holding the mutex.
+// Logs warnings for invalid domain patterns but still adds them to maintain backward compatibility.
+func (s *OptimizedStore) addDomainSecretsForSecretWithNotAfter(secret *corev1.Secret, notAfter time.Time) {
+	logger := log.Log.WithName("domain-secrets")
+
 	if secret.Annotations == nil {
 		return
 	}
@@ -1414,15 +1509,25 @@ func (s *OptimizedStore) addDomainSecretsForSecret(secret *corev1.Secret) {
 		return
 	}
 
-	// Parse certificate expiration once per secret
-	notAfter := ParseCertificateNotAfter(secret)
 	nn := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+	secretKey := secret.Namespace + "/" + secret.Name
 
 	for _, domain := range strings.Split(domainsAnnotation, ",") {
 		domain = strings.TrimSpace(domain)
 		if domain == "" {
 			continue
 		}
+
+		// Validate domain pattern and warn if invalid
+		if validationErr := ValidateDomainPattern(domain); validationErr != "" {
+			logger.Info("Invalid domain pattern in secret annotation",
+				"secret", secretKey,
+				"domain", domain,
+				"error", validationErr,
+				"hint", "Valid patterns: example.com or *.example.com")
+		}
+
+		// Still add to index for backward compatibility
 		s.domainSecretsIndex.Add(domain, SecretDomainEntry{
 			NamespacedName: nn,
 			NotAfter:       notAfter,
@@ -1455,6 +1560,7 @@ func (s *OptimizedStore) removeDomainSecretsForSecret(secret *corev1.Secret) {
 // updateDomainSecretsMap rebuilds the entire domain to secret mapping from all secrets
 // This is used only during FillFromKubernetes for initial population
 func (s *OptimizedStore) updateDomainSecretsMap() {
+	logger := log.Log.WithName("domain-secrets")
 	idx := NewDomainSecretsIndex(len(s.secrets))
 
 	for _, secret := range s.secrets {
@@ -1469,12 +1575,23 @@ func (s *OptimizedStore) updateDomainSecretsMap() {
 		// Parse certificate expiration once per secret
 		notAfter := ParseCertificateNotAfter(secret)
 		nn := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+		secretKey := secret.Namespace + "/" + secret.Name
 
 		for _, domain := range strings.Split(domainsAnnotation, ",") {
 			domain = strings.TrimSpace(domain)
 			if domain == "" {
 				continue
 			}
+
+			// Validate domain pattern and warn if invalid
+			if validationErr := ValidateDomainPattern(domain); validationErr != "" {
+				logger.Info("Invalid domain pattern in secret annotation",
+					"secret", secretKey,
+					"domain", domain,
+					"error", validationErr,
+					"hint", "Valid patterns: example.com or *.example.com")
+			}
+
 			idx.Add(domain, SecretDomainEntry{
 				NamespacedName: nn,
 				NotAfter:       notAfter,

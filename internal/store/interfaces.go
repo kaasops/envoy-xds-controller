@@ -85,6 +85,8 @@ type Store interface {
 	MapDomainSecrets() map[string]*corev1.Secret
 	MapDomainSecretsForNamespace(preferredNamespace string) map[string]*corev1.Secret
 	GetDomainSecretForNamespace(domain string, preferredNamespace string) *corev1.Secret
+	GetDomainSecretWithWildcardFallback(domain string, preferredNamespace string) *corev1.Secret
+	GetDomainSecretWithWildcardFallbackInfo(domain string, preferredNamespace string) SecretLookupResult
 
 	// Tracing
 	GetTracing(name helpers.NamespacedName) *v1alpha1.Tracing
