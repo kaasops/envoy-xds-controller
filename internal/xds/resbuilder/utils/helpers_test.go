@@ -207,6 +207,42 @@ func TestGetWildcardDomain(t *testing.T) {
 			domain:   "",
 			expected: "",
 		},
+		// Edge cases
+		{
+			name:     "trailing dot",
+			domain:   "api.example.com.",
+			expected: "*.example.com.",
+		},
+		{
+			name:     "leading dot",
+			domain:   ".example.com",
+			expected: "*.example.com",
+		},
+		{
+			name:     "uppercase domain preserved",
+			domain:   "API.EXAMPLE.COM",
+			expected: "*.EXAMPLE.COM",
+		},
+		{
+			name:     "mixed case domain preserved",
+			domain:   "Api.Example.Com",
+			expected: "*.Example.Com",
+		},
+		{
+			name:     "only dots - invalid domain rejected",
+			domain:   "...",
+			expected: "",
+		},
+		{
+			name:     "single dot - invalid domain rejected",
+			domain:   ".",
+			expected: "",
+		},
+		{
+			name:     "double dot - invalid domain rejected",
+			domain:   "..",
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {

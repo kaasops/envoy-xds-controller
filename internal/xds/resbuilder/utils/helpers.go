@@ -103,11 +103,38 @@ func findClusterNamesWithDepth(data interface{}, clusterField string, depth int)
 
 // GetWildcardDomain converts a domain to its wildcard equivalent
 // For example: "api.example.com" -> "*.example.com"
+//
+// Returns empty string for:
+// - Single-part domains (e.g., "localhost")
+// - Empty domains
+// - Domains with no valid parts after the first (e.g., ".", "..")
+//
+// Handles edge cases:
+// - Leading dot: ".example.com" -> "*.example.com"
+// - Trailing dot: "api.example.com." -> "*.example.com."
 func GetWildcardDomain(domain string) string {
+	if domain == "" {
+		return ""
+	}
+
 	parts := strings.Split(domain, ".")
 	if len(parts) < 2 {
 		return ""
 	}
+
+	// Validate that at least one part after the first is non-empty
+	// This rejects invalid patterns like ".", "..", "..."
+	hasValidPart := false
+	for i := 1; i < len(parts); i++ {
+		if parts[i] != "" {
+			hasValidPart = true
+			break
+		}
+	}
+	if !hasValidPart {
+		return ""
+	}
+
 	parts[0] = "*"
 	return strings.Join(parts, ".")
 }

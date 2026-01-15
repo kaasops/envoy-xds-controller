@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -15,7 +14,6 @@ import (
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/util/v1/utilv1connect"
 	virtual_service_templatev1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service_template/v1"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type UtilsService struct {
@@ -28,44 +26,38 @@ func NewUtilsService(s store.Store) *UtilsService {
 }
 
 // VerifyDomains checks if valid TLS certificates exist for the given domains.
-// Note: This intentionally uses MapDomainSecrets() without namespace preference
-// because verification checks domain-level certificate availability, not
-// VirtualService-specific secret binding. For VirtualService-specific binding,
-// see MapDomainSecretsForNamespace() which considers namespace affinity.
+// Uses the same wildcard fallback logic as the secrets builder: if exact cert is
+// expired/unparseable, falls back to a valid wildcard certificate.
+//
+// Wildcard matching: Only immediate parent wildcard is checked.
+// For example, "api.example.com" will match "*.example.com" but
+// "sub.api.example.com" will only match "*.api.example.com" (not "*.example.com").
 func (s *UtilsService) VerifyDomains(_ context.Context, req *connect.Request[v1.VerifyDomainsRequest]) (*connect.Response[v1.VerifyDomainsResponse], error) {
 	results := make([]*v1.DomainVerificationResult, 0, len(req.Msg.Domains))
 	for _, domain := range req.Msg.Domains {
-		res := verifyDomainFromSecrets(domain, s.store.MapDomainSecrets())
+		res := s.verifyDomainWithFallback(domain)
 		results = append(results, res)
 	}
 	return connect.NewResponse(&v1.VerifyDomainsResponse{Results: results}), nil
 }
 
-func verifyDomainFromSecrets(domain string, secrets map[string]*corev1.Secret) *v1.DomainVerificationResult {
+// verifyDomainWithFallback checks certificate for a domain using the same
+// wildcard fallback logic as the secrets builder
+func (s *UtilsService) verifyDomainWithFallback(domain string) *v1.DomainVerificationResult {
 	result := &v1.DomainVerificationResult{Domain: domain}
-	var matchedSecret *corev1.Secret
-	var matchedByWildcard bool
 
-	if secret, ok := secrets[domain]; ok {
-		matchedSecret = secret
-	} else {
-		parts := strings.Split(domain, ".")
-		for i := 1; i < len(parts)-1; i++ {
-			wildcard := "*." + strings.Join(parts[i:], ".")
-			if secret, ok := secrets[wildcard]; ok {
-				matchedSecret = secret
-				matchedByWildcard = true
-				break
-			}
-		}
-	}
+	// Use store's wildcard fallback logic - empty namespace for domain-level check
+	lookupResult := s.store.GetDomainSecretWithWildcardFallbackInfo(domain, "")
 
-	if matchedSecret == nil {
+	if lookupResult.Secret == nil {
 		result.Error = "no matching certificate found"
 		return result
 	}
 
-	crtBytes, ok := matchedSecret.Data["tls.crt"]
+	result.MatchedByWildcard = lookupResult.UsedWildcard
+
+	// Parse and validate the matched certificate
+	crtBytes, ok := lookupResult.Secret.Data["tls.crt"]
 	if !ok {
 		result.Error = "missing tls.crt in secret"
 		return result
@@ -85,7 +77,10 @@ func verifyDomainFromSecrets(domain string, secrets map[string]*corev1.Secret) *
 
 	result.Issuer = cert.Issuer.CommonName
 	result.ExpiresAt = timestamppb.New(cert.NotAfter)
-	result.MatchedByWildcard = matchedByWildcard
+
+	// Note: lookupResult also contains FallbackReason and ExactValidity
+	// for debugging purposes, but the proto doesn't support these fields yet.
+	// When the proto is updated, this info can be exposed in the API response.
 
 	if time.Now().After(cert.NotAfter) {
 		result.Error = "certificate expired"

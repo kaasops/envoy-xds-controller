@@ -3,11 +3,12 @@ package secrets
 import (
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // Builder handles TLS configuration for secrets
@@ -76,7 +77,7 @@ func (b *Builder) GetSecretNameToDomains(
 	case utils.SecretRefType:
 		return b.getSecretNameToDomainsViaSecretRef(vs.Spec.TlsConfig.SecretRef, vs.Namespace, domains), nil
 	case utils.AutoDiscoveryType:
-		return b.getSecretNameToDomainsViaAutoDiscovery(domains, b.store.MapDomainSecretsForNamespace(vs.Namespace))
+		return b.getSecretNameToDomainsViaAutoDiscovery(domains, vs.Namespace)
 	default:
 		return nil, fmt.Errorf("unknown TLS type: %s", tlsType)
 	}
@@ -101,24 +102,36 @@ func (b *Builder) getSecretNameToDomainsViaSecretRef(
 	return m
 }
 
-// getSecretNameToDomainsViaAutoDiscovery maps domains to secrets based on auto-discovery
+// getSecretNameToDomainsViaAutoDiscovery maps domains to secrets based on auto-discovery.
+// Uses GetDomainSecretWithWildcardFallback to prefer valid wildcard certificates
+// over expired exact certificates.
 func (b *Builder) getSecretNameToDomainsViaAutoDiscovery(
 	domains []string,
-	domainToSecretMap map[string]*v1.Secret,
+	preferredNamespace string,
 ) (map[helpers.NamespacedName][]string, error) {
+	logger := log.Log.WithName("secrets-builder")
 	m := make(map[helpers.NamespacedName][]string)
 
 	for _, domain := range domains {
-		var secret *v1.Secret
-		secret, ok := domainToSecretMap[domain]
-		if !ok {
-			secret, ok = domainToSecretMap[utils.GetWildcardDomain(domain)]
-			if !ok {
-				return nil, fmt.Errorf("can't find secret for domain %s", domain)
-			}
+		// Use wildcard fallback method with detailed info for logging
+		result := b.store.GetDomainSecretWithWildcardFallbackInfo(domain, preferredNamespace)
+
+		if result.Secret == nil {
+			return nil, fmt.Errorf("can't find secret for domain %s", domain)
 		}
 
-		nn := helpers.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
+		// Log when wildcard fallback is used due to expired/unknown exact cert
+		if result.UsedWildcard && result.FallbackReason != "" {
+			logger.Info("Using wildcard certificate fallback",
+				"domain", domain,
+				"reason", result.FallbackReason,
+				"exactSecret", result.ExactSecretName,
+				"wildcardSecret", result.Secret.Namespace+"/"+result.Secret.Name,
+				"namespace", preferredNamespace,
+			)
+		}
+
+		nn := helpers.NamespacedName{Namespace: result.Secret.Namespace, Name: result.Secret.Name}
 		m[nn] = append(m[nn], domain)
 	}
 
