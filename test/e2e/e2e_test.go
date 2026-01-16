@@ -65,10 +65,9 @@ var _ = Describe("Manager", Ordered, func() {
 		By("deploying the controller-manager")
 		cmd = exec.Command(
 			"make", "deploy-e2e",
-			fmt.Sprintf("IMG_WITHOUT_TAG=%s", projectImage),
-			fmt.Sprintf("TAG=%s", projectImageTag),
-			fmt.Sprintf("INIT_CERT_IMG_WITHOUT_TAG=%s", initCertImage),
-			fmt.Sprintf("TAG=%s", projectImageTag),
+			fmt.Sprintf("IMG_REPO=%s", projectImage),
+			fmt.Sprintf("IMAGE_TAG=%s", projectImageTag),
+			fmt.Sprintf("INIT_CERT_IMG_REPO=%s", initCertImage),
 		)
 		_, err = utils.Run(cmd)
 		Expect(err).NotTo(HaveOccurred(), "Failed to deploy the controller-manager")

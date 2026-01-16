@@ -1,45 +1,75 @@
-# Image URL to use all building/pushing image targets
-REV=$(shell git rev-parse --short HEAD)
-TAG ?= $(REV)
+# ==============================================================================
+# Git Information
+# ==============================================================================
 
-IMG_WITHOUT_TAG ?= $(REGISTRY)/envoy-xds-controller
-UI_IMG_WITHOUT_TAG ?= $(REGISTRY)/envoy-xds-controller-ui
-INIT_CERT_IMG_WITHOUT_TAG ?= $(REGISTRY)/envoy-xds-controller-init-cert
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
 
-IMG ?= $(IMG_WITHOUT_TAG):$(TAG)
-UI_IMG ?= $(UI_IMG_WITHOUT_TAG):$(TAG)
-INIT_CERT_IMG ?= $(INIT_CERT_IMG_WITHOUT_TAG):$(TAG)
+# ==============================================================================
+# Container Images
+# ==============================================================================
 
-DEPLOY_TIMEOUT ?= 5m
-
-PROM_OPERATOR_VERSION ?= v0.77.1
-
-# REGISTRY is the image registry to use for build and push image targets.
-REGISTRY ?= docker.io/kaasops
-
-# LOCAL_REGISTRY is the local image registry to use for build and push image targets.
+# Image registries
+REGISTRY       ?= docker.io/kaasops
 LOCAL_REGISTRY ?= localhost:5001
 
-# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.31.0
+# Image tag (defaults to git commit)
+IMAGE_TAG ?= $(GIT_COMMIT)
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+# Image repositories
+IMG_REPO           ?= $(REGISTRY)/envoy-xds-controller
+UI_IMG_REPO        ?= $(REGISTRY)/envoy-xds-controller-ui
+INIT_CERT_IMG_REPO ?= $(REGISTRY)/envoy-xds-controller-init-cert
 
-# CONTAINER_TOOL defines the container tool to be used for building images.
-# Be aware that the target commands are only tested with Docker which is
-# scaffolded by default. However, you might want to replace it to use other
-# tools. (i.e. podman)
+# Full image references
+IMG           ?= $(IMG_REPO):$(IMAGE_TAG)
+UI_IMG        ?= $(UI_IMG_REPO):$(IMAGE_TAG)
+INIT_CERT_IMG ?= $(INIT_CERT_IMG_REPO):$(IMAGE_TAG)
+
+# Container runtime (docker or podman)
 CONTAINER_TOOL ?= docker
 
-# Setting SHELL to bash allows bash commands to be executed by recipes.
-# Options are set to exit when a recipe line exits non-zero or a piped command fails.
-SHELL = /usr/bin/env bash -o pipefail
-.SHELLFLAGS = -ec
+# ==============================================================================
+# Versions
+# ==============================================================================
+
+PROM_OPERATOR_VERSION    ?= v0.77.1
+KUSTOMIZE_VERSION        ?= v5.5.0
+CONTROLLER_TOOLS_VERSION ?= v0.16.4
+ENVTEST_VERSION          ?= release-0.19
+ENVTEST_K8S_VERSION      ?= 1.31.0
+GOLANGCI_LINT_VERSION    ?= v1.64.8
+
+# ==============================================================================
+# Deployment
+# ==============================================================================
+
+DEPLOY_TIMEOUT ?= 5m
+HELM_REPO_URL  ?= https://kaasops.github.io/envoy-xds-controller/helm
+
+# ==============================================================================
+# Build Tools
+# ==============================================================================
+
+LOCALBIN       ?= $(shell pwd)/bin
+KUBECTL        ?= kubectl
+KUSTOMIZE      ?= $(LOCALBIN)/kustomize
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+ENVTEST        ?= $(LOCALBIN)/setup-envtest
+GOLANGCI_LINT  ?= $(LOCALBIN)/golangci-lint
+
+# Go binary path
+ifeq (,$(shell go env GOBIN))
+GOBIN := $(shell go env GOPATH)/bin
+else
+GOBIN := $(shell go env GOBIN)
+endif
+
+# ==============================================================================
+# Shell Configuration
+# ==============================================================================
+
+SHELL := /usr/bin/env bash -o pipefail
+.SHELLFLAGS := -ec
 
 .DEFAULT_GOAL := help
 
@@ -65,8 +95,8 @@ help: ## Display this help.
 
 .PHONY: version
 version: ## Show version information
-	@echo "Tag: $(TAG)"
-	@echo "Revision: $(REV)"
+	@echo "Tag: $(IMAGE_TAG)"
+	@echo "Commit: $(GIT_COMMIT)"
 	@echo "Registry: $(REGISTRY)"
 	@echo "Main Image: $(IMG)"
 	@echo "UI Image: $(UI_IMG)"
@@ -146,7 +176,7 @@ test-e2e-report: manifests generate fmt vet ## Run the e2e tests with report sav
 	@REPORT_FILE="$(E2E_REPORTS_DIR)/e2e-test-$$(date +%Y%m%d-%H%M%S).log"; \
 	echo "Running e2e tests with report saved to $$REPORT_FILE"; \
 	go test ./test/e2e/ -v -ginkgo.v -timeout 15m -ginkgo.no-color 2>&1 | tee $$REPORT_FILE; \
-	TEST_EXIT_CODE=$${PIPEFAIL[0]}; \
+	TEST_EXIT_CODE=$${PIPESTATUS[0]}; \
 	echo ""; \
 	echo "Report saved to: $$REPORT_FILE"; \
 	exit $$TEST_EXIT_CODE
@@ -164,8 +194,8 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager \
-		-ldflags "-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.Version=$(TAG) \
-		-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.CommitHash=$(REV) \
+		-ldflags "-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.Version=$(IMAGE_TAG) \
+		-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.CommitHash=$(GIT_COMMIT) \
 		-X github.com/kaasops/envoy-xds-controller/internal/buildinfo.BuildDate=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")" \
 		cmd/main.go
 
@@ -183,8 +213,8 @@ run: manifests generate fmt vet ## Run a controller from your host.
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build \
-		--build-arg VERSION=$(TAG) \
-		--build-arg COMMIT_HASH=$(REV) \
+		--build-arg VERSION=$(IMAGE_TAG) \
+		--build-arg COMMIT_HASH=$(GIT_COMMIT) \
 		--build-arg BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") \
 		-t ${IMG} .
 
@@ -197,10 +227,7 @@ docker-build-init-cert: ## Build docker image with the init-cert.
 	$(CONTAINER_TOOL) build -t ${INIT_CERT_IMG} -f cmd/init-cert/Dockerfile .
 
 .PHONY: docker-build-all
-docker-build-all: docker-build docker-build-ui docker-build-init-cert
-
-.PHONY: docker-build-all-local
-docker-build-all-local: set-local docker-build-all
+docker-build-all: docker-build docker-build-ui docker-build-init-cert ## Build all docker images
 
 .PHONY: docker-cache-clear
 docker-cache-clear: ## Clear Docker build cache
@@ -232,10 +259,7 @@ docker-push-init-cert: ## Push docker image with the init-cert
 	$(CONTAINER_TOOL) push ${INIT_CERT_IMG}
 
 .PHONY: docker-push-all
-docker-push-all: docker-push docker-push-ui docker-push-init-cert
-
-.PHONY: docker-push-all-local
-docker-push-all-local: set-local docker-push-all
+docker-push-all: docker-push docker-push-ui docker-push-init-cert ## Push all docker images
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
@@ -285,23 +309,8 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 
 ##@ Dependencies
 
-## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
-
-## Tool Binaries
-KUBECTL ?= kubectl
-KUSTOMIZE ?= $(LOCALBIN)/kustomize
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
-ENVTEST ?= $(LOCALBIN)/setup-envtest
-GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
-
-## Tool Versions
-KUSTOMIZE_VERSION ?= v5.5.0
-CONTROLLER_TOOLS_VERSION ?= v0.16.4
-ENVTEST_VERSION ?= release-0.19
-GOLANGCI_LINT_VERSION ?= v1.64.8
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -339,142 +348,94 @@ mv $(1) $(1)-$(3) ;\
 ln -sf $(1)-$(3) $(1)
 endef
 
-## HELM
-
-URL=https://kaasops.github.io/envoy-xds-controller/helm
-AUTH_ENABLED=false
+##@ Helm
 
 .PHONY: helm-lint
-helm-lint:
+helm-lint: ## Lint Helm chart
 	helm lint helm/charts/envoy-xds-controller
 
 .PHONY: helm-package
-helm-package:
+helm-package: ## Package Helm chart
 	helm package helm/charts/* -d helm/packages
 
 .PHONY: helm-index
-helm-index:
-	helm repo index --url ${URL} ./helm
+helm-index: ## Update Helm repo index
+	helm repo index --url $(HELM_REPO_URL) ./helm
 
-### HELM DEPLOY
+.PHONY: helm-template
+helm-template: ## Render Helm chart templates locally
+	helm template exc -n envoy-xds-controller ./helm/charts/envoy-xds-controller/
 
-.PHONY: helm-deploy-local
-helm-deploy-local: manifests set-local ## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
-	@$(LOG_TARGET)
-	helm install exc --set metrics.address=:8443 \
-		--set metrics.secure=false \
-		--set development=true \
-		--set auth.enabled=$(AUTH_ENABLED) \
-		--set 'watchNamespaces={default}' \
- 		--set image.repository=$(IMG_WITHOUT_TAG) \
- 		--set image.tag=$(TAG) \
- 		--set ui.enabled=true \
- 		--set cacheAPI.enabled=true \
- 		--set ui.image.repository=$(UI_IMG_WITHOUT_TAG) \
- 		--set ui.image.tag=$(TAG) \
-		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
-		--set initCert.image.tag=$(TAG) \
- 		--set resourceAPI.enabled=true \
- 		--namespace envoy-xds-controller \
- 		--create-namespace ./helm/charts/envoy-xds-controller \
- 		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
+##@ Local Development
 
-.PHONY: set-local
-set-local:
-	$(eval REGISTRY := $(LOCAL_REGISTRY))
+.PHONY: dev
+dev: ## Interactive local development setup in Kind
+	@bash scripts/dev.sh
 
-.PHONY: set-auth-env
-set-auth-env:
-	$(eval AUTH_ENABLED := true)
-
-.PHONY: debug-local
-debug-local: set-local
-	@echo $(REGISTRY)
-	@echo $(IMG)
-
-.PHONY: dev-local
-dev-local: set-local docker-build-all docker-push-all helm-deploy-local
+.PHONY: dev-clean
+dev-clean: ## Remove Helm release from Kind cluster
+	helm uninstall exc -n envoy-xds-controller || true
 
 .PHONY: kr
-kr:
+kr: ## Create Kind cluster with local registry
 	bash scripts/kind-with-registry.sh
 
 .PHONY: kd
-kd:
+kd: ## Delete Kind cluster
 	kind delete cluster
 
 .PHONY: dev-apply-resources
-dev-apply-resources:
+dev-apply-resources: ## Apply test resources to cluster
 	kubectl -n envoy-xds-controller apply -f dev/testdata/common
 
 .PHONY: dev-delete-resources
-dev-delete-resources:
-	kubectl -n envoy-xds-controller delete -f dev/testdata
-
-.PHONY: helm-deploy-backend-local
-helm-deploy-backend-local: manifests set-local ## Install Envoy xDS Controller into the local Kubernetes cluster specified in ~/.kube/config.
-	@$(LOG_TARGET)
-	helm install exc --set metrics.address=:8443 \
- 		--set 'watchNamespaces={default}' \
- 		--set image.repository=$(IMG_WITHOUT_TAG) \
- 		--set image.tag=$(TAG) \
-		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
-		--set initCert.image.tag=$(TAG) \
- 		--set cacheAPI.enabled=true \
- 		--set resourceAPI.enabled=true \
- 		--namespace envoy-xds-controller \
- 		--create-namespace ./helm/charts/envoy-xds-controller \
- 		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
-
-.PHONY: dev-backend
-dev-backend: set-local docker-build docker-push docker-build-init-cert docker-push-init-cert install-prometheus helm-deploy-backend-local
-
-.PHONY: deploy-e2e
-deploy-e2e: manifests
-	helm install exc-e2e --set metrics.address=:8443 \
- 		--set 'watchNamespaces={default,exc-secrets-ns1,exc-secrets-ns2}' \
- 		--set image.repository=$(IMG_WITHOUT_TAG) \
- 		--set image.tag=$(TAG) \
-		--set initCert.image.repository=$(INIT_CERT_IMG_WITHOUT_TAG) \
-		--set initCert.image.tag=$(TAG) \
- 		--set cacheAPI.enabled=true \
- 		--set resourceAPI.enabled=true \
- 		--set development=true \
- 		--namespace envoy-xds-controller \
- 		--create-namespace ./helm/charts/envoy-xds-controller \
- 		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
-
-.PHONY: undeploy-e2e
-undeploy-e2e:
-	helm uninstall -n envoy-xds-controller exc-e2e
-
-.PHONY: install-prometheus
-install-prometheus:
-	kubectl create -f https://github.com/prometheus-operator/prometheus-operator/releases/download/$(PROM_OPERATOR_VERSION)/bundle.yaml
-
-.PHONY: uninstall-prometheus
-uninstall-prometheus:
-	kubectl delete -f https://github.com/prometheus-operator/prometheus-operator/releases/download/$(PROM_OPERATOR_VERSION)/bundle.yaml
-
-.PHONY: bufgen
-bufgen:
-	buf generate
+dev-delete-resources: ## Delete test resources from cluster
+	kubectl -n envoy-xds-controller delete -f dev/testdata/common
 
 .PHONY: dev-auth
-dev-auth:
+dev-auth: ## Setup Dex + LDAP for authentication testing
 	bash scripts/dev-auth.sh
 
-.PHONY: dev-local-with-auth
-dev-local-with-auth: dev-auth set-auth-env install-prometheus dev-local
-
-.PHONY: helm-template
-helm-template:
-	helm template exc -n envoy-xds-controller ./helm/charts/envoy-xds-controller/
-
 .PHONY: dev-envoy
-dev-envoy:
+dev-envoy: ## Deploy test Envoy instance
 	kubectl apply -f dev/envoy
 
 .PHONY: dev-frontend
-dev-frontend:
+dev-frontend: ## Run UI development server (npm run dev)
 	cd ui && npm run dev
+
+.PHONY: install-prometheus
+install-prometheus: ## Install Prometheus Operator
+	kubectl create -f https://github.com/prometheus-operator/prometheus-operator/releases/download/$(PROM_OPERATOR_VERSION)/bundle.yaml
+
+.PHONY: uninstall-prometheus
+uninstall-prometheus: ## Uninstall Prometheus Operator
+	kubectl delete -f https://github.com/prometheus-operator/prometheus-operator/releases/download/$(PROM_OPERATOR_VERSION)/bundle.yaml
+
+##@ E2E Testing
+
+.PHONY: deploy-e2e
+deploy-e2e: manifests ## Deploy controller for e2e tests
+	helm install exc-e2e \
+		--set metrics.address=:8443 \
+		--set 'watchNamespaces={default,exc-secrets-ns1,exc-secrets-ns2}' \
+		--set image.repository=$(IMG_REPO) \
+		--set image.tag=$(IMAGE_TAG) \
+		--set initCert.image.repository=$(INIT_CERT_IMG_REPO) \
+		--set initCert.image.tag=$(IMAGE_TAG) \
+		--set cacheAPI.enabled=true \
+		--set resourceAPI.enabled=true \
+		--set development=true \
+		--namespace envoy-xds-controller \
+		--create-namespace ./helm/charts/envoy-xds-controller \
+		--debug --timeout='$(DEPLOY_TIMEOUT)' --wait
+
+.PHONY: undeploy-e2e
+undeploy-e2e: ## Remove e2e test deployment
+	helm uninstall -n envoy-xds-controller exc-e2e
+
+##@ Code Generation
+
+.PHONY: bufgen
+bufgen: ## Generate protobuf code
+	buf generate
