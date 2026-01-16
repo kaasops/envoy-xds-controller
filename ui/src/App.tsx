@@ -18,6 +18,7 @@ import { useThemeMode } from './utils/hooks'
 
 const HomePage = lazy(() => import('./pages/home/Home'))
 const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'))
+const NodeOverviewPage = lazy(() => import('./pages/nodeOverview/NodeOverview'))
 const AccessGroupsPage = lazy(() => import('./pages/accessGroupsPage/accessGroupsPage'))
 const VirtualServicesPage = lazy(() => import('./pages/virtualServicesPage/virtualServicesPage'))
 const EditVsPage = lazy(() => import('./pages/editVsPage/editVsPage'))
@@ -83,6 +84,7 @@ function App() {
 							<Route path='nodeIDs' element={<Layout />}>
 								<Route index element={<HomePage />} />
 								<Route path=':nodeID' element={<NodeInfoPage />} />
+								<Route path=':nodeID/overview' element={<NodeOverviewPage />} />
 							</Route>
 
 							<Route path='accessGroups' element={<Layout />}>
