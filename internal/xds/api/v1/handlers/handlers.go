@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	xdscache "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 )
@@ -11,8 +13,13 @@ import (
 // @BasePath /
 // @schemes http
 
+// overviewCacheTTL defines how long overview responses are cached.
+// This prevents CPU-intensive certificate parsing on every request.
+const overviewCacheTTL = 30 * time.Second
+
 type handler struct {
-	cache *xdscache.SnapshotCache
+	cache         *xdscache.SnapshotCache
+	overviewCache *OverviewCache
 }
 
 var (
@@ -20,7 +27,10 @@ var (
 )
 
 func RegisterRoutes(r *gin.Engine, cache *xdscache.SnapshotCache) {
-	h := &handler{cache: cache}
+	h := &handler{
+		cache:         cache,
+		overviewCache: NewOverviewCache(overviewCacheTTL),
+	}
 
 	routes := r.Group(version)
 
@@ -59,6 +69,9 @@ func RegisterRoutes(r *gin.Engine, cache *xdscache.SnapshotCache) {
 	// ********** Get Domain info **********
 	routes.GET("/domainLocations", h.getDomainLocations)
 	routes.GET("/domains", h.getDomains)
+
+	// ********** Get Overview (human-readable) **********
+	routes.GET("/overview", h.getOverview)
 
 	// ********** Get Build info **********
 	routes.GET("/buildinfo", h.getBuildInfo)
