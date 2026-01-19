@@ -1,4 +1,4 @@
-{{- if ne .Values.metrics.address "0" }}
+{{- if and (ne .Values.metrics.address "0") .Values.metrics.serviceMonitor.enabled }}
 # Prometheus Monitor Service (Metrics)
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

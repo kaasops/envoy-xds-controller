@@ -1,0 +1,38 @@
+# Test users for local development
+# Source of truth for LDAP and Dex credentials
+# Run 'make dev-auth-generate' after changes to regenerate LDAP config
+
+ldap_users:
+  - cn: admin
+    email: admin@example.com
+    password: admin
+    groups: admins
+
+  - cn: developer
+    email: developer@example.com
+    password: developer
+    groups: developers
+
+  - cn: editor
+    email: editor@example.com
+    password: editor
+    groups: editors
+
+  - cn: tester
+    email: tester@example.com
+    password: tester
+    groups: testers
+
+  - cn: user
+    email: user@example.com
+    password: user
+    groups: users
+
+  - cn: devops
+    email: devops@example.com
+    password: devops
+    groups: admins, developers
+
+dex_users:
+  - email: sa@example.com
+    password: password

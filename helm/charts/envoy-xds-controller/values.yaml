@@ -7,6 +7,8 @@ development: false
 metrics:
   address: "0" # set "0" for disabling
   secure: true
+  serviceMonitor:
+    enabled: false # requires Prometheus Operator CRDs
 
 xds:
   port: 9000
@@ -238,7 +240,7 @@ auth:
     nodeIdsByGroup:
       admins:
         - "*"
-      authors:
+      editors:
         - "node1"
       users:
         - "node1"
