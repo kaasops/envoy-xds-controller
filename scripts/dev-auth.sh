@@ -2,8 +2,11 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-kubectl create ns ldap
-kubectl create ns dex
+# Generate LDAP config from dev-users.yaml
+bash "${SCRIPT_DIR}/ldap/generate.sh"
+
+kubectl create ns ldap --dry-run=client -o yaml | kubectl apply -f -
+kubectl create ns dex --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl apply -f "${SCRIPT_DIR}/ldap" -n ldap
 

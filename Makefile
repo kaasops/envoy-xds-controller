@@ -372,6 +372,10 @@ helm-template: ## Render Helm chart templates locally
 dev: ## Interactive local development setup in Kind
 	@bash scripts/dev.sh
 
+.PHONY: dev-update
+dev-update: ## Rebuild and redeploy to existing dev cluster
+	@bash scripts/dev-update.sh
+
 .PHONY: dev-clean
 dev-clean: ## Remove Helm release from Kind cluster
 	helm uninstall exc -n envoy-xds-controller || true
@@ -395,6 +399,14 @@ dev-delete-resources: ## Delete test resources from cluster
 .PHONY: dev-auth
 dev-auth: ## Setup Dex + LDAP for authentication testing
 	bash scripts/dev-auth.sh
+
+.PHONY: dev-creds
+dev-creds: ## Show test credentials for auth
+	@bash scripts/dev-creds.sh
+
+.PHONY: dev-auth-generate
+dev-auth-generate: ## Regenerate LDAP config from users.yaml
+	@bash scripts/ldap/generate.sh
 
 .PHONY: dev-envoy
 dev-envoy: ## Deploy test Envoy instance

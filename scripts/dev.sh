@@ -116,6 +116,7 @@ echo -e "${BLUE}Deploying with Helm...${NC}"
 helm install exc \
     --set metrics.address=:8443 \
     --set metrics.secure=false \
+    --set metrics.serviceMonitor.enabled="$PROMETHEUS_ENABLED" \
     --set development="$DEV_MODE" \
     --set auth.enabled="$AUTH_ENABLED" \
     --set ui.enabled="$UI_ENABLED" \
@@ -161,4 +162,9 @@ if [ "$DEPLOY_ENVOY" = true ]; then
 fi
 if [ "$APPLY_TEST_RESOURCES" = true ]; then
     echo "  kubectl -n envoy-xds-controller get virtualservices"
+fi
+
+# Show test credentials if auth is enabled
+if [ "$AUTH_ENABLED" = true ]; then
+    bash "${SCRIPT_DIR}/dev-creds.sh"
 fi
