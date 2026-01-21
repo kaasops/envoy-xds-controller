@@ -45,7 +45,7 @@ spec:
       containers:
       - image: {{ .Values.ui.image.repository }}:{{ default .Chart.AppVersion .Values.ui.image.tag }}
         name: envoy-xds-controller-ui
-        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        imagePullPolicy: {{ .Values.ui.image.pullPolicy }}
         {{- if .Values.ui.nginxConfigMap.enabled }}
         volumeMounts:
         - name: nginx-config

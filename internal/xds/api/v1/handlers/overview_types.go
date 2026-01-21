@@ -3,10 +3,19 @@ package handlers
 // NodeOverviewResponse represents the complete overview of a node's configuration
 // in a human-readable format.
 type NodeOverviewResponse struct {
-	NodeID       string            `json:"nodeId"`
-	Summary      OverviewSummary   `json:"summary"`
-	Endpoints    []EndpointInfo    `json:"endpoints"`
-	Certificates []CertificateInfo `json:"certificates"`
+	NodeID           string            `json:"nodeId"`
+	Summary          OverviewSummary   `json:"summary"`
+	ResourceVersions ResourceVersions  `json:"resourceVersions"`
+	Endpoints        []EndpointInfo    `json:"endpoints"`
+	Certificates     []CertificateInfo `json:"certificates"`
+}
+
+// ResourceVersions contains xDS resource version strings for each resource type.
+type ResourceVersions struct {
+	Listeners string `json:"listeners"`
+	Clusters  string `json:"clusters"`
+	Routes    string `json:"routes"`
+	Secrets   string `json:"secrets"`
 }
 
 // OverviewSummary provides aggregate statistics for the node.

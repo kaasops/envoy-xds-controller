@@ -1,8 +1,16 @@
 export interface NodeOverviewResponse {
 	nodeId: string
 	summary: OverviewSummary
+	resourceVersions: ResourceVersions
 	endpoints: EndpointInfo[]
 	certificates: CertificateInfo[]
+}
+
+export interface ResourceVersions {
+	listeners: string
+	clusters: string
+	routes: string
+	secrets: string
 }
 
 export interface OverviewSummary {
