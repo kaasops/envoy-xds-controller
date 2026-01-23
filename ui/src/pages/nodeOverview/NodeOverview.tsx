@@ -5,6 +5,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { useOverview } from '../../api/hooks/useOverview'
 import { OverviewSummary } from '../../components/overviewSummary'
+import { ResourceVersions } from '../../components/resourceVersions'
 import { EndpointsTable } from '../../components/endpointsTable'
 import { CertificatesTable } from '../../components/certificatesTable'
 import { CustomTabPanel } from '../../components/customTabPanel'
@@ -78,6 +79,11 @@ const NodeOverview = () => {
 				<IconButton onClick={() => refetch()} size='small' title='Refresh'>
 					<RefreshIcon />
 				</IconButton>
+			</Box>
+
+			{/* Resource Versions */}
+			<Box sx={{ mb: 2 }}>
+				<ResourceVersions versions={overview.resourceVersions} />
 			</Box>
 
 			{/* Summary Cards */}

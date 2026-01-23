@@ -44,6 +44,20 @@ func (h *handler) getOverview(ctx *gin.Context) {
 		return
 	}
 
+	// Get resource versions
+	versions, err := h.cache.GetVersions(nodeID)
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	resourceVersions := ResourceVersions{
+		Listeners: versions["listeners"],
+		Clusters:  versions["clusters"],
+		Routes:    versions["routes"],
+		Secrets:   versions["secrets"],
+	}
+
 	// Get all resources
 	listeners, err := h.cache.GetListeners(nodeID)
 	if err != nil {
@@ -70,10 +84,11 @@ func (h *handler) getOverview(ctx *gin.Context) {
 	summary := h.calculateSummary(endpoints, certificates)
 
 	response := &NodeOverviewResponse{
-		NodeID:       nodeID,
-		Summary:      summary,
-		Endpoints:    endpoints,
-		Certificates: certificates,
+		NodeID:           nodeID,
+		Summary:          summary,
+		ResourceVersions: resourceVersions,
+		Endpoints:        endpoints,
+		Certificates:     certificates,
 	}
 
 	// Cache the response

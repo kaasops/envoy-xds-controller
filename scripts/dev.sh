@@ -125,10 +125,13 @@ helm install exc \
     --set 'watchNamespaces={default}' \
     --set image.repository="$IMG_REPO" \
     --set image.tag="$IMAGE_TAG" \
+    --set image.pullPolicy=Always \
     --set ui.image.repository="$UI_IMG_REPO" \
     --set ui.image.tag="$IMAGE_TAG" \
+    --set ui.image.pullPolicy=Always \
     --set initCert.image.repository="$INIT_CERT_IMG_REPO" \
     --set initCert.image.tag="$IMAGE_TAG" \
+    --set initCert.image.pullPolicy=Always \
     --namespace envoy-xds-controller \
     --create-namespace "$ROOT_DIR/helm/charts/envoy-xds-controller" \
     --timeout='5m' --wait
