@@ -2,6 +2,8 @@ package cache
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"sync"
 
@@ -11,6 +13,7 @@ import (
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"golang.org/x/exp/maps"
@@ -172,4 +175,65 @@ func getListenersFromSnapshot(snapshot cache.ResourceSnapshot) []*listenerv3.Lis
 		listeners = append(listeners, listener.(*listenerv3.Listener))
 	}
 	return listeners
+}
+
+// ResourceVersion contains version info for a single resource
+type ResourceVersion struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+// ResourceVersions contains per-resource versions for all resource types
+type ResourceVersions struct {
+	Clusters  []ResourceVersion `json:"clusters"`
+	Listeners []ResourceVersion `json:"listeners"`
+	Routes    []ResourceVersion `json:"routes"`
+	Secrets   []ResourceVersion `json:"secrets"`
+}
+
+// GetResourceVersions returns hash-based versions for each individual resource in the snapshot.
+// This can be used to compare with Envoy's config_dump to detect unsynchronized resources.
+func (c *SnapshotCache) GetResourceVersions(nodeID string) (*ResourceVersions, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	snapshot, err := c.SnapshotCache.GetSnapshot(nodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ResourceVersions{
+		Clusters:  computeResourceVersions(snapshot.GetResources(resourcev3.ClusterType)),
+		Listeners: computeResourceVersions(snapshot.GetResources(resourcev3.ListenerType)),
+		Routes:    computeResourceVersions(snapshot.GetResources(resourcev3.RouteType)),
+		Secrets:   computeResourceVersions(snapshot.GetResources(resourcev3.SecretType)),
+	}
+
+	return result, nil
+}
+
+// computeResourceVersions computes a hash for each resource in the map
+func computeResourceVersions(resources map[string]types.Resource) []ResourceVersion {
+	if len(resources) == 0 {
+		return nil
+	}
+
+	versions := make([]ResourceVersion, 0, len(resources))
+	for name, res := range resources {
+		versions = append(versions, ResourceVersion{
+			Name:    name,
+			Version: computeResourceHash(res),
+		})
+	}
+	return versions
+}
+
+// computeResourceHash computes a SHA256 hash of a protobuf message
+func computeResourceHash(msg types.Resource) string {
+	data, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+	if err != nil {
+		return "error"
+	}
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
 }

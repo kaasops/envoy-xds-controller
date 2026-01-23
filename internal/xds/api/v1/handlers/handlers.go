@@ -36,6 +36,7 @@ func RegisterRoutes(r *gin.Engine, cache *xdscache.SnapshotCache) {
 
 	routes.GET("/nodeIDs", h.getNodeIDs)
 	routes.GET("/nodeIDs/versions", h.getNodeIDsWithResourceVersions)
+	routes.GET("/resourceVersions", h.getResourceVersions)
 
 	// ********** Get Listeners **********
 	// Get Listeners

@@ -4,10 +4,12 @@ import { Box, Typography, Tab, Tabs, IconButton, CircularProgress, Alert } from 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { useOverview } from '../../api/hooks/useOverview'
+import { useResourceVersions } from '../../api/hooks/useResourceVersions'
 import { OverviewSummary } from '../../components/overviewSummary'
 import { ResourceVersions } from '../../components/resourceVersions'
 import { EndpointsTable } from '../../components/endpointsTable'
 import { CertificatesTable } from '../../components/certificatesTable'
+import { ResourceHashesTable } from '../../components/resourceHashesTable'
 import { CustomTabPanel } from '../../components/customTabPanel'
 
 function a11yProps(index: number) {
@@ -24,6 +26,7 @@ const NodeOverview = () => {
 
 	// Hook must be called unconditionally, enabled flag handles missing nodeID
 	const { data: overview, isLoading, isError, error, refetch } = useOverview(nodeID ?? '')
+	const { data: resourceHashes, isLoading: isLoadingHashes } = useResourceVersions(nodeID ?? '')
 
 	const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
 		setTabValue(newValue)
@@ -94,6 +97,15 @@ const NodeOverview = () => {
 				<Tabs value={tabValue} onChange={handleTabChange} aria-label='Overview tabs'>
 					<Tab label={`Endpoints (${overview.endpoints.length})`} {...a11yProps(0)} />
 					<Tab label={`Certificates (${overview.certificates.length})`} {...a11yProps(1)} />
+					<Tab
+						label={`Resource Hashes (${
+							(resourceHashes?.listeners?.length || 0) +
+							(resourceHashes?.clusters?.length || 0) +
+							(resourceHashes?.routes?.length || 0) +
+							(resourceHashes?.secrets?.length || 0)
+						})`}
+						{...a11yProps(2)}
+					/>
 				</Tabs>
 			</Box>
 
@@ -103,6 +115,9 @@ const NodeOverview = () => {
 			</CustomTabPanel>
 			<CustomTabPanel value={tabValue} index={1} variant='minimal'>
 				<CertificatesTable certificates={overview.certificates} isLoading={isLoading} />
+			</CustomTabPanel>
+			<CustomTabPanel value={tabValue} index={2} variant='minimal'>
+				<ResourceHashesTable data={resourceHashes} isLoading={isLoadingHashes} />
 			</CustomTabPanel>
 		</Box>
 	)

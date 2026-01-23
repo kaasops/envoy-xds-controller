@@ -51,3 +51,28 @@ func (h *handler) getNodeIDsWithResourceVersions(ctx *gin.Context) {
 	}
 	ctx.JSON(200, result)
 }
+
+// getResourceVersions retrieves per-resource versions (hashes) for a specific node ID.
+// This can be used to compare with Envoy's config_dump to detect unsynchronized resources.
+// @Summary Get per-resource versions for a node ID
+// @Tags nodeid
+// @Accept json
+// @Produce json
+// @Param nodeID query string true "Node ID"
+// @Success 200 {object} xdscache.ResourceVersions
+// @Router /api/v1/resourceVersions [get]
+func (h *handler) getResourceVersions(ctx *gin.Context) {
+	nodeID := ctx.Query("nodeID")
+	if nodeID == "" {
+		ctx.JSON(400, gin.H{"error": "nodeID query parameter is required"})
+		return
+	}
+
+	versions, err := h.cache.GetResourceVersions(nodeID)
+	if err != nil {
+		ctx.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(200, versions)
+}

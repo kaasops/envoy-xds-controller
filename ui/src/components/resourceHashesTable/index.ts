@@ -1,0 +1,1 @@
+export { ResourceHashesTable } from './ResourceHashesTable'
