@@ -52,3 +52,16 @@ export interface CertificateInfo {
 }
 
 export type CertificateStatus = 'ok' | 'warning' | 'critical' | 'expired'
+
+// Per-resource hash versions (for sync detection)
+export interface ResourceHashVersion {
+	name: string
+	version: string
+}
+
+export interface ResourceHashVersions {
+	clusters: ResourceHashVersion[]
+	listeners: ResourceHashVersion[]
+	routes: ResourceHashVersion[]
+	secrets: ResourceHashVersion[]
+}

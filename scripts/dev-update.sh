@@ -88,6 +88,21 @@ helm upgrade exc \
     "$ROOT_DIR/helm/charts/envoy-xds-controller" \
     --timeout='5m' --wait
 
+# Restart pods to pick up new images (needed when tag doesn't change)
+echo -e "${BLUE}Restarting pods to pick up new images...${NC}"
+if [ "$COMPONENTS" = "all" ] || [ "$COMPONENTS" = "backend" ]; then
+    kubectl -n envoy-xds-controller rollout restart deployment -l app.kubernetes.io/name=envoy-xds-controller
+fi
+if [ "$COMPONENTS" = "all" ] || [ "$COMPONENTS" = "frontend" ]; then
+    if [ "$UI_ENABLED" = "true" ]; then
+        kubectl -n envoy-xds-controller rollout restart deployment -l app.kubernetes.io/name=envoy-xds-controller-ui
+    fi
+fi
+
+# Wait for rollout
+echo -e "${BLUE}Waiting for rollout to complete...${NC}"
+kubectl -n envoy-xds-controller rollout status deployment -l app.kubernetes.io/instance=exc --timeout=120s
+
 echo ""
 echo -e "${GREEN}============================================${NC}"
 echo -e "${GREEN}  Update complete!${NC}"
