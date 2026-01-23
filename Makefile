@@ -416,6 +416,43 @@ dev-envoy: ## Deploy test Envoy instance
 dev-frontend: ## Run UI development server (npm run dev)
 	cd ui && npm run dev
 
+.PHONY: dev-logs
+dev-logs: ## Tail controller logs
+	kubectl -n envoy-xds-controller logs -f deployment/exc-envoy-xds-controller
+
+.PHONY: dev-logs-ui
+dev-logs-ui: ## Tail UI logs
+	kubectl -n envoy-xds-controller logs -f deployment/exc-envoy-xds-controller-ui
+
+.PHONY: dev-status
+dev-status: ## Show status of dev environment
+	@bash scripts/dev-status.sh
+
+.PHONY: dev-restart
+dev-restart: ## Restart controller pod without rebuild
+	kubectl -n envoy-xds-controller rollout restart deployment/exc-envoy-xds-controller
+
+.PHONY: dev-restart-ui
+dev-restart-ui: ## Restart UI pod without rebuild
+	kubectl -n envoy-xds-controller rollout restart deployment/exc-envoy-xds-controller-ui
+
+.PHONY: dev-restart-all
+dev-restart-all: ## Restart all pods without rebuild
+	kubectl -n envoy-xds-controller rollout restart deployment/exc-envoy-xds-controller
+	kubectl -n envoy-xds-controller rollout restart deployment/exc-envoy-xds-controller-ui || true
+
+.PHONY: dev-port-forward
+dev-port-forward: ## Start all port-forwards in background
+	@bash scripts/dev-port-forward.sh
+
+.PHONY: dev-update-backend
+dev-update-backend: ## Rebuild and redeploy only backend
+	@COMPONENTS=backend bash scripts/dev-update.sh
+
+.PHONY: dev-update-frontend
+dev-update-frontend: ## Rebuild and redeploy only frontend
+	@COMPONENTS=frontend bash scripts/dev-update.sh
+
 .PHONY: install-prometheus
 install-prometheus: ## Install Prometheus Operator
 	kubectl create -f https://github.com/prometheus-operator/prometheus-operator/releases/download/$(PROM_OPERATOR_VERSION)/bundle.yaml

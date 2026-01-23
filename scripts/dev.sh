@@ -22,11 +22,11 @@ INIT_CERT_IMG_REPO="${LOCAL_REGISTRY}/envoy-xds-controller-init-cert"
 
 # Defaults
 UI_ENABLED=true
-AUTH_ENABLED=false
+AUTH_ENABLED=true
 PROMETHEUS_ENABLED=false
 DEV_MODE=true
-DEPLOY_ENVOY=false
-APPLY_TEST_RESOURCES=false
+DEPLOY_ENVOY=true
+APPLY_TEST_RESOURCES=true
 
 # Banner
 echo -e "${BLUE}============================================${NC}"
@@ -51,8 +51,8 @@ echo ""
 read -p "Enable UI? [Y/n]: " ui_choice
 [[ "$ui_choice" =~ ^[Nn]$ ]] && UI_ENABLED=false
 
-read -p "Enable Auth (OIDC via Dex)? [y/N]: " auth_choice
-[[ "$auth_choice" =~ ^[Yy]$ ]] && AUTH_ENABLED=true
+read -p "Enable Auth (OIDC via Dex)? [Y/n]: " auth_choice
+[[ "$auth_choice" =~ ^[Nn]$ ]] && AUTH_ENABLED=false
 
 read -p "Install Prometheus Operator? [y/N]: " prom_choice
 [[ "$prom_choice" =~ ^[Yy]$ ]] && PROMETHEUS_ENABLED=true
@@ -60,11 +60,11 @@ read -p "Install Prometheus Operator? [y/N]: " prom_choice
 read -p "Development mode (verbose logging)? [Y/n]: " dev_choice
 [[ "$dev_choice" =~ ^[Nn]$ ]] && DEV_MODE=false
 
-read -p "Deploy test Envoy proxy? [y/N]: " envoy_choice
-[[ "$envoy_choice" =~ ^[Yy]$ ]] && DEPLOY_ENVOY=true
+read -p "Deploy test Envoy proxy? [Y/n]: " envoy_choice
+[[ "$envoy_choice" =~ ^[Nn]$ ]] && DEPLOY_ENVOY=false
 
-read -p "Apply test resources (VirtualServices, etc.)? [y/N]: " resources_choice
-[[ "$resources_choice" =~ ^[Yy]$ ]] && APPLY_TEST_RESOURCES=true
+read -p "Apply test resources (VirtualServices, etc.)? [Y/n]: " resources_choice
+[[ "$resources_choice" =~ ^[Nn]$ ]] && APPLY_TEST_RESOURCES=false
 
 echo ""
 echo -e "${YELLOW}Configuration:${NC}"
@@ -156,18 +156,81 @@ echo ""
 echo "Useful commands:"
 echo "  kubectl -n envoy-xds-controller get pods"
 echo "  kubectl -n envoy-xds-controller logs -f deployment/exc-envoy-xds-controller"
-if [ "$UI_ENABLED" = true ]; then
-    echo "  kubectl -n envoy-xds-controller port-forward svc/exc-envoy-xds-controller-ui 8080:8080"
-fi
 if [ "$DEPLOY_ENVOY" = true ]; then
     echo "  kubectl -n default logs -f deployment/envoy"
-    echo "  kubectl -n default port-forward svc/envoy 10000:10000"
 fi
 if [ "$APPLY_TEST_RESOURCES" = true ]; then
     echo "  kubectl -n envoy-xds-controller get virtualservices"
 fi
 
+# Port forward section
+if [ "$UI_ENABLED" = true ] || [ "$AUTH_ENABLED" = true ] || [ "$DEPLOY_ENVOY" = true ]; then
+    echo ""
+    echo -e "${YELLOW}Port forwards (run in separate terminals or use 'make dev-port-forward'):${NC}"
+    if [ "$UI_ENABLED" = true ]; then
+        echo "  kubectl -n envoy-xds-controller port-forward svc/exc-envoy-xds-controller-ui 8080:8080"
+    fi
+    if [ "$AUTH_ENABLED" = true ]; then
+        echo "  kubectl -n dex port-forward svc/dex 5556:5556"
+    fi
+    if [ "$DEPLOY_ENVOY" = true ]; then
+        echo "  kubectl -n default port-forward svc/envoy 10080:80 10443:443 19000:19000"
+    fi
+fi
+
+# /etc/hosts hint for Dex
+if [ "$AUTH_ENABLED" = true ]; then
+    echo ""
+    if grep -q "dex.dex" /etc/hosts 2>/dev/null; then
+        echo -e "${GREEN}/etc/hosts: dex.dex is configured${NC}"
+    else
+        echo -e "${RED}Important: Add dex.dex to /etc/hosts for authentication to work:${NC}"
+        echo -e "  ${YELLOW}echo \"127.0.0.1 dex.dex\" | sudo tee -a /etc/hosts${NC}"
+    fi
+fi
+
 # Show test credentials if auth is enabled
 if [ "$AUTH_ENABLED" = true ]; then
     bash "${SCRIPT_DIR}/dev-creds.sh"
+fi
+
+# Ask to open browser
+if [ "$UI_ENABLED" = true ]; then
+    echo ""
+    read -p "Start port-forwards and open UI in browser? [Y/n]: " open_choice
+    if [[ ! "$open_choice" =~ ^[Nn]$ ]]; then
+        echo ""
+        echo -e "${BLUE}Starting port-forwards...${NC}"
+
+        # Start port-forwards in background
+        kubectl -n envoy-xds-controller port-forward svc/exc-envoy-xds-controller-ui 8080:8080 &>/dev/null &
+        PF_UI_PID=$!
+
+        if [ "$AUTH_ENABLED" = true ]; then
+            kubectl -n dex port-forward svc/dex 5556:5556 &>/dev/null &
+            PF_DEX_PID=$!
+        fi
+
+        if [ "$DEPLOY_ENVOY" = true ]; then
+            kubectl -n default port-forward svc/envoy 10080:80 10443:443 19000:19000 &>/dev/null &
+            PF_ENVOY_PID=$!
+        fi
+
+        # Wait a moment for port-forwards to establish
+        sleep 2
+
+        # Open browser (macOS: open, Linux: xdg-open)
+        if command -v open &>/dev/null; then
+            open "http://localhost:8080"
+        elif command -v xdg-open &>/dev/null; then
+            xdg-open "http://localhost:8080"
+        else
+            echo -e "${YELLOW}Could not detect browser opener. Please open http://localhost:8080 manually.${NC}"
+        fi
+
+        echo ""
+        echo -e "${GREEN}Port-forwards running in background.${NC}"
+        echo -e "To stop them: ${YELLOW}pkill -f 'port-forward'${NC}"
+        echo -e "Or run: ${YELLOW}make dev-port-forward${NC} for managed port-forwards with Ctrl+C support."
+    fi
 fi

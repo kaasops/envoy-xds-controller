@@ -5,6 +5,9 @@ This document provides guidelines and instructions for developing the Envoy XDS 
 ## Table of Contents
 
 1. [Development Environment Setup](#development-environment-setup)
+   - [Quick Start with Kind (Recommended)](#quick-start-with-kind-recommended)
+   - [Running Locally Without Webhook](#running-locally-without-webhook)
+   - [Running Locally With Webhook (Advanced)](#running-locally-with-webhook-advanced)
 2. [Project Structure](#project-structure)
 3. [Building](#building)
 4. [Testing](#testing)
@@ -43,6 +46,91 @@ go mod download
 make install-tools
 ```
 
+### Quick Start with Kind (Recommended)
+
+The easiest way to run the full development environment is using Kind with `make dev`:
+
+1. Create a Kind cluster with local registry:
+
+```bash
+make kr
+```
+
+2. Run the interactive development setup:
+
+```bash
+make dev
+```
+
+This will prompt you with options (defaults shown in brackets):
+
+```
+Enable UI? [Y/n]:
+Enable Auth (OIDC via Dex)? [Y/n]:
+Install Prometheus Operator? [y/N]:
+Development mode (verbose logging)? [Y/n]:
+Deploy test Envoy proxy? [Y/n]:
+Apply test resources (VirtualServices, etc.)? [y/N]:
+```
+
+Press Enter to accept defaults. The script will build images, push to local registry, and deploy via Helm.
+
+3. **Important: Configure /etc/hosts for Dex authentication**
+
+If you enabled Auth (Dex), add the following to your `/etc/hosts`:
+
+```bash
+echo "127.0.0.1 dex.dex" | sudo tee -a /etc/hosts
+```
+
+This is required because the OIDC issuer URL uses `dex.dex` as the hostname.
+
+4. Start port-forwards (the script will show these commands):
+
+```bash
+# UI (in terminal 1)
+kubectl -n envoy-xds-controller port-forward svc/exc-envoy-xds-controller-ui 8080:8080
+
+# Dex - required for auth (in terminal 2)
+kubectl -n dex port-forward svc/dex 5556:5556
+
+# Envoy proxy (in terminal 3)
+kubectl -n default port-forward svc/envoy 10080:80 10443:443 19000:19000
+```
+
+5. Access the UI at http://localhost:8080
+
+Test credentials (if Auth enabled):
+- Admin: `admin@example.com` / `admin`
+- User: `user@example.com` / `user`
+
+#### Useful Development Commands
+
+```bash
+# Check status of all components
+make dev-status
+
+# Start all port-forwards in one terminal
+make dev-port-forward
+
+# View logs
+make dev-logs          # Controller logs
+make dev-logs-ui       # UI logs
+
+# Restart pods without rebuild
+make dev-restart       # Restart controller
+make dev-restart-ui    # Restart UI
+make dev-restart-all   # Restart all
+
+# Rebuild and redeploy
+make dev-update            # Rebuild everything
+make dev-update-backend    # Rebuild only controller
+make dev-update-frontend   # Rebuild only UI
+
+# Show test credentials
+make dev-creds
+```
+
 ### Running Locally Without Webhook
 
 If you don't need the Validation Webhook for development, you can start the Envoy xDS Controller locally with:
@@ -52,7 +140,7 @@ export WEBHOOK_DISABLE=true
 make run
 ```
 
-### Running Locally With Webhook
+### Running Locally With Webhook (Advanced)
 
 For full installation with Validation Webhook logic on a local instance, you need Kubernetes with network access to your workstation. You can use [KIND](https://kind.sigs.k8s.io/) for this purpose.
 
