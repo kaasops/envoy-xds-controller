@@ -26,17 +26,13 @@ func (c *CacheUpdater) ApplyVirtualServiceTemplate(
 
 	vst.NormalizeSpec()
 	prevVST := c.store.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name})
-	if prevVST == nil {
-		c.store.SetVirtualServiceTemplate(vst)
-		_ = c.rebuildSnapshots(ctx)
+	if prevVST != nil && prevVST.IsEqual(vst) {
 		return false
 	}
-	if prevVST.IsEqual(vst) {
-		return false
-	}
+	isUpdate = prevVST != nil
 	c.store.SetVirtualServiceTemplate(vst)
 	_ = c.rebuildSnapshots(ctx)
-	return true
+	return isUpdate
 }
 
 func (c *CacheUpdater) DeleteVirtualServiceTemplate(ctx context.Context, nn types.NamespacedName) error {

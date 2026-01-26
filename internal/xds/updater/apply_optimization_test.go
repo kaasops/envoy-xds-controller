@@ -225,3 +225,271 @@ func TestApplyVirtualServiceTemplate_ReturnsCorrectUpdateFlag(t *testing.T) {
 		t.Error("Expected isUpdate=true for changed VST")
 	}
 }
+
+// TestApplyVirtualService_StoreContainsCorrectData verifies that the store
+// contains the correct data after apply operations
+func TestApplyVirtualService_StoreContainsCorrectData(t *testing.T) {
+	ctx := context.Background()
+	realStore := store.New()
+	cache := wrapped.NewSnapshotCache()
+	updater := NewCacheUpdater(cache, realStore)
+
+	nn := helpers.NamespacedName{Namespace: "default", Name: "test-vs"}
+
+	// Apply initial VS
+	vs1 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs1)
+
+	// Verify stored data
+	stored := realStore.GetVirtualService(nn)
+	if stored == nil {
+		t.Fatal("VS should be in store after first apply")
+	}
+	if stored.Annotations[v1alpha1.AnnotationNodeIDs] != "node1" {
+		t.Errorf("Expected nodeIDs 'node1', got '%s'", stored.Annotations[v1alpha1.AnnotationNodeIDs])
+	}
+
+	// Apply unchanged - store should still have same data
+	vs2 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs2)
+
+	stored = realStore.GetVirtualService(nn)
+	if stored == nil {
+		t.Fatal("VS should still be in store after unchanged apply")
+	}
+
+	// Apply with changes - store should have updated data
+	vs3 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node2"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs3)
+
+	stored = realStore.GetVirtualService(nn)
+	if stored == nil {
+		t.Fatal("VS should be in store after changed apply")
+	}
+	if stored.Annotations[v1alpha1.AnnotationNodeIDs] != "node2" {
+		t.Errorf("Expected nodeIDs 'node2' after update, got '%s'", stored.Annotations[v1alpha1.AnnotationNodeIDs])
+	}
+}
+
+// TestApplyVirtualServiceTemplate_StoreContainsCorrectData verifies that the store
+// contains the correct data after apply operations
+func TestApplyVirtualServiceTemplate_StoreContainsCorrectData(t *testing.T) {
+	ctx := context.Background()
+	realStore := store.New()
+	cache := wrapped.NewSnapshotCache()
+	updater := NewCacheUpdater(cache, realStore)
+
+	nn := helpers.NamespacedName{Namespace: "default", Name: "test-vst"}
+
+	// Apply initial VST
+	vst1 := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-vst",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.VirtualServiceTemplateSpec{},
+	}
+	updater.ApplyVirtualServiceTemplate(ctx, vst1)
+
+	// Verify stored data
+	stored := realStore.GetVirtualServiceTemplate(nn)
+	if stored == nil {
+		t.Fatal("VST should be in store after first apply")
+	}
+	if len(stored.Spec.ExtraFields) != 0 {
+		t.Errorf("Expected no ExtraFields, got %d", len(stored.Spec.ExtraFields))
+	}
+
+	// Apply unchanged - store should still have same data
+	vst2 := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-vst",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.VirtualServiceTemplateSpec{},
+	}
+	updater.ApplyVirtualServiceTemplate(ctx, vst2)
+
+	stored = realStore.GetVirtualServiceTemplate(nn)
+	if stored == nil {
+		t.Fatal("VST should still be in store after unchanged apply")
+	}
+
+	// Apply with changes - store should have updated data
+	vst3 := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-vst",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.VirtualServiceTemplateSpec{
+			ExtraFields: []*v1alpha1.ExtraField{
+				{Name: "field1", Type: "string", Required: true},
+			},
+		},
+	}
+	updater.ApplyVirtualServiceTemplate(ctx, vst3)
+
+	stored = realStore.GetVirtualServiceTemplate(nn)
+	if stored == nil {
+		t.Fatal("VST should be in store after changed apply")
+	}
+	if len(stored.Spec.ExtraFields) != 1 {
+		t.Fatalf("Expected 1 ExtraField after update, got %d", len(stored.Spec.ExtraFields))
+	}
+	if stored.Spec.ExtraFields[0].Name != "field1" {
+		t.Errorf("Expected ExtraField name 'field1', got '%s'", stored.Spec.ExtraFields[0].Name)
+	}
+}
+
+// TestApplyVirtualServiceTemplate_MultipleUpdates verifies correct behavior
+// across multiple sequential updates
+func TestApplyVirtualServiceTemplate_MultipleUpdates(t *testing.T) {
+	ctx := context.Background()
+	realStore := store.New()
+	ms := &mockStore{Store: realStore}
+	cache := wrapped.NewSnapshotCache()
+	updater := NewCacheUpdater(cache, ms)
+
+	// Sequence: new -> unchanged -> changed -> unchanged -> changed
+	// Expected: call, skip, call, skip, call
+	// isUpdate: false, false, true, false, true
+
+	vst := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec:       v1alpha1.VirtualServiceTemplateSpec{},
+	}
+
+	// 1. New VST
+	isUpdate := updater.ApplyVirtualServiceTemplate(ctx, vst)
+	if isUpdate {
+		t.Error("Step 1: Expected isUpdate=false for new VST")
+	}
+	if ms.setVSTCalls != 1 {
+		t.Errorf("Step 1: Expected 1 SetVST call, got %d", ms.setVSTCalls)
+	}
+
+	// 2. Unchanged
+	vst2 := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec:       v1alpha1.VirtualServiceTemplateSpec{},
+	}
+	isUpdate = updater.ApplyVirtualServiceTemplate(ctx, vst2)
+	if isUpdate {
+		t.Error("Step 2: Expected isUpdate=false for unchanged VST")
+	}
+	if ms.setVSTCalls != 1 {
+		t.Errorf("Step 2: Expected still 1 SetVST call, got %d", ms.setVSTCalls)
+	}
+
+	// 3. Changed (add field)
+	vst3 := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: v1alpha1.VirtualServiceTemplateSpec{
+			ExtraFields: []*v1alpha1.ExtraField{{Name: "f1", Type: "string"}},
+		},
+	}
+	isUpdate = updater.ApplyVirtualServiceTemplate(ctx, vst3)
+	if !isUpdate {
+		t.Error("Step 3: Expected isUpdate=true for changed VST")
+	}
+	if ms.setVSTCalls != 2 {
+		t.Errorf("Step 3: Expected 2 SetVST calls, got %d", ms.setVSTCalls)
+	}
+
+	// 4. Unchanged (same as step 3)
+	vst4 := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: v1alpha1.VirtualServiceTemplateSpec{
+			ExtraFields: []*v1alpha1.ExtraField{{Name: "f1", Type: "string"}},
+		},
+	}
+	isUpdate = updater.ApplyVirtualServiceTemplate(ctx, vst4)
+	if isUpdate {
+		t.Error("Step 4: Expected isUpdate=false for unchanged VST")
+	}
+	if ms.setVSTCalls != 2 {
+		t.Errorf("Step 4: Expected still 2 SetVST calls, got %d", ms.setVSTCalls)
+	}
+
+	// 5. Changed (modify field)
+	vst5 := &v1alpha1.VirtualServiceTemplate{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: v1alpha1.VirtualServiceTemplateSpec{
+			ExtraFields: []*v1alpha1.ExtraField{{Name: "f1", Type: "enum", Enum: []string{"a", "b"}}},
+		},
+	}
+	isUpdate = updater.ApplyVirtualServiceTemplate(ctx, vst5)
+	if !isUpdate {
+		t.Error("Step 5: Expected isUpdate=true for changed VST")
+	}
+	if ms.setVSTCalls != 3 {
+		t.Errorf("Step 5: Expected 3 SetVST calls, got %d", ms.setVSTCalls)
+	}
+}
+
+// TestApplyVirtualService_NilAnnotationsHandling verifies correct handling
+// of nil vs empty annotations
+func TestApplyVirtualService_NilAnnotationsHandling(t *testing.T) {
+	ctx := context.Background()
+	realStore := store.New()
+	ms := &mockStore{Store: realStore}
+	cache := wrapped.NewSnapshotCache()
+	updater := NewCacheUpdater(cache, ms)
+
+	// Apply VS with nil annotations
+	vs1 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: nil,
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs1)
+	if ms.setVSCalls != 1 {
+		t.Errorf("Expected 1 SetVS call, got %d", ms.setVSCalls)
+	}
+
+	// Apply VS with empty annotations - should be considered equal
+	vs2 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs2)
+	if ms.setVSCalls != 1 {
+		t.Errorf("Expected still 1 SetVS call (nil == empty annotations), got %d", ms.setVSCalls)
+	}
+
+	// Apply VS with actual node IDs - should be different
+	vs3 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs3)
+	if ms.setVSCalls != 2 {
+		t.Errorf("Expected 2 SetVS calls (added nodeIDs), got %d", ms.setVSCalls)
+	}
+}
