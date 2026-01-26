@@ -242,6 +242,81 @@ func snapshotVersionStabilityContext() {
 		Expect(finalVersions[listenersKey]).To(Equal(initialVersions[listenersKey]),
 			"Listeners version should NOT change (route target change doesn't affect Listener/HCM)")
 	})
+
+	It("should not increment versions when VirtualService with ExtraFields is re-applied without changes", func() {
+		By("applying template with ExtraFields")
+		manifests := []string{
+			"test/testdata/e2e/template_extra_fields/listener-https.yaml",
+			"test/testdata/e2e/template_extra_fields/tls-cert.yaml",
+			"test/testdata/e2e/template_extra_fields/virtual-service-template.yaml",
+			"test/testdata/e2e/template_extra_fields/virtual-service.yaml",
+		}
+		fixture.ApplyManifests(manifests...)
+		fixture.WaitEnvoyConfigChanged()
+
+		By("getting initial versions")
+		initialVersions := getVersionsForNode("test")
+		Expect(initialVersions).NotTo(BeNil(), "Should get initial versions")
+		Expect(initialVersions[routesKey]).NotTo(BeEmpty(), "Initial routes version should not be empty")
+
+		_, _ = fmt.Fprintf(GinkgoWriter, "Initial versions: listeners=%s, routes=%s\n",
+			initialVersions[listenersKey], initialVersions[routesKey])
+
+		By("triggering reconciliation by adding a test annotation")
+		triggerReconciliation("virtualservice", "virtual-service")
+
+		By("verifying versions remain stable after reconciliation")
+		Consistently(func() map[string]string {
+			return getVersionsForNode("test")
+		}, 5*time.Second, 500*time.Millisecond).Should(SatisfyAll(
+			HaveKeyWithValue(listenersKey, initialVersions[listenersKey]),
+			HaveKeyWithValue(routesKey, initialVersions[routesKey]),
+		), "Versions should remain unchanged after reconciliation without spec/extraFields changes")
+	})
+
+	It("should increment routes version when ExtraFields value is changed", func() {
+		By("applying template with ExtraFields")
+		manifests := []string{
+			"test/testdata/e2e/template_extra_fields/listener-https.yaml",
+			"test/testdata/e2e/template_extra_fields/tls-cert.yaml",
+			"test/testdata/e2e/template_extra_fields/virtual-service-template.yaml",
+			"test/testdata/e2e/template_extra_fields/virtual-service.yaml",
+		}
+		fixture.ApplyManifests(manifests...)
+		fixture.WaitEnvoyConfigChanged()
+
+		By("getting initial versions")
+		initialVersions := getVersionsForNode("test")
+		Expect(initialVersions).NotTo(BeNil(), "Should get initial versions")
+		Expect(initialVersions[routesKey]).NotTo(BeEmpty(), "Initial routes version should not be empty")
+
+		_, _ = fmt.Fprintf(GinkgoWriter, "Initial versions: listeners=%s, routes=%s\n",
+			initialVersions[listenersKey], initialVersions[routesKey])
+
+		By("applying VirtualService with changed ExtraFields value")
+		// virtual-service-v2.yaml changes Message extraField from "Hi!" to "Hello Updated!"
+		// This affects the route response body (which uses template substitution)
+		fixture.ApplyManifests("test/testdata/e2e/template_extra_fields/virtual-service-v2.yaml")
+		fixture.WaitEnvoyConfigChanged()
+
+		By("verifying version changes match expected behavior")
+		finalVersions := getVersionsForNode("test")
+		Expect(finalVersions).NotTo(BeNil(), "Should get final versions")
+
+		_, _ = fmt.Fprintf(GinkgoWriter, "Final versions: listeners=%s, routes=%s\n",
+			finalVersions[listenersKey], finalVersions[routesKey])
+
+		// ExtraFields are used in template substitution for route response body.
+		// Changing ExtraFields changes the rendered route content.
+		// Therefore, routes version MUST change.
+		Expect(finalVersions[routesKey]).NotTo(Equal(initialVersions[routesKey]),
+			"Routes version MUST change when ExtraFields value is modified (affects rendered route content)")
+
+		// Listeners/HCM configuration doesn't change when ExtraFields change.
+		// Therefore, listeners version should NOT change.
+		Expect(finalVersions[listenersKey]).To(Equal(initialVersions[listenersKey]),
+			"Listeners version should NOT change (ExtraFields don't affect Listener/HCM config)")
+	})
 }
 
 // getVersionsForNode fetches snapshot versions for a given nodeID from the cache-api

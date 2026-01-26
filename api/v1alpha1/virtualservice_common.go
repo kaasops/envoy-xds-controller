@@ -75,8 +75,15 @@ func (vsc *VirtualServiceCommonSpec) IsEqual(other *VirtualServiceCommonSpec) bo
 	if vsc == nil || other == nil {
 		return false
 	}
-	// TODO: bad performance
-	vscBytes, _ := json.Marshal(vsc)
-	vscOtherBytes, _ := json.Marshal(other)
+	// JSON comparison for complex nested structures with runtime.RawExtension.
+	// If marshaling fails, return false to trigger rebuild (safer than skipping).
+	vscBytes, err := json.Marshal(vsc)
+	if err != nil {
+		return false
+	}
+	vscOtherBytes, err := json.Marshal(other)
+	if err != nil {
+		return false
+	}
 	return bytes.Equal(vscBytes, vscOtherBytes)
 }

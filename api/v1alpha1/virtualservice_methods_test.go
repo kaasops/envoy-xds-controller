@@ -165,6 +165,102 @@ func TestVirtualService_IsEqual(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "same ExtraFields",
+			vs1: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value1", "key2": "value2"},
+				},
+			},
+			vs2: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value1", "key2": "value2"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "different ExtraFields values",
+			vs1: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value1"},
+				},
+			},
+			vs2: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value2"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "different ExtraFields keys",
+			vs1: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value1"},
+				},
+			},
+			vs2: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key2": "value1"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "different ExtraFields count",
+			vs1: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value1"},
+				},
+			},
+			vs2: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value1", "key2": "value2"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "nil vs empty ExtraFields - should be equal",
+			vs1: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: nil,
+				},
+			},
+			vs2: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "one has ExtraFields, other doesn't",
+			vs1: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: map[string]string{"key1": "value1"},
+				},
+			},
+			vs2: &VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
+				Spec: VirtualServiceSpec{
+					ExtraFields: nil,
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {

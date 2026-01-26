@@ -445,6 +445,96 @@ func TestApplyVirtualServiceTemplate_MultipleUpdates(t *testing.T) {
 	}
 }
 
+// TestApplyVirtualService_ExtraFieldsHandling verifies that changes to
+// ExtraFields trigger a rebuild
+func TestApplyVirtualService_ExtraFieldsHandling(t *testing.T) {
+	ctx := context.Background()
+	realStore := store.New()
+	ms := &mockStore{Store: realStore}
+	cache := wrapped.NewSnapshotCache()
+	updater := NewCacheUpdater(cache, ms)
+
+	// Apply VS with ExtraFields
+	vs1 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			ExtraFields: map[string]string{"key1": "value1"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs1)
+	if ms.setVSCalls != 1 {
+		t.Errorf("Expected 1 SetVS call, got %d", ms.setVSCalls)
+	}
+
+	// Apply VS with same ExtraFields - should be considered equal
+	vs2 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			ExtraFields: map[string]string{"key1": "value1"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs2)
+	if ms.setVSCalls != 1 {
+		t.Errorf("Expected still 1 SetVS call (same ExtraFields), got %d", ms.setVSCalls)
+	}
+
+	// Apply VS with different ExtraFields value - should trigger rebuild
+	vs3 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			ExtraFields: map[string]string{"key1": "value2"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs3)
+	if ms.setVSCalls != 2 {
+		t.Errorf("Expected 2 SetVS calls (changed ExtraFields value), got %d", ms.setVSCalls)
+	}
+
+	// Apply VS with additional ExtraField - should trigger rebuild
+	vs4 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			ExtraFields: map[string]string{"key1": "value2", "key2": "value3"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs4)
+	if ms.setVSCalls != 3 {
+		t.Errorf("Expected 3 SetVS calls (added ExtraField), got %d", ms.setVSCalls)
+	}
+
+	// Apply VS with removed ExtraField - should trigger rebuild
+	vs5 := &v1alpha1.VirtualService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test-vs",
+			Namespace:   "default",
+			Annotations: map[string]string{v1alpha1.AnnotationNodeIDs: "node1"},
+		},
+		Spec: v1alpha1.VirtualServiceSpec{
+			ExtraFields: map[string]string{"key1": "value2"},
+		},
+	}
+	updater.ApplyVirtualService(ctx, vs5)
+	if ms.setVSCalls != 4 {
+		t.Errorf("Expected 4 SetVS calls (removed ExtraField), got %d", ms.setVSCalls)
+	}
+}
+
 // TestApplyVirtualService_NilAnnotationsHandling verifies correct handling
 // of nil vs empty annotations
 func TestApplyVirtualService_NilAnnotationsHandling(t *testing.T) {

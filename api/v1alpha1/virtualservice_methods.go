@@ -230,6 +230,15 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 			return false
 		}
 	}
+	// Compare ExtraFields
+	if len(vs.Spec.ExtraFields) != len(other.Spec.ExtraFields) {
+		return false
+	}
+	for k, v := range vs.Spec.ExtraFields {
+		if otherV, ok := other.Spec.ExtraFields[k]; !ok || otherV != v {
+			return false
+		}
+	}
 	return true
 }
 
