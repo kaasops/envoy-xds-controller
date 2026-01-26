@@ -12,6 +12,15 @@ func (c *CacheUpdater) ApplyVirtualService(ctx context.Context, vs *v1alpha1.Vir
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	vs.NormalizeSpec()
+	prevVS := c.store.GetVirtualService(helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name})
+	if prevVS == nil {
+		c.store.SetVirtualService(vs)
+		_ = c.rebuildSnapshots(ctx)
+		return
+	}
+	if prevVS.IsEqual(vs) {
+		return
+	}
 	c.store.SetVirtualService(vs)
 	_ = c.rebuildSnapshots(ctx)
 }

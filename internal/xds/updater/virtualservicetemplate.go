@@ -24,6 +24,7 @@ func (c *CacheUpdater) ApplyVirtualServiceTemplate(
 			"template", vst.Name, "lockWaitDuration", lockAcquireDuration.String())
 	}
 
+	vst.NormalizeSpec()
 	prevVST := c.store.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name})
 	if prevVST == nil {
 		c.store.SetVirtualServiceTemplate(vst)
