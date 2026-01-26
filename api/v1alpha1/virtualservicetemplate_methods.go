@@ -9,7 +9,39 @@ func (vst *VirtualServiceTemplate) IsEqual(other *VirtualServiceTemplate) bool {
 	if vst == nil || other == nil {
 		return false
 	}
-	return vst.Spec.VirtualServiceCommonSpec.IsEqual(&other.Spec.VirtualServiceCommonSpec)
+	if !vst.Spec.VirtualServiceCommonSpec.IsEqual(&other.Spec.VirtualServiceCommonSpec) {
+		return false
+	}
+	// Compare ExtraFields
+	if len(vst.Spec.ExtraFields) != len(other.Spec.ExtraFields) {
+		return false
+	}
+	for i, ef := range vst.Spec.ExtraFields {
+		otherEF := other.Spec.ExtraFields[i]
+		if ef == nil && otherEF == nil {
+			continue
+		}
+		if ef == nil || otherEF == nil {
+			return false
+		}
+		if ef.Name != otherEF.Name ||
+			ef.Description != otherEF.Description ||
+			ef.Type != otherEF.Type ||
+			ef.Required != otherEF.Required ||
+			ef.Default != otherEF.Default {
+			return false
+		}
+		// Compare Enum slices
+		if len(ef.Enum) != len(otherEF.Enum) {
+			return false
+		}
+		for j, enumVal := range ef.Enum {
+			if enumVal != otherEF.Enum[j] {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (vst *VirtualServiceTemplate) GetAccessGroup() string {

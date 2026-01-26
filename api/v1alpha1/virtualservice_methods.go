@@ -191,10 +191,16 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 	if vs == nil || other == nil {
 		return false
 	}
-	if vs.Annotations == nil || other.Annotations == nil {
-		return false
+	// Compare NodeIDs annotation - treat nil map same as empty/missing key
+	vsNodeIDs := ""
+	if vs.Annotations != nil {
+		vsNodeIDs = vs.Annotations[AnnotationNodeIDs]
 	}
-	if vs.Annotations[AnnotationNodeIDs] != other.Annotations[AnnotationNodeIDs] {
+	otherNodeIDs := ""
+	if other.Annotations != nil {
+		otherNodeIDs = other.Annotations[AnnotationNodeIDs]
+	}
+	if vsNodeIDs != otherNodeIDs {
 		return false
 	}
 	if !vs.Spec.VirtualServiceCommonSpec.IsEqual(&other.Spec.VirtualServiceCommonSpec) {
