@@ -317,6 +317,56 @@ func snapshotVersionStabilityContext() {
 		Expect(finalVersions[listenersKey]).To(Equal(initialVersions[listenersKey]),
 			"Listeners version should NOT change (ExtraFields don't affect Listener/HCM config)")
 	})
+
+	It("should rebuild dependent VirtualServices when VirtualServiceTemplate spec changes", func() {
+		By("applying initial template-based manifests")
+		manifests := []string{
+			"test/testdata/e2e/virtual_service_templates/listener.yaml",
+			"test/testdata/e2e/virtual_service_templates/tls-cert.yaml",
+			"test/testdata/e2e/virtual_service_templates/http-filter.yaml",
+			"test/testdata/e2e/virtual_service_templates/access-log-config.yaml",
+			"test/testdata/e2e/virtual_service_templates/virtual-service-template.yaml",
+			"test/testdata/e2e/virtual_service_templates/virtual-service.yaml",
+		}
+		fixture.ApplyManifests(manifests...)
+		fixture.WaitEnvoyConfigChanged()
+
+		By("getting initial versions")
+		initialVersions := getVersionsForNode("test")
+		Expect(initialVersions).NotTo(BeNil(), "Should get initial versions")
+		Expect(initialVersions[routesKey]).NotTo(BeEmpty(), "Initial routes version should not be empty")
+
+		_, _ = fmt.Fprintf(GinkgoWriter, "Initial versions: listeners=%s, routes=%s\n",
+			initialVersions[listenersKey], initialVersions[routesKey])
+
+		By("applying modified VirtualServiceTemplate with changed response body")
+		// virtual-service-template-v2.yaml changes the direct_response body in the template
+		// This should trigger re-reconciliation of all dependent VirtualServices
+		// The VS controller watches for VST changes via VSReconcileChan
+		fixture.ApplyManifests("test/testdata/e2e/virtual_service_templates/virtual-service-template-v2.yaml")
+		fixture.WaitEnvoyConfigChanged()
+
+		By("verifying dependent VirtualServices were rebuilt (routes version changed)")
+		finalVersions := getVersionsForNode("test")
+		Expect(finalVersions).NotTo(BeNil(), "Should get final versions")
+
+		_, _ = fmt.Fprintf(GinkgoWriter, "Final versions: listeners=%s, routes=%s\n",
+			finalVersions[listenersKey], finalVersions[routesKey])
+
+		// When VST changes, the controller triggers reconciliation for all dependent VirtualServices.
+		// The VS reconciler calls FillFromTemplate() which merges the updated VST spec into the VS.
+		// Since the VST's route response body changed, the rendered RouteConfiguration changes.
+		// Therefore, routes version MUST change.
+		Expect(finalVersions[routesKey]).NotTo(Equal(initialVersions[routesKey]),
+			"Routes version MUST change when VirtualServiceTemplate spec is modified "+
+				"(dependent VirtualServices should be re-reconciled and rebuilt)")
+
+		// The listener configuration (HCM, access logs, HTTP filters) didn't change in the VST update.
+		// Only the route content changed.
+		// Therefore, listeners version should NOT change.
+		Expect(finalVersions[listenersKey]).To(Equal(initialVersions[listenersKey]),
+			"Listeners version should NOT change (only route content changed in VST)")
+	})
 }
 
 // getVersionsForNode fetches snapshot versions for a given nodeID from the cache-api

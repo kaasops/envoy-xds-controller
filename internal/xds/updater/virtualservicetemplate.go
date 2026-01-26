@@ -10,6 +10,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// ApplyVirtualServiceTemplate stores the template and rebuilds snapshots if changed.
+// Returns true if the template was updated (existed before and spec changed),
+// signaling that dependent VirtualServices should be re-reconciled.
+// Returns false for new templates or unchanged templates.
 func (c *CacheUpdater) ApplyVirtualServiceTemplate(
 	ctx context.Context,
 	vst *v1alpha1.VirtualServiceTemplate,
@@ -18,21 +22,27 @@ func (c *CacheUpdater) ApplyVirtualServiceTemplate(
 	c.mx.Lock()
 	defer c.mx.Unlock()
 	lockAcquireDuration := time.Since(lockStart)
+	rlog := log.FromContext(ctx).WithName("cache-updater")
 	if lockAcquireDuration > 100*time.Millisecond {
-		rlog := log.FromContext(ctx).WithName("cache-updater")
 		rlog.Info("ApplyVST: lock contention detected",
 			"template", vst.Name, "lockWaitDuration", lockAcquireDuration.String())
 	}
 
 	vst.NormalizeSpec()
-	prevVST := c.store.GetVirtualServiceTemplate(helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name})
-	if prevVST != nil && prevVST.IsEqual(vst) {
+	nn := helpers.NamespacedName{Namespace: vst.Namespace, Name: vst.Name}
+	prevVST := c.store.GetVirtualServiceTemplate(nn)
+	if prevVST == nil {
+		c.store.SetVirtualServiceTemplate(vst)
+		_ = c.rebuildSnapshots(ctx)
 		return false
 	}
-	isUpdate = prevVST != nil
+	if prevVST.IsEqual(vst) {
+		rlog.V(1).Info("Skipping unchanged VirtualServiceTemplate", "namespace", vst.Namespace, "name", vst.Name)
+		return false
+	}
 	c.store.SetVirtualServiceTemplate(vst)
 	_ = c.rebuildSnapshots(ctx)
-	return isUpdate
+	return true
 }
 
 func (c *CacheUpdater) DeleteVirtualServiceTemplate(ctx context.Context, nn types.NamespacedName) error {
