@@ -1,0 +1,23 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: virtual-service
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  listener:
+    name: https
+  httpFilters:
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  tlsConfig:
+    autoDiscovery: true
+  virtualHost:
+    domains:
+      - exc.kaasops.io
+    routes:
+      - match:
+          prefix: "/"
+        route:
+          cluster: test-upstream  # Route to cluster instead of direct_response

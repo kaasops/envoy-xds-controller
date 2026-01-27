@@ -25,6 +25,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// CacheUpdater manages the xDS snapshot cache and coordinates updates between
+// Kubernetes resources and Envoy configuration.
+//
+// INVARIANT: All resources stored in the store are normalized via their respective
+// NormalizeSpec() methods before being saved. This ensures that IsEqual() comparisons
+// between stored resources and incoming resources are valid without re-normalizing
+// the stored copy. Apply methods must call NormalizeSpec() on incoming resources
+// before comparison and storage.
 type CacheUpdater struct {
 	mx            sync.RWMutex
 	snapshotCache *wrapped.SnapshotCache

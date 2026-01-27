@@ -191,10 +191,16 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 	if vs == nil || other == nil {
 		return false
 	}
-	if vs.Annotations == nil || other.Annotations == nil {
-		return false
+	// Compare NodeIDs annotation - treat nil map same as empty/missing key
+	vsNodeIDs := ""
+	if vs.Annotations != nil {
+		vsNodeIDs = vs.Annotations[AnnotationNodeIDs]
 	}
-	if vs.Annotations[AnnotationNodeIDs] != other.Annotations[AnnotationNodeIDs] {
+	otherNodeIDs := ""
+	if other.Annotations != nil {
+		otherNodeIDs = other.Annotations[AnnotationNodeIDs]
+	}
+	if vsNodeIDs != otherNodeIDs {
 		return false
 	}
 	if !vs.Spec.VirtualServiceCommonSpec.IsEqual(&other.Spec.VirtualServiceCommonSpec) {
@@ -221,6 +227,15 @@ func (vs *VirtualService) IsEqual(other *VirtualService) bool {
 	for i := range vs.Spec.TemplateOptions {
 		if vs.Spec.TemplateOptions[i].Field != other.Spec.TemplateOptions[i].Field ||
 			vs.Spec.TemplateOptions[i].Modifier != other.Spec.TemplateOptions[i].Modifier {
+			return false
+		}
+	}
+	// Compare ExtraFields
+	if len(vs.Spec.ExtraFields) != len(other.Spec.ExtraFields) {
+		return false
+	}
+	for k, v := range vs.Spec.ExtraFields {
+		if otherV, ok := other.Spec.ExtraFields[k]; !ok || otherV != v {
 			return false
 		}
 	}

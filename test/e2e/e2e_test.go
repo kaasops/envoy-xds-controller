@@ -158,6 +158,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("HTTP2 Protocol Options", http2ProtocolOptionsEnvoyContext)
 		Context("Status Propagation", statusPropagationContext)
 		Context("Secret Autodiscovery Fallback", secretAutodiscoveryFallbackContext)
+		Context("Snapshot Version Stability", snapshotVersionStabilityContext)
 	})
 
 	Context("GRPC_API", grpcAPIContext)
