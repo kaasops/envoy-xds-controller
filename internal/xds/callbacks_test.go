@@ -29,10 +29,10 @@ func nodeWithVersion(id string) *core.Node {
 	}
 }
 
-// Only the first request on a stream carries the node identifier, and the delta
+// Only the first request on a stream is guaranteed to carry the node, and the delta
 // server backfills the remembered one only after this callback returns, so a nil
-// node here is normal. Envoy started actually omitting it in 1.38, which is when
-// reading req.Node.Id directly began taking the whole process down.
+// node here is normal. Envoy 1.38+ omits it when set_node_on_first_message_only is
+// enabled, which is when reading req.Node.Id directly began taking the process down.
 func TestOnStreamDeltaRequestNilNodeDoesNotPanic(t *testing.T) {
 	cb := testCallbacks()
 
