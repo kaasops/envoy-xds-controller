@@ -6,8 +6,16 @@ on:
 
 jobs:
   test-e2e:
-    name: Run on Ubuntu
+    name: Run on Ubuntu (${{ matrix.envoy-image }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Envoy 1.38+ honours set_node_on_first_message_only for delta xDS (envoyproxy/envoy#42650).
+        envoy-image:
+          - envoyproxy/envoy:contrib-v1.34.14
+          - envoyproxy/envoy:contrib-v1.37.6
+          - envoyproxy/envoy:contrib-v1.39.1
     steps:
       - name: Clone the code
         uses: actions/checkout@v4
@@ -45,3 +53,4 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_PROGRESS: plain
+          ENVOY_IMAGE: ${{ matrix.envoy-image }}

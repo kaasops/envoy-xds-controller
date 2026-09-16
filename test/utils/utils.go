@@ -23,6 +23,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
+	"regexp"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:golint,revive
@@ -251,15 +253,71 @@ func UncommentCode(filename, target, prefix string) error {
 	return os.WriteFile(filename, out.Bytes(), 0644)
 }
 
+// envoyImageEnv overrides the Envoy image so CI can run e2e against several Envoy versions.
+const envoyImageEnv = "ENVOY_IMAGE"
+
+var envoyImageRe = regexp.MustCompile(`(?m)^(\s*image:\s*)envoyproxy/envoy:\S+$`)
+
 func InstallEnvoyProxy() error {
 	wd, err := GetProjectDir()
 	if err != nil {
 		warnError(err)
 		return err
 	}
-	cmd := exec.Command("kubectl", "apply", "-f", wd+"/test/utils/envoy")
+	manifests, err := readManifests(wd + "/test/utils/envoy")
+	if err != nil {
+		return err
+	}
+	image, err := envoyImageFromEnv()
+	if err != nil {
+		return err
+	}
+	// The image must be set before the first apply: the pod uses hostNetwork, so a
+	// rolling update on a single-node cluster cannot start while the old pod holds the ports.
+	manifests, err = overrideEnvoyImage(manifests, image)
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("kubectl", "apply", "-f", "-")
+	cmd.Stdin = strings.NewReader(manifests)
 	_, err = Run(cmd)
 	return err
+}
+
+func readManifests(dir string) (string, error) {
+	files, err := filepath.Glob(filepath.Join(dir, "*.yaml"))
+	if err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	for _, f := range files {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("---\n")
+		b.Write(data)
+		b.WriteString("\n")
+	}
+	return b.String(), nil
+}
+
+func envoyImageFromEnv() (string, error) {
+	image := os.Getenv(envoyImageEnv)
+	if image == "" && os.Getenv("CI") != "" {
+		return "", fmt.Errorf("%s must be set in CI, otherwise e2e silently runs the default Envoy image", envoyImageEnv)
+	}
+	return image, nil
+}
+
+func overrideEnvoyImage(manifests, image string) (string, error) {
+	if image == "" {
+		return manifests, nil
+	}
+	if !envoyImageRe.MatchString(manifests) {
+		return "", fmt.Errorf("no envoyproxy/envoy image to override with %s", image)
+	}
+	return envoyImageRe.ReplaceAllString(manifests, "${1}"+image), nil
 }
 
 func UninstallEnvoyProxy() {
