@@ -490,7 +490,7 @@ func main() {
 				ctrl.Log.WithName("xds.server.callbacks"),
 				connectedClients),
 			)
-			if err = xds.RunServer(srv, cfg.XDS.Port); err != nil {
+			if err = xds.RunServer(srv, cfg.XDS.Port, ctrl.Log.WithName("xds.server")); err != nil {
 				setupServers.Error(err, "cannot run xDS server")
 				os.Exit(1)
 			}
