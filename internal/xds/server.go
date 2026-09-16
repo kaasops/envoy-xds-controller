@@ -1,12 +1,16 @@
 package xds
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"runtime/debug"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
 	clusterservice "github.com/envoyproxy/go-control-plane/envoy/service/cluster/v3"
 	discoverygrpc "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -16,6 +20,9 @@ import (
 	runtimeservice "github.com/envoyproxy/go-control-plane/envoy/service/runtime/v3"
 	secretservice "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	ctrmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 const (
@@ -36,8 +43,7 @@ func registerServer(grpcServer *grpc.Server, server server.Server) {
 	runtimeservice.RegisterRuntimeDiscoveryServiceServer(grpcServer, server)
 }
 
-// RunServer starts an xDS server at the given port.
-func RunServer(srv server.Server, port int) error {
+func newGRPCServer(srv server.Server, log logr.Logger) *grpc.Server {
 	// gRPC golang library sets a very small upper bound for the number gRPC/h2
 	// streams over a single TCP connection. If a proxy multiplexes requests over
 	// a single connection to the management server, then it might lead to
@@ -55,14 +61,70 @@ func RunServer(srv server.Server, port int) error {
 			PermitWithoutStream: true,
 		}),
 	)
+	// grpc-go does not recover handler panics, so one bad request would otherwise
+	// take down the whole process, webhook server included.
+	grpcOptions = append(grpcOptions,
+		grpc.ChainUnaryInterceptor(recoveryUnaryInterceptor(log)),
+		grpc.ChainStreamInterceptor(recoveryStreamInterceptor(log)),
+	)
 	grpcServer := grpc.NewServer(grpcOptions...)
+	registerServer(grpcServer, srv)
+	// Export zeros up front: increase() cannot see a series whose first sample is
+	// already 1, so an alert would miss the first panic.
+	for service, info := range grpcServer.GetServiceInfo() {
+		for _, method := range info.Methods {
+			recoveredPanics.WithLabelValues("/" + service + "/" + method.Name)
+		}
+	}
+	return grpcServer
+}
 
+func recoveryUnaryInterceptor(log logr.Logger) grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler,
+	) (resp any, err error) {
+		defer recoverPanic(log, info.FullMethod, &err)
+		return handler(ctx, req)
+	}
+}
+
+func recoveryStreamInterceptor(log logr.Logger) grpc.StreamServerInterceptor {
+	return func(
+		srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler,
+	) (err error) {
+		defer recoverPanic(log, info.FullMethod, &err)
+		return handler(srv, ss)
+	}
+}
+
+var recoveredPanics = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Namespace: "exc",
+		Subsystem: "xds",
+		Name:      "recovered_panics_total",
+		Help:      "Panics recovered in xDS gRPC handlers.",
+	},
+	[]string{"method"},
+)
+
+func init() {
+	ctrmetrics.Registry.MustRegister(recoveredPanics)
+}
+
+func recoverPanic(log logr.Logger, method string, err *error) {
+	if r := recover(); r != nil {
+		recoveredPanics.WithLabelValues(method).Inc()
+		log.Error(fmt.Errorf("%v", r), "recovered from panic in xDS handler",
+			"method", method, "stack", string(debug.Stack()))
+		*err = status.Error(codes.Internal, "internal error")
+	}
+}
+
+// RunServer starts an xDS server at the given port.
+func RunServer(srv server.Server, port int, log logr.Logger) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
 	}
-
-	registerServer(grpcServer, srv)
-
-	return grpcServer.Serve(lis)
+	return newGRPCServer(srv, log).Serve(lis)
 }
