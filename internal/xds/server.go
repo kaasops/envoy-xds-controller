@@ -69,6 +69,13 @@ func newGRPCServer(srv server.Server, log logr.Logger) *grpc.Server {
 	)
 	grpcServer := grpc.NewServer(grpcOptions...)
 	registerServer(grpcServer, srv)
+	// Export zeros up front: increase() cannot see a series whose first sample is
+	// already 1, so an alert would miss the first panic.
+	for service, info := range grpcServer.GetServiceInfo() {
+		for _, method := range info.Methods {
+			recoveredPanics.WithLabelValues("/" + service + "/" + method.Name)
+		}
+	}
 	return grpcServer
 }
 

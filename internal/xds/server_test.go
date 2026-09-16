@@ -78,7 +78,8 @@ func TestServerRecoversFromPanicInFetch(t *testing.T) {
 }
 
 // Reads the counter from the registry the metrics endpoint serves, so the test
-// also fails if the metric is registered elsewhere or under another name.
+// also fails if the metric is registered elsewhere or under another name. The
+// series must exist before the first panic: increase() misses one that starts at 1.
 func recoveredPanicsFor(t *testing.T, method string) float64 {
 	t.Helper()
 	families, err := ctrmetrics.Registry.Gather()
@@ -95,5 +96,6 @@ func recoveredPanicsFor(t *testing.T, method string) float64 {
 			}
 		}
 	}
+	require.Failf(t, "series not exported", "exc_xds_recovered_panics_total{method=%q}", method)
 	return 0
 }
