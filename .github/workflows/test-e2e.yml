@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 1.38 changed delta-xDS to send the node only on the first request of a stream.
+        # Envoy 1.38+ honours set_node_on_first_message_only for delta xDS (envoyproxy/envoy#42650).
         envoy-image:
           - envoyproxy/envoy:contrib-v1.36.2
           - envoyproxy/envoy:contrib-v1.39.1
