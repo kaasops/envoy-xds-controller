@@ -27,3 +27,21 @@ func TestOverrideEnvoyImage(t *testing.T) {
 	_, err = overrideEnvoyImage("kind: ConfigMap\n", "envoyproxy/envoy:contrib-v1.39.1")
 	assert.Error(t, err)
 }
+
+// A matrix leg whose ENVOY_IMAGE got lost would otherwise pass on the default image.
+func TestEnvoyImageFromEnv(t *testing.T) {
+	t.Setenv(envoyImageEnv, "")
+	t.Setenv("CI", "")
+	image, err := envoyImageFromEnv()
+	require.NoError(t, err)
+	assert.Empty(t, image)
+
+	t.Setenv("CI", "true")
+	_, err = envoyImageFromEnv()
+	assert.Error(t, err)
+
+	t.Setenv(envoyImageEnv, "envoyproxy/envoy:contrib-v1.39.1")
+	image, err = envoyImageFromEnv()
+	require.NoError(t, err)
+	assert.Equal(t, "envoyproxy/envoy:contrib-v1.39.1", image)
+}

@@ -268,9 +268,13 @@ func InstallEnvoyProxy() error {
 	if err != nil {
 		return err
 	}
+	image, err := envoyImageFromEnv()
+	if err != nil {
+		return err
+	}
 	// The image must be set before the first apply: the pod uses hostNetwork, so a
 	// rolling update on a single-node cluster cannot start while the old pod holds the ports.
-	manifests, err = overrideEnvoyImage(manifests, os.Getenv(envoyImageEnv))
+	manifests, err = overrideEnvoyImage(manifests, image)
 	if err != nil {
 		return err
 	}
@@ -296,6 +300,14 @@ func readManifests(dir string) (string, error) {
 		b.WriteString("\n")
 	}
 	return b.String(), nil
+}
+
+func envoyImageFromEnv() (string, error) {
+	image := os.Getenv(envoyImageEnv)
+	if image == "" && os.Getenv("CI") != "" {
+		return "", fmt.Errorf("%s must be set in CI, otherwise e2e silently runs the default Envoy image", envoyImageEnv)
+	}
+	return image, nil
 }
 
 func overrideEnvoyImage(manifests, image string) (string, error) {
