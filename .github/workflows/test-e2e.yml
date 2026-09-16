@@ -6,8 +6,15 @@ on:
 
 jobs:
   test-e2e:
-    name: Run on Ubuntu
+    name: Run on Ubuntu (${{ matrix.envoy-image }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 1.38 changed delta-xDS to send the node only on the first request of a stream.
+        envoy-image:
+          - envoyproxy/envoy:contrib-v1.36.2
+          - envoyproxy/envoy:contrib-v1.39.1
     steps:
       - name: Clone the code
         uses: actions/checkout@v4
@@ -45,3 +52,4 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_PROGRESS: plain
+          ENVOY_IMAGE: ${{ matrix.envoy-image }}
