@@ -290,7 +290,7 @@ go-control-plane is split into several Go modules (`go-control-plane`, `go-contr
 make update-go-control-plane
 ```
 
-The target moves all four modules to their latest versions, runs `go mod tidy` and regenerates `internal/xds/cache/import_filters.gen.go`.
+The target moves all four modules to their latest versions (a module already at a newer pre-release is kept), regenerates `internal/xds/cache/import_filters.gen.go` and then runs `go mod tidy`. The order matters: the old generated file may import packages that the new versions removed, and `go mod tidy` fails on them.
 
 That file blank-imports every versioned go-control-plane API package, so all Envoy extension types are registered in the protobuf registry. A `typed_config` whose type comes from a package missing there fails to decode with `unable to resolve ... not found` (see [go-control-plane#390](https://github.com/envoyproxy/go-control-plane/issues/390)). `make deps-update` regenerates the file too; after any other change to these modules, such as `go get github.com/envoyproxy/go-control-plane/envoy@<version>`, run `make generate-xds-filters`. CI runs `make verify-xds-filters` and fails if the file is out of date.
 
