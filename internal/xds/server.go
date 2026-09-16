@@ -21,6 +21,8 @@ import (
 	secretservice "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	ctrmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 const (
@@ -88,8 +90,23 @@ func recoveryStreamInterceptor(log logr.Logger) grpc.StreamServerInterceptor {
 	}
 }
 
+var recoveredPanics = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Namespace: "exc",
+		Subsystem: "xds",
+		Name:      "recovered_panics_total",
+		Help:      "Panics recovered in xDS gRPC handlers.",
+	},
+	[]string{"method"},
+)
+
+func init() {
+	ctrmetrics.Registry.MustRegister(recoveredPanics)
+}
+
 func recoverPanic(log logr.Logger, method string, err *error) {
 	if r := recover(); r != nil {
+		recoveredPanics.WithLabelValues(method).Inc()
 		log.Error(fmt.Errorf("%v", r), "recovered from panic in xDS handler",
 			"method", method, "stack", string(debug.Stack()))
 		*err = status.Error(codes.Internal, "internal error")

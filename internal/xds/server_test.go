@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	ctrmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 func startPanickingXDSServer(t *testing.T) *grpc.ClientConn {
@@ -43,6 +44,8 @@ func startPanickingXDSServer(t *testing.T) *grpc.ClientConn {
 // The second call proves the server survived the first panic.
 func TestServerRecoversFromPanicInDeltaStream(t *testing.T) {
 	client := discovery.NewAggregatedDiscoveryServiceClient(startPanickingXDSServer(t))
+	method := discovery.AggregatedDiscoveryService_DeltaAggregatedResources_FullMethodName
+	before := recoveredPanicsFor(t, method)
 
 	for range 2 {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -55,10 +58,14 @@ func TestServerRecoversFromPanicInDeltaStream(t *testing.T) {
 		assert.Equal(t, codes.Internal, status.Code(err), err)
 		cancel()
 	}
+
+	assert.InDelta(t, before+2, recoveredPanicsFor(t, method), 0)
 }
 
 func TestServerRecoversFromPanicInFetch(t *testing.T) {
 	client := clusterservice.NewClusterDiscoveryServiceClient(startPanickingXDSServer(t))
+	method := clusterservice.ClusterDiscoveryService_FetchClusters_FullMethodName
+	before := recoveredPanicsFor(t, method)
 
 	for range 2 {
 		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -66,4 +73,27 @@ func TestServerRecoversFromPanicInFetch(t *testing.T) {
 		assert.Equal(t, codes.Internal, status.Code(err), err)
 		cancel()
 	}
+
+	assert.InDelta(t, before+2, recoveredPanicsFor(t, method), 0)
+}
+
+// Reads the counter from the registry the metrics endpoint serves, so the test
+// also fails if the metric is registered elsewhere or under another name.
+func recoveredPanicsFor(t *testing.T, method string) float64 {
+	t.Helper()
+	families, err := ctrmetrics.Registry.Gather()
+	require.NoError(t, err)
+	for _, family := range families {
+		if family.GetName() != "exc_xds_recovered_panics_total" {
+			continue
+		}
+		for _, metric := range family.GetMetric() {
+			for _, label := range metric.GetLabel() {
+				if label.GetName() == "method" && label.GetValue() == method {
+					return metric.GetCounter().GetValue()
+				}
+			}
+		}
+	}
+	return 0
 }
