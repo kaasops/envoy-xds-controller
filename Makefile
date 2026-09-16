@@ -116,6 +116,24 @@ clean: ## Clean build artifacts
 deps-update: ## Update Go dependencies
 	go get -u ./...
 	go mod tidy
+	$(MAKE) generate-xds-filters
+
+.PHONY: update-go-control-plane
+update-go-control-plane: ## Update all go-control-plane modules to their latest versions and regenerate xDS type imports
+	go get github.com/envoyproxy/go-control-plane@latest \
+		github.com/envoyproxy/go-control-plane/envoy@latest \
+		github.com/envoyproxy/go-control-plane/contrib@latest \
+		github.com/envoyproxy/go-control-plane/ratelimit@latest
+	go mod tidy
+	$(MAKE) generate-xds-filters
+
+.PHONY: generate-xds-filters
+generate-xds-filters: ## Regenerate internal/xds/cache/import_filters.gen.go for the go-control-plane version in go.mod
+	go generate ./internal/xds/cache
+
+.PHONY: verify-xds-filters
+verify-xds-filters: generate-xds-filters ## Fail if import_filters.gen.go is out of date with go.mod
+	git diff --exit-code -- internal/xds/cache/import_filters.gen.go
 
 .PHONY: deps-verify
 deps-verify: ## Verify Go dependencies
