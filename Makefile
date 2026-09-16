@@ -115,7 +115,27 @@ clean: ## Clean build artifacts
 .PHONY: deps-update
 deps-update: ## Update Go dependencies
 	go get -u ./...
+	$(MAKE) generate-xds-filters
 	go mod tidy
+
+# Regenerate before tidy: the old import_filters.gen.go may import packages the new versions removed.
+# @upgrade, unlike @latest, keeps a module that is already at a newer pre-release or pseudo-version.
+.PHONY: update-go-control-plane
+update-go-control-plane: ## Update all go-control-plane modules and regenerate xDS type imports
+	go get github.com/envoyproxy/go-control-plane@upgrade \
+		github.com/envoyproxy/go-control-plane/envoy@upgrade \
+		github.com/envoyproxy/go-control-plane/contrib@upgrade \
+		github.com/envoyproxy/go-control-plane/ratelimit@upgrade
+	$(MAKE) generate-xds-filters
+	go mod tidy
+
+.PHONY: generate-xds-filters
+generate-xds-filters: ## Regenerate internal/xds/cache/import_filters.gen.go for the go-control-plane version in go.mod
+	go generate ./internal/xds/cache
+
+.PHONY: verify-xds-filters
+verify-xds-filters: generate-xds-filters ## Fail if import_filters.gen.go is out of date with go.mod
+	git diff --exit-code -- internal/xds/cache/import_filters.gen.go
 
 .PHONY: deps-verify
 deps-verify: ## Verify Go dependencies
