@@ -50,7 +50,7 @@ func (cb *Callbacks) OnStreamOpen(_ context.Context, id int64, typ string) error
 	return nil
 }
 func (cb *Callbacks) OnStreamClosed(id int64, node *core.Node) {
-	cb.log.Info("stream closed", "id", id, "nodeId", node.Id)
+	cb.log.Info("stream closed", "id", id, "nodeId", node.GetId())
 	cb.connectedClients.Delete(id)
 }
 
@@ -65,7 +65,7 @@ func (cb *Callbacks) OnDeltaStreamOpen(ctx context.Context, id int64, typ string
 	return nil
 }
 func (cb *Callbacks) OnDeltaStreamClosed(id int64, node *core.Node) {
-	cb.log.Info("delta stream closed", "id", id, "nodeId", node.Id)
+	cb.log.Info("delta stream closed", "id", id, "nodeId", node.GetId())
 	cb.connectedClients.Delete(id)
 }
 
@@ -77,17 +77,23 @@ func (cb *Callbacks) OnStreamRequest(id int64, req *discovery.DiscoveryRequest) 
 		close(cb.Signal)
 		cb.Signal = nil
 	}
+	node := req.GetNode()
 	cb.log.Info("received stream request",
 		"typeUrl", req.GetTypeUrl(),
 		"id", id,
 		"versionInfo", req.VersionInfo,
 		"resourceNames", req.ResourceNames,
-		"nodeId", req.Node.Id,
+		"nodeId", node.GetId(),
 	)
+	// The node is only guaranteed on the first request of a stream, so keep the
+	// info stored back then instead of overwriting it with empty values.
+	if node == nil {
+		return nil
+	}
 	cb.connectedClients.Update(id, &clients.Info{
 		ID:      id,
-		NodeID:  req.Node.Id,
-		Version: semver(req.Node.GetUserAgentBuildVersion().GetVersion()),
+		NodeID:  node.GetId(),
+		Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
 	})
 	return nil
 }
@@ -101,7 +107,7 @@ func (cb *Callbacks) OnStreamResponse(
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 	cb.Responses++
-	cb.log.Info("responding to stream request", "typeUrl", req.GetTypeUrl(), "id", id, "nodeId", req.Node.Id)
+	cb.log.Info("responding to stream request", "typeUrl", req.GetTypeUrl(), "id", id, "nodeId", req.GetNode().GetId())
 }
 
 func (cb *Callbacks) OnStreamDeltaResponse(
@@ -122,15 +128,22 @@ func (cb *Callbacks) OnStreamDeltaRequest(id int64, req *discovery.DeltaDiscover
 		close(cb.Signal)
 		cb.Signal = nil
 	}
+	node := req.GetNode()
 	cb.log.Info("received stream delta request",
 		"typeUrl", req.GetTypeUrl(),
 		"id", id,
-		"nodeId", req.Node.Id,
+		"nodeId", node.GetId(),
 	)
+	// Envoy sends the node only on the first request of a delta stream, and
+	// go-control-plane restores it only after this callback returns, so a nil
+	// node here is expected - keep the info stored on the first request.
+	if node == nil {
+		return nil
+	}
 	cb.connectedClients.Update(id, &clients.Info{
 		ID:      id,
-		NodeID:  req.Node.Id,
-		Version: semver(req.Node.GetUserAgentBuildVersion().GetVersion()),
+		NodeID:  node.GetId(),
+		Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
 	})
 	return nil
 }
