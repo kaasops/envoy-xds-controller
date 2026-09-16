@@ -80,14 +80,21 @@ func TestOnStreamRequestNilNodeDoesNotPanic(t *testing.T) {
 	assert.Empty(t, cb.connectedClients.List())
 }
 
-func TestStreamClosedNilNodeDoesNotPanic(t *testing.T) {
-	cb := testCallbacks()
+func TestStreamClosedNilNodeRemovesClient(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		close func(cb *Callbacks, id int64)
+	}{
+		{"sotw", func(cb *Callbacks, id int64) { cb.OnStreamClosed(id, nil) }},
+		{"delta", func(cb *Callbacks, id int64) { cb.OnDeltaStreamClosed(id, nil) }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := testCallbacks()
+			require.NoError(t, cb.OnDeltaStreamOpen(t.Context(), 1, listenerType))
+			require.Len(t, cb.connectedClients.List(), 1)
 
-	require.NoError(t, cb.OnDeltaStreamOpen(t.Context(), 1, listenerType))
-	require.NotPanics(t, func() {
-		cb.OnStreamClosed(1, nil)
-		cb.OnDeltaStreamClosed(1, nil)
-	})
-
-	assert.Empty(t, cb.connectedClients.List())
+			require.NotPanics(t, func() { tc.close(cb, 1) })
+			assert.Empty(t, cb.connectedClients.List())
+		})
+	}
 }
