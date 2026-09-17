@@ -14,7 +14,6 @@ jobs:
         # Envoy 1.38+ honours set_node_on_first_message_only for delta xDS (envoyproxy/envoy#42650).
         envoy-image:
           - envoyproxy/envoy:contrib-v1.34.14
-          - envoyproxy/envoy:contrib-v1.37.6
           - envoyproxy/envoy:contrib-v1.39.1
     steps:
       - name: Clone the code
