@@ -28,7 +28,7 @@ func TestOverrideEnvoyImage(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// A matrix leg whose ENVOY_IMAGE got lost would otherwise pass on the default image.
+// A matrix job whose ENVOY_IMAGE got lost would otherwise pass on the default image.
 func TestEnvoyImageFromEnv(t *testing.T) {
 	t.Setenv(envoyImageEnv, "")
 	t.Setenv("CI", "")
