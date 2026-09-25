@@ -13,6 +13,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
@@ -412,7 +413,7 @@ func buildSnapshots(
 				ldKey := listenerDomain(vsRes.Listener, domain)
 				nodeDom := nodeIDDomain(nodeID, ldKey)
 				if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-					return fmt.Errorf("duplicate domain %s for node %s on listener %s",
+					return fmt.Errorf("duplicate domain '%s' for node %s on listener %s",
 						domain, nodeID, vsRes.Listener.String()), nil, vsStatuses, metrics
 				}
 				nodeIDDomainsSet[nodeDom] = struct{}{}
@@ -472,7 +473,7 @@ func buildSnapshots(
 					ldKey := listenerDomain(vsRes.Listener, domain)
 					nodeDom := nodeIDDomain(nodeID, ldKey)
 					if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-						return fmt.Errorf("duplicate domain %s for node %s on listener %s",
+						return fmt.Errorf("duplicate domain '%s' for node %s on listener %s",
 							domain, nodeID, vsRes.Listener.String()), nil, vsStatuses, metrics
 					}
 					nodeIDDomainsSet[nodeDom] = struct{}{}
@@ -977,7 +978,9 @@ func (c *CacheUpdater) buildExistingDomainsMap(
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			rcs, err := c.snapshotCache.GetRouteConfigurations(nodeID)
+			// Both resource types have to come from the same snapshot, otherwise route
+			// configurations could be attributed to listeners of a different generation.
+			rcs, listeners, err := c.snapshotCache.GetRouteConfigurationsAndListeners(nodeID)
 			if err != nil {
 				// If snapshot for nodeID not found yet, we cannot reliably validate against existing domains
 				missing++
@@ -987,7 +990,7 @@ func (c *CacheUpdater) buildExistingDomainsMap(
 			// they come from, so the listener owning a filter chain also owns the route
 			// configuration with the same name. That gives us the listener scope domains
 			// have to be unique within.
-			rcListener, err := c.routeConfigToListener(nodeID)
+			rcListener, err := routeConfigToListener(listeners)
 			if err != nil {
 				missing++
 				continue
@@ -1020,11 +1023,9 @@ func (c *CacheUpdater) buildExistingDomainsMap(
 // routeConfigToListener maps route configuration names to the listener that serves them.
 // Both filter chains and route configurations are named after their VirtualService, so a
 // filter chain name is enough to attribute a route configuration to its listener.
-func (c *CacheUpdater) routeConfigToListener(nodeID string) (map[string]helpers.NamespacedName, error) {
-	listeners, err := c.snapshotCache.GetListeners(nodeID)
-	if err != nil {
-		return nil, err
-	}
+// The listeners must come from the same snapshot as the route configurations they are
+// matched against.
+func routeConfigToListener(listeners []*listenerv3.Listener) (map[string]helpers.NamespacedName, error) {
 	result := make(map[string]helpers.NamespacedName, len(listeners))
 	for _, l := range listeners {
 		nn, err := helpers.NamespacedNameFromString(l.GetName())

@@ -235,16 +235,16 @@ func TestLightValidator_UpdatePrevVSExcluded(t *testing.T) {
 	t.Setenv("WEBHOOK_VALIDATION_INDICES", "1")
 	st := store.New()
 	// Index includes domain that belongs to previous version of the same VS
-	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"node1": {"b.com": {}}})
+	st.ReplaceNodeDomainsIndex(map[string]map[string]struct{}{"node1": {ldk(testListenerA, "b.com"): {}}})
 	cu := NewCacheUpdater(wrapped.NewSnapshotCache(), st)
 
 	restore := withStubbedBuilder(t, func(vs *v1alpha1.VirtualService, _ store.Store) (*resbuilder.Resources, error) {
 		// Return domains based on VS name to differentiate prev/new
 		switch vs.Name {
 		case "prev":
-			return &resbuilder.Resources{Domains: []string{"b.com"}}, nil
+			return &resbuilder.Resources{Domains: []string{"b.com"}, Listener: testListenerA}, nil
 		default:
-			return &resbuilder.Resources{Domains: []string{"b.com"}}, nil
+			return &resbuilder.Resources{Domains: []string{"b.com"}, Listener: testListenerA}, nil
 		}
 	})
 	defer restore()

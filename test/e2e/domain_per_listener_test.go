@@ -73,8 +73,10 @@ func domainPerListenerContext() {
 		fixture.WaitEnvoyConfigChanged()
 
 		By("expecting the webhook to reject a second virtual service with the same domain")
+		// The quoted form is what both the heavy and the light validation path report,
+		// so this holds regardless of how the webhook is configured.
 		fixture.ApplyManifestsWithError(
-			"duplicate domain dup.kaasops.io",
+			"duplicate domain 'dup.kaasops.io'",
 			dplTestdata+"vs-dup.yaml",
 		)
 	})
