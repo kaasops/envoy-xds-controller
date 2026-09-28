@@ -1033,6 +1033,12 @@ func routeConfigToListener(listeners []*listenerv3.Listener) (map[string]helpers
 			return nil, err
 		}
 		for _, fc := range l.GetFilterChains() {
+			// Listeners come from the snapshot in map order, so silently keeping one of
+			// two same-named filter chains would vary between runs.
+			if previous, ok := result[fc.GetName()]; ok {
+				return nil, fmt.Errorf("filter chain %q found on both listener %s and %s",
+					fc.GetName(), previous.String(), nn.String())
+			}
 			result[fc.GetName()] = nn
 		}
 	}
