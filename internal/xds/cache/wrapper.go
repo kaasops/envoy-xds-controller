@@ -131,12 +131,7 @@ func (c *SnapshotCache) GetRouteConfigurations(nodeID string) ([]*routev3.RouteC
 	if err != nil {
 		return nil, err
 	}
-	data := snapshot.GetResources(resourcev3.RouteType)
-	rConfigs := make([]*routev3.RouteConfiguration, 0, len(data))
-	for _, rc := range data {
-		rConfigs = append(rConfigs, rc.(*routev3.RouteConfiguration))
-	}
-	return rConfigs, nil
+	return getRouteConfigurationsFromSnapshot(snapshot), nil
 }
 
 func (c *SnapshotCache) GetListeners(nodeID string) ([]*listenerv3.Listener, error) {
@@ -166,6 +161,31 @@ func (c *SnapshotCache) validateCache(snapshot cache.ResourceSnapshot) error {
 		addressListener[hostPort] = listener.GetName()
 	}
 	return nil
+}
+
+// GetRouteConfigurationsAndListeners returns both resource types read from a single
+// snapshot. Calling GetRouteConfigurations and GetListeners separately would take two
+// independent read locks, so a SetSnapshot landing in between could leave the caller
+// correlating route configurations from one snapshot with listeners from the next.
+func (c *SnapshotCache) GetRouteConfigurationsAndListeners(
+	nodeID string,
+) ([]*routev3.RouteConfiguration, []*listenerv3.Listener, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	snapshot, err := c.SnapshotCache.GetSnapshot(nodeID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return getRouteConfigurationsFromSnapshot(snapshot), getListenersFromSnapshot(snapshot), nil
+}
+
+func getRouteConfigurationsFromSnapshot(snapshot cache.ResourceSnapshot) []*routev3.RouteConfiguration {
+	data := snapshot.GetResources(resourcev3.RouteType)
+	rConfigs := make([]*routev3.RouteConfiguration, 0, len(data))
+	for _, rc := range data {
+		rConfigs = append(rConfigs, rc.(*routev3.RouteConfiguration))
+	}
+	return rConfigs
 }
 
 func getListenersFromSnapshot(snapshot cache.ResourceSnapshot) []*listenerv3.Listener {

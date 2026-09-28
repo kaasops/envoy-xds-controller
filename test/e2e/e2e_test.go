@@ -159,6 +159,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("Status Propagation", statusPropagationContext)
 		Context("Secret Autodiscovery Fallback", secretAutodiscoveryFallbackContext)
 		Context("Snapshot Version Stability", snapshotVersionStabilityContext)
+		Context("Domain Uniqueness Per Listener", domainPerListenerContext)
 	})
 
 	Context("GRPC_API", grpcAPIContext)

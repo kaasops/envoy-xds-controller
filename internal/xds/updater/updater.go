@@ -13,6 +13,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
@@ -156,7 +157,7 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(
 	}
 
 	// Compare candidate domains with existing ones per node
-	if err := checkDomainCollisions(vsRes.Domains, targetNodeIDs, existingByNode); err != nil {
+	if err := checkDomainCollisions(vsRes.Domains, vsRes.Listener, targetNodeIDs, existingByNode); err != nil {
 		return err
 	}
 
@@ -409,9 +410,11 @@ func buildSnapshots(
 				if err := ctx.Err(); err != nil { // cheap check
 					return err, usedSecrets, vsStatuses, metrics
 				}
-				nodeDom := nodeIDDomain(nodeID, domain)
+				ldKey := listenerDomain(vsRes.Listener, domain)
+				nodeDom := nodeIDDomain(nodeID, ldKey)
 				if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-					return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses, metrics
+					return fmt.Errorf("duplicate domain '%s' for node %s on listener %s",
+						domain, nodeID, vsRes.Listener.String()), nil, vsStatuses, metrics
 				}
 				nodeIDDomainsSet[nodeDom] = struct{}{}
 				if buildDomainsIndex {
@@ -420,7 +423,7 @@ func buildSnapshots(
 						set = make(map[string]struct{})
 						nodeDomainsIndex[nodeID] = set
 					}
-					set[domain] = struct{}{}
+					set[ldKey] = struct{}{}
 				}
 			}
 
@@ -467,9 +470,11 @@ func buildSnapshots(
 					if err := ctx.Err(); err != nil {
 						return err, usedSecrets, vsStatuses, metrics
 					}
-					nodeDom := nodeIDDomain(nodeID, domain)
+					ldKey := listenerDomain(vsRes.Listener, domain)
+					nodeDom := nodeIDDomain(nodeID, ldKey)
 					if _, ok := nodeIDDomainsSet[nodeDom]; ok {
-						return fmt.Errorf("duplicate domain %s for node %s", domain, nodeID), nil, vsStatuses, metrics
+						return fmt.Errorf("duplicate domain '%s' for node %s on listener %s",
+							domain, nodeID, vsRes.Listener.String()), nil, vsStatuses, metrics
 					}
 					nodeIDDomainsSet[nodeDom] = struct{}{}
 					if buildDomainsIndex {
@@ -478,7 +483,7 @@ func buildSnapshots(
 							set = make(map[string]struct{})
 							nodeDomainsIndex[nodeID] = set
 						}
-						set[domain] = struct{}{}
+						set[ldKey] = struct{}{}
 					}
 				}
 
@@ -742,8 +747,17 @@ func resolveTargetNodeIDs(nodeIDs []string, snapshotCache *wrapped.SnapshotCache
 	return nodeIDs
 }
 
-func nodeIDDomain(nodeID, domain string) string {
-	return nodeID + ":" + domain
+// listenerDomain builds the key used to detect domain collisions.
+// Domains only have to be unique within a single listener: Envoy resolves an incoming
+// connection to a listener first, and only then picks a filter chain inside it. Two
+// listeners are independent even when they share a port but differ by address, so the
+// listener's namespaced name is the right scope - not the address:port pair.
+func listenerDomain(listener helpers.NamespacedName, domain string) string {
+	return listener.String() + "|" + domain
+}
+
+func nodeIDDomain(nodeID, listenerDomainKey string) string {
+	return nodeID + ":" + listenerDomainKey
 }
 
 // getValidationIndicesEnabled returns true if Store-backed indices should be used for validation shortcuts.
@@ -964,17 +978,35 @@ func (c *CacheUpdater) buildExistingDomainsMap(
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			rcs, err := c.snapshotCache.GetRouteConfigurations(nodeID)
+			// Both resource types have to come from the same snapshot, otherwise route
+			// configurations could be attributed to listeners of a different generation.
+			rcs, listeners, err := c.snapshotCache.GetRouteConfigurationsAndListeners(nodeID)
 			if err != nil {
 				// If snapshot for nodeID not found yet, we cannot reliably validate against existing domains
 				missing++
 				continue
 			}
+			// Route configurations and filter chains are both named after the VirtualService
+			// they come from, so the listener owning a filter chain also owns the route
+			// configuration with the same name. That gives us the listener scope domains
+			// have to be unique within.
+			rcListener, err := routeConfigToListener(listeners)
+			if err != nil {
+				missing++
+				continue
+			}
 			set := make(map[string]struct{})
 			for _, rc := range rcs {
+				listener, ok := rcListener[rc.GetName()]
+				if !ok {
+					// Cannot attribute this route configuration to a listener - fall back
+					// to the heavy dry-run rather than validating against a wrong scope.
+					missing++
+					break
+				}
 				for _, vh := range rc.GetVirtualHosts() {
 					for _, dom := range vh.GetDomains() {
-						set[dom] = struct{}{}
+						set[listenerDomain(listener, dom)] = struct{}{}
 					}
 				}
 			}
@@ -986,6 +1018,31 @@ func (c *CacheUpdater) buildExistingDomainsMap(
 		}
 	}
 	return existingByNode, nil
+}
+
+// routeConfigToListener maps route configuration names to the listener that serves them.
+// Both filter chains and route configurations are named after their VirtualService, so a
+// filter chain name is enough to attribute a route configuration to its listener.
+// The listeners must come from the same snapshot as the route configurations they are
+// matched against.
+func routeConfigToListener(listeners []*listenerv3.Listener) (map[string]helpers.NamespacedName, error) {
+	result := make(map[string]helpers.NamespacedName, len(listeners))
+	for _, l := range listeners {
+		nn, err := helpers.NamespacedNameFromString(l.GetName())
+		if err != nil {
+			return nil, err
+		}
+		for _, fc := range l.GetFilterChains() {
+			// Listeners come from the snapshot in map order, so silently keeping one of
+			// two same-named filter chains would vary between runs.
+			if previous, ok := result[fc.GetName()]; ok {
+				return nil, fmt.Errorf("filter chain %q found on both listener %s and %s",
+					fc.GetName(), previous.String(), nn.String())
+			}
+			result[fc.GetName()] = nn
+		}
+	}
+	return result, nil
 }
 
 // excludePreviousVSDomains removes previous VirtualService domains from the existing domains map.
@@ -1005,10 +1062,11 @@ func (c *CacheUpdater) excludePreviousVSDomains(
 		return fmt.Errorf("failed to build resources for previous VS: %w", err)
 	}
 	prevNodeIDs := resolveTargetNodeIDs(prevVS.GetNodeIDs(), c.snapshotCache)
-	// Build a quick set of prev domains for faster deletion
+	// Build a quick set of prev domains for faster deletion, scoped to the listener
+	// the previous VS was attached to.
 	prevDomains := make(map[string]struct{}, len(prevRes.Domains))
 	for _, d := range prevRes.Domains {
-		prevDomains[d] = struct{}{}
+		prevDomains[listenerDomain(prevRes.Listener, d)] = struct{}{}
 	}
 	// Build a set for prev nodeIDs for O(1) membership checks
 	prevSet := make(map[string]struct{}, len(prevNodeIDs))
@@ -1031,6 +1089,7 @@ func (c *CacheUpdater) excludePreviousVSDomains(
 // checkDomainCollisions validates that candidate domains don't collide with existing ones per node.
 func checkDomainCollisions(
 	candidateDomains []string,
+	candidateListener helpers.NamespacedName,
 	targetNodeIDs []string,
 	existingByNode map[string]map[string]struct{},
 ) error {
@@ -1040,8 +1099,9 @@ func checkDomainCollisions(
 			continue
 		}
 		for _, d := range candidateDomains {
-			if _, ok := set[d]; ok {
-				return fmt.Errorf("duplicate domain '%s' for node %s", d, nodeID)
+			if _, ok := set[listenerDomain(candidateListener, d)]; ok {
+				return fmt.Errorf("duplicate domain '%s' for node %s on listener %s",
+					d, nodeID, candidateListener.String())
 			}
 		}
 	}
