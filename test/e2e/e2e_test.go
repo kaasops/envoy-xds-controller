@@ -160,6 +160,7 @@ var _ = Describe("Manager", Ordered, func() {
 		Context("Secret Autodiscovery Fallback", secretAutodiscoveryFallbackContext)
 		Context("Snapshot Version Stability", snapshotVersionStabilityContext)
 		Context("Domain Uniqueness Per Listener", domainPerListenerContext)
+		Context("HTTP Filter SDS Secrets", httpFilterSDSSecretsContext)
 	})
 
 	Context("GRPC_API", grpcAPIContext)
