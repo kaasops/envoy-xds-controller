@@ -1,0 +1,52 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: VirtualService
+metadata:
+  name: vs-oauth2
+  annotations:
+    envoy.kaasops.io/node-id: test
+spec:
+  listener:
+    name: http-oauth2
+  httpFilters:
+    - name: envoy.filters.http.oauth2
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2
+        config:
+          token_endpoint:
+            uri: "http://oauth2.kaasops.io/token"
+            cluster: oauth2-provider
+            timeout: 5s
+          authorization_endpoint: "http://oauth2.kaasops.io/auth"
+          credentials:
+            client_id: e2e-client
+            token_secret:
+              name: default/oauth2-credentials/token
+              sds_config:
+                ads: {}
+                resource_api_version: V3
+            hmac_secret:
+              name: default/oauth2-credentials/hmac
+              sds_config:
+                ads: {}
+                resource_api_version: V3
+          redirect_uri: "http://%REQ(:authority)%/oauth/callback"
+          redirect_path_matcher:
+            path:
+              exact: /oauth/callback
+          signout_path:
+            path:
+              exact: /oauth/signout
+    - name: envoy.filters.http.router
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  virtualHost:
+    name: oauth2-vh
+    domains:
+      - oauth2.kaasops.io
+    routes:
+      - match:
+          prefix: "/"
+        direct_response:
+          status: 200
+          body:
+            inline_string: "{\"message\":\"oauth2\"}\n"

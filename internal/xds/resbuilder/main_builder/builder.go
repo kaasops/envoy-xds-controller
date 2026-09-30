@@ -380,6 +380,11 @@ func (b *Builder) buildResourcesFromVirtualService(
 		}
 	}
 
+	// 10. Build secrets requested by HTTP filters over SDS
+	sdsSecrets, sdsUsedSecrets := b.buildSDSSecrets(nn, httpFilters)
+	resources.Secrets = append(resources.Secrets, sdsSecrets...)
+	resources.UsedSecrets = append(resources.UsedSecrets, sdsUsedSecrets...)
+
 	return resources, nil
 }
 

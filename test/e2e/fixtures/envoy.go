@@ -1,9 +1,12 @@
 package fixtures
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -317,6 +320,65 @@ func (f *EnvoyFixture) FetchDataFromEnvoy(address string) string {
 	Expect(err).NotTo(HaveOccurred(), "Failed to retrieve output from curl pod")
 
 	return response
+}
+
+// FetchResponseFromEnvoy sends a request to Envoy and returns the status code, headers and body.
+// Redirects are not followed. If curl gets no HTTP response, the status code is 0
+// and the body holds the raw curl output.
+func (f *EnvoyFixture) FetchResponseFromEnvoy(address string) (int, http.Header, string) {
+	// Use unique pod name to avoid conflicts
+	podName := fmt.Sprintf("curl-fetch-response-%d", time.Now().UnixNano())
+	defer func() {
+		By(fmt.Sprintf("cleaning up pod %s", podName))
+		cmd := exec.Command("kubectl", "delete", "pod", podName,
+			"--ignore-not-found=true", "--wait=false")
+		_, _ = utils.Run(cmd)
+	}()
+
+	parsed, err := url.Parse(address)
+	Expect(err).NotTo(HaveOccurred(), "Failed to parse URL: "+address)
+
+	By("resolving IP address of the Envoy pod")
+	cmd := exec.Command("kubectl", "get", "pods", "-l", "app.kubernetes.io/name=envoy",
+		"-o", "jsonpath='{.items[0].status.podIP}'")
+	output, err := utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to resolve IP address of Envoy")
+	envoyIP := strings.Trim(strings.TrimSpace(output), "'")
+
+	// Report the curl exit code instead of failing the pod, so a refused or reset
+	// connection is still an observable result
+	By("creating the curl pod to access Envoy")
+	cmd = exec.Command("kubectl", "run", podName, "--restart=Never",
+		"--image=curlimages/curl:7.78.0",
+		"--", "/bin/sh", "-c", "curl -s -k -i --max-time 10 "+address+" --resolve "+
+			parsed.Host+":"+envoyIP+" -H 'Host: "+parsed.Hostname()+"'; echo \"curl exit code: $?\"")
+	_, err = utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to create curl pod")
+
+	By("waiting for the curl pod to complete")
+	Eventually(func() string {
+		cmd := exec.Command("kubectl", "get", "pods", podName,
+			"-o", "jsonpath={.status.phase}")
+		output, err := utils.Run(cmd)
+		if err != nil {
+			return ""
+		}
+		return output
+	}, 30*time.Second).Should(Equal("Succeeded"))
+
+	By("getting the curl pod logs")
+	cmd = exec.Command("kubectl", "logs", podName)
+	raw, err := utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to retrieve output from curl pod")
+
+	resp, err := http.ReadResponse(bufio.NewReader(strings.NewReader(raw)), nil)
+	if err != nil {
+		return 0, nil, raw
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+
+	return resp.StatusCode, resp.Header, string(body)
 }
 
 // Helper function to compare JSON objects
