@@ -114,7 +114,7 @@ func collectSDSSecretRefs(m protoreflect.Message, refs *[]*tlsv3.SdsSecretConfig
 		// Without sds_config the secret is static, with a path it is read from a file:
 		// neither is served by the controller.
 		source := msg.GetSdsConfig()
-		if source != nil && source.GetPath() == "" && source.GetPathConfigSource() == nil {
+		if source.GetAds() != nil || source.GetApiConfigSource() != nil || source.GetSelf() != nil {
 			*refs = append(*refs, msg)
 		}
 		return
