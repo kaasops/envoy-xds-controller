@@ -24,6 +24,7 @@ Key features:
 | [Configuration](docs/configuration.md) | Configuration options |
 | [Templates](docs/templates.md) | VirtualServiceTemplate usage |
 | [TLS](docs/tls.md) | TLS configuration |
+| [Dynamic Modules](docs/dynamic-modules.md) | Loading Envoy dynamic modules by path |
 | [Deployment](docs/deployment.md) | Deployment guide |
 | [Development](docs/development.md) | Development setup |
 | [Testing](docs/testing.md) | Testing guide |

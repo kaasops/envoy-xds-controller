@@ -21,7 +21,8 @@ spec:
           image: envoyproxy/envoy:contrib-v1.34.14
           imagePullPolicy: IfNotPresent
           env:
-            # Dynamic modules written with the Go SDK pass Go pointers to Envoy.
+            # Dynamic modules written with the Go SDK pass Go pointers to Envoy,
+            # see docs/dynamic-modules.md.
             - name: GODEBUG
               value: cgocheck=0
           name: envoy
