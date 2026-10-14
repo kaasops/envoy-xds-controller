@@ -1,0 +1,25 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: Listener
+metadata:
+  name: http-dynamic-module
+spec:
+  name: http-dynamic-module
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 8090
+  listener_filters:
+    - name: envoy.filters.listener.dynamic_modules
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.dynamic_modules.v3.DynamicModuleListenerFilter
+        dynamic_module_config:
+          # Loaded by path (Envoy 1.38+), not looked up by name in ENVOY_DYNAMIC_MODULES_SEARCH_PATH.
+          module:
+            local:
+              filename: /opt/envoy-modules/libe2e.so
+          # The Go runtime cannot be unloaded.
+          do_not_close: true
+        filter_name: count_connections
+        filter_config:
+          "@type": type.googleapis.com/google.protobuf.StringValue
+          value: accepted_connections

@@ -45,3 +45,54 @@ func TestEnvoyImageFromEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "envoyproxy/envoy:contrib-v1.39.1", image)
 }
+
+func TestImageVersionAtLeast(t *testing.T) {
+	tests := []struct {
+		image string
+		want  bool
+	}{
+		{"envoyproxy/envoy:contrib-v1.34.14", false},
+		{"envoyproxy/envoy:contrib-v1.38.0", true},
+		{"envoyproxy/envoy:v1.39.1", true},
+		{"envoyproxy/envoy:contrib-v2.0.0", true},
+		// Registry prefixes, image variants and digests that ENVOY_IMAGE may carry
+		{"docker.io/envoyproxy/envoy:contrib-v1.39.1", true},
+		{"mirror.local:5000/envoyproxy/envoy:contrib-v1.39.1", true},
+		{"envoyproxy/envoy:distroless-v1.37.0", false},
+		{"envoyproxy/envoy:contrib-debug-v1.39.1", true},
+		{"envoyproxy/envoy:v1.39-latest", true},
+		{"envoyproxy/envoy:contrib-v1.39.1@sha256:0123456789abcdef", true},
+	}
+	for _, tt := range tests {
+		got, err := imageVersionAtLeast(tt.image, 1, 38)
+		require.NoError(t, err, tt.image)
+		assert.Equal(t, tt.want, got, tt.image)
+	}
+
+	for _, image := range []string{
+		"envoyproxy/envoy:contrib-dev",
+		"envoyproxy/envoy@sha256:0123456789abcdef",
+		"mirror.local:5000/envoyproxy/envoy",
+	} {
+		_, err := imageVersionAtLeast(image, 1, 38)
+		assert.Error(t, err, image)
+	}
+}
+
+// Without ENVOY_IMAGE the version comes from the image in the e2e manifests.
+func TestEnvoyImage(t *testing.T) {
+	manifests, err := readManifests("envoy")
+	require.NoError(t, err)
+
+	t.Setenv(envoyImageEnv, "")
+	t.Setenv("CI", "")
+	image, err := envoyImage(manifests)
+	require.NoError(t, err)
+	_, err = imageVersionAtLeast(image, 1, 0)
+	assert.NoError(t, err, image)
+
+	t.Setenv(envoyImageEnv, "envoyproxy/envoy:contrib-v1.39.1")
+	image, err = envoyImage(manifests)
+	require.NoError(t, err)
+	assert.Equal(t, "envoyproxy/envoy:contrib-v1.39.1", image)
+}

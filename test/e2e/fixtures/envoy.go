@@ -160,8 +160,21 @@ func (f *EnvoyFixture) DeleteManifests(manifests ...string) {
 
 // GetEnvoyConfigDump retrieves the Envoy config dump with optional query parameters
 func (f *EnvoyFixture) GetEnvoyConfigDump(queryParams string) json.RawMessage {
+	path := "config_dump"
+	if queryParams != "" {
+		path += "?" + queryParams
+	}
+	data := f.GetEnvoyAdmin(path)
+	dump := json.RawMessage{}
+	err := dump.UnmarshalJSON([]byte(data))
+	Expect(err).NotTo(HaveOccurred(), "Failed to unmarshal config dump")
+	return dump
+}
+
+// GetEnvoyAdmin fetches a path of the Envoy admin API, e.g. "stats?filter=foo", through a curl pod
+func (f *EnvoyFixture) GetEnvoyAdmin(path string) string {
 	// Use unique pod name to avoid conflicts between parallel tests
-	podName := fmt.Sprintf("curl-config-dump-%d", time.Now().UnixNano())
+	podName := fmt.Sprintf("curl-envoy-admin-%d", time.Now().UnixNano())
 
 	// Ensure cleanup even on panic
 	defer func() {
@@ -171,15 +184,12 @@ func (f *EnvoyFixture) GetEnvoyConfigDump(queryParams string) json.RawMessage {
 		_, _ = utils.Run(cmd)
 	}()
 
-	address := "http://envoy.default.svc.cluster.local:19000/config_dump"
-	if queryParams != "" {
-		address += "?" + queryParams
-	}
+	address := "http://envoy.default.svc.cluster.local:19000/" + path
 	cmd := exec.Command("kubectl", "run", podName, "--restart=Never",
 		"--image=curlimages/curl:7.78.0",
-		"--", "/bin/sh", "-c", "curl -s "+address)
+		"--", "/bin/sh", "-c", "curl -s '"+address+"'")
 	_, err := utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to create curl-config-dump pod")
+	Expect(err).NotTo(HaveOccurred(), "Failed to create the Envoy admin curl pod")
 
 	// Wait for pod with timeout and better error message
 	Eventually(func(g Gomega) {
@@ -188,15 +198,12 @@ func (f *EnvoyFixture) GetEnvoyConfigDump(queryParams string) json.RawMessage {
 		g.Expect(err).NotTo(HaveOccurred(), "Failed to get pod status")
 		g.Expect(output).To(Equal("Succeeded"), "Pod should complete successfully")
 	}, 60*time.Second, 2*time.Second).Should(Succeed(),
-		"Timed out waiting for config dump pod to complete")
+		"Timed out waiting for the Envoy admin curl pod to complete")
 
 	cmd = exec.Command("kubectl", "logs", podName)
 	data, err := utils.Run(cmd)
 	Expect(err).NotTo(HaveOccurred(), "Failed to retrieve output from curl pod")
-	dump := json.RawMessage{}
-	err = dump.UnmarshalJSON([]byte(data))
-	Expect(err).NotTo(HaveOccurred(), "Failed to unmarshal config dump")
-	return dump
+	return data
 }
 
 // WaitEnvoyConfigChanged waits for the Envoy config to change from the current state
