@@ -1,0 +1,19 @@
+apiVersion: envoy.kaasops.io/v1alpha1
+kind: HttpFilter
+metadata:
+  name: dynamic-module
+spec:
+  - name: envoy.filters.http.dynamic_modules
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter
+      dynamic_module_config:
+        # Loaded by path (Envoy 1.38+), not looked up by name in ENVOY_DYNAMIC_MODULES_SEARCH_PATH.
+        module:
+          local:
+            filename: /opt/envoy-modules/libe2e.so
+        # The Go runtime cannot be unloaded.
+        do_not_close: true
+      filter_name: set_response_header
+      filter_config:
+        "@type": type.googleapis.com/google.protobuf.StringValue
+        value: loaded-by-path

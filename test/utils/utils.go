@@ -25,6 +25,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:golint,revive
@@ -170,14 +171,18 @@ func IsCertManagerCRDsInstalled() bool {
 
 // LoadImageToKindClusterWithName loads a local docker image to the kind cluster
 func LoadImageToKindClusterWithName(name string) error {
-	cluster := "kind"
-	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok {
-		cluster = v
-	}
-	kindOptions := []string{"load", "docker-image", name, "--name", cluster}
+	kindOptions := []string{"load", "docker-image", name, "--name", KindClusterName()}
 	cmd := exec.Command("kind", kindOptions...)
 	_, err := Run(cmd)
 	return err
+}
+
+// KindClusterName returns the kind cluster e2e runs in: KIND_CLUSTER or "kind".
+func KindClusterName() string {
+	if v, ok := os.LookupEnv("KIND_CLUSTER"); ok {
+		return v
+	}
+	return "kind"
 }
 
 // GetNonEmptyLines converts given command output string into individual objects
@@ -318,6 +323,61 @@ func overrideEnvoyImage(manifests, image string) (string, error) {
 		return "", fmt.Errorf("no envoyproxy/envoy image to override with %s", image)
 	}
 	return envoyImageRe.ReplaceAllString(manifests, "${1}"+image), nil
+}
+
+// envoyTagVersionRe matches the version at the end of Envoy image tags: v1.39.1,
+// contrib-v1.39.1, contrib-debug-v1.39.1, distroless-v1.39.1, v1.39-latest.
+var envoyTagVersionRe = regexp.MustCompile(`(?:^|-)v(\d+)\.(\d+)(?:\.\d+)?(?:-latest)?$`)
+
+// EnvoyVersionAtLeast reports whether e2e runs against Envoy major.minor or newer:
+// the ENVOY_IMAGE override, or the image in test/utils/envoy otherwise.
+func EnvoyVersionAtLeast(major, minor int) (bool, error) {
+	wd, err := GetProjectDir()
+	if err != nil {
+		return false, err
+	}
+	manifests, err := readManifests(wd + "/test/utils/envoy")
+	if err != nil {
+		return false, err
+	}
+	image, err := envoyImage(manifests)
+	if err != nil {
+		return false, err
+	}
+	return imageVersionAtLeast(image, major, minor)
+}
+
+// envoyImage returns the Envoy image e2e installs: the ENVOY_IMAGE override or the one in manifests.
+func envoyImage(manifests string) (string, error) {
+	image, err := envoyImageFromEnv()
+	if err != nil || image != "" {
+		return image, err
+	}
+	m := envoyImageRe.FindStringSubmatch(manifests)
+	if m == nil {
+		return "", fmt.Errorf("no envoyproxy/envoy image in the Envoy manifests")
+	}
+	return strings.TrimPrefix(m[0], m[1]), nil
+}
+
+func imageVersionAtLeast(image string, major, minor int) (bool, error) {
+	m := envoyTagVersionRe.FindStringSubmatch(imageTag(image))
+	if m == nil {
+		return false, fmt.Errorf("cannot read the Envoy version from image %s, use a tag like contrib-v1.39.1", image)
+	}
+	gotMajor, _ := strconv.Atoi(m[1])
+	gotMinor, _ := strconv.Atoi(m[2])
+	return gotMajor > major || (gotMajor == major && gotMinor >= minor), nil
+}
+
+// imageTag returns the tag of an image reference, without the registry, repository and digest.
+func imageTag(image string) string {
+	image, _, _ = strings.Cut(image, "@")
+	// A colon before the last slash belongs to the registry port, not to the tag.
+	if i := strings.LastIndex(image, ":"); i > strings.LastIndex(image, "/") {
+		return image[i+1:]
+	}
+	return ""
 }
 
 func UninstallEnvoyProxy() {

@@ -20,6 +20,11 @@ spec:
             - --log-level debug
           image: envoyproxy/envoy:contrib-v1.34.14
           imagePullPolicy: IfNotPresent
+          env:
+            # Dynamic modules written with the Go SDK pass Go pointers to Envoy,
+            # see docs/dynamic-modules.md.
+            - name: GODEBUG
+              value: cgocheck=0
           name: envoy
           ports:
             - containerPort: 19000
@@ -37,6 +42,10 @@ spec:
             - mountPath: /etc/envoy
               name: config
               readOnly: true
+            # Dynamic modules that the e2e tests copy to the kind node.
+            - mountPath: /opt/envoy-modules
+              name: dynamic-modules
+              readOnly: true
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       restartPolicy: Always
@@ -45,3 +54,7 @@ spec:
           configMap:
             defaultMode: 420
             name: envoy-config
+        - name: dynamic-modules
+          hostPath:
+            path: /opt/envoy-modules
+            type: DirectoryOrCreate
