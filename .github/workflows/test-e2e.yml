@@ -11,10 +11,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Envoy 1.38+ honours set_node_on_first_message_only for delta xDS (envoyproxy/envoy#42650).
         envoy-image:
-          - envoyproxy/envoy:contrib-v1.34.14
-          - envoyproxy/envoy:contrib-v1.39.1
+          - envoyproxy/envoy:contrib-v1.39.6
+          - envoyproxy/envoy:contrib-v1.40.2
     steps:
       - name: Clone the code
         uses: actions/checkout@v4
