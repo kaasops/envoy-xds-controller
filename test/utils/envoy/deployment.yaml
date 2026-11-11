@@ -18,7 +18,7 @@ spec:
         - args:
             - -c /etc/envoy/envoy.yaml
             - --log-level debug
-          image: envoyproxy/envoy:contrib-v1.34.14
+          image: envoyproxy/envoy:contrib-v1.40.2
           imagePullPolicy: IfNotPresent
           env:
             # Dynamic modules written with the Go SDK pass Go pointers to Envoy,
