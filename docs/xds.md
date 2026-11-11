@@ -8,7 +8,8 @@ This document explains how the xDS server is implemented in the Envoy XDS Contro
 2. [Implementation Overview](#implementation-overview)
 3. [Flow of Updates](#flow-of-updates)
 4. [Dynamic Configuration](#dynamic-configuration)
-5. [Snapshot Version Stability](#snapshot-version-stability)
+5. [Envoy Bootstrap](#envoy-bootstrap)
+6. [Snapshot Version Stability](#snapshot-version-stability)
 
 ## What is xDS?
 
@@ -51,6 +52,14 @@ The controller uses [go-control-plane](https://github.com/envoyproxy/go-control-
 ## Dynamic Configuration
 
 The controller supports hot reload of configuration without restarting Envoy. When a Kubernetes CR changes, the update is propagated to Envoy proxies within milliseconds.
+
+---
+
+## Envoy Bootstrap
+
+Envoy must connect over delta ADS: `ads_config.api_type: DELTA_GRPC`.
+
+The snapshot cache runs in ADS mode, so an update reaches Envoy in order: clusters before the listeners that use them. With state-of-the-world (`api_type: GRPC`) the same mode holds back a whole RDS or SDS response while the snapshot has a resource Envoy did not request, for example the route of a rejected listener.
 
 ---
 

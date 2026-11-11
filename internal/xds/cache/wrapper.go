@@ -27,7 +27,9 @@ type SnapshotCache struct {
 
 func NewSnapshotCache() *SnapshotCache {
 	return &SnapshotCache{
-		SnapshotCache: cache.NewSnapshotCache(false, cache.IDHash{}, nil),
+		// ADS mode sends the resource types of a snapshot update in order, CDS before LDS:
+		// otherwise Envoy may get a listener before the cluster its filter needs and reject it
+		SnapshotCache: cache.NewSnapshotCache(true, cache.IDHash{}, nil),
 		nodeIDs:       make(map[string]struct{}),
 	}
 }
