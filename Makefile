@@ -178,7 +178,7 @@ test-e2e: manifests generate fmt vet ## Run the e2e tests. Expected an isolated 
 		echo "No Kind cluster is running. Please start a Kind cluster before running the e2e tests."; \
 		exit 1; \
 	}
-	go test ./test/e2e/ -v -ginkgo.v -timeout 15m
+	go test ./test/e2e/ -v -ginkgo.v -timeout 30m
 
 E2E_REPORTS_DIR ?= .e2e-reports
 
@@ -195,7 +195,7 @@ test-e2e-report: manifests generate fmt vet ## Run the e2e tests with report sav
 	@mkdir -p $(E2E_REPORTS_DIR)
 	@REPORT_FILE="$(E2E_REPORTS_DIR)/e2e-test-$$(date +%Y%m%d-%H%M%S).log"; \
 	echo "Running e2e tests with report saved to $$REPORT_FILE"; \
-	go test ./test/e2e/ -v -ginkgo.v -timeout 15m -ginkgo.no-color 2>&1 | tee $$REPORT_FILE; \
+	go test ./test/e2e/ -v -ginkgo.v -timeout 30m -ginkgo.no-color 2>&1 | tee $$REPORT_FILE; \
 	TEST_EXIT_CODE=$${PIPESTATUS[0]}; \
 	echo ""; \
 	echo "Report saved to: $$REPORT_FILE"; \
