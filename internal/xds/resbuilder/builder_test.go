@@ -13,9 +13,61 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+func TestBuildResourcesReportsSkippedHTTPFilterSecrets(t *testing.T) {
+	s := createBaseStore()
+	vs := &v1alpha1.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "sds-vs"}}
+	vs.Spec.Listener = &v1alpha1.ResourceRef{Name: "http-listener"}
+	vs.Spec.VirtualHost = &runtime.RawExtension{Raw: createVirtualHostRaw([]string{"example.com"})}
+	vs.Spec.HTTPFilters = []*runtime.RawExtension{{Raw: []byte(`{
+		"name": "envoy.filters.http.oauth2",
+		"typed_config": {
+			"@type": "type.googleapis.com/envoy.extensions.filters.http.oauth2.v3.OAuth2",
+			"config": {
+				"credentials": {
+					"client_id": "client",
+					"token_secret": {"name": "default/oauth/token", "sds_config": {"ads": {}}},
+					"hmac_secret": {"name": "default/oauth/hmac", "sds_config": {"ads": {}}}
+				}
+			}
+		}
+	}`)}}
+
+	built, err := BuildResources(vs, s)
+	require.NoError(t, err)
+	require.NotEmpty(t, built.FilterChain)
+	require.Empty(t, built.Secrets)
+	require.Equal(t, []string{
+		`SDS secret "default/oauth/hmac" skipped: Kubernetes secret default/oauth not found`,
+		`SDS secret "default/oauth/token" skipped: Kubernetes secret default/oauth not found`,
+	}, built.Warnings)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "oauth"},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{"token": []byte("private-value")},
+	}
+	s.SetSecret(secret)
+	built, err = BuildResources(vs, s)
+	require.NoError(t, err)
+	require.Len(t, built.Secrets, 1)
+	require.Equal(t, "default/oauth/token", built.Secrets[0].Name)
+	require.Equal(t, []string{
+		`SDS secret "default/oauth/hmac" skipped: key "hmac" not found in Kubernetes secret default/oauth`,
+	}, built.Warnings)
+
+	secret = secret.DeepCopy()
+	secret.Data["hmac"] = []byte("other-private-value")
+	s.SetSecret(secret)
+	built, err = BuildResources(vs, s)
+	require.NoError(t, err)
+	require.Len(t, built.Secrets, 2)
+	require.Empty(t, built.Warnings)
+}
 
 func TestExtractClustersFromFilterChains(t *testing.T) {
 	// Helper function to create a TCP proxy filter chain

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+data:
+  resource.customizations.health.envoy.kaasops.io_VirtualService: |
+    local status = obj.status
+    if status == nil or status.observedGeneration == nil
+        or status.observedGeneration ~= obj.metadata.generation
+        or type(status.invalid) ~= "boolean" then
+      return {status = "Progressing", message = "Waiting for a publication result"}
+    end
+    if status.invalid then
+      return {status = "Degraded", message = status.message or "Publication failed"}
+    end
+    return {status = "Healthy"}

@@ -18,9 +18,13 @@ package controller
 
 import (
 	"context"
+	"maps"
 
+	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/kaasops/envoy-xds-controller/internal/helpers"
@@ -70,18 +74,13 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, r.Updater.DeleteVirtualService(ctx, req.NamespacedName)
 	}
 
-	prevStatus := vs.Status.DeepCopy()
-	r.Updater.ApplyVirtualService(ctx, &vs)
-
-	// Get status from store (stored separately for immutability)
-	nn := helpers.NamespacedName{Namespace: req.Namespace, Name: req.Name}
-	vsWithStatus := r.Updater.GetVirtualServiceWithStatus(nn)
-	if vsWithStatus != nil {
-		vs.Status = vsWithStatus.Status
-	}
-
-	if prevStatus.Invalid != vs.Status.Invalid ||
-		prevStatus.Message != vs.Status.Message {
+	r.Updater.ApplyVirtualService(ctx, vs.DeepCopy())
+	status, observed := r.Updater.PublicationStatusFor(&vs)
+	if observed && (vs.Status.Invalid != status.Invalid || vs.Status.Message != status.Message ||
+		vs.Status.ObservedGeneration != vs.Generation) {
+		vs.Status.Invalid = status.Invalid
+		vs.Status.Message = status.Message
+		vs.Status.ObservedGeneration = vs.Generation
 		if vs.Status.Message != "" {
 			if vs.Status.Invalid {
 				rlog.Info("[WARN] VirtualService is invalid", "message", vs.Status.Message)
@@ -99,11 +98,28 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
+// A status write by another replica must not trigger a competing status write.
+// Keep informer resyncs (equal resource versions) and changes to VS inputs.
+func virtualServiceInputChanged(e event.UpdateEvent) bool {
+	old, current := e.ObjectOld, e.ObjectNew
+	return old.GetResourceVersion() == current.GetResourceVersion() ||
+		old.GetUID() != current.GetUID() || old.GetGeneration() != current.GetGeneration() ||
+		!maps.Equal(old.GetAnnotations(), current.GetAnnotations()) ||
+		!maps.Equal(old.GetLabels(), current.GetLabels()) ||
+		!old.GetDeletionTimestamp().Equal(current.GetDeletionTimestamp())
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&envoyv1alpha1.VirtualService{}).
+		For(&envoyv1alpha1.VirtualService{}, builder.WithPredicates(predicate.Funcs{UpdateFunc: virtualServiceInputChanged})).
 		Named("virtualservice").
 		WatchesRawSource(source.Channel(r.VSReconcileChan, &handler.EnqueueRequestForObject{})).
+		WatchesRawSource(source.Func(func(_ context.Context, queue workqueue.TypedRateLimitingInterface[ctrl.Request]) error {
+			r.Updater.WatchPublicationStatus(func(key helpers.NamespacedName) {
+				queue.Add(ctrl.Request{NamespacedName: client.ObjectKey{Namespace: key.Namespace, Name: key.Name}})
+			})
+			return nil
+		})).
 		Complete(r)
 }

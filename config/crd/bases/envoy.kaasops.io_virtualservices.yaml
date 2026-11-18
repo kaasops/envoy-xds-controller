@@ -224,6 +224,11 @@ spec:
                 type: integer
               message:
                 type: string
+              observedGeneration:
+                description: ObservedGeneration is the generation evaluated by the
+                  last live snapshot build.
+                format: int64
+                type: integer
               usedSecrets:
                 items:
                   properties:

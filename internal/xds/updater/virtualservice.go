@@ -23,7 +23,7 @@ func (c *CacheUpdater) ApplyVirtualService(ctx context.Context, vs *v1alpha1.Vir
 		_ = c.rebuildSnapshots(ctx)
 		return
 	}
-	if prevVS.IsEqual(vs) {
+	if prevVS.UID == vs.UID && prevVS.Generation == vs.Generation && prevVS.IsEqual(vs) {
 		rlog := log.FromContext(ctx).WithName("cache-updater")
 		rlog.V(1).Info("Skipping unchanged VirtualService", "namespace", vs.Namespace, "name", vs.Name)
 		return
@@ -35,10 +35,12 @@ func (c *CacheUpdater) ApplyVirtualService(ctx context.Context, vs *v1alpha1.Vir
 func (c *CacheUpdater) DeleteVirtualService(ctx context.Context, nn types.NamespacedName) error {
 	c.mx.Lock()
 	defer c.mx.Unlock()
-	if !c.store.IsExistingVirtualService(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name}) {
+	key := helpers.NamespacedName(nn)
+	delete(c.publications, key)
+	if !c.store.IsExistingVirtualService(key) {
 		return nil
 	}
-	c.store.DeleteVirtualService(helpers.NamespacedName{Namespace: nn.Namespace, Name: nn.Name})
+	c.store.DeleteVirtualService(key)
 	return c.rebuildSnapshots(ctx)
 }
 

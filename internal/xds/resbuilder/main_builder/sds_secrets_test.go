@@ -66,8 +66,9 @@ func TestBuildSDSSecrets(t *testing.T) {
 			&tlsv3.SdsSecretConfig{Name: "ns/oauth/hmac", SdsConfig: adsSource()},
 		)}
 
-		secrets, used := b.buildSDSSecrets(vsName, filters)
+		secrets, used, warnings := b.buildSDSSecrets(vsName, filters)
 
+		assert.Empty(t, warnings)
 		got := map[string]string{}
 		for _, secret := range secrets {
 			got[secret.Name] = string(secret.GetGenericSecret().GetSecret().GetInlineBytes())
@@ -92,9 +93,36 @@ func TestBuildSDSSecrets(t *testing.T) {
 			&tlsv3.SdsSecretConfig{Name: "hmac"},
 		)}
 
-		secrets, used := b.buildSDSSecrets(vsName, filters)
+		secrets, used, warnings := b.buildSDSSecrets(vsName, filters)
+		assert.Empty(t, warnings)
 		assert.Empty(t, secrets)
 		assert.Empty(t, used)
+	})
+
+	t.Run("an explicit SDS endpoint can serve a secret outside Kubernetes", func(t *testing.T) {
+		b := &Builder{store: store.New()}
+		external := &corev3.ConfigSource{
+			ConfigSourceSpecifier: &corev3.ConfigSource_ApiConfigSource{ApiConfigSource: &corev3.ApiConfigSource{
+				ApiType: corev3.ApiConfigSource_GRPC,
+				GrpcServices: []*corev3.GrpcService{{TargetSpecifier: &corev3.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &corev3.GrpcService_EnvoyGrpc{ClusterName: "external-sds"},
+				}}},
+			}},
+		}
+		ref := &tlsv3.SdsSecretConfig{Name: "ns/oauth/token", SdsConfig: external}
+		secrets, _, warnings := b.buildSDSSecrets(vsName, []*hcmv3.HttpFilter{oauth2Filter(t, ref, nil)})
+		assert.Empty(t, warnings)
+		assert.Empty(t, secrets)
+
+		// The same name can also be requested from this controller in either order.
+		local := &tlsv3.SdsSecretConfig{Name: ref.Name, SdsConfig: adsSource()}
+		for _, filters := range [][]*hcmv3.HttpFilter{
+			{oauth2Filter(t, ref, nil), oauth2Filter(t, local, nil)},
+			{oauth2Filter(t, local, nil), oauth2Filter(t, ref, nil)},
+		} {
+			_, _, warnings = b.buildSDSSecrets(vsName, filters)
+			assert.Len(t, warnings, 1)
+		}
 	})
 
 	t.Run("skips a secret that is missing in Kubernetes", func(t *testing.T) {
@@ -105,7 +133,8 @@ func TestBuildSDSSecrets(t *testing.T) {
 			&tlsv3.SdsSecretConfig{Name: "ns/oauth/hmac", SdsConfig: adsSource()},
 		)}
 
-		secrets, used := b.buildSDSSecrets(vsName, filters)
+		secrets, used, warnings := b.buildSDSSecrets(vsName, filters)
+		assert.Len(t, warnings, 2)
 		assert.Empty(t, secrets)
 		assert.Empty(t, used)
 	})
@@ -120,7 +149,8 @@ func TestBuildSDSSecrets(t *testing.T) {
 			&tlsv3.SdsSecretConfig{Name: "ns/oauth/hmac", SdsConfig: adsSource()},
 		)}
 
-		secrets, used := b.buildSDSSecrets(vsName, filters)
+		secrets, used, warnings := b.buildSDSSecrets(vsName, filters)
+		assert.Len(t, warnings, 1)
 		require.Len(t, secrets, 1)
 		assert.Equal(t, "ns/oauth/token", secrets[0].Name)
 		assert.Equal(t, []helpers.NamespacedName{{Namespace: "ns", Name: "oauth"}}, used)
@@ -134,7 +164,8 @@ func TestBuildSDSSecrets(t *testing.T) {
 			&tlsv3.SdsSecretConfig{Name: "a/b/c/d", SdsConfig: adsSource()},
 		)}
 
-		secrets, used := b.buildSDSSecrets(vsName, filters)
+		secrets, used, warnings := b.buildSDSSecrets(vsName, filters)
+		assert.Len(t, warnings, 2)
 		assert.Empty(t, secrets)
 		assert.Empty(t, used)
 	})
