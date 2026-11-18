@@ -60,6 +60,32 @@ This document provides guidance for diagnosing and resolving common issues with 
    - If TLS is enabled, certificate issues can prevent connections
    - Solution: Check TLS certificates and verify Envoy's TLS configuration
 
+4. **Envoy Rejected the Configuration (NACK)**
+   - Envoy is connected and the controller sent the update, but Envoy refused it: a file or directory is missing on the host, a module cannot be loaded, the Envoy version does not know an extension
+   - Several Envoy instances may share a node ID, and each one answers for itself
+   - Solution: look for `Envoy NACKed xDS response` in the controller logs, or list the streams of the node. The cache API must be enabled (`cacheAPI.enabled`)
+   ```bash
+   curl -s "<cache-api-address>/api/v1/clients?node_id=<node-id>"
+   ```
+   - A stream with a non-empty `rejections` list has refused the resources named there. After fixing the host, change the resource or restart that Envoy: over delta ADS a rejected resource is not sent again by itself. See [Rejected Configuration (NACK)](xds.md#rejected-configuration-nack)
+
+#### Checking That Every Instance Accepted a Change
+
+Before relying on a change, for example before switching a node to a new listener. Each controller pod builds its own snapshot and keeps its own streams, so ask each pod itself, not the Service (for example with `kubectl port-forward pod/<pod>`):
+
+1. Make sure the change is in the snapshot of the pod, for example that the new listener is listed by `GET /api/v1/listeners?node_id=<node-id>`.
+2. Read `GET /api/v1/clients?node_id=<node-id>`. The pod lists only the streams connected to it and names itself in `controllerPod`. The streams of all pods together must match the number of Envoy instances you expect.
+3. For every stream: `awaitingAckSince` is absent and `rejections` is empty for every type, and `ackedVersion` of the type you changed equals `snapshotVersions[<node-id>][<typeUrl>]` of the same response.
+4. Check the port on Envoy itself. An ACK means Envoy found the resources valid; a listener may still be warming up.
+
+What the versions do not tell:
+
+- A version is a counter kept by one pod and starts over when the pod restarts. Never compare versions of different pods.
+- `ackedVersion` may be behind the snapshot on a stream that holds everything, even for the type you changed. The server sends a stream nothing while no resource it holds has changed, and the counter of a type may still move. For listeners the two stay level. For clusters, routes and secrets they may part as soon as any other resource changes, so a lagging version alone is not a refusal.
+- A type missing from a stream means that nothing of that type has been sent on this stream since `connectedAt`. After a reconnect Envoy keeps the routes and secrets it already has, and the server sends them again only when they change. A rejection or an unanswered response always shows up.
+
+An empty `clients` list means that no stream of that node is connected to the pod that answered, or that the node is outside the node IDs your groups may access.
+
 ### Custom Resources Not Applied
 
 **Symptoms:**
@@ -143,6 +169,8 @@ Look for these patterns in the controller logs:
 - `Reconciling` - Shows reconciliation of resources
 - `Validation failed` - Indicates validation issues with CRs
 - `Updated snapshot` - Indicates successful configuration updates
+- `Envoy NACKed xDS response` - Envoy rejected an update; the line names the node, the stream, the resources and Envoy's reason
+- `xDS rejection cleared` - Envoy accepted a newer version of a rejected resource, or the resource is gone
 
 ### Prometheus Metrics
 

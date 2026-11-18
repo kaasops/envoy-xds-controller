@@ -521,7 +521,7 @@ func main() {
 					setupServers.Error(err, "failed to parse static resources config")
 					os.Exit(1)
 				}
-				apiServer, err := api.New(snapshotCache, apiServerCfg, zapLogger, devMode, fWatcher, configPath)
+				apiServer, err := api.New(snapshotCache, apiServerCfg, zapLogger, devMode, fWatcher, configPath, connectedClients)
 				if err != nil {
 					setupServers.Error(err, "failed to create api server")
 					os.Exit(1)

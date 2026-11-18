@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	xdscache "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
 )
 
 // @version 1.0
@@ -20,16 +22,22 @@ const overviewCacheTTL = 30 * time.Second
 type handler struct {
 	cache         *xdscache.SnapshotCache
 	overviewCache *OverviewCache
+	clients       *clients.Registry
+	podName       string
 }
 
 var (
 	version = "/api/v1"
 )
 
-func RegisterRoutes(r *gin.Engine, cache *xdscache.SnapshotCache) {
+func RegisterRoutes(r *gin.Engine, cache *xdscache.SnapshotCache, registry *clients.Registry) {
+	// In Kubernetes the hostname is the pod name.
+	podName, _ := os.Hostname()
 	h := &handler{
 		cache:         cache,
 		overviewCache: NewOverviewCache(overviewCacheTTL),
+		clients:       registry,
+		podName:       podName,
 	}
 
 	routes := r.Group(version)
@@ -37,6 +45,9 @@ func RegisterRoutes(r *gin.Engine, cache *xdscache.SnapshotCache) {
 	routes.GET("/nodeIDs", h.getNodeIDs)
 	routes.GET("/nodeIDs/versions", h.getNodeIDsWithResourceVersions)
 	routes.GET("/resourceVersions", h.getResourceVersions)
+
+	// ********** Get connected xDS clients **********
+	routes.GET("/clients", h.getClients)
 
 	// ********** Get Listeners **********
 	// Get Listeners

@@ -43,6 +43,7 @@ import (
 	gincors "github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	xdscache "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
 
 	"github.com/kaasops/envoy-xds-controller/internal/xds/api/v1/handlers"
 
@@ -74,6 +75,7 @@ type Client struct {
 	fWatcher *filewatcher.FileWatcher
 	mu       *sync.RWMutex
 	cfg      *Config
+	clients  *clients.Registry
 }
 
 func New(
@@ -83,6 +85,7 @@ func New(
 	devMode bool,
 	watcher *filewatcher.FileWatcher,
 	staticResourcesPath string,
+	registry *clients.Registry,
 ) (*Client, error) {
 
 	mu := &sync.RWMutex{}
@@ -110,6 +113,7 @@ func New(
 		logger:   logger,
 		devMode:  devMode,
 		fWatcher: watcher,
+		clients:  registry,
 	}, nil
 }
 
@@ -143,7 +147,7 @@ func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 		server.Use(authMiddleware.HandlerFunc)
 	}
 
-	handlers.RegisterRoutes(server, c.Cache)
+	handlers.RegisterRoutes(server, c.Cache, c.clients)
 
 	// Register swagger
 	docs.SwaggerInfo.Schemes = []string{cacheAPIScheme}

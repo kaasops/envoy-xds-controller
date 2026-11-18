@@ -106,4 +106,4 @@ How to read a rejection:
 
 With state-of-the-world the server answers every NACK with the same snapshot at once, about a thousand times a second, until the snapshot changes. Such a rejection is logged once per rejected version.
 
-The logger thins identical lines above a hundred per second, so a rejection across a large fleet does not show every instance. The state of each stream, with the version it last acknowledged and what it still rejects, is kept in memory; in development mode it is served at `:4444/debug/connected-clients`.
+The logger thins identical lines above a hundred per second, so a rejection across a large fleet does not show every instance. The state of each stream, with the version it last acknowledged and what it still rejects, is kept in memory and served by the cache API at `GET /api/v1/clients`; see [Checking That Every Instance Accepted a Change](troubleshooting.md#checking-that-every-instance-accepted-a-change). In development mode it is also served at `:4444/debug/connected-clients`.
