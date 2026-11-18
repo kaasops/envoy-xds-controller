@@ -10,6 +10,7 @@ This document explains how the xDS server is implemented in the Envoy XDS Contro
 4. [Dynamic Configuration](#dynamic-configuration)
 5. [Envoy Bootstrap](#envoy-bootstrap)
 6. [Snapshot Version Stability](#snapshot-version-stability)
+7. [Rejected Configuration (NACK)](#rejected-configuration-nack)
 
 ## What is xDS?
 
@@ -78,3 +79,31 @@ This behavior is achieved through:
 - `IsEqual()` comparison on VirtualService/VirtualServiceTemplate before rebuilding snapshots
 - `NormalizeSpec()` to ensure consistent comparison regardless of field order
 - Deterministic resource ordering to prevent spurious version increments from map iteration
+
+---
+
+## Rejected Configuration (NACK)
+
+Envoy answers every xDS response: it acknowledges it (ACK) or rejects it (NACK) and says why. The controller keeps both per stream and logs a rejection once:
+
+```json
+{"level":"error","logger":"xds.server.callbacks","msg":"Envoy NACKed xDS response","nodeId":"edge","id":5,"protocol":"delta","typeUrl":"type.googleapis.com/envoy.config.listener.v3.Listener","address":"10.0.0.7:45334","envoyVersion":"v1.40.2","nonce":"5","responseVersion":"3","resources":["default/https"],"resourceCount":1,"error":"Error adding/updating listener(s) default/https: unable to open file '/var/log/envoy/missing/access.log': Permission denied"}
+```
+
+| Message | Level | When |
+|---------|-------|------|
+| `Envoy NACKed xDS response` | error | Envoy rejected a response |
+| `xDS rejection cleared` | info | A rejected resource was accepted in a later version (`reason: accepted`), removed (`removed`), or Envoy unsubscribed from it (`unsubscribed`) |
+| `Envoy NACKed an xDS response unknown to this stream` | info | A NACK named no response of the stream. Logged once per stream |
+
+How to read a rejection:
+
+- **A NACK is about a response, not about everything in it.** Envoy applies the valid listeners and clusters of a response it rejects and names the ones it skipped, so `resources` lists those. For routes, secrets and endpoints Envoy stops at the first error and names nothing, so `resources` lists every resource of the response. The same holds for listeners and clusters when Envoy cut its text at 4096 characters or the text names none of them. The log line shows at most 20 names, `resourceCount` is the total. With state-of-the-world `resources` is empty: the whole version of the type is rejected.
+- **An ACK means Envoy found the resources valid.** A listener may still be warming up.
+- **Envoy does not get a rejected resource again by itself.** Over delta ADS the server sends a resource once per version. After fixing the host, change the resource or restart that Envoy.
+- **Instances that share a node id are told apart by `address` and `id`.** `id` is the stream number within its `protocol`. Behind a proxy the address is the proxy's.
+- **`error` is Envoy's text with quoted data removed.** For a message that fails validation Envoy puts the whole message into the text, keys included, so everything from the first double quote on is dropped. What Envoy echoes outside double quotes stays. The full text is in Envoy's own log.
+
+With state-of-the-world the server answers every NACK with the same snapshot at once, about a thousand times a second, until the snapshot changes. Such a rejection is logged once per rejected version.
+
+The logger thins identical lines above a hundred per second, so a rejection across a large fleet does not show every instance. The state of each stream, with the version it last acknowledged and what it still rejects, is kept in memory; in development mode it is served at `:4444/debug/connected-clients`.
