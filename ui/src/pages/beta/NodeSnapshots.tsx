@@ -196,6 +196,17 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					>
 						Refresh
 					</Button>
+					{canShow && data.canControl && data.frozen && (
+						<Button
+							component={RouterLink}
+							to={compareBuilt}
+							variant='contained'
+							aria-describedby={data.built?.error ? 'unfreeze-build-error' : undefined}
+							disabled={blocked || !canCompare || Boolean(data.built?.error)}
+						>
+							Unfreeze…
+						</Button>
+					)}
 					{canShow && data.canControl && !data.frozen && (
 						<Button variant='outlined' disabled={blocked} onClick={() => open({ kind: 'freeze' })}>
 							Freeze node
@@ -203,6 +214,15 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					)}
 				</Stack>
 			</Stack>
+			{canShow && data.built?.error && (
+				<Alert severity='error' id='unfreeze-build-error'>
+					<Typography variant='subtitle2'>Build failed</Typography>
+					<Typography variant='body2' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+						{data.built.error}
+					</Typography>
+					{data.frozen && <Typography variant='body2'>Fix the objects before unfreezing.</Typography>}
+				</Alert>
+			)}
 			{query.isFetching && <LinearProgress aria-label='Loading node snapshots' />}
 			{query.isPending && !data && <Typography role='status'>Loading snapshots…</Typography>}
 			{query.isError && (
@@ -232,12 +252,17 @@ function NodePage({ nodeId }: { nodeId: string }) {
 							<Typography variant='subtitle2'>Publication is frozen</Typography>
 							{data.freeze && (
 								<Typography variant='body2' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-									{data.freeze.reason}
-									{' · '}
-									{timestamp(data.freeze.at)}
-									{data.freeze.by && ' · ' + data.freeze.by}
+									Frozen since {timestamp(data.freeze.at)}
+									{data.freeze.by && ' by ' + data.freeze.by}.
+									<br />
+									Reason: {data.freeze.reason}
 								</Typography>
 							)}
+							<Typography variant='body2' sx={{ mt: 0.5 }}>
+								{data.canControl
+									? 'Choose Unfreeze… to compare the served and built snapshots before publishing.'
+									: 'An operator with write access can review and unfreeze this node.'}
+							</Typography>
 							<Typography variant='body2' sx={{ mt: 0.5 }}>
 								The webhook accepts listener address conflicts on this node with a warning.
 							</Typography>
@@ -247,14 +272,6 @@ function NodePage({ nodeId }: { nodeId: string }) {
 									newly started Envoy waits for the node to be unfrozen.
 								</Typography>
 							)}
-						</Alert>
-					)}
-					{data.built?.error && (
-						<Alert severity='error'>
-							<Typography variant='subtitle2'>Build failed</Typography>
-							<Typography variant='body2' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-								{data.built.error}
-							</Typography>
 						</Alert>
 					)}
 					<Paper variant='outlined'>
@@ -283,14 +300,10 @@ function NodePage({ nodeId }: { nodeId: string }) {
 									component={RouterLink}
 									to={compareBuilt}
 									disabled={blocked}
-									variant={
-										data.frozen && data.canControl && !data.built?.error ? 'contained' : 'outlined'
-									}
+									variant='outlined'
 									size='small'
 								>
-									{data.frozen && data.canControl && !data.built?.error
-										? 'Review to unfreeze'
-										: 'Compare snapshots'}
+									Compare snapshots
 								</Button>
 							</Box>
 						)}
