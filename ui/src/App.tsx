@@ -17,6 +17,10 @@ import { usePermissionsStore } from './store/permissionsStore.ts'
 import { useThemeMode } from './utils/hooks'
 import { returnPath, signinState } from './utils/helpers/returnTo.ts'
 
+const BetaLayout = lazy(() => import('./pages/beta/BetaLayout'))
+const FleetNodes = lazy(() => import('./pages/beta/FleetNodes'))
+const NodeSnapshots = lazy(() => import('./pages/beta/NodeSnapshots'))
+const CompareSnapshots = lazy(() => import('./pages/beta/CompareSnapshots'))
 const HomePage = lazy(() => import('./pages/home/Home'))
 const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'))
 const NodeOverviewPage = lazy(() => import('./pages/nodeOverview/NodeOverview'))
@@ -82,6 +86,12 @@ function App() {
 				<Suspense fallback={<Spinner />}>
 					<ErrorBoundary>
 						<Routes>
+							<Route path='beta' element={<BetaLayout />}>
+								<Route index element={<FleetNodes />} />
+								<Route path='nodes/:nodeId' element={<NodeSnapshots />} />
+								<Route path='nodes/:nodeId/compare' element={<CompareSnapshots />} />
+							</Route>
+
 							<Route path='nodeIDs' element={<Layout />}>
 								<Route index element={<HomePage />} />
 								<Route path=':nodeID' element={<NodeInfoPage />} />
