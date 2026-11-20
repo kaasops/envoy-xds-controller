@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Link as RouterLink, useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom'
 import {
 	Alert,
-	Box,
 	Button,
 	Chip,
 	InputAdornment,
@@ -22,10 +21,14 @@ import {
 } from '@mui/material'
 import SearchOutlined from '@mui/icons-material/SearchOutlined'
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined'
-import { useQuery } from '@tanstack/react-query'
-import { apiError, fleetQueryKey, getFleet, httpStatus, manualQueryOptions, nodePath } from './api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiError, fleetQueryKey, getFleet, httpStatus, manualQueryOptions, nodePath, type SnapshotState } from './api'
+
+import NodeListAction from './NodeListAction'
 
 export default function FleetNodes() {
+	const client = useQueryClient()
+	const navigate = useNavigate()
 	const [params] = useSearchParams()
 	const frozenOnly = params.get('frozen') === 'true'
 	const [filter, setFilter] = useState('')
@@ -43,11 +46,31 @@ export default function FleetNodes() {
 	)
 	const current = Math.min(page, Math.max(0, Math.ceil(visible.length / perPage) - 1))
 	const frozenCount = nodes.filter(node => node.freeze).length
+	const filterLink = (frozen: boolean) => {
+		const next = new URLSearchParams(params)
+		if (frozen) next.set('frozen', 'true')
+		else next.delete('frozen')
+		return { search: next.toString() }
+	}
+	const updateFrozen = async (next: SnapshotState) => {
+		await client.cancelQueries({ queryKey: fleetQueryKey, exact: true })
+		if (httpStatus(client.getQueryState(fleetQueryKey)?.error) === 403) return
+		client.setQueryData<Awaited<ReturnType<typeof getFleet>>>(
+			fleetQueryKey,
+			previous =>
+				previous && {
+					...previous,
+					nodes: previous.nodes.map(node =>
+						node.nodeId === next.nodeId ? { ...node, freeze: next.freeze ?? undefined } : node
+					)
+				}
+		)
+	}
 	return (
 		<Stack spacing={2}>
 			<Stack direction='row' justifyContent='space-between' alignItems='center' gap={2}>
 				<Typography component='h1' variant='h4' fontWeight={600}>
-					{frozenOnly ? 'Frozen nodes' : 'Nodes'}
+					Nodes
 				</Typography>
 				<Button
 					variant='outlined'
@@ -68,12 +91,15 @@ export default function FleetNodes() {
 			{query.data && httpStatus(query.error) !== 403 && (
 				<>
 					<Typography variant='body2' color='text.secondary'>
-						{nodes.length} nodes · {frozenCount} frozen · Streams on{' '}
-						{query.data.controllerPod || 'this controller'} · Updated{' '}
+						{nodes.length} nodes ·{' '}
+						<Link component={RouterLink} to={filterLink(!frozenOnly)}>
+							{frozenCount} frozen
+						</Link>{' '}
+						· Streams on {query.data.controllerPod || 'this controller'} · Updated{' '}
 						{new Date(query.dataUpdatedAt).toLocaleTimeString()}
 					</Typography>
 					<Paper variant='outlined' sx={{ overflow: 'hidden' }}>
-						<Box sx={{ p: 1.5 }}>
+						<Stack direction='row' alignItems='center' flexWrap='wrap' gap={1} sx={{ p: 1.5 }}>
 							<TextField
 								size='small'
 								placeholder='Filter by node ID'
@@ -91,7 +117,22 @@ export default function FleetNodes() {
 									)
 								}}
 							/>
-						</Box>
+							<Stack direction='row' role='group' aria-label='Freeze filter'>
+								{[false, true].map(frozen => (
+									<Button
+										key={String(frozen)}
+										component={RouterLink}
+										size='small'
+										to={filterLink(frozen)}
+										onClick={() => setPage(0)}
+										aria-current={frozenOnly === frozen ? 'true' : undefined}
+										variant={frozenOnly === frozen ? 'contained' : 'text'}
+									>
+										{frozen ? 'Frozen (' + frozenCount + ')' : 'All'}
+									</Button>
+								))}
+							</Stack>
+						</Stack>
 						<TableContainer>
 							<Table size='small' aria-label='Nodes' sx={{ minWidth: 610 }}>
 								<TableHead>
@@ -101,11 +142,39 @@ export default function FleetNodes() {
 										<TableCell align='right'>xDS streams</TableCell>
 										<TableCell>Frozen since</TableCell>
 										<TableCell>Reason</TableCell>
+										<TableCell align='right'>Actions</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
 									{visible.slice(current * perPage, (current + 1) * perPage).map(node => (
-										<TableRow hover key={node.nodeId}>
+										<TableRow
+											hover
+											key={node.nodeId}
+											tabIndex={0}
+											sx={{
+												cursor: 'pointer',
+												'&:focus-visible': {
+													outline: '2px solid',
+													outlineOffset: '-2px',
+													outlineColor: 'primary.main'
+												}
+											}}
+											onClick={event => {
+												const target = event.target
+												if (
+													target instanceof Element &&
+													event.currentTarget.contains(target) &&
+													!target.closest('a, button')
+												)
+													navigate(nodePath(node.nodeId))
+											}}
+											onKeyDown={event => {
+												if (event.target === event.currentTarget && event.key === 'Enter') {
+													event.preventDefault()
+													navigate(nodePath(node.nodeId))
+												}
+											}}
+										>
 											<TableCell component='th' scope='row'>
 												<Link
 													component={RouterLink}
@@ -129,11 +198,19 @@ export default function FleetNodes() {
 											<TableCell sx={{ maxWidth: 300, overflowWrap: 'anywhere' }}>
 												{node.freeze?.reason || '–'}
 											</TableCell>
+											<TableCell align='right'>
+												<NodeListAction
+													nodeId={node.nodeId}
+													frozen={Boolean(node.freeze)}
+													disabled={query.isError || query.isFetching}
+													onFrozen={updateFrozen}
+												/>
+											</TableCell>
 										</TableRow>
 									))}
 									{!visible.length && (
 										<TableRow>
-											<TableCell colSpan={5} align='center' sx={{ py: 4 }}>
+											<TableCell colSpan={6} align='center' sx={{ py: 4 }}>
 												{filter
 													? 'No nodes match this filter.'
 													: frozenOnly

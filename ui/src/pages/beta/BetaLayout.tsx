@@ -1,5 +1,5 @@
 import { useContext, useMemo } from 'react'
-import { Link as RouterLink, Outlet, useMatch, useSearchParams } from 'react-router-dom'
+import { Link as RouterLink, Outlet, useMatch } from 'react-router-dom'
 import {
 	Box,
 	Breadcrumbs,
@@ -15,7 +15,6 @@ import {
 } from '@mui/material'
 import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined'
 import StorageOutlined from '@mui/icons-material/StorageOutlined'
-import AcUnitOutlined from '@mui/icons-material/AcUnitOutlined'
 import ContrastOutlined from '@mui/icons-material/ContrastOutlined'
 import { ColorModeContext } from '../../theme'
 import { nodePath } from './api'
@@ -45,8 +44,6 @@ export default function BetaLayout() {
 	)
 	const nodeId = useMatch('/beta/nodes/:nodeId/*')?.params.nodeId
 	const comparing = useMatch('/beta/nodes/:nodeId/compare')
-	const [params] = useSearchParams()
-	const frozen = params.get('frozen') === 'true'
 	return (
 		<ThemeProvider theme={theme}>
 			<Box sx={{ minHeight: '100vh', color: 'text.primary', bgcolor: dark ? 'background.default' : '#f5f7fb' }}>
@@ -100,38 +97,16 @@ export default function BetaLayout() {
 							Nodes
 						</Typography>
 						<List disablePadding sx={{ display: { xs: 'flex', md: 'block' } }}>
-							{[
-								{
-									text: 'All nodes',
-									to: '/beta/',
-									icon: <StorageOutlined fontSize='small' />,
-									active: !nodeId && !frozen
-								},
-								{
-									text: 'Frozen nodes',
-									to: '/beta/?frozen=true',
-									icon: <AcUnitOutlined fontSize='small' />,
-									active: !nodeId && frozen
-								}
-							].map(item => (
-								<ListItemButton
-									key={item.to}
-									component={RouterLink}
-									to={item.to}
-									selected={item.active}
-									aria-current={item.active ? 'page' : undefined}
-									sx={{
-										gap: 1,
-										px: 1.5,
-										borderRadius: 1,
-										fontWeight: item.active ? 600 : 400,
-										fontSize: 14
-									}}
-								>
-									{item.icon}
-									{item.text}
-								</ListItemButton>
-							))}
+							<ListItemButton
+								component={RouterLink}
+								to='/beta/'
+								selected={!nodeId}
+								aria-current={!nodeId ? 'page' : undefined}
+								sx={{ gap: 1, px: 1.5, borderRadius: 1, fontWeight: !nodeId ? 600 : 400, fontSize: 14 }}
+							>
+								<StorageOutlined fontSize='small' />
+								All nodes
+							</ListItemButton>
 						</List>
 					</Box>
 					<Box
@@ -146,7 +121,7 @@ export default function BetaLayout() {
 						}}
 					>
 						<Breadcrumbs aria-label='Breadcrumb' sx={{ mb: 2, fontSize: 13 }}>
-							{(nodeId || frozen) && (
+							{nodeId && (
 								<Link component={RouterLink} to='/beta/' color='inherit'>
 									Nodes
 								</Link>
@@ -156,7 +131,7 @@ export default function BetaLayout() {
 									{nodeId}
 								</Link>
 							) : (
-								<span>{nodeId || (frozen ? 'Frozen nodes' : 'Nodes')}</span>
+								<span>{nodeId || 'Nodes'}</span>
 							)}
 							{comparing && <span>Compare</span>}
 						</Breadcrumbs>

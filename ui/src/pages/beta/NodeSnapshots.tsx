@@ -20,14 +20,12 @@ import {
 	TableContainer,
 	TableHead,
 	TableRow,
-	TextField,
 	Typography
 } from '@mui/material'
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined'
 import {
 	apiError,
 	fleetQueryKey,
-	freezeNode,
 	getSnapshotState,
 	httpStatus,
 	manualQueryOptions,
@@ -37,6 +35,7 @@ import {
 	typeLabel
 } from './api'
 import type { SnapshotInfo, SnapshotState } from './api'
+import FreezeDialog from './FreezeDialog'
 
 type Action = { kind: 'freeze' } | { kind: 'rollback'; to: string; expectServed: string }
 
@@ -100,24 +99,20 @@ function NodePage({ nodeId }: { nodeId: string }) {
 		refetchOnMount: justUnfrozen ? false : 'always'
 	})
 	const [action, setAction] = useState<Action | null>(null)
-	const [reason, setReason] = useState('')
 	const [notice, setNotice] = useState(justUnfrozen ? 'Node unfrozen.' : '')
 	const [writeError, setWriteError] = useState('')
 	const mutation = useMutation({
 		mutationKey,
 		retry: false,
 		networkMode: 'always',
-		mutationFn: (request: Action) =>
-			request.kind === 'freeze'
-				? freezeNode(nodeId, reason.trim())
-				: rollbackNode(nodeId, request.to, request.expectServed),
-		onSuccess: async (next, request) => {
+		mutationFn: (request: Extract<Action, { kind: 'rollback' }>) =>
+			rollbackNode(nodeId, request.to, request.expectServed),
+		onSuccess: async next => {
 			await client.cancelQueries({ queryKey: key, exact: true })
 			client.setQueryData(key, next)
 			void client.invalidateQueries({ queryKey: fleetQueryKey, refetchType: 'none' })
 			setAction(null)
-			setReason('')
-			setNotice(request.kind === 'freeze' ? 'Node frozen.' : 'Snapshot restored. The node is frozen.')
+			setNotice('Snapshot restored. The node is frozen.')
 		},
 		onError: error => {
 			setAction(null)
@@ -145,7 +140,6 @@ function NodePage({ nodeId }: { nodeId: string }) {
 	const canShow = data && readStatus !== 403 && readStatus !== 404
 	const blocked = query.isFetching || query.isError || writing || Boolean(writeError)
 	const open = (next: Action) => {
-		setReason('')
 		setNotice('')
 		setAction(next)
 	}
@@ -421,8 +415,24 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					</Box>
 				</>
 			)}
+			{action?.kind === 'freeze' && (
+				<FreezeDialog
+					nodeId={nodeId}
+					hasServed={Boolean(servedId)}
+					disabled={blocked || !data?.canControl || data.frozen}
+					onClose={() => setAction(null)}
+					onFailure={message => {
+						setAction(null)
+						setWriteError(message)
+					}}
+					onFrozen={() => {
+						void client.invalidateQueries({ queryKey: fleetQueryKey, refetchType: 'none' })
+						setNotice('Node frozen.')
+					}}
+				/>
+			)}
 			<Dialog
-				open={action !== null}
+				open={action?.kind === 'rollback'}
 				fullWidth
 				maxWidth='xs'
 				aria-labelledby='snapshot-action-title'
@@ -430,59 +440,28 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					if (!writing) setAction(null)
 				}}
 			>
-				{action && (
+				{action?.kind === 'rollback' && (
 					<form
 						onSubmit={event => {
 							event.preventDefault()
 							if (blocked || !data?.canControl || client.isMutating({ mutationKey })) return
-							if (action.kind === 'rollback' || reason.trim()) mutation.mutate(action)
+							mutation.mutate(action)
 						}}
 					>
-						<DialogTitle id='snapshot-action-title'>
-							{action.kind === 'freeze' ? 'Freeze node' : 'Roll back snapshot'}
-						</DialogTitle>
+						<DialogTitle id='snapshot-action-title'>Roll back snapshot</DialogTitle>
 						<DialogContent>
-							{action.kind === 'freeze' ? (
-								<>
-									<DialogContentText>
-										{servedId
-											? nodeId + ' will stay on its served snapshot.'
-											: 'This node has no served snapshot. ' +
-												'New Envoys will receive no configuration while it is frozen.'}{' '}
-										The webhook will accept listener address conflicts on this node with a warning.
-									</DialogContentText>
-									<TextField
-										autoFocus
-										required
-										fullWidth
-										multiline
-										minRows={2}
-										margin='normal'
-										label='Reason'
-										helperText='Visible in VirtualService status.'
-										value={reason}
-										disabled={writing}
-										onChange={event => setReason(event.target.value)}
-									/>
-								</>
-							) : (
-								<DialogContentText sx={{ overflowWrap: 'anywhere' }}>
-									{nodeId} will switch from <code>{action.expectServed}</code> to{' '}
-									<code>{action.to}</code> and stay frozen there. Unfreezing will publish the
-									configuration built from the current objects.
-								</DialogContentText>
-							)}
+							<DialogContentText sx={{ overflowWrap: 'anywhere' }}>
+								Serve <code>{action.to}</code> on {nodeId} and freeze publication. The current served
+								snapshot is <code>{action.expectServed}</code>. Unfreezing will publish the
+								configuration built from the current objects.
+							</DialogContentText>
 						</DialogContent>
 						<DialogActions>
 							<Button disabled={writing} onClick={() => setAction(null)}>
 								Cancel
 							</Button>
-							<Button
-								variant='contained'
-								type='submit'
-								disabled={blocked || (action.kind === 'freeze' && !reason.trim())}
-							>
-								{action.kind === 'freeze' ? 'Freeze node' : 'Roll back'}
+							<Button variant='contained' type='submit' disabled={blocked}>
+								Roll back
 							</Button>
 						</DialogActions>
 					</form>
