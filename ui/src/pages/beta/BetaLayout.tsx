@@ -84,7 +84,7 @@ export default function BetaLayout() {
 				>
 					<Box
 						component='nav'
-						aria-label='Fleet navigation'
+						aria-label='Nodes navigation'
 						sx={{
 							bgcolor: 'background.paper',
 							borderRight: { md: 1 },
@@ -97,7 +97,7 @@ export default function BetaLayout() {
 							variant='overline'
 							sx={{ display: { xs: 'none', md: 'block' }, px: 1.5, mb: 0.75, color: 'text.secondary' }}
 						>
-							Fleet
+							Nodes
 						</Typography>
 						<List disablePadding sx={{ display: { xs: 'flex', md: 'block' } }}>
 							{[
@@ -146,12 +146,10 @@ export default function BetaLayout() {
 						}}
 					>
 						<Breadcrumbs aria-label='Breadcrumb' sx={{ mb: 2, fontSize: 13 }}>
-							{nodeId ? (
+							{(nodeId || frozen) && (
 								<Link component={RouterLink} to='/beta/' color='inherit'>
 									Nodes
 								</Link>
-							) : (
-								<span>Fleet</span>
 							)}
 							{nodeId && comparing ? (
 								<Link component={RouterLink} to={nodePath(nodeId)} color='inherit'>

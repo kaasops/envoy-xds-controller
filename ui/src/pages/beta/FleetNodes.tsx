@@ -93,7 +93,7 @@ export default function FleetNodes() {
 							/>
 						</Box>
 						<TableContainer>
-							<Table size='small' aria-label='Fleet nodes' sx={{ minWidth: 610 }}>
+							<Table size='small' aria-label='Nodes' sx={{ minWidth: 610 }}>
 								<TableHead>
 									<TableRow>
 										<TableCell>Node ID</TableCell>
