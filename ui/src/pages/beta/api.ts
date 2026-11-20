@@ -114,34 +114,3 @@ export async function unfreezeNode(nodeId: string, expectBuilt: string) {
 export async function rollbackNode(nodeId: string, to: string, expectServed: string) {
 	return (await client.post<SnapshotState>(nodeUrl(nodeId) + '/rollback', { to, expectServed })).data
 }
-
-interface NodeRow {
-	nodeId: string
-	freeze?: Freeze
-	streams: number
-}
-
-export async function getFleet(signal?: AbortSignal) {
-	const [nodes, freezes, clients] = await Promise.all([
-		client.get<string[] | null>('/nodeIDs', { signal }),
-		client.get<{ frozenNodes: Record<string, Freeze> | null }>('/frozenNodes', { signal }),
-		client.get<{ controllerPod: string; clients: { nodeId: string }[] | null }>('/clients', { signal })
-	])
-	const rows = new Map<string, NodeRow>()
-	function row(nodeId: string) {
-		const existing = rows.get(nodeId)
-		if (existing) return existing
-		const node: NodeRow = { nodeId, streams: 0 }
-		rows.set(nodeId, node)
-		return node
-	}
-	for (const id of nodes.data || []) row(id)
-	for (const [id, freeze] of Object.entries(freezes.data.frozenNodes || {})) row(id).freeze = freeze
-	for (const stream of clients.data.clients || []) {
-		if (stream.nodeId) row(stream.nodeId).streams++
-	}
-	return {
-		nodes: Array.from(rows.values()).sort((a, b) => a.nodeId.localeCompare(b.nodeId)),
-		controllerPod: clients.data.controllerPod
-	}
-}
