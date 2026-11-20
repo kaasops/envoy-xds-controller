@@ -109,11 +109,14 @@ func (c *CacheUpdater) DryBuildSnapshotsWithVirtualService(ctx context.Context, 
 // Note: For updates of an existing VS, comparing to the current cache may lead to false positives
 // if the same VS already contributes the same domains. Prefer using this on Create, or fall back
 // to heavy dry-run on Update.
+// A listener address conflict on one of toleratedNodeIDs is not reported: such a node keeps its
+// previous snapshot until the conflict is gone, and the change itself is checked for other nodes.
 func (c *CacheUpdater) DryValidateVirtualServiceLight(
 	ctx context.Context,
 	vs *v1alpha1.VirtualService,
 	prevVS *v1alpha1.VirtualService,
 	validationIndices bool,
+	toleratedNodeIDs []string,
 ) error {
 	// Honor cancellation upfront
 	if err := ctx.Err(); err != nil {
@@ -139,7 +142,8 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(
 	}
 
 	// Validate that listener addresses are unique across all listeners
-	if err := validateListenerAddresses(storeCopy, c.snapshotCache, validationIndices); err != nil {
+	if err := validateListenerAddresses(storeCopy, c.snapshotCache, validationIndices,
+		nodeSet(toleratedNodeIDs)); err != nil {
 		return err
 	}
 
@@ -169,6 +173,33 @@ func (c *CacheUpdater) DryValidateVirtualServiceLight(
 	}
 
 	return nil
+}
+
+// DryValidateListenerAddresses is the listener part of DryValidateVirtualServiceLight: with vs applied,
+// every listener a service refers to exists and has a socket address, and no two listeners of a node
+// share an address, except on toleratedNodeIDs.
+func (c *CacheUpdater) DryValidateListenerAddresses(
+	ctx context.Context,
+	vs *v1alpha1.VirtualService,
+	validationIndices bool,
+	toleratedNodeIDs []string,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	c.mx.RLock()
+	storeCopy := c.store.Copy()
+	c.mx.RUnlock()
+	storeCopy.SetVirtualService(vs)
+	return validateListenerAddresses(storeCopy, c.snapshotCache, validationIndices, nodeSet(toleratedNodeIDs))
+}
+
+func nodeSet(nodeIDs []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(nodeIDs))
+	for _, nodeID := range nodeIDs {
+		set[nodeID] = struct{}{}
+	}
+	return set
 }
 
 func (c *CacheUpdater) DryBuildSnapshotsWithVirtualServiceTemplate(
@@ -274,12 +305,23 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	start := time.Now()
 	err, usedSecrets, vsStatuses, _ := buildSnapshots(ctx, c.snapshotCache, c.store, c.contributors)
 
+	frozen := c.snapshotCache.FrozenNodes()
 	for key, status := range vsStatuses {
+		if len(frozen) > 0 {
+			if vs := c.store.GetVirtualService(key); vs != nil {
+				status = withFreezeNote(status, resolveTargetNodeIDs(vs.GetNodeIDs(), c.snapshotCache), frozen)
+			}
+		}
 		c.recordPublication(key, status)
 	}
 
 	if err != nil {
 		rlog.Error(err, "rebuild snapshots with errors", "duration", time.Since(start).String())
+		if onlyListenerConflicts(err) {
+			// Nodes held by a listener address conflict still serve their previous snapshots: keep
+			// the secrets those use next to the secrets of the nodes published now.
+			c.usedSecrets = mergeUsedSecrets(c.usedSecrets, usedSecrets)
+		}
 		return err
 	}
 	c.usedSecrets = usedSecrets
@@ -587,12 +629,26 @@ func buildSnapshots(
 	retained := published.retained(allVSs, nodeFailures)
 	published.update(allVSs, mixer.nodeIDs, nodeFailures)
 	vsStatuses = publicationResults(allVSs, vsStatuses, nil, nodeFailures, retained)
-	if len(errs) > 0 {
+	if len(errs) > 0 && !onlyListenerConflicts(multierr.Combine(errs...)) {
 		return multierr.Combine(errs...), usedSecrets, vsStatuses, metrics
 	}
 
-	// Update Store domain index after successful commit (feature-flagged)
+	// Update Store domain index after the commit (feature-flagged). A node held by a listener address
+	// conflict keeps the domains it serves next to the ones it is about to serve.
 	if buildDomainsIndex {
+		if len(nodeFailures) > 0 {
+			previous := store.GetNodeDomainsIndex()
+			for nodeID := range nodeFailures {
+				merged := previous[nodeID]
+				if merged == nil {
+					merged = make(map[string]struct{})
+				}
+				for key := range nodeDomainsIndex[nodeID] {
+					merged[key] = struct{}{}
+				}
+				nodeDomainsIndex[nodeID] = merged
+			}
+		}
 		// Ensure index has entries (possibly empty) for all nodes we touched this rebuild
 		allNodes := make(map[string]struct{}, len(staged)+len(nodeIDsForCleanup))
 		for nodeID := range staged {
@@ -610,7 +666,21 @@ func buildSnapshots(
 	}
 
 	metrics.snapshotCreateDuration = time.Since(snapshotCreateStart)
-	return nil, usedSecrets, vsStatuses, metrics
+	return multierr.Combine(errs...), usedSecrets, vsStatuses, metrics
+}
+
+// mergeUsedSecrets returns the secrets used before and now, with the owners seen now.
+func mergeUsedSecrets(
+	before, now map[helpers.NamespacedName]helpers.NamespacedName,
+) map[helpers.NamespacedName]helpers.NamespacedName {
+	merged := make(map[helpers.NamespacedName]helpers.NamespacedName, len(before)+len(now))
+	for secret, owner := range before {
+		merged[secret] = owner
+	}
+	for secret, owner := range now {
+		merged[secret] = owner
+	}
+	return merged
 }
 
 func resourceWarnings(warnings []string) VSStatus {
@@ -911,22 +981,24 @@ func validateDomainsWithinVS(domains []string) error {
 // validateListenerAddresses validates that listener addresses are unique within each nodeID (snapshot).
 // This replaces the previous global validation approach which incorrectly prevented
 // the same address:port from being used across different nodeIDs (different snapshots).
+// Duplicate addresses on the nodes in tolerated are skipped.
 func validateListenerAddresses(
 	storeCopy store.Store,
 	snapshotCache *wrapped.SnapshotCache,
 	validationIndices bool,
+	tolerated map[string]struct{},
 ) error {
 	// Build mapping of listeners to nodeIDs
 	listenerToNodeIDs := buildListenerToNodeIDsMapping(storeCopy, snapshotCache)
 
 	if validationIndices {
 		// Use the fast index-based approach but check per nodeID
-		if err := validateListenerAddressesPerNodeID(storeCopy, listenerToNodeIDs); err != nil {
+		if err := validateListenerAddressesPerNodeID(storeCopy, listenerToNodeIDs, tolerated); err != nil {
 			return err
 		}
 	}
 	// Always run the thorough check to catch structural issues (missing address, etc.)
-	if err := validateListenerAddressesUniquePerNodeID(storeCopy, listenerToNodeIDs); err != nil {
+	if err := validateListenerAddressesUniquePerNodeID(storeCopy, listenerToNodeIDs, tolerated); err != nil {
 		return err
 	}
 	return nil
@@ -950,9 +1022,10 @@ func buildListenerToNodeIDsMapping(
 
 		// Get the listener referenced by this VirtualService
 		if vs.Spec.Listener != nil && vs.Spec.Listener.Name != "" {
-			listenerNN := helpers.NamespacedName{
-				Namespace: vs.Namespace, // Listener is in the same namespace as VirtualService
-				Name:      vs.Spec.Listener.Name,
+			// The same namespace as the builder uses: spec.listener.namespace, else the one of the service
+			listenerNN, err := vs.GetListenerNamespacedName()
+			if err != nil {
+				continue
 			}
 
 			// Resolve nodeIDs, expanding "*" to actual nodeIDs for common VirtualServices
@@ -984,6 +1057,7 @@ func buildListenerToNodeIDsMapping(
 func validateListenerAddressesPerNodeID(
 	storeCopy store.Store,
 	listenerToNodeIDs map[helpers.NamespacedName][]string,
+	tolerated map[string]struct{},
 ) error {
 	// Group listeners by nodeID
 	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
@@ -1018,6 +1092,9 @@ func validateListenerAddressesPerNodeID(
 			hostPort := fmt.Sprintf("%s:%d", host, port)
 
 			if existingListener, exists := addrToListener[hostPort]; exists {
+				if _, ok := tolerated[nodeID]; ok {
+					continue
+				}
 				return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s' within nodeID '%s'",
 					listenerNN.String(), hostPort, existingListener.String(), nodeID)
 			}
@@ -1032,6 +1109,7 @@ func validateListenerAddressesPerNodeID(
 func validateListenerAddressesUniquePerNodeID(
 	storeCopy store.Store,
 	listenerToNodeIDs map[helpers.NamespacedName][]string,
+	tolerated map[string]struct{},
 ) error {
 	// Group listeners by nodeID
 	nodeIDToListeners := make(map[string][]helpers.NamespacedName)
@@ -1071,6 +1149,9 @@ func validateListenerAddressesUniquePerNodeID(
 			hostPort := fmt.Sprintf("%s:%d", host, port)
 
 			if existingListener, exists := addrToListener[hostPort]; exists {
+				if _, ok := tolerated[nodeID]; ok {
+					continue
+				}
 				return fmt.Errorf("listener '%s' has duplicate address '%s' as existing listener '%s' within nodeID '%s'",
 					listenerNN.String(), hostPort, existingListener.String(), nodeID)
 			}

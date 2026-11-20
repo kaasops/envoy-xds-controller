@@ -10,6 +10,9 @@ import (
 
 const AvailableNodeIDs = "available_node_ids"
 
+// UserName is the context key of the authenticated user: email, preferred user name or subject.
+const UserName = "user_name"
+
 type Auth struct {
 	verifier *oidc.IDTokenVerifier
 	aclStore *aclStore
@@ -68,13 +71,16 @@ func (m *Auth) HandlerFunc(c *gin.Context) {
 	}
 
 	var claims struct {
-		Groups []string `json:"groups"`
+		Groups            []string `json:"groups"`
+		Email             string   `json:"email"`
+		PreferredUsername string   `json:"preferred_username"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		c.JSON(401, respMessage("Unauthorized", "failed to get claims", err))
 		c.Abort()
 		return
 	}
+	c.Set(UserName, userName(claims.Email, claims.PreferredUsername, idToken.Subject))
 
 	if m.aclStore.enabled {
 		fullAccess := false
@@ -119,4 +125,14 @@ LOOP:
 		store.nodeIDsByGroup[group] = nodeIDs
 	}
 	return store
+}
+
+// userName picks the first claim that names the user.
+func userName(email, preferredUsername, subject string) string {
+	for _, name := range []string{email, preferredUsername, subject} {
+		if name != "" {
+			return name
+		}
+	}
+	return ""
 }

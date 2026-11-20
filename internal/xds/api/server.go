@@ -44,6 +44,7 @@ import (
 	"github.com/gin-gonic/gin"
 	xdscache "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/snapshots"
 
 	"github.com/kaasops/envoy-xds-controller/internal/xds/api/v1/handlers"
 
@@ -76,6 +77,15 @@ type Client struct {
 	mu       *sync.RWMutex
 	cfg      *Config
 	clients  *clients.Registry
+
+	snapshots      *snapshots.Control
+	snapshotWrites bool
+}
+
+// EnableSnapshots serves the routes that show what nodes are served and what is built for them; with
+// writes, nodes can also be frozen, unfrozen and rolled back.
+func (c *Client) EnableSnapshots(control *snapshots.Control, writes bool) {
+	c.snapshots, c.snapshotWrites = control, writes
 }
 
 func New(
@@ -131,9 +141,13 @@ func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	server.Use(ginzap.RecoveryWithZap(c.logger, true))
 
 	// TODO: Fix CORS policy (don't enable for all origins)
+	allowMethods := []string{"GET"}
+	if c.snapshots != nil && c.snapshotWrites {
+		allowMethods = append(allowMethods, "POST")
+	}
 	server.Use(gincors.New(gincors.Config{
 		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"GET"},
+		AllowMethods:     allowMethods,
 		AllowHeaders:     []string{"*"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -148,6 +162,9 @@ func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	}
 
 	handlers.RegisterRoutes(server, c.Cache, c.clients)
+	if c.snapshots != nil {
+		handlers.RegisterSnapshotRoutes(server, c.snapshots, c.snapshotWrites, c.logger)
+	}
 
 	// Register swagger
 	docs.SwaggerInfo.Schemes = []string{cacheAPIScheme}

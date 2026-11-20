@@ -1,18 +1,22 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	gcp "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/filewatcher"
 	xdscache "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/snapshots"
 	"go.uber.org/zap"
 )
 
@@ -71,3 +75,64 @@ func TestRunServesTheRegistryGivenToNew(t *testing.T) {
 		t.Errorf("controllerPod %q, want the host name %q", body.ControllerPod, hostname)
 	}
 }
+
+// With snapshots enabled, Run serves their routes and lets a browser send POST to them.
+func TestRunServesSnapshotRoutesWhenEnabled(t *testing.T) {
+	watcher, err := filewatcher.NewFileWatcher()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(watcher.Cancel)
+	cache := xdscache.NewSnapshotCache()
+	if err := cache.SetSnapshot(t.Context(), "node-a", &gcp.Snapshot{}); err != nil {
+		t.Fatal(err)
+	}
+	server, err := New(cache, &Config{}, zap.NewNop(), false, watcher,
+		filepath.Join(t.TempDir(), "config.json"), clients.NewRegistry())
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.EnableSnapshots(&snapshots.Control{Cache: cache, Builder: emptyBuilder{}, Now: time.Now}, true)
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := lis.Addr().(*net.TCPAddr).Port
+	_ = lis.Close()
+	go func() { _ = server.Run(port, "http", fmt.Sprintf("localhost:%d", port)) }()
+
+	base := fmt.Sprintf("http://127.0.0.1:%d/api/v1/nodes/node-a", port)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		resp, err := http.Get(base + "/snapshots")
+		if err == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				t.Fatalf("GET snapshots: status %d", resp.StatusCode)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the API did not start: %v", err)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	req, _ := http.NewRequest(http.MethodOptions, base+"/freeze", nil)
+	req.Header.Set("Origin", "https://ui.example.com")
+	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if allowed := resp.Header.Get("Access-Control-Allow-Methods"); !strings.Contains(allowed, http.MethodPost) {
+		t.Errorf("preflight allows %q, want POST", allowed)
+	}
+}
+
+type emptyBuilder struct{}
+
+func (emptyBuilder) DryBuildNode(context.Context, string) (gcp.ResourceSnapshot, error) {
+	return &gcp.Snapshot{}, nil
+}
+func (emptyBuilder) RebuildSnapshots(context.Context) error { return nil }

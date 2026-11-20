@@ -202,6 +202,12 @@ extraVolumeMounts: []
 # - name: example
 #   mountPath: /example
 
+# -- Freeze, unfreeze and roll back node snapshots through the cache API, and switch a node to another
+# listener on the same address while it is frozen. Frozen nodes are kept in the Secret
+# <fullname>-frozen-nodes of the release namespace. See docs/snapshots.md.
+snapshotControl:
+  enabled: true
+
 # Validating Webhook Options
 webhook:
   enabled: true

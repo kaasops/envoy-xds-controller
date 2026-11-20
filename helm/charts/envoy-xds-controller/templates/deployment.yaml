@@ -131,6 +131,12 @@ spec:
           - name: WEBHOOK_VALIDATION_INDICES
             value: "{{ .Values.webhook.validationIndices }}"
         {{- end }}
+          {{- /* on unless set to false: helm upgrade --reuse-values keeps older values, without this section */}}
+          {{- $snapshotControl := .Values.snapshotControl | default dict }}
+          - name: API_SNAPSHOT_CONTROL
+            value: {{ if hasKey $snapshotControl "enabled" }}{{ $snapshotControl.enabled | quote }}{{ else }}"true"{{ end }}
+          - name: SNAPSHOT_FREEZE_SECRET
+            value: {{ template "chart.fullname" . }}-frozen-nodes
         {{- if not .Values.webhook.enabled }}
           - name: WEBHOOK_DISABLE
             value: "true"

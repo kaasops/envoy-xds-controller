@@ -86,8 +86,17 @@ type vsUpdater interface {
 		vs *envoyv1alpha1.VirtualService,
 		prevVS *envoyv1alpha1.VirtualService,
 		validationIndices bool,
+		toleratedNodeIDs []string,
+	) error
+	DryValidateListenerAddresses(
+		ctx context.Context,
+		vs *envoyv1alpha1.VirtualService,
+		validationIndices bool,
+		toleratedNodeIDs []string,
 	) error
 	DryBuildSnapshotsWithVirtualService(ctx context.Context, vs *envoyv1alpha1.VirtualService) error
+	// FrozenNodeIDs returns the nodes frozen on their served snapshot; their listener conflicts are tolerated.
+	FrozenNodeIDs() []string
 }
 
 type VirtualServiceCustomValidator struct {
@@ -117,13 +126,14 @@ func (v *VirtualServiceCustomValidator) ValidateCreate(
 		}
 	}
 
-	if err := v.validateVirtualService(ctx, virtualservice, nil); err != nil {
+	warnings, err := v.validateVirtualService(ctx, virtualservice, nil)
+	if err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
 	}
 
 	virtualservicelog.Info("VirtualService is valid", "name", virtualservice.GetLabelName())
 
-	return nil, nil
+	return warnings, nil
 }
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -156,13 +166,14 @@ func (v *VirtualServiceCustomValidator) ValidateUpdate(
 		}
 	}
 
-	if err := v.validateVirtualService(ctx, virtualservice, prevVS); err != nil {
+	warnings, err := v.validateVirtualService(ctx, virtualservice, prevVS)
+	if err != nil {
 		return nil, fmt.Errorf("failed to validate VirtualService %s: %w", virtualservice.Name, err)
 	}
 
 	virtualservicelog.Info("VirtualService is valid", "name", virtualservice.GetLabelName())
 
-	return nil, nil
+	return warnings, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type.
@@ -177,15 +188,19 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(
 	ctx context.Context,
 	vs *envoyv1alpha1.VirtualService,
 	prevVS *envoyv1alpha1.VirtualService,
-) error {
+) (admission.Warnings, error) {
 	if len(vs.GetNodeIDs()) == 0 {
-		return fmt.Errorf("nodeIDs is required")
+		return nil, fmt.Errorf("nodeIDs is required")
 	}
 
 	// Validate tracing fields using a pure helper (XOR + existence check)
 	if err := validateVSTracing(ctx, v.Client, vs); err != nil {
-		return err
+		return nil, err
 	}
+
+	// Frozen nodes accept listener address conflicts: nothing reaches their Envoys until they are
+	// unfrozen, and unfreezing is refused while their build fails.
+	tolerated := v.updater.FrozenNodeIDs()
 
 	// Apply timeout for dry-run path (light or heavy)
 	ctxTO, cancel := context.WithTimeout(ctx, v.getDryRunTimeout())
@@ -199,24 +214,37 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(
 	}
 
 	// Heavy validation runner with unified metrics/logging
-	heavy := func(phase string) error {
+	heavy := func(phase string) (admission.Warnings, error) {
 		start := time.Now()
 		if err := v.updater.DryBuildSnapshotsWithVirtualService(ctxTO, vs); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				observeVSValidation(phase, "timeout", start)
-				return timeoutError()
+				return nil, timeoutError()
+			}
+			warnings := toleratedListenerConflict(err, tolerated, vs.Namespace)
+			if warnings != nil && ctxTO.Err() != nil {
+				// the dry run ran out of time: what it checked is not the whole picture
+				observeVSValidation(phase, "timeout", start)
+				return nil, timeoutError()
+			}
+			if warnings != nil {
+				observeVSValidation(phase, "ok", start)
+				virtualservicelog.Info("Listener address conflict tolerated", "name", vs.GetLabelName(),
+					"warnings", warnings)
+				return warnings, nil
 			}
 			observeVSValidation(phase, "error", start)
-			return fmt.Errorf("failed to build snapshot with virtual service: %w", err)
+			return nil, fmt.Errorf("failed to build snapshot with virtual service: %w", err)
 		}
 		observeVSValidation(phase, "ok", start)
-		return nil
+		return nil, nil
 	}
 
 	// Light validation runner that may fallback to heavy
-	light := func() error {
+	light := func() (admission.Warnings, error) {
 		start := time.Now()
-		if err := v.updater.DryValidateVirtualServiceLight(ctxTO, vs, prevVS, v.Config.ValidationIndices); err != nil {
+		if err := v.updater.DryValidateVirtualServiceLight(ctxTO, vs, prevVS, v.Config.ValidationIndices,
+			tolerated); err != nil {
 			switch {
 			case errors.Is(err, updater.ErrLightValidationInsufficientCoverage):
 				observeVSValidation("light", "coverage_miss", start)
@@ -225,19 +253,34 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(
 				return heavy("heavy_fallback")
 			case errors.Is(err, context.DeadlineExceeded):
 				observeVSValidation("light", "timeout", start)
-				return timeoutError()
+				return nil, timeoutError()
 			default:
 				observeVSValidation("light", "error", start)
-				return fmt.Errorf("light validation failed: %w", err)
+				return nil, fmt.Errorf("light validation failed: %w", err)
 			}
 		}
 		observeVSValidation("light", "ok", start)
-		return nil
+		return nil, nil
 	}
 
-	// Prefer lightweight validation if enabled, otherwise heavy-only
-	if v.getLightDryRunEnabled() {
+	// Prefer lightweight validation if enabled, otherwise heavy-only. A service that targets a frozen node
+	// before or after the change keeps the listener checks of the light mode and takes the heavy path for
+	// the rest: the light one sees no listener taken from a template and compares domains with the
+	// configuration the node keeps.
+	if !v.getLightDryRunEnabled() {
+		return heavy("heavy")
+	}
+	if !targetsNodes(vs, tolerated) && (prevVS == nil || !targetsNodes(prevVS, tolerated)) {
 		return light()
+	}
+	start := time.Now()
+	if err := v.updater.DryValidateListenerAddresses(ctxTO, vs, v.Config.ValidationIndices, tolerated); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			observeVSValidation("light", "timeout", start)
+			return nil, timeoutError()
+		}
+		observeVSValidation("light", "error", start)
+		return nil, fmt.Errorf("light validation failed: %w", err)
 	}
 	return heavy("heavy")
 }

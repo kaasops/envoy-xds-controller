@@ -130,7 +130,7 @@ func TestLightValidator_CoverageMiss_WithIndices(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil)
 	if !errors.Is(err, ErrLightValidationInsufficientCoverage) {
 		t.Fatalf("expected ErrLightValidationInsufficientCoverage, got %v", err)
 	}
@@ -149,7 +149,7 @@ func TestLightValidator_DuplicateWithinVS(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil)
 	if err == nil || err.Error() != "duplicate domain 'a.com' within VirtualService" {
 		t.Fatalf("expected duplicate within VS error, got %v", err)
 	}
@@ -167,7 +167,7 @@ func TestLightValidator_DomainCollisionAcrossNodes(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil)
 	if err == nil || err.Error() != "duplicate domain 'b.com' for node nodeA on listener ns/listener-a" {
 		t.Fatalf("expected duplicate domain across nodes error, got %v", err)
 	}
@@ -189,7 +189,7 @@ func TestLightValidator_SameDomainDifferentListener(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err != nil {
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil); err != nil {
 		t.Fatalf("same domain on a different listener must be allowed, got %v", err)
 	}
 }
@@ -214,7 +214,7 @@ func TestLightValidator_Snapshot_SameDomainDifferentListener(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, false); err != nil {
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, false, nil); err != nil {
 		t.Fatalf("same domain on a different listener must be allowed, got %v", err)
 	}
 }
@@ -234,7 +234,7 @@ func TestLightValidator_Snapshot_SameDomainSameListener(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, false)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, false, nil)
 	if err == nil || err.Error() != "duplicate domain 'b.com' for node nodeA on listener ns/listener-a" {
 		t.Fatalf("expected duplicate on the same listener, got %v", err)
 	}
@@ -271,7 +271,7 @@ func TestLightValidator_SameDomainListenersSharingPort(t *testing.T) {
 	defer restore()
 
 	vs := makeVSWithListener("vs1", []string{"nodeA"}, "listener-b")
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err != nil {
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil); err != nil {
 		t.Fatalf("listeners sharing a port must stay independent, got %v", err)
 	}
 }
@@ -290,7 +290,7 @@ func TestLightValidator_WildcardDifferentListener(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err != nil {
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil); err != nil {
 		t.Fatalf("'*' on a different listener must be allowed, got %v", err)
 	}
 }
@@ -309,7 +309,7 @@ func TestLightValidator_WildcardSameListener(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"nodeA"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil)
 	if err == nil || err.Error() != "duplicate domain '*' for node nodeA on listener ns/listener-a" {
 		t.Fatalf("expected duplicate '*' on the same listener, got %v", err)
 	}
@@ -335,7 +335,7 @@ func TestLightValidator_UpdatePrevVSExcluded(t *testing.T) {
 
 	prev := makeVS("prev", []string{"node1"})
 	vs := makeVS("vs1", []string{"node1"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev, true); err != nil {
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev, true, nil); err != nil {
 		t.Fatalf("expected no error because prevVS domains should be excluded, got %v", err)
 	}
 }
@@ -366,7 +366,7 @@ func TestLightValidator_ListenerDuplicateDetected(t *testing.T) {
 
 	// Test with either of the VirtualServices - both should detect the conflict
 	vs := makeVSWithListener("new-vs", []string{"n"}, "l1")
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil)
 	if err == nil || err.Error() == "" {
 		t.Fatalf("expected listener duplicate error, got %v", err)
 	}
@@ -428,7 +428,7 @@ func TestLightValidator_CommonVS_NoCollision_OK(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs-common", []string{"*"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err != nil {
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil); err != nil {
 		t.Fatalf("expected no error for common VS with empty domain sets, got %v", err)
 	}
 }
@@ -447,7 +447,7 @@ func TestLightValidator_CommonVS_DomainCollisionDetected(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs-common", []string{"*"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil)
 	if err == nil || err.Error() != "duplicate domain 'a.com' for node n2 on listener ns/listener-a" {
 		t.Fatalf("expected collision on n2 for 'a.com', got %v", err)
 	}
@@ -470,7 +470,7 @@ func TestLightValidator_MultiNode_UpdatePrevExclusionPerNode(t *testing.T) {
 
 	prev := makeVS("prev", []string{"n1"}) // prevVS affected only n1
 	vs := makeVS("new", []string{"n1", "n2"})
-	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev, true)
+	err := cu.DryValidateVirtualServiceLight(context.Background(), vs, prev, true, nil)
 	if err == nil || err.Error() != "duplicate domain 'x.com' for node n2 on listener ns/listener-a" {
 		t.Fatalf("expected duplicate only on n2 (no exclusion there), got %v", err)
 	}
@@ -488,7 +488,7 @@ func TestLightValidator_NoFalseFallback_WithEmptyNodes(t *testing.T) {
 	defer restore()
 
 	vs := makeVS("vs1", []string{"a", "b"})
-	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true); err != nil {
+	if err := cu.DryValidateVirtualServiceLight(context.Background(), vs, nil, true, nil); err != nil {
 		t.Fatalf("expected success with empty domain sets for nodes a,b, got %v", err)
 	}
 }

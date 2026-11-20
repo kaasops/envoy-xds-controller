@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
@@ -54,6 +55,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/api"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/cache"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/snapshots"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/updater"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -88,6 +90,11 @@ func init() {
 }
 
 type Config struct {
+	// SnapshotControl lets the cache API freeze, unfreeze and roll back nodes. The frozen nodes are kept in
+	// the Secret SnapshotFreezeSecret of the installation namespace and come back at every start, whatever
+	// this setting.
+	SnapshotControl       bool     `default:"true"                             envconfig:"API_SNAPSHOT_CONTROL"`
+	SnapshotFreezeSecret  string   `default:"envoy-xds-controller-frozen-nodes" envconfig:"SNAPSHOT_FREEZE_SECRET"`
 	WatchNamespaces       []string `default:""                     envconfig:"WATCH_NAMESPACES"`
 	InstallationNamespace string   `default:"envoy-xds-controller" envconfig:"INSTALLATION_NAMESPACE"`
 	TargetNamespace       string   `default:"envoy-xds-controller" envconfig:"TARGET_NAMESPACE"` // ns for creating cr
@@ -264,6 +271,7 @@ func main() {
 	resStore := store.New()
 
 	snapshotCache := cache.NewSnapshotCache()
+	snapshotCache.SetHistoryLimit(snapshotHistoryLimit(enableAPI, cfg.SnapshotControl))
 	cacheUpdater := updater.NewCacheUpdater(snapshotCache, resStore)
 	fWatcher, err := filewatcher.NewFileWatcher()
 	if err != nil {
@@ -475,6 +483,27 @@ func main() {
 			os.Exit(1)
 		}
 
+		// A restart must not unfreeze a node: the frozen nodes come back whatever the settings, and turning
+		// writes off only stops changes through the cache API.
+		freezeStore := &snapshots.SecretStore{
+			Reader:    mgr.GetAPIReader(),
+			Writer:    mgr.GetClient(),
+			Namespace: cfg.InstallationNamespace,
+			Name:      cfg.SnapshotFreezeSecret,
+		}
+		frozen, versionFloor, err := freezeStore.Load(ctx)
+		if err != nil {
+			// starting as if nothing were frozen would publish what the frozen nodes hold back
+			setupServers.Error(err, "unable to read the frozen nodes")
+			os.Exit(1)
+		}
+		snapshotCache.RestoreFrozen(frozen)
+		snapshotCache.SetVersionFloor(versionFloor)
+		for nodeID, freeze := range frozen {
+			setupServers.Info("node is frozen: nothing is published to it until it is unfrozen",
+				"nodeId", nodeID, "by", freeze.By, "reason", freeze.Reason)
+		}
+
 		if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
 			setupLog.Error(err, "cache was built with errors")
 		} else {
@@ -525,6 +554,12 @@ func main() {
 				if err != nil {
 					setupServers.Error(err, "failed to create api server")
 					os.Exit(1)
+				}
+				control := &snapshots.Control{Cache: snapshotCache, Builder: cacheUpdater, Store: freezeStore, Now: time.Now}
+				apiServer.EnableSnapshots(control, cfg.SnapshotControl)
+				if cfg.SnapshotControl && !apiServerCfg.Auth.Enabled {
+					setupServers.Info("snapshot control is on without authentication: " +
+						"anyone who reaches the cache API can freeze and roll back nodes")
 				}
 				if err := apiServer.RunGRPC(
 					grpcAPIPort,
@@ -636,4 +671,13 @@ func managerCacheOptions(cfg *Config) *mgrCache.Options {
 	}
 	mgrCacheOpts.DefaultNamespaces[cfg.InstallationNamespace] = mgrCache.Config{}
 	return mgrCacheOpts
+}
+
+// snapshotHistoryLimit is how many previously served snapshots each node keeps: they serve only a cache
+// API that can roll a node back to one.
+func snapshotHistoryLimit(cacheAPI, writes bool) int {
+	if cacheAPI && writes {
+		return 10
+	}
+	return 0
 }

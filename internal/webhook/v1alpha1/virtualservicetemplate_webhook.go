@@ -84,8 +84,15 @@ func generateValidationID() string {
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type VirtualServiceTemplateCustomValidator struct {
 	Client       client.Client
-	cacheUpdater *updater.CacheUpdater
+	cacheUpdater vstUpdater
 	Config       WebhookConfig
+}
+
+// vstUpdater is the part of the cache updater the template validator uses.
+type vstUpdater interface {
+	DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *envoyv1alpha1.VirtualServiceTemplate) error
+	// FrozenNodeIDs returns the nodes frozen on their served snapshot; their listener conflicts are tolerated.
+	FrozenNodeIDs() []string
 }
 
 var _ webhook.CustomValidator = &VirtualServiceTemplateCustomValidator{}
@@ -251,6 +258,13 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(
 			return nil, fmt.Errorf(
 				"validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS",
 				v.getDryRunTimeout())
+		}
+		tolerated := v.cacheUpdater.FrozenNodeIDs()
+		warnings := toleratedListenerConflict(err, tolerated, virtualservicetemplate.Namespace)
+		if warnings != nil {
+			virtualservicetemplatelog.Info("Listener address conflict tolerated",
+				"name", vstName, "warnings", warnings, "validationID", validationID)
+			return warnings, nil
 		}
 		virtualservicetemplatelog.Error(err, "Dry-run validation failed",
 			"name", vstName, "validationID", validationID)
