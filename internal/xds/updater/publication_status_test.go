@@ -3,6 +3,8 @@ package updater
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -13,7 +15,10 @@ import (
 	wrapped "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/yaml"
 )
 
 func TestPublicationStatus(t *testing.T) {
@@ -131,16 +136,100 @@ func TestPublicationStatusIncompleteSDS(t *testing.T) {
 	require.NoError(t, err)
 	for _, name := range []string{"app", "shared"} {
 		status := statuses[helpers.NamespacedName{Namespace: testNamespace, Name: name}]
-		require.True(t, status.Invalid)
+		require.False(t, status.Invalid)
 		require.Regexp(t, "sds-a.*sds-b", status.Message)
-		require.Equal(t, []string{"blue"}, status.AffectedNodes)
+		require.Empty(t, status.AffectedNodes)
 	}
+	// A failed cache write holds only the VS targeting that node.
+	key := helpers.NamespacedName{Namespace: testNamespace, Name: "app"}
+	failure := errors.New("failed")
+	statuses = publicationResults(s.MapVirtualServices(), statuses, nil, map[string]error{"other": failure}, nil)
+	require.False(t, statuses[key].Invalid)
+	require.Contains(t, statuses[key].Message, "sds-a")
+	statuses = publicationResults(s.MapVirtualServices(), statuses, nil, map[string]error{"blue": failure}, nil)
+	require.True(t, statuses[key].Invalid)
+	require.Contains(t, statuses[key].Message, "sds-a")
+	require.Equal(t, []string{"blue"}, statuses[key].AffectedNodes)
+
 	incomplete = false
 	err, _, statuses, _ = buildSnapshots(t.Context(), cache, s, nil)
 	require.NoError(t, err)
 	for _, status := range statuses {
 		require.Equal(t, VSStatus{}, status)
 	}
+}
+
+func TestPublicationOfSkippedSDSSecret(t *testing.T) {
+	s := store.New()
+	load := func(name string, obj any) {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join("../../../test/testdata/e2e", name+".yaml"))
+		require.NoError(t, err)
+		require.NoError(t, yaml.Unmarshal(data, obj))
+	}
+	var listener v1alpha1.Listener
+	var cluster v1alpha1.Cluster
+	var app v1alpha1.VirtualService
+	load("http_filter_sds_secrets/listener", &listener)
+	load("http_filter_sds_secrets/cluster", &cluster)
+	load("http_filter_sds_secrets/virtual-service", &app)
+	listener.Namespace, cluster.Namespace, app.Namespace = "default", "default", "default"
+	s.SetListener(&listener)
+	s.SetCluster(&cluster)
+	s.SetVirtualService(&app)
+
+	cache := wrapped.NewSnapshotCache()
+	u := NewCacheUpdater(cache, s)
+	require.NoError(t, u.RebuildSnapshots(t.Context()))
+	routes, listeners, err := cache.GetRouteConfigurationsAndListeners("test")
+	require.NoError(t, err)
+	require.Len(t, routes, 1)
+	require.Len(t, listeners, 1)
+	secrets, err := cache.GetSecrets("test")
+	require.NoError(t, err)
+	require.Empty(t, secrets)
+	warning, observed := u.PublicationStatusFor(&app)
+	require.True(t, observed)
+	require.False(t, warning.Invalid, "the snapshot with the OAuth2 filter was published")
+	require.Contains(t, warning.Message, "default/oauth2-credentials/token")
+	require.NotContains(t, warning.Message, "last snapshot publication")
+
+	// A missing certificate for a TLS listener aborts the build, holding even its healthy peers.
+	var tlsListener v1alpha1.Listener
+	var broken v1alpha1.VirtualService
+	load("basic_https_service/listener", &tlsListener)
+	load("basic_https_service/virtual-service", &broken)
+	tlsListener.Namespace = app.Namespace
+	broken.Namespace, broken.Name = app.Namespace, "broken"
+	broken.SetNodeIDs([]string{"other"})
+	s.SetListener(&tlsListener)
+	s.SetVirtualService(&broken)
+	require.Error(t, u.RebuildSnapshots(t.Context()))
+	held, _ := u.PublicationStatusFor(&app)
+	require.True(t, held.Invalid)
+	require.Contains(t, held.Message, "default/oauth2-credentials/token")
+	require.Contains(t, held.Message, "publication held by VirtualService broken")
+	root, _ := u.PublicationStatusFor(&broken)
+	require.True(t, root.Invalid)
+	require.Contains(t, root.Message, "can't find secret for domain")
+	_, err = cache.GetSnapshot("other")
+	require.Error(t, err)
+	s.DeleteVirtualService(helpers.NamespacedName{Namespace: broken.Namespace, Name: broken.Name})
+	require.NoError(t, u.RebuildSnapshots(t.Context()))
+	recovered, _ := u.PublicationStatusFor(&app)
+	require.Equal(t, warning, recovered)
+
+	s.SetSecret(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "oauth2-credentials", Namespace: "default"},
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{"token": []byte("test-token"), "hmac": []byte("test-hmac")},
+	})
+	require.NoError(t, u.RebuildSnapshots(t.Context()))
+	secrets, err = cache.GetSecrets("test")
+	require.NoError(t, err)
+	require.Len(t, secrets, 2)
+	recovered, _ = u.PublicationStatusFor(&app)
+	require.Equal(t, VSStatus{}, recovered)
 }
 
 func TestPublicationWaitsForRemovalFromFormerTarget(t *testing.T) {

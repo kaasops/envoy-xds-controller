@@ -41,6 +41,7 @@ import (
 // VirtualServiceReconciler reconciles a VirtualService object
 type VirtualServiceReconciler struct {
 	client.Client
+	apiReader       client.Reader
 	Scheme          *runtime.Scheme
 	Updater         *updater.CacheUpdater
 	CacheReadyChan  chan struct{}
@@ -67,7 +68,9 @@ func (r *VirtualServiceReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	rlog.Info("Reconciling VirtualService")
 
 	var vs envoyv1alpha1.VirtualService
-	if err := r.Get(ctx, req.NamespacedName, &vs); err != nil {
+	// A dependency can recover before the informer sees the preceding status write.
+	// Read inputs and status at one API resource version for comparison and update.
+	if err := r.apiReader.Get(ctx, req.NamespacedName, &vs); err != nil {
 		if client.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
@@ -111,6 +114,7 @@ func virtualServiceInputChanged(e event.UpdateEvent) bool {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VirtualServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.apiReader = mgr.GetAPIReader()
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&envoyv1alpha1.VirtualService{}, builder.WithPredicates(predicate.Funcs{UpdateFunc: virtualServiceInputChanged})).
 		Named("virtualservice").

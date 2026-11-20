@@ -13,4 +13,4 @@ data:
     if status.invalid then
       return {status = "Degraded", message = status.message or "Publication failed"}
     end
-    return {status = "Healthy"}
+    return {status = "Healthy", message = status.message}

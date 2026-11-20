@@ -419,7 +419,7 @@ func buildSnapshots(
 		if err := ctx.Err(); err != nil {
 			return err, usedSecrets, nil, metrics
 		}
-		vsStatuses[vsNN] = incompleteResources(vsRes.Warnings)
+		vsStatuses[vsNN] = resourceWarnings(vsRes.Warnings)
 		metrics.processedVSCount++
 
 		for _, secret := range vsRes.UsedSecrets {
@@ -475,7 +475,7 @@ func buildSnapshots(
 			if err := ctx.Err(); err != nil {
 				return err, usedSecrets, nil, metrics
 			}
-			vsStatuses[vsNN] = incompleteResources(vsRes.Warnings)
+			vsStatuses[vsNN] = resourceWarnings(vsRes.Warnings)
 			for _, secret := range vsRes.UsedSecrets {
 				usedSecrets[secret] = helpers.NamespacedName{Name: vs.Name, Namespace: vs.Namespace}
 			}
@@ -613,7 +613,7 @@ func buildSnapshots(
 	return nil, usedSecrets, vsStatuses, metrics
 }
 
-func incompleteResources(warnings []string) VSStatus {
+func resourceWarnings(warnings []string) VSStatus {
 	if len(warnings) == 0 {
 		return VSStatus{}
 	}
@@ -629,7 +629,7 @@ func incompleteResources(warnings []string) VSStatus {
 		suffix = fmt.Sprintf("; %d more warnings", len(messages)-shown)
 	}
 	detail := boundedStatusText(strings.Join(messages[:shown], "; "), maxPublicationDetail-len(suffix))
-	return VSStatus{Invalid: true, Message: detail + suffix}
+	return VSStatus{Message: detail + suffix}
 }
 
 // publicationResults reconciles per-service build results with the actual cache writes.
@@ -664,7 +664,7 @@ func publicationResults(
 			slices.Sort(nodes)
 		}
 		var reasons []string
-		if status.Invalid {
+		if status.Message != "" {
 			reasons = append(reasons, boundedStatusText(status.Message, maxPublicationDetail))
 		}
 		if buildHeld {
@@ -698,7 +698,7 @@ func publicationResults(
 				reasons = append(reasons, fmt.Sprintf("node %s: %s", boundedStatusText(node, maxDisplayedNodeBytes), reason))
 			}
 		}
-		status.Invalid = len(reasons) != 0
+		status.Invalid = status.Invalid || buildHeld || affected > 0
 		status.Message = strings.Join(reasons, "; ")
 		if affected > len(status.AffectedNodes) {
 			status.Message += fmt.Sprintf("; %d more affected nodes", affected-len(status.AffectedNodes))

@@ -6,7 +6,7 @@ This health check reports the snapshot publication result for the current Virtua
 | --- | --- |
 | The controller has not recorded a result for the current `metadata.generation` | `Progressing` |
 | `status.observedGeneration` matches `metadata.generation` and `status.invalid` is `true` | `Degraded` |
-| The generations match and `status.invalid` is `false` | `Healthy` |
+| The generations match and `status.invalid` is `false` | `Healthy`. If the builder published the snapshot with a warning, Argo CD displays the warning. |
 
 ## Installation
 
@@ -35,4 +35,4 @@ From the repository root, run the test with Python 3, `kubectl` with Kustomize s
 python3 test/argocd-health/test_health.py
 ```
 
-In a test application, apply a dependency change that passes admission but prevents snapshot publication. The VirtualService should become `Degraded` and display the cause. Sync the fix and verify that the VirtualService returns to `Healthy`. If you use sync waves, make the fix available in the same wave or an earlier one. [Argo CD sync waves and hooks](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/#combining-sync-waves-and-hooks)
+In a test application, apply a dependency change that passes admission but prevents snapshot publication. The VirtualService should become `Degraded` and display the cause. Put the fix in the same sync wave or an earlier one. If Argo CD sees the degraded resource before the next wave or a `PostSync` hook, the sync operation can fail. Once publication recovers, the VirtualService returns to `Healthy`. If the operation has already failed, retry the sync to apply the remaining resources. [Argo CD sync waves and hooks](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/#combining-sync-waves-and-hooks)

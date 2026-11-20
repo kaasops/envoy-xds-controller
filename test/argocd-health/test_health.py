@@ -14,9 +14,11 @@ class VirtualServiceHealth(unittest.TestCase):
         cases = [
             ("new", None, "Progressing"),
             ("legacy", {"invalid": False}, "Progressing"),
+            ("legacy-invalid", {"invalid": True, "message": "old error"}, "Progressing"),
             ("stale", {"observedGeneration": 1, "invalid": True}, "Progressing"),
             ("missing-result", {"observedGeneration": 2}, "Progressing"),
             ("invalid", {"observedGeneration": 2, "invalid": True, "message": "duplicate listener address"}, "Degraded"),
+            ("published-with-warning", {"observedGeneration": 2, "invalid": False, "message": "SDS secret skipped"}, "Healthy"),
             ("recovered", {"observedGeneration": 2, "invalid": False}, "Healthy"),
         ]
         with tempfile.TemporaryDirectory() as tmp:
@@ -52,7 +54,7 @@ class VirtualServiceHealth(unittest.TestCase):
                         str(manifest), "--argocd-cm-path", str(cm), "--loglevel", "error",
                     ], text=True).splitlines()
                     self.assertIn("STATUS: " + expected, result)
-                    if expected == "Degraded":
+                    if expected != "Progressing" and status.get("message"):
                         self.assertIn("MESSAGE: " + status["message"], result)
 
 
