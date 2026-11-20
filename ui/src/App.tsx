@@ -15,6 +15,7 @@ import { ThemedWrapper } from './components/themeWrapper/themeWrapper.tsx'
 import { useGetPermissions } from './api/grpc/hooks/useVirtualService.ts'
 import { usePermissionsStore } from './store/permissionsStore.ts'
 import { useThemeMode } from './utils/hooks'
+import { returnPath, signinState } from './utils/helpers/returnTo.ts'
 
 const HomePage = lazy(() => import('./pages/home/Home'))
 const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'))
@@ -65,7 +66,7 @@ function App() {
 		}
 
 		if (!auth.isAuthenticated) {
-			void auth.signinRedirect()
+			void auth.signinRedirect({ state: signinState() })
 			return (
 				<ThemedWrapper theme={theme} colorMode={colorMode}>
 					<div>Redirect to login...</div>
@@ -101,7 +102,7 @@ function App() {
 								</Route>
 							</Route>
 
-							<Route path='callback' element={<Navigate to='/nodeIDs' replace />} />
+							<Route path='callback' element={<Navigate to={returnPath(auth?.user?.state)} replace />} />
 							<Route path='*' element={<Page404 />} />
 						</Routes>
 					</ErrorBoundary>

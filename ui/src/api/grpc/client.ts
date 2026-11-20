@@ -10,6 +10,7 @@ import { RouteStoreService } from '../../gen/route/v1/route_pb.ts'
 import { AccessGroupStoreService } from '../../gen/access_group/v1/access_group_pb.ts'
 import { NodeStoreService } from '../../gen/node/v1/node_pb.ts'
 import { getAuth } from '../../utils/helpers/authBridge.ts'
+import { signinState } from '../../utils/helpers/returnTo.ts'
 import { UtilsService } from '../../gen/util/v1/util_pb.ts'
 import { PermissionsService } from '../../gen/permissions/v1/permissions_pb.ts'
 
@@ -31,7 +32,7 @@ export const errorInterceptor: Interceptor = next => async req => {
 	} catch (err) {
 		if (err instanceof ConnectError && err.code === Code.Unauthenticated) {
 			console.log('Token expired or invalid, redirecting to login...')
-			await getAuth().signinRedirect()
+			await getAuth().signinRedirect({ state: signinState() })
 		} else {
 			console.error('Error:', err instanceof ConnectError ? err.message : 'Unexpected error')
 		}
