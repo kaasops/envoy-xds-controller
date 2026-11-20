@@ -530,6 +530,7 @@ func main() {
 					grpcAPIPort,
 					resStore,
 					mgr.GetClient(),
+					mgr.GetAPIReader(),
 					cfg.GetNamespaceForResourceCreation(),
 					cacheUpdater,
 				); err != nil {

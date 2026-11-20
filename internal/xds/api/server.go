@@ -159,10 +159,10 @@ func (c *Client) Run(port int, cacheAPIScheme, cacheAPIAddr string) error {
 	return nil
 }
 
-func (c *Client) RunGRPC(port int, s store.Store, mgrClient client.Client, targetNs string, updater *updater.CacheUpdater) error {
+func (c *Client) RunGRPC(port int, s store.Store, mgrClient client.Writer, apiReader client.Reader, targetNs string, updater *updater.CacheUpdater) error {
 	mux := http.NewServeMux()
 
-	path, handler := virtual_servicev1connect.NewVirtualServiceStoreServiceHandler(virtualservice.NewVirtualServiceStore(s, mgrClient, targetNs, updater))
+	path, handler := virtual_servicev1connect.NewVirtualServiceStoreServiceHandler(virtualservice.NewVirtualServiceStore(s, mgrClient, apiReader, targetNs, updater))
 	mux.Handle(path, handler)
 	path, handler = virtual_service_templatev1connect.NewVirtualServiceTemplateStoreServiceHandler(grpcapi.NewVirtualServiceTemplateStore(s))
 	mux.Handle(path, handler)
