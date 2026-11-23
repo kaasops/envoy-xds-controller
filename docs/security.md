@@ -142,6 +142,12 @@ auth:
     g, user1, custom-role, domain1
 ```
 
+The cluster list checks `list-clusters` against each Cluster's Kubernetes name and its `exc-access-group` label. An unlabeled Cluster belongs to `general`. For example, the following rule allows members of the reader role in the `edge` group to see the Cluster named `upstream`:
+
+```csv
+p, role:reader, edge, upstream, list-clusters
+```
+
 #### Available Actions
 
 ```go
@@ -155,6 +161,7 @@ const (
     ActionListVirtualServiceTemplates = "list-virtual-service-templates"
     ActionListNodes                   = "list-nodes"
     ActionListRoutes                  = "list-routes"
+    ActionListClusters                = "list-clusters"
     ActionListHTTPFilters             = "list-http-filters"
     ActionListPolicies                = "list-policies"
     ActionListAccessGroups            = "list-access-groups"

@@ -12,6 +12,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/access_group/v1/access_groupv1connect"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/access_log_config/v1/access_log_configv1connect"
+	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/cluster/v1/clusterv1connect"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/http_filter/v1/http_filterv1connect"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/listener/v1/listenerv1connect"
 	"github.com/kaasops/envoy-xds-controller/pkg/api/grpc/node/v1/nodev1connect"
@@ -154,6 +155,7 @@ const (
 	ActionListVirtualServiceTemplates = "list-virtual-service-templates"
 	ActionListNodes                   = "list-nodes"
 	ActionListRoutes                  = "list-routes"
+	ActionListClusters                = "list-clusters"
 	ActionListHTTPFilters             = "list-http-filters"
 	ActionListPolicies                = "list-policies"
 	ActionListAccessGroups            = "list-access-groups"
@@ -181,6 +183,8 @@ func lookupAction(route string) string {
 		return ActionListVirtualServiceTemplates
 	case nodev1connect.NodeStoreServiceListNodesProcedure:
 		return ActionListNodes
+	case clusterv1connect.ClusterStoreServiceListClusterProcedure:
+		return ActionListClusters
 	case routev1connect.RouteStoreServiceListRoutesProcedure:
 		return ActionListRoutes
 	case http_filterv1connect.HTTPFilterStoreServiceListHTTPFiltersProcedure:
