@@ -25,6 +25,17 @@ type SnapshotCache struct {
 	cache.SnapshotCache
 	mu      sync.RWMutex
 	nodeIDs map[string]time.Time
+	// served, history and offered are kept per node for freezing and rollback, see freeze.go
+	served  map[string]Published
+	history map[string][]Published
+	offered map[string]cache.ResourceSnapshot
+	frozen  map[string]Freeze
+	// historyLimit is how many previously served snapshots each node keeps
+	historyLimit int
+	// versionFloor is the highest version a freeze or rollback has served, see NextVersion
+	versionFloor int64
+	// now is the clock of NextVersion
+	now func() time.Time
 }
 
 func NewSnapshotCache() *SnapshotCache {
@@ -33,6 +44,11 @@ func NewSnapshotCache() *SnapshotCache {
 		// otherwise Envoy may get a listener before the cluster its filter needs and reject it
 		SnapshotCache: cache.NewSnapshotCache(true, cache.IDHash{}, nil),
 		nodeIDs:       make(map[string]time.Time),
+		served:        make(map[string]Published),
+		history:       make(map[string][]Published),
+		offered:       make(map[string]cache.ResourceSnapshot),
+		frozen:        make(map[string]Freeze),
+		now:           time.Now,
 	}
 }
 
@@ -42,14 +58,25 @@ func (c *SnapshotCache) SetSnapshot(ctx context.Context, nodeID string, snapshot
 	if _, exists := c.nodeIDs[nodeID]; !exists {
 		c.nodeIDs[nodeID] = time.Time{}
 	}
-	if err := c.validateCache(snapshot); err != nil {
+	c.offered[nodeID] = snapshot
+	if err := c.validateCache(nodeID, snapshot); err != nil {
 		return fmt.Errorf("snapshot is invalid: %w", err)
 	}
-	if err := c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot); err != nil {
-		return err
+	if _, frozen := c.frozen[nodeID]; frozen {
+		return nil
 	}
-	c.nodeIDs[nodeID] = time.Now().UTC()
-	return nil
+	if c.historyLimit > 0 && c.unchanged(nodeID, snapshot) {
+		// a node without services gets the same empty snapshot on every build
+		return nil
+	}
+	return c.publish(ctx, nodeID, snapshot)
+}
+
+// unchanged reports whether the node is served this content already, whatever the versions: the same
+// content again needs no update. The caller holds c.mu.
+func (c *SnapshotCache) unchanged(nodeID string, snapshot cache.ResourceSnapshot) bool {
+	served, ok := c.served[nodeID]
+	return ok && served.ID() == SnapshotID(snapshot)
 }
 
 // LastPublication returns the last successful snapshot write for this node in this process.
@@ -69,6 +96,9 @@ func (c *SnapshotCache) ClearSnapshot(nodeID string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.nodeIDs, nodeID)
+	delete(c.served, nodeID)
+	delete(c.history, nodeID)
+	delete(c.offered, nodeID)
 	c.SnapshotCache.ClearSnapshot(nodeID)
 }
 
@@ -163,13 +193,30 @@ func (c *SnapshotCache) GetListeners(nodeID string) ([]*listenerv3.Listener, err
 	return getListenersFromSnapshot(snapshot), nil
 }
 
-// DuplicateListenerAddress reports two listeners bound to the same socket.
+// DuplicateListenerAddress reports two listeners of one node bound to the same socket.
 type DuplicateListenerAddress struct {
-	listener, previous, address string
+	nodeID, listener, previous, address string
+}
+
+// NodeID returns the node whose snapshot was rejected.
+func (e *DuplicateListenerAddress) NodeID() string { return e.nodeID }
+
+// Address returns the shared socket address as host:port.
+func (e *DuplicateListenerAddress) Address() string { return e.address }
+
+// Listeners returns the rejected listener and the one already bound to the address.
+func (e *DuplicateListenerAddress) Listeners() (listener, previous string) {
+	return e.listener, e.previous
 }
 
 func (e *DuplicateListenerAddress) Error() string {
 	return fmt.Sprintf("'%s' has duplicate address '%s' as existing listener '%s'", e.listener, e.address, e.previous)
+}
+
+// ListenersIn reports whether both listeners are in the namespace, so their names may be shown there.
+func (e *DuplicateListenerAddress) ListenersIn(namespace string) bool {
+	prefix := namespace + "/"
+	return namespace != "" && strings.HasPrefix(e.listener, prefix) && strings.HasPrefix(e.previous, prefix)
 }
 
 func (e *DuplicateListenerAddress) DetailForNamespace(namespace string) string {
@@ -180,7 +227,7 @@ func (e *DuplicateListenerAddress) DetailForNamespace(namespace string) string {
 	return "duplicate address"
 }
 
-func (c *SnapshotCache) validateCache(snapshot cache.ResourceSnapshot) error {
+func (c *SnapshotCache) validateCache(nodeID string, snapshot cache.ResourceSnapshot) error {
 	listeners := getListenersFromSnapshot(snapshot)
 	sort.Slice(listeners, func(i, j int) bool { return listeners[i].GetName() < listeners[j].GetName() })
 	addressListener := make(map[string]string, len(listeners))
@@ -189,7 +236,9 @@ func (c *SnapshotCache) validateCache(snapshot cache.ResourceSnapshot) error {
 		port := listener.GetAddress().GetSocketAddress().GetPortValue()
 		hostPort := fmt.Sprintf("%s:%d", host, port)
 		if existListener, ok := addressListener[hostPort]; ok {
-			return &DuplicateListenerAddress{listener: listener.GetName(), previous: existListener, address: hostPort}
+			return &DuplicateListenerAddress{
+				nodeID: nodeID, listener: listener.GetName(), previous: existListener, address: hostPort,
+			}
 		}
 		addressListener[hostPort] = listener.GetName()
 	}

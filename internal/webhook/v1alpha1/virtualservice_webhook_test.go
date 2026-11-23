@@ -20,9 +20,21 @@ func (s *stubUpdater) DryValidateVirtualServiceLight(
 	_ *envoyv1alpha1.VirtualService,
 	_ *envoyv1alpha1.VirtualService,
 	_ bool,
+	_ []string,
 ) error {
 	return s.lightErr
 }
+
+func (s *stubUpdater) DryValidateListenerAddresses(
+	_ context.Context,
+	_ *envoyv1alpha1.VirtualService,
+	_ bool,
+	_ []string,
+) error {
+	return nil
+}
+
+func (s *stubUpdater) FrozenNodeIDs() []string { return nil }
 
 func (s *stubUpdater) DryBuildSnapshotsWithVirtualService(_ context.Context, _ *envoyv1alpha1.VirtualService) error {
 	return s.heavyErr

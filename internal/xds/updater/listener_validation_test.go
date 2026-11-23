@@ -90,7 +90,7 @@ func TestValidateListenerAddresses_SameAddressDifferentNodeIDs(t *testing.T) {
 
 	// This should NOT produce an error since listeners belong to different nodeIDs
 	snapshotCache := wrapped.NewSnapshotCache()
-	err := validateListenerAddresses(s, snapshotCache, false)
+	err := validateListenerAddresses(s, snapshotCache, false, nil)
 	if err != nil {
 		t.Fatalf("Expected no error when same address:port used by different nodeIDs, got: %v", err)
 	}
@@ -140,7 +140,7 @@ func TestValidateListenerAddresses_SameAddressSameNodeID(t *testing.T) {
 
 	// This SHOULD produce an error since listeners belong to the same nodeID
 	snapshotCache := wrapped.NewSnapshotCache()
-	err := validateListenerAddresses(s, snapshotCache, false)
+	err := validateListenerAddresses(s, snapshotCache, false, nil)
 	if err == nil {
 		t.Fatalf("Expected error when same address:port used within same nodeID, got no error")
 	}
@@ -197,7 +197,7 @@ func TestValidateListenerAddresses_MultipleNodeIDsOverlap(t *testing.T) {
 
 	// This SHOULD produce an error because both listeners are used by node2
 	snapshotCache := wrapped.NewSnapshotCache()
-	err := validateListenerAddresses(s, snapshotCache, false)
+	err := validateListenerAddresses(s, snapshotCache, false, nil)
 	if err == nil {
 		t.Fatalf("Expected error when same address:port used within overlapping nodeID, got no error")
 	}
