@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { env } from '../env.ts'
 import { getAuth } from '../utils/helpers/authBridge.ts'
+import { signinState } from '../utils/helpers/returnTo.ts'
 
 const axiosClient = axios.create({
 	baseURL: env.VITE_ROOT_API_URL || '/api/v1',
@@ -49,7 +50,7 @@ axiosClient.interceptors.response.use(
 			}
 
 			try {
-				await auth.signinRedirect()
+				await auth.signinRedirect({ state: signinState() })
 			} catch (redirectErr) {
 				console.error('Redirect to login:', redirectErr)
 			}
