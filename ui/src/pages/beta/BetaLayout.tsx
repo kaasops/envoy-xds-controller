@@ -85,12 +85,13 @@ export default function BetaLayout() {
 		[mode]
 	)
 	const nodeId = useMatch('/beta/nodes/:nodeId/*')?.params.nodeId
+	const nodeOverview = useMatch('/beta/nodes/:nodeId/overview')
 	const comparing = useMatch('/beta/nodes/:nodeId/compare')
 	const location = useLocation()
 	const navigate = useNavigate()
 	const [menuOpen, setMenuOpen] = useState(false)
 	const search = useRef<HTMLInputElement>(null)
-	const active = nodeId ? 'snapshots' : location.pathname.split('/')[2] || 'nodes'
+	const active = nodeOverview ? 'nodes' : nodeId ? 'snapshots' : location.pathname.split('/')[2] || 'nodes'
 	const current = sections.find(section => section.slug === active)
 	useEffect(() => {
 		function shortcut(event: KeyboardEvent) {
@@ -296,8 +297,12 @@ export default function BetaLayout() {
 					>
 						<Breadcrumbs aria-label='Breadcrumb' sx={{ mb: 2, fontSize: 13 }}>
 							{nodeId && (
-								<Link component={RouterLink} to='/beta/snapshots' color='inherit'>
-									Snapshots
+								<Link
+									component={RouterLink}
+									to={nodeOverview ? '/beta/nodes' : '/beta/snapshots'}
+									color='inherit'
+								>
+									{nodeOverview ? 'Nodes' : 'Snapshots'}
 								</Link>
 							)}
 							{comparing && nodeId ? (
@@ -308,6 +313,7 @@ export default function BetaLayout() {
 								<span>{nodeId || current?.title}</span>
 							)}
 							{comparing && <span>Compare</span>}
+							{nodeOverview && <span>Overview</span>}
 						</Breadcrumbs>
 						<Outlet context={reportCount} />
 					</Box>

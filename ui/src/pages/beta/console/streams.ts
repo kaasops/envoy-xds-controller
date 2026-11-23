@@ -33,7 +33,7 @@ export interface ClientStream {
 
 export interface ClientsResponse {
 	controllerPod: string
-	snapshotVersions: Record<string, Record<string, string>>
+	snapshotVersions?: Record<string, Record<string, string>> | null
 	clients: ClientStream[]
 }
 
@@ -51,6 +51,24 @@ export const streamId = (stream: ClientStream) => stream.protocol + '/' + stream
 // Stream counters restart with the process, including a container restart in the same pod.
 export const streamRowId = (controllerPod: string, stream: ClientStream) =>
 	controllerPod + '/' + streamId(stream) + (stream.connectedAt ? '/' + stream.connectedAt : '')
+
+export const noConfiguration = 'No configuration on this controller'
+
+export function streamConfiguration(
+	stream: Pick<ClientStream, 'nodeId'>,
+	versions: ClientsResponse['snapshotVersions']
+) {
+	if (!stream.nodeId || !versions) return 'Unknown'
+	return Object.prototype.hasOwnProperty.call(versions, stream.nodeId) ? 'Snapshot available' : noConfiguration
+}
+
+export function nodesWithoutSnapshot(response?: ClientsResponse): Set<string> {
+	const missing = new Set<string>()
+	for (const stream of response?.clients ?? []) {
+		if (streamConfiguration(stream, response?.snapshotVersions) === noConfiguration) missing.add(stream.nodeId)
+	}
+	return missing
+}
 
 export function streamStatuses(stream: Pick<ClientStream, 'types'>): StreamStatus[] {
 	const types = stream.types

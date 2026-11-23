@@ -41,6 +41,7 @@ export interface Column<T> {
 
 export interface SectionTableProps<T> {
 	title: string
+	tableTitle?: string
 	rows: readonly T[]
 	columns: Column<T>[]
 	rowId: (row: T) => string
@@ -65,6 +66,7 @@ const values = (value: string | number | readonly string[]): readonly string[] =
 
 export default function SectionTable<T>({
 	title,
+	tableTitle,
 	rows,
 	columns,
 	rowId,
@@ -231,6 +233,11 @@ export default function SectionTable<T>({
 						}}
 					>
 						<Paper variant='outlined' sx={{ overflow: 'hidden' }}>
+							{tableTitle && (
+								<Typography component='h2' variant='h6' sx={{ px: 1.5, pt: 1.5 }}>
+									{tableTitle}
+								</Typography>
+							)}
 							<Stack direction='row' alignItems='center' gap={1} flexWrap='wrap' sx={{ p: 1.5 }}>
 								{filters}
 								<TextField
@@ -278,7 +285,7 @@ export default function SectionTable<T>({
 								))}
 							</Stack>
 							<TableContainer>
-								<Table size='small' aria-label={title}>
+								<Table size='small' aria-label={tableTitle ?? title}>
 									<TableHead sx={{ whiteSpace: 'nowrap', overflowWrap: 'normal' }}>
 										<TableRow sx={{ bgcolor: 'action.hover' }}>
 											{columns.map(c => (
