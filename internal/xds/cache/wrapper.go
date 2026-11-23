@@ -5,7 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -16,13 +19,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"golang.org/x/exp/maps"
 )
 
 type SnapshotCache struct {
 	cache.SnapshotCache
 	mu      sync.RWMutex
-	nodeIDs map[string]struct{}
+	nodeIDs map[string]time.Time
 }
 
 func NewSnapshotCache() *SnapshotCache {
@@ -30,18 +32,31 @@ func NewSnapshotCache() *SnapshotCache {
 		// ADS mode sends the resource types of a snapshot update in order, CDS before LDS:
 		// otherwise Envoy may get a listener before the cluster its filter needs and reject it
 		SnapshotCache: cache.NewSnapshotCache(true, cache.IDHash{}, nil),
-		nodeIDs:       make(map[string]struct{}),
+		nodeIDs:       make(map[string]time.Time),
 	}
 }
 
 func (c *SnapshotCache) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.nodeIDs[nodeID] = struct{}{}
+	if _, exists := c.nodeIDs[nodeID]; !exists {
+		c.nodeIDs[nodeID] = time.Time{}
+	}
 	if err := c.validateCache(snapshot); err != nil {
 		return fmt.Errorf("snapshot is invalid: %w", err)
 	}
-	return c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot)
+	if err := c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot); err != nil {
+		return err
+	}
+	c.nodeIDs[nodeID] = time.Now().UTC()
+	return nil
+}
+
+// LastPublication returns the last successful snapshot write for this node in this process.
+func (c *SnapshotCache) LastPublication(nodeID string) time.Time {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.nodeIDs[nodeID]
 }
 
 func (c *SnapshotCache) GetSnapshot(nodeID string) (cache.ResourceSnapshot, error) {
@@ -58,17 +73,19 @@ func (c *SnapshotCache) ClearSnapshot(nodeID string) {
 }
 
 func (c *SnapshotCache) GetNodeIDsAsMap() map[string]struct{} {
-	res := make(map[string]struct{}, len(c.nodeIDs))
 	c.mu.RLock()
-	maps.Copy(res, c.nodeIDs)
-	c.mu.RUnlock()
+	defer c.mu.RUnlock()
+	res := make(map[string]struct{}, len(c.nodeIDs))
+	for nodeID := range c.nodeIDs {
+		res[nodeID] = struct{}{}
+	}
 	return res
 }
 
 func (c *SnapshotCache) GetNodeIDs() []string {
-	res := make([]string, 0, len(c.nodeIDs))
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	res := make([]string, 0, len(c.nodeIDs))
 	for nodeID := range c.nodeIDs {
 		res = append(res, nodeID)
 	}
@@ -146,19 +163,33 @@ func (c *SnapshotCache) GetListeners(nodeID string) ([]*listenerv3.Listener, err
 	return getListenersFromSnapshot(snapshot), nil
 }
 
+// DuplicateListenerAddress reports two listeners bound to the same socket.
+type DuplicateListenerAddress struct {
+	listener, previous, address string
+}
+
+func (e *DuplicateListenerAddress) Error() string {
+	return fmt.Sprintf("'%s' has duplicate address '%s' as existing listener '%s'", e.listener, e.address, e.previous)
+}
+
+func (e *DuplicateListenerAddress) DetailForNamespace(namespace string) string {
+	prefix := namespace + "/"
+	if namespace != "" && strings.HasPrefix(e.listener, prefix) && strings.HasPrefix(e.previous, prefix) {
+		return e.Error()
+	}
+	return "duplicate address"
+}
+
 func (c *SnapshotCache) validateCache(snapshot cache.ResourceSnapshot) error {
 	listeners := getListenersFromSnapshot(snapshot)
+	sort.Slice(listeners, func(i, j int) bool { return listeners[i].GetName() < listeners[j].GetName() })
 	addressListener := make(map[string]string, len(listeners))
 	for _, listener := range listeners {
 		host := listener.GetAddress().GetSocketAddress().GetAddress()
 		port := listener.GetAddress().GetSocketAddress().GetPortValue()
 		hostPort := fmt.Sprintf("%s:%d", host, port)
 		if existListener, ok := addressListener[hostPort]; ok {
-			return fmt.Errorf("'%s' has duplicate address '%s' as existing listener '%s'",
-				listener.GetName(),
-				hostPort,
-				existListener,
-			)
+			return &DuplicateListenerAddress{listener: listener.GetName(), previous: existListener, address: hostPort}
 		}
 		addressListener[hostPort] = listener.GetName()
 	}

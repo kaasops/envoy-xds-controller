@@ -30,6 +30,8 @@ type Resources struct {
 
 	// Domains is a slice of domain names for the virtual service
 	Domains []string
+
+	Warnings []string
 }
 
 // HasTLSConfig returns true if the resources include TLS configuration

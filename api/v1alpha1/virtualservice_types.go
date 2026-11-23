@@ -30,9 +30,11 @@ type VirtualServiceSpec struct {
 
 // VirtualServiceStatus defines the observed state of VirtualService
 type VirtualServiceStatus struct {
-	Message     string        `json:"message,omitempty"`
-	Invalid     bool          `json:"invalid"`
-	UsedSecrets []ResourceRef `json:"usedSecrets,omitempty"`
+	// ObservedGeneration is the generation evaluated by the last live snapshot build.
+	ObservedGeneration int64         `json:"observedGeneration,omitempty"`
+	Message            string        `json:"message,omitempty"`
+	Invalid            bool          `json:"invalid"`
+	UsedSecrets        []ResourceRef `json:"usedSecrets,omitempty"`
 
 	LastAppliedHash *uint32 `json:"lastAppliedHash,omitempty"`
 }

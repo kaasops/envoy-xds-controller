@@ -2,6 +2,7 @@ package main_builder
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -18,12 +19,11 @@ import (
 // for example the token and hmac secrets of the OAuth2 filter.
 // A secret is referenced as namespace/name for a TLS secret
 // or as namespace/name/key for a single key of an Opaque secret.
-// A reference that does not resolve is logged and skipped: the VirtualService
-// is still served and Envoy keeps waiting for the secret.
+// An unresolved reference produces a warning; Envoy keeps waiting for the secret.
 func (b *Builder) buildSDSSecrets(
 	vsName helpers.NamespacedName,
 	httpFilters []*hcmv3.HttpFilter,
-) ([]*tlsv3.Secret, []helpers.NamespacedName) {
+) ([]*tlsv3.Secret, []helpers.NamespacedName, []string) {
 	var refs []*tlsv3.SdsSecretConfig
 	for _, httpFilter := range httpFilters {
 		collectSDSSecretRefs(httpFilter.ProtoReflect(), &refs)
@@ -31,6 +31,16 @@ func (b *Builder) buildSDSSecrets(
 
 	var secrets []*tlsv3.Secret
 	var usedSecrets []helpers.NamespacedName
+	var warnings []string
+	// An explicit API source can point at an independent SDS server. Its contents
+	// cannot be inferred from this controller's store, even for a matching name.
+	localRequests := make(map[string]bool, len(refs))
+	for _, ref := range refs {
+		source := ref.GetSdsConfig()
+		if source.GetAds() != nil || source.GetSelf() != nil {
+			localRequests[ref.GetName()] = true
+		}
+	}
 	seenNames := make(map[string]struct{}, len(refs))
 	seenSecrets := make(map[helpers.NamespacedName]struct{}, len(refs))
 
@@ -45,6 +55,9 @@ func (b *Builder) buildSDSSecrets(
 		if err != nil {
 			log.Log.WithName("main-builder").Info("SDS secret requested by HTTP filter is not served",
 				"virtualService", vsName.String(), "secret", name, "reason", err.Error())
+			if localRequests[name] {
+				warnings = append(warnings, fmt.Sprintf("SDS secret %q skipped: %v", name, err))
+			}
 			continue
 		}
 		secrets = append(secrets, secret)
@@ -55,7 +68,8 @@ func (b *Builder) buildSDSSecrets(
 		}
 	}
 
-	return secrets, usedSecrets
+	slices.Sort(warnings)
+	return secrets, usedSecrets, warnings
 }
 
 // buildSDSSecret builds a secret by the name an HTTP filter requests it with
@@ -89,7 +103,7 @@ func (b *Builder) buildGenericSecret(secretName helpers.NamespacedName, key stri
 	name := secretName.String() + "/" + key
 	value, exists := k8sSecret.Data[key]
 	if !exists {
-		return nil, fmt.Errorf("SDS secret %s: key %q not found in Kubernetes secret %s", name, key, secretName.String())
+		return nil, fmt.Errorf("key %q not found in Kubernetes secret %s", key, secretName.String())
 	}
 
 	return &tlsv3.Secret{

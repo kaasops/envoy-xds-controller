@@ -106,6 +106,7 @@ func (rb *ResourceBuilder) BuildResources(vs *v1alpha1.VirtualService) (*Resourc
 		Secrets:     mainResources.Secrets,
 		UsedSecrets: mainResources.UsedSecrets,
 		Domains:     mainResources.Domains,
+		Warnings:    mainResources.Warnings,
 	}
 
 	return resources, nil
@@ -119,6 +120,7 @@ type Resources struct {
 	Secrets     []*tlsv3.Secret
 	UsedSecrets []helpers.NamespacedName
 	Domains     []string
+	Warnings    []string
 }
 
 // BuildResources is the main entry point for building Envoy resources using the modular architecture

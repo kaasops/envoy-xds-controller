@@ -125,6 +125,8 @@ Verify the CRDs are installed:
 kubectl get crds | grep envoy.kaasops.io
 ```
 
+[VirtualService health in Argo CD](examples/argocd-health/README.md)
+
 ## Upgrading
 
 ### Upgrading with Helm

@@ -99,6 +99,7 @@ var _ = Describe("VirtualService Controller", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &VirtualServiceReconciler{
 				Client:         k8sClient,
+				apiReader:      k8sClient,
 				Scheme:         k8sClient.Scheme(),
 				Updater:        cacheUpdater,
 				CacheReadyChan: cacheReadyChan,
