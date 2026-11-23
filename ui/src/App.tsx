@@ -7,6 +7,7 @@ import ErrorBoundary from './components/errorBoundary/ErrorBoundary'
 import Spinner from './components/spinner/Spinner'
 import Layout from './layout/layout'
 
+import { sections } from './pages/beta/console/sections'
 import { ColorModeContext } from './theme'
 import { env } from './env.ts'
 import { provideAuth } from './utils/helpers'
@@ -18,7 +19,7 @@ import { useThemeMode } from './utils/hooks'
 import { returnPath, signinState } from './utils/helpers/returnTo.ts'
 
 const BetaLayout = lazy(() => import('./pages/beta/BetaLayout'))
-const FleetNodes = lazy(() => import('./pages/beta/FleetNodes'))
+const ConsoleIndex = lazy(() => import('./pages/beta/console/ConsoleIndex'))
 const NodeSnapshots = lazy(() => import('./pages/beta/NodeSnapshots'))
 const CompareSnapshots = lazy(() => import('./pages/beta/CompareSnapshots'))
 const HomePage = lazy(() => import('./pages/home/Home'))
@@ -87,7 +88,10 @@ function App() {
 					<ErrorBoundary>
 						<Routes>
 							<Route path='beta' element={<BetaLayout />}>
-								<Route index element={<FleetNodes />} />
+								<Route index element={<ConsoleIndex />} />
+								{sections.map(({ slug, Page }) => (
+									<Route key={slug} path={slug} element={<Page />} />
+								))}
 								<Route path='nodes/:nodeId' element={<NodeSnapshots />} />
 								<Route path='nodes/:nodeId/compare' element={<CompareSnapshots />} />
 							</Route>
