@@ -1,9 +1,9 @@
 import { Box, Link, Paper, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
-import { httpStatus, nodePath } from '../../api'
+import { httpStatus, nodeOverviewPath, nodePath } from '../../api'
 import { nodeSection, useNodeInventory } from '../nodeInventory'
 import SectionTable, { type Column } from '../SectionTable'
-import { streamCounts } from '../streams'
+import { noConfiguration, nodesWithoutSnapshot, streamCounts } from '../streams'
 
 interface Observation {
 	node: string
@@ -18,7 +18,7 @@ const columns: Column<Observation>[] = [
 		label: 'Node ID',
 		value: row => row.node,
 		render: row => (
-			<Link component={RouterLink} to={'/beta/nodes?' + new URLSearchParams({ selected: row.node })}>
+			<Link component={RouterLink} to={nodeOverviewPath(row.node)}>
 				{row.node}
 			</Link>
 		)
@@ -40,10 +40,19 @@ export default function Overview() {
 	const query = useNodeInventory()
 	const data = httpStatus(query.error) === 403 || httpStatus(query.error) === 401 ? undefined : query.data
 	const observations: Observation[] = []
+	const missing = nodesWithoutSnapshot(data?.clients)
 	for (const node of data?.nodes ?? []) {
+		if (missing.has(node.nodeId)) {
+			observations.push({
+				node: node.nodeId,
+				state: noConfiguration,
+				detail: 'View connected xDS streams',
+				href: nodeSection('clients', node.nodeId)
+			})
+		}
 		for (const state of ['NACK', 'Awaiting ACK', 'Unknown'] as const) {
 			const count = node.responses[state]
-			if (count)
+			if (count && !(state === 'Unknown' && missing.has(node.nodeId)))
 				observations.push({
 					node: node.nodeId,
 					state,
@@ -51,6 +60,13 @@ export default function Overview() {
 					href: nodeSection('clients', node.nodeId, state)
 				})
 		}
+		if (node.responses.ACK && !data?.clients.snapshotVersions && !node.responses.Unknown)
+			observations.push({
+				node: node.nodeId,
+				state: 'Unknown',
+				detail: 'Snapshot information is unavailable',
+				href: nodeSection('clients', node.nodeId)
+			})
 		if (node.freeze)
 			observations.push({
 				node: node.nodeId,
@@ -67,6 +83,8 @@ export default function Overview() {
 			})
 	}
 	const counts = data && streamCounts(data.clients.clients)
+	const healthy = (data?.nodes.length ?? 0) - new Set(observations.map(row => row.node)).size
+	const knowHealth = query.isSuccess && !query.isFetching && Boolean(data?.nodes.length)
 	const metrics = [
 		{ label: 'Nodes', value: data?.nodes.length, href: '/beta/nodes' },
 		{ label: 'xDS streams', value: data?.clients.clients.length, href: '/beta/clients' },
@@ -76,6 +94,7 @@ export default function Overview() {
 	return (
 		<SectionTable
 			title='Overview'
+			tableTitle='Needs attention'
 			columns={columns}
 			rows={observations}
 			rowId={row => JSON.stringify([row.node, row.state])}
@@ -83,7 +102,13 @@ export default function Overview() {
 			loading={query.isFetching}
 			updatedAt={query.dataUpdatedAt}
 			onRefresh={() => void query.refetch()}
-			emptyText='No pending responses, rejections, frozen nodes or missing streams in this view.'
+			emptyText={
+				knowHealth
+					? 'All nodes are healthy.'
+					: query.isSuccess
+						? 'No nodes are visible.'
+						: 'No current observations.'
+			}
 			description={
 				<Stack component='span' spacing={1.5}>
 					{data?.clients.controllerPod && (
@@ -121,6 +146,14 @@ export default function Overview() {
 							</Paper>
 						))}
 					</Box>
+					{knowHealth && (
+						<Typography component='span' variant='body2'>
+							<Link component={RouterLink} to='/beta/nodes'>
+								{healthy} {healthy === 1 ? 'node is' : 'nodes are'} healthy
+							</Link>
+							{' on the responding controller.'}
+						</Typography>
+					)}
 				</Stack>
 			}
 		/>

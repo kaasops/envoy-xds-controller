@@ -5,7 +5,7 @@ import { getClients, streamCounts, type ClientStream } from './streams'
 
 type Freeze = NonNullable<SnapshotState['freeze']>
 
-async function getFreezes(signal: AbortSignal) {
+export async function getFreezes(signal: AbortSignal) {
 	const { data } = await client.get<{ frozenNodes: Record<string, Freeze> | null }>('/frozenNodes', { signal })
 	return new Map(Object.entries(data.frozenNodes ?? {}))
 }

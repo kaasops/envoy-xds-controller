@@ -29,6 +29,7 @@ import {
 	getSnapshotState,
 	httpStatus,
 	manualQueryOptions,
+	nodeOverviewPath,
 	nodePath,
 	rollbackNode,
 	snapshotQueryKey,
@@ -182,6 +183,9 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					)}
 				</Box>
 				<Stack direction='row' gap={1} flexWrap='wrap'>
+					<Button component={RouterLink} to={nodeOverviewPath(nodeId)}>
+						Node overview
+					</Button>
 					<Button
 						startIcon={<RefreshOutlined />}
 						variant='outlined'

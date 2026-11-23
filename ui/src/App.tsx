@@ -21,6 +21,7 @@ import { returnPath, signinState } from './utils/helpers/returnTo.ts'
 const BetaLayout = lazy(() => import('./pages/beta/BetaLayout'))
 const ConsoleIndex = lazy(() => import('./pages/beta/console/ConsoleIndex'))
 const NodeSnapshots = lazy(() => import('./pages/beta/NodeSnapshots'))
+const BetaNodeOverview = lazy(() => import('./pages/beta/nodeOverview/NodeOverview'))
 const CompareSnapshots = lazy(() => import('./pages/beta/CompareSnapshots'))
 const HomePage = lazy(() => import('./pages/home/Home'))
 const NodeInfoPage = lazy(() => import('./pages/nodeInfo/NodeInfo'))
@@ -93,6 +94,7 @@ function App() {
 									<Route key={slug} path={slug} element={<Page />} />
 								))}
 								<Route path='nodes/:nodeId' element={<NodeSnapshots />} />
+								<Route path='nodes/:nodeId/overview' element={<BetaNodeOverview />} />
 								<Route path='nodes/:nodeId/compare' element={<CompareSnapshots />} />
 							</Route>
 

@@ -13,11 +13,12 @@ import {
 } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
-import { manualQueryOptions, typeLabel } from '../../api'
+import { manualQueryOptions, nodeOverviewPath, typeLabel } from '../../api'
 import SectionTable, { type Column } from '../SectionTable'
 import {
 	clientsQueryKey,
 	getClients,
+	streamConfiguration,
 	streamId,
 	streamRowId,
 	streamStatuses,
@@ -35,7 +36,7 @@ const listenerType = 'type.googleapis.com/envoy.config.listener.v3.Listener'
 
 const statusColors = { NACK: 'error', 'Awaiting ACK': 'warning', ACK: 'success', Unknown: 'default' } as const
 
-function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
+export function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
 	return (
 		<Stack component='span' direction='row' gap={0.5} flexWrap='wrap'>
 			{statuses.map(status => (
@@ -58,14 +59,16 @@ function timeUtc(timestamp?: string) {
 	return Number.isNaN(date.getTime()) ? timestamp : date.toISOString().slice(0, 19).replace('T', ' ')
 }
 
-function StreamDetails({
+export function StreamDetails({
 	stream,
 	pod,
-	versions
+	versions,
+	resourcePath
 }: {
 	stream: ClientStream
 	pod: string
 	versions?: Record<string, string>
+	resourcePath?: (typeKey: string, name: string) => string
 }) {
 	const listener = stream.types.find(type => type.typeUrl === listenerType)
 	const rejections = stream.types.flatMap(type => type.rejections.map(rejection => ({ type, rejection })))
@@ -143,38 +146,50 @@ function StreamDetails({
 											aria-label='Resources in rejected response'
 											sx={{ m: 0, pl: 2 }}
 										>
-											{rejection.resources.map(ref => (
-												<li key={ref.name}>
-													{kind && stream.nodeId ? (
-														<Link
-															component={RouterLink}
-															to={
-																'/beta/' +
+											{rejection.resources.map(ref => {
+												const href =
+													ref.name &&
+													stream.nodeId &&
+													(resourcePath
+														? resourcePath(kind?.short || type.typeUrl, ref.name)
+														: kind &&
+															'/beta/' +
 																kind.section +
 																'?' +
 																new URLSearchParams({
 																	node: stream.nodeId,
 																	q: ref.name
-																})
-															}
-														>
-															{ref.name}
-														</Link>
-													) : (
-														ref.name
-													)}
-													{ref.version && (
-														<Typography
-															component='span'
-															variant='caption'
-															color='text.secondary'
-															sx={{ ml: 1, overflowWrap: 'anywhere' }}
-														>
-															{ref.version}
-														</Typography>
-													)}
-												</li>
-											))}
+																}))
+												return (
+													<li key={ref.name}>
+														{href ? (
+															<Link
+																component={RouterLink}
+																to={href}
+																aria-label={
+																	resourcePath
+																		? 'Find ' + ref.name + ' in the served snapshot'
+																		: undefined
+																}
+															>
+																{ref.name}
+															</Link>
+														) : (
+															ref.name
+														)}
+														{ref.version && (
+															<Typography
+																component='span'
+																variant='caption'
+																color='text.secondary'
+																sx={{ ml: 1, overflowWrap: 'anywhere' }}
+															>
+																{ref.version}
+															</Typography>
+														)}
+													</li>
+												)
+											})}
 										</Box>
 									) : (
 										<Typography variant='body2' color='text.secondary'>
@@ -306,7 +321,7 @@ export default function Clients() {
 				stream.nodeId ? (
 					<Link
 						component={RouterLink}
-						to={'/beta/nodes?' + new URLSearchParams({ selected: stream.nodeId })}
+						to={nodeOverviewPath(stream.nodeId)}
 						onClick={event => event.stopPropagation()}
 					>
 						{stream.nodeId}
@@ -314,6 +329,11 @@ export default function Clients() {
 				) : (
 					'Not identified'
 				)
+		},
+		{
+			key: 'configuration',
+			label: 'Configuration',
+			value: stream => streamConfiguration(stream, query.data?.snapshotVersions)
 		},
 		{ key: 'address', label: 'Address', value: stream => stream.address },
 		{ key: 'envoy', label: 'Envoy', value: stream => stream.envoyVersion },
@@ -331,7 +351,7 @@ export default function Clients() {
 			updatedAt={query.dataUpdatedAt}
 			onRefresh={() => void query.refetch()}
 			detail={stream => (
-				<StreamDetails stream={stream} pod={pod} versions={query.data?.snapshotVersions[stream.nodeId]} />
+				<StreamDetails stream={stream} pod={pod} versions={query.data?.snapshotVersions?.[stream.nodeId]} />
 			)}
 			emptyText='No connected streams.'
 		/>

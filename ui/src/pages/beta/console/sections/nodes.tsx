@@ -1,7 +1,7 @@
 import { Button, Link, Stack, Typography } from '@mui/material'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { nodePath, fleetQueryKey, httpStatus, type SnapshotState } from '../../api'
+import { nodeOverviewPath, nodePath, fleetQueryKey, httpStatus, type SnapshotState } from '../../api'
 import NodeListAction from '../../NodeListAction'
 import { getNodeInventory, nodeInventoryKey, nodeSection, useNodeInventory, type NodeEntry } from '../nodeInventory'
 import SectionTable, { type Column } from '../SectionTable'
@@ -9,8 +9,7 @@ import { streamId, streamRowId, type StreamStatus } from '../streams'
 
 const statuses: StreamStatus[] = ['NACK', 'Awaiting ACK', 'ACK', 'Unknown']
 
-const nodeHref = (row: NodeEntry) =>
-	row.cached || row.freeze ? nodePath(row.nodeId) : nodeSection('clients', row.nodeId)
+const nodeHref = (row: NodeEntry) => nodeOverviewPath(row.nodeId)
 
 const columns: Column<NodeEntry>[] = [
 	{

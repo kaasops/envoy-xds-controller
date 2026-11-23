@@ -2,14 +2,12 @@ import { NodeOverviewResponse } from '../../common/types/overviewApiTypes'
 import axiosClient from '../axiosApiClient'
 
 const GetOverviewService = {
-	getOverview: async (nodeId: string): Promise<NodeOverviewResponse | undefined> => {
-		try {
-			const { data } = await axiosClient.get<NodeOverviewResponse>(`/overview?node_id=${nodeId}`)
-			return data
-		} catch (error: unknown) {
-			console.error('Error fetching overview: ', error)
-			throw error
-		}
+	getOverview: async (nodeId: string, signal?: AbortSignal): Promise<NodeOverviewResponse> => {
+		const { data } = await axiosClient.get<NodeOverviewResponse>('/overview', {
+			params: { node_id: nodeId },
+			signal
+		})
+		return data
 	}
 }
 

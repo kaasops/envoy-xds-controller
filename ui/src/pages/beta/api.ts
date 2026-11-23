@@ -64,6 +64,12 @@ export const manualQueryOptions = {
 
 const nodeUrl = (nodeId: string) => '/nodes/' + encodeURIComponent(nodeId)
 export const nodePath = (nodeId: string) => '/beta' + nodeUrl(nodeId)
+export function nodeOverviewPath(nodeId: string, tab?: string, selected?: string) {
+	const params = new URLSearchParams()
+	if (tab) params.set('tab', tab)
+	if (selected) params.set('selected', selected)
+	return nodePath(nodeId) + '/overview' + (params.size ? '?' + params : '')
+}
 export const typeLabel = (url: string) => url.split('.').pop() || url
 
 export function httpStatus(error: unknown) {
