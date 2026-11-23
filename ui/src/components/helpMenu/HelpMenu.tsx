@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 import { 
   IconButton, 
   Menu, 
@@ -102,6 +103,9 @@ const HelpMenu: React.FC = () => {
         <DialogActions>
           <Button onClick={handleAboutDialogClose} color="primary">
             Close
+          </Button>
+          <Button component={RouterLink} to="/beta/nodes" variant="contained">
+            Open Envoy Console (beta)
           </Button>
         </DialogActions>
       </Dialog>
