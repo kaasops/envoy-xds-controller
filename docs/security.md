@@ -241,6 +241,10 @@ func (a *Authorizer) Authorize(domain string, object any) (bool, error) {
    - Action-based permissions
    - Domain-specific restrictions
 
+3. **Connected clients**:
+   - `GET /api/v1/clients` lists the address and Envoy version of every connected xDS stream, limited to the node IDs the caller may access
+   - With OIDC disabled the cache API has no access control, and this list is open to anyone who can reach the API: through its Service, its Ingress, or the UI, which proxies `/api/v1`
+
 ## Best Practices
 
 ### Configuration
