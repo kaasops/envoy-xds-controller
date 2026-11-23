@@ -9,6 +9,7 @@ import (
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	filev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -82,8 +83,9 @@ func (a *AccessLogConfig) unmarshalV3(options ...func(*opts)) (*accesslogv3.Acce
 
 			fileConfig.Path += fmt.Sprintf("/%s.log", unmarshalOpts.filename)
 
-			fileConfigAny, err := anypb.New(fileConfig)
-			if err != nil {
+			// Deterministic: a JSON format is a map, and the same object must give the same bytes.
+			fileConfigAny := &anypb.Any{}
+			if err := anypb.MarshalFrom(fileConfigAny, fileConfig, proto.MarshalOptions{Deterministic: true}); err != nil {
 				return nil, fmt.Errorf("failed to marshal fileConfig to anypb: %w", err)
 			}
 

@@ -99,12 +99,13 @@ func (m *Mixer) Mix(store store.Store) (map[string]map[resource.Type][]types.Res
 // sortFilterChains sorts filter chains by name for deterministic ordering.
 // This prevents spurious snapshot version increments caused by
 // non-deterministic map iteration order in Go.
-// Note: Filter chain names should be unique; duplicates are a configuration error.
+// The chains of a service share its name, one per certificate, and the services common to all nodes
+// come in no particular order: a stable sort keeps the order the service gave its chains.
 func sortFilterChains(fcs []*listenerv3.FilterChain) {
 	if len(fcs) < 2 {
 		return
 	}
-	sort.Slice(fcs, func(i, j int) bool {
+	sort.SliceStable(fcs, func(i, j int) bool {
 		return fcs[i].GetName() < fcs[j].GetName()
 	})
 }

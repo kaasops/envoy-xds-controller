@@ -13,6 +13,7 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/protoutil"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder/utils"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -84,7 +85,8 @@ func (b *Builder) BuildHTTPFilters(vs *v1alpha1.VirtualService) ([]*hcmv3.HttpFi
 		configType := &hcmv3.HttpFilter_TypedConfig{
 			TypedConfig: &anypb.Any{},
 		}
-		if err := configType.TypedConfig.MarshalFrom(rbacF); err != nil {
+		// Deterministic: the policies are a map, and the same service must give the same bytes.
+		if err := anypb.MarshalFrom(configType.TypedConfig, rbacF, proto.MarshalOptions{Deterministic: true}); err != nil {
 			return nil, err
 		}
 		httpFilters = append(httpFilters, &hcmv3.HttpFilter{

@@ -1,7 +1,9 @@
 package filter_chains
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -39,7 +41,13 @@ func (b *Builder) BuildFilterChains(params *FilterChainsParams) ([]*listenerv3.F
 	var filterChains []*listenerv3.FilterChain
 
 	if len(params.SecretNameToDomains) > 0 {
-		for secretName, domains := range params.SecretNameToDomains {
+		// One chain per certificate, in the order of the certificate names: the map has no order, and the
+		// same objects must build the same listener.
+		secretNames := slices.SortedFunc(maps.Keys(params.SecretNameToDomains), func(a, b helpers.NamespacedName) int {
+			return cmp.Or(strings.Compare(a.Namespace, b.Namespace), strings.Compare(a.Name, b.Name))
+		})
+		for _, secretName := range secretNames {
+			domains := params.SecretNameToDomains[secretName]
 			// Create a copy of params to avoid modifying the original
 			paramsCopy := *params
 			paramsCopy.Domains = domains
