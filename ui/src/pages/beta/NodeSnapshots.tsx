@@ -40,6 +40,7 @@ import {
 } from './api'
 import type { SnapshotInfo, SnapshotState } from './api'
 import PauseDialog from './PauseDialog'
+import { groupSnapshotHistory } from './snapshotHistory'
 
 type Action = { kind: 'pause' } | { kind: 'rollback'; to: string; expectServed: string }
 
@@ -378,13 +379,13 @@ function NodePage({ nodeId }: { nodeId: string }) {
 									<TableHead>
 										<TableRow>
 											<TableCell>Snapshot ID</TableCell>
-											<TableCell>Published</TableCell>
+											<TableCell>Last published</TableCell>
 											<TableCell align='right'>Actions</TableCell>
 										</TableRow>
 									</TableHead>
 									<TableBody>
-										{data.history.map((item, index) => (
-											<TableRow key={item.id + ':' + index}>
+										{groupSnapshotHistory(data.history).map(item => (
+											<TableRow key={item.id}>
 												<TableCell
 													component='th'
 													scope='row'
@@ -392,7 +393,18 @@ function NodePage({ nodeId }: { nodeId: string }) {
 												>
 													{item.id}
 												</TableCell>
-												<TableCell>{timestamp(item.publishedAt)}</TableCell>
+												<TableCell>
+													{timestamp(item.publishedAt)}
+													<Typography
+														component='div'
+														variant='caption'
+														color='text.secondary'
+													>
+														{item.publications}{' '}
+														{item.publications === 1 ? 'publication' : 'publications'} in
+														history
+													</Typography>
+												</TableCell>
 												<TableCell align='right'>
 													<Stack
 														direction='row'
