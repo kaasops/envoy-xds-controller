@@ -1,4 +1,4 @@
-import { Alert, Chip, LinearProgress, Link, Stack, Typography } from '@mui/material'
+import { Alert, Chip, LinearProgress, Link, Stack, Tooltip, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { virtualServiceClient } from '../../../../api/grpc/client'
@@ -8,8 +8,20 @@ import { PermissionAction } from '../../../../utils/helpers/permissionsActions'
 import type { VirtualServiceListItem } from '../../../../gen/virtual_service/v1/virtual_service_pb'
 import { apiError, manualQueryOptions, nodePath } from '../../api'
 import SectionTable, { type Column } from '../SectionTable'
+import InventorySummary from '../InventorySummary'
 import { appliesToAllNodes, loadVirtualServices, publication, virtualServicesKey } from '../resourceData'
 import { ConfigView, ResourceLink } from '../grpcResources'
+
+function configurationWarnings(raw: string) {
+	if (!raw) return []
+	try {
+		const spec = JSON.parse(raw)
+		if (!spec || typeof spec !== 'object') return []
+		return ['accessLog', 'accessLogConfig'].filter(key => spec[key] != null)
+	} catch {
+		return []
+	}
+}
 
 function ServiceDetail({ row }: { row: VirtualServiceListItem }) {
 	const canReadGroup = usePermissionsStore(state =>
@@ -72,6 +84,11 @@ function ServiceDetail({ row }: { row: VirtualServiceListItem }) {
 							))}
 						</Stack>
 					) : null}
+					{configurationWarnings(vs.raw).map(key => (
+						<Alert key={key} severity='warning'>
+							Configuration: <code>{key}</code> is deprecated. Use <code>{key}s</code>.
+						</Alert>
+					))}
 					{vs.raw && <ConfigView raw={vs.raw} />}
 				</>
 			)}
@@ -89,6 +106,7 @@ const columns: Column<VirtualServiceListItem>[] = [
 	},
 	{
 		key: 'node',
+		identifier: true,
 		label: 'Nodes',
 		value: r => r.nodeIds,
 		appliesToAllNodes: r => appliesToAllNodes(r.nodeIds),
@@ -117,12 +135,16 @@ const columns: Column<VirtualServiceListItem>[] = [
 		label: 'Publication',
 		value: publication,
 		render: r => (
-			<Chip
-				size='small'
-				variant='outlined'
-				label={publication(r)}
-				color={r.status?.invalid ? 'error' : r.status?.message ? 'warning' : 'default'}
-			/>
+			<Tooltip title={r.status?.message || ''} describeChild>
+				<Chip
+					data-status
+					tabIndex={r.status?.message ? 0 : undefined}
+					size='small'
+					variant='outlined'
+					label={publication(r)}
+					color={r.status?.invalid ? 'error' : r.status?.message ? 'warning' : 'default'}
+				/>
+			</Tooltip>
 		)
 	}
 ]
@@ -137,6 +159,24 @@ export default function VirtualServices() {
 	return (
 		<SectionTable
 			title='Virtual services'
+			tableHeading='Publication status'
+			summary={
+				query.data && (
+					<InventorySummary
+						fields={[
+							{ label: 'Visible services', value: query.data.length },
+							{
+								label: 'Degraded',
+								value: query.data.filter(service => publication(service) === 'Degraded').length
+							},
+							{
+								label: 'Warnings',
+								value: query.data.filter(service => publication(service) === 'Warning').length
+							}
+						]}
+					/>
+				)
+			}
 			rows={query.data || []}
 			columns={columns}
 			rowId={r => r.uid}

@@ -13,3 +13,9 @@ export function isExpired(dateString: string): boolean {
 	const currentDate = new Date()
 	return inputDate < currentDate
 }
+
+export function formatUtcTimestamp(value?: string) {
+	if (!value) return ''
+	const date = new Date(value)
+	return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 19).replace('T', ' ') + ' UTC'
+}

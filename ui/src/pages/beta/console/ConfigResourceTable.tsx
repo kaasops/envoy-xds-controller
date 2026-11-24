@@ -110,6 +110,7 @@ export default function ConfigResourceTable<T extends { name: string }>({ title,
 	return (
 		<SectionTable
 			title={title}
+			tableHeading='Served resources'
 			rows={available ? resource.data ?? [] : []}
 			rowId={row => row.name}
 			columns={columns}

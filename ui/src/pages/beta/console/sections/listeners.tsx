@@ -37,6 +37,7 @@ async function loadListeners(node: string, signal: AbortSignal) {
 					filters: (chain.filters ?? []).map(f => f.name),
 					transport: chain.transport_socket?.name
 				})),
+				serverNames: [...new Set(chains.flatMap(chain => chain.filter_chain_match?.server_names ?? []))],
 				routes: [...(routes.get(listener.name) ?? [])]
 			}
 		}
@@ -54,7 +55,17 @@ const columns: Column<ListenerRow>[] = [
 		value: r => r.chains.length,
 		render: row => <ResourceSelection name={row.name}>{row.chains.length}</ResourceSelection>
 	},
-	{ key: 'domains', label: 'Server names', value: r => [...new Set(r.chains.flatMap(c => c.domains))] }
+	{
+		key: 'domains',
+		label: 'Server names',
+		value: r => r.serverNames,
+		render: r =>
+			r.serverNames.length > 2 ? (
+				<ResourceSelection name={r.name}>{r.serverNames.length} names</ResourceSelection>
+			) : (
+				r.serverNames.join(', ') || 'Any'
+			)
+	}
 ]
 export default function Listeners() {
 	return (

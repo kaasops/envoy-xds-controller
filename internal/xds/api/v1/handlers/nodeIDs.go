@@ -3,8 +3,14 @@ package handlers
 import (
 	"sort"
 
+	resourcev3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/gin-gonic/gin"
 )
+
+type nodeInventory struct {
+	NodeID string         `json:"node_id"`
+	Counts map[string]int `json:"counts,omitempty"`
+}
 
 type nodeIDWithVersions struct {
 	NodeID   string            `json:"node_id"`
@@ -16,12 +22,29 @@ type nodeIDWithVersions struct {
 // @Tags nodeid
 // @Accept json
 // @Produce json
+// @Param include query string false "Set to counts to return node IDs with served listener, route and cluster counts"
 // @Success 200 {array} string
 // @Router /api/v1/nodeIDs [get]
 func (h *handler) getNodeIDs(ctx *gin.Context) {
 	nodeIDs := h.getAvailableNodeIDs(ctx)
 	sort.Strings(nodeIDs)
 
+	if ctx.Query("include") == "counts" {
+		rows := make([]nodeInventory, 0, len(nodeIDs))
+		for _, id := range nodeIDs {
+			row := nodeInventory{NodeID: id}
+			if served, ok := h.cache.Served(id); ok {
+				row.Counts = map[string]int{
+					"listeners": len(served.Snapshot.GetResourcesAndTTL(resourcev3.ListenerType)),
+					"routes":    len(served.Snapshot.GetResourcesAndTTL(resourcev3.RouteType)),
+					"clusters":  len(served.Snapshot.GetResourcesAndTTL(resourcev3.ClusterType)),
+				}
+			}
+			rows = append(rows, row)
+		}
+		ctx.JSON(200, rows)
+		return
+	}
 	ctx.JSON(200, nodeIDs)
 }
 

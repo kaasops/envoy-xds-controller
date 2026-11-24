@@ -1,7 +1,8 @@
+import { formatUtcTimestamp } from '../../../../utils/helpers/dateService'
 import { Stack } from '@mui/material'
 import client from '../../../../api/axiosApiClient'
 import type { NodeOverviewResponse } from '../../../../common/types/overviewApiTypes'
-import ConfigResourceTable, { Fields } from '../ConfigResourceTable'
+import ConfigResourceTable, { Fields, ResourceSelection } from '../ConfigResourceTable'
 import type { Column } from '../SectionTable'
 
 async function loadSecrets(node: string, signal: AbortSignal) {
@@ -27,9 +28,21 @@ type SecretRow = Awaited<ReturnType<typeof loadSecrets>>[number]
 const columns: Column<SecretRow>[] = [
 	{ key: 'name', label: 'Secret', value: r => r.name },
 	{ key: 'type', label: 'Type', value: r => r.type },
-	{ key: 'domains', label: 'DNS names', value: r => r.certificate?.dnsNames ?? [] },
-	{ key: 'expiry', label: 'Not after', value: r => r.certificate?.notAfter || 'Unavailable' },
-	{ key: 'status', label: 'Certificate status', value: r => r.certificate?.status || 'Unavailable' }
+	{
+		key: 'domains',
+		label: 'DNS names',
+		value: r => r.certificate?.dnsNames ?? [],
+		render: r => {
+			const names = r.certificate?.dnsNames ?? []
+			return names.length > 2 ? (
+				<ResourceSelection name={r.name}>{names.length} names</ResourceSelection>
+			) : (
+				names.join(', ')
+			)
+		}
+	},
+	{ key: 'expiry', label: 'Not after', value: r => formatUtcTimestamp(r.certificate?.notAfter) || 'Unavailable' },
+	{ key: 'status', label: 'Status', value: r => r.certificate?.status || 'Unavailable' }
 ]
 export default function Secrets() {
 	return (
@@ -45,8 +58,8 @@ export default function Secrets() {
 								['Type', row.type],
 								['Subject', row.certificate.subject],
 								['Issuer', row.certificate.issuer],
-								['Not before', row.certificate.notBefore],
-								['Not after', row.certificate.notAfter],
+								['Not before', formatUtcTimestamp(row.certificate.notBefore) || 'Unavailable'],
+								['Not after', formatUtcTimestamp(row.certificate.notAfter) || 'Unavailable'],
 								['DNS names', (row.certificate.dnsNames ?? []).join(', ') || 'None'],
 								['Used by domains', (row.certificate.usedByDomains ?? []).join(', ') || 'None']
 							]}

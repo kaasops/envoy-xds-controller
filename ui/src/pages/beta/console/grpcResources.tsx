@@ -134,10 +134,11 @@ export default function ResourceSection({ kind }: { kind: SpecKind }) {
 	if (kind === 'listeners') columns.push({ key: 'type', label: 'Type', value: r => r.type })
 	if (summaryLabel[kind]) columns.push({ key: 'summary', label: summaryLabel[kind]!, value: r => r.summary })
 	if (kind !== 'clusters') columns.push({ key: 'description', label: 'Description', value: r => r.description })
-	else columns.push({ key: 'uid', label: 'UID', value: r => r.uid })
+	else columns.push({ key: 'uid', identifier: true, label: 'UID', value: r => r.uid })
 	return (
 		<SectionTable
 			title={title}
+			tableHeading='Configured resources'
 			rows={query.data || []}
 			columns={columns}
 			rowId={r => r.uid}

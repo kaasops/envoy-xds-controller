@@ -29,9 +29,11 @@ import CloseOutlined from '@mui/icons-material/CloseOutlined'
 import RefreshOutlined from '@mui/icons-material/RefreshOutlined'
 import { Code, ConnectError } from '@connectrpc/connect'
 import { apiError, httpStatus } from '../api'
+import { consoleMonospace } from '../theme'
 
 export interface Column<T> {
 	key: string
+	identifier?: boolean
 	label: string
 	value: (row: T) => string | number | readonly string[]
 	appliesToAllNodes?: (row: T) => boolean
@@ -43,6 +45,8 @@ export interface Column<T> {
 export interface SectionTableProps<T> {
 	title: string
 	tableTitle?: string
+	tableHeading?: string
+	summary?: ReactNode
 	rows: readonly T[]
 	columns: Column<T>[]
 	rowId: (row: T) => string
@@ -68,6 +72,8 @@ const values = (value: string | number | readonly string[]): readonly string[] =
 export default function SectionTable<T>({
 	title,
 	tableTitle,
+	tableHeading = tableTitle,
+	summary,
 	rows,
 	columns,
 	rowId,
@@ -191,6 +197,12 @@ export default function SectionTable<T>({
 		</>
 	)
 
+	const updated = updatedAt !== undefined && updatedAt > 0 && (
+		<Typography variant='caption' color='text.secondary'>
+			Updated <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleString()}</time>
+		</Typography>
+	)
+
 	return (
 		<Stack spacing={2}>
 			<Stack direction='row' gap={2} justifyContent='space-between' alignItems='flex-start' flexWrap='wrap'>
@@ -216,6 +228,7 @@ export default function SectionTable<T>({
 					)}
 				</Stack>
 			</Stack>
+			{!forbidden && summary}
 			{error != null && (
 				<Alert severity={stale ? 'warning' : 'error'}>
 					{stale ? 'Refresh failed. Showing the last response. ' : 'Could not load this section. '}
@@ -235,12 +248,47 @@ export default function SectionTable<T>({
 						}}
 					>
 						<Paper variant='outlined' sx={{ overflow: 'hidden' }}>
-							{tableTitle && (
-								<Typography component='h2' variant='h6' sx={{ px: 1.5, pt: 1.5 }}>
-									{tableTitle}
-								</Typography>
+							{tableHeading && (
+								<Stack
+									direction='row'
+									alignItems='center'
+									gap={1}
+									flexWrap='wrap'
+									sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}
+								>
+									<Typography component='h2' variant='h6'>
+										{tableHeading}
+									</Typography>
+									{count !== undefined && (
+										<Box
+											component='span'
+											title={count + ' matching rows'}
+											sx={{
+												px: 0.75,
+												borderRadius: '4px',
+												bgcolor: 'action.hover',
+												color: 'text.secondary',
+												fontSize: 12,
+												fontVariantNumeric: 'tabular-nums'
+											}}
+										>
+											{count}
+										</Box>
+									)}
+									{updated && (
+										<Box sx={{ ml: { sm: 'auto' }, flexBasis: { xs: '100%', sm: 'auto' } }}>
+											{updated}
+										</Box>
+									)}
+								</Stack>
 							)}
-							<Stack direction='row' alignItems='center' gap={1} flexWrap='wrap' sx={{ p: 1.5 }}>
+							<Stack
+								direction='row'
+								alignItems='center'
+								gap={1.25}
+								flexWrap='wrap'
+								sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}
+							>
 								{filters}
 								<TextField
 									size='small'
@@ -370,9 +418,10 @@ export default function SectionTable<T>({
 															key={c.key}
 															align={c.align}
 															sx={{
-																minWidth: '9ch',
+																fontFamily: c.identifier ? consoleMonospace : undefined,
+																minWidth: c.identifier ? '16ch' : '9ch',
 																maxWidth: '34ch',
-																overflowWrap: 'break-word'
+																overflowWrap: 'anywhere'
 															}}
 														>
 															{c.render ? c.render(row) : values(c.value(row)).join(', ')}
@@ -449,14 +498,8 @@ export default function SectionTable<T>({
 							The selected record is no longer available.
 						</Alert>
 					)}
-					{updatedAt !== undefined && updatedAt > 0 && (
-						<Typography variant='caption' color='text.secondary'>
-							Updated{' '}
-							<time dateTime={new Date(updatedAt).toISOString()}>
-								{new Date(updatedAt).toLocaleString()}
-							</time>
-						</Typography>
-					)}
+
+					{!tableHeading && updated}
 				</>
 			)}
 		</Stack>
