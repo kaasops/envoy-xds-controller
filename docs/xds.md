@@ -66,7 +66,7 @@ The snapshot cache runs in ADS mode, so an update reaches Envoy in order: cluste
 
 ## Snapshot Version Stability
 
-The controller optimizes xDS updates by tracking resource changes. Snapshot versions only increment when actual resource content changes:
+The table shows typical version changes during ordinary rebuilds. Resume and Rollback can assign new versions to unchanged resource types when publishing a snapshot.
 
 | Resource Change | Listeners | Routes | Clusters |
 |-----------------|-----------|--------|----------|
@@ -84,7 +84,9 @@ This behavior is achieved through:
 
 ## Rejected Configuration (NACK)
 
-Envoy answers every xDS response with an ACK or a NACK with a reason. The controller keeps the result per stream and logs each rejection once:
+Envoy ACKs a response when it considers its resources valid. A listener may still be warming up. A NACK means at least one resource failed. Envoy may already have applied others in the same response. [Envoy ACK and NACK semantics](https://www.envoyproxy.io/docs/envoy/v1.40.2/api-docs/xds_protocol#ack-and-nack-semantics-summary)
+
+The controller records rejections per stream and resource type. Here, a listener failed to open its access log.
 
 ```json
 {"level":"error","logger":"xds.server.callbacks","msg":"Envoy NACKed xDS response","nodeId":"edge","id":5,"protocol":"delta","typeUrl":"type.googleapis.com/envoy.config.listener.v3.Listener","address":"10.0.0.7:45334","envoyVersion":"v1.40.2","nonce":"5","responseVersion":"3","resources":["default/https"],"resourceCount":1,"error":"Error adding/updating listener(s) default/https: unable to open file '/var/log/envoy/missing/access.log': Permission denied"}
@@ -92,18 +94,12 @@ Envoy answers every xDS response with an ACK or a NACK with a reason. The contro
 
 | Message | Level | When |
 |---------|-------|------|
-| `Envoy NACKed xDS response` | error | Envoy rejected a response |
+| `Envoy NACKed xDS response` | error | The controller recorded a rejection |
 | `xDS rejection cleared` | info | A rejected resource was accepted in a later version (`reason: accepted`), removed (`removed`), or Envoy unsubscribed from it (`unsubscribed`) |
-| `Envoy NACKed an xDS response unknown to this stream` | info | A NACK named no response of the stream. Logged once per stream |
+| `Envoy NACKed an xDS response unknown to this stream` | info | The controller could not match the NACK to a recorded response. Logged once per stream |
 
-How to read a rejection:
+- **Resources.** For Delta listeners and clusters, the controller lists the resources named in Envoy's rejection. If the message is truncated or the names cannot be identified, it lists all resources delivered in that response as candidates. It does the same for routes, secrets and endpoints, where Envoy can stop at the first error. The log shows up to 20 names. Its `resourceCount` gives the total before truncation. The API lists the names and versions in each current rejection. With state-of-the-world (SotW), the controller records the rejected type version and leaves `resources` empty.
+- **Retries.** On this server, a Delta NACK alone does not trigger another delivery. After fixing the host, change the rejected resource or restart the affected Envoy. With SotW, the server can immediately resend the same version. The controller logs the first NACK for that version on each stream and type. Repeats increment `count` in the API.
+- **Error details.** A validation error can contain the whole resource, including keys. The controller removes data starting at the first double quote or PEM header and may retain an unquoted validation reason. Other unquoted text, including paths and header values, can appear in the log and API. Envoy's own log has the full error.
 
-- **A NACK is about a response, not everything in it.** For listeners and clusters Envoy applies the valid ones and names those it skipped; `resources` lists them. For routes, secrets and endpoints Envoy names nothing, so `resources` lists the whole response — as it does for listeners and clusters when Envoy's text is cut at 4096 characters or names none. The log shows up to 20 names, `resourceCount` is the total. With state-of-the-world `resources` is empty: the whole version is rejected.
-- **An ACK means Envoy found the resources valid.** A listener may still be warming up.
-- **A rejected resource is not resent by itself.** Delta ADS sends a resource once per version: after fixing the host, change the resource or restart that Envoy.
-- **Instances sharing a node ID are told apart by stream.** `id` is the stream number within its `protocol`. Behind a proxy `address` is the proxy's; use `host` or `forwardedAddress` (see [Checking That Every Instance Accepted a Change](troubleshooting.md#checking-that-every-instance-accepted-a-change)).
-- **`error` is Envoy's text with quoted data removed.** On a validation failure Envoy echoes the whole message, keys included, so everything from the first double quote is dropped. The full text is in Envoy's own log.
-
-With state-of-the-world the server answers each NACK with the same snapshot, about a thousand times a second, until the snapshot changes; the rejection is logged once per version.
-
-The logger thins identical lines above a hundred per second, so across a large fleet not every instance is logged. The per-stream state — last acknowledged version and current rejections — is served by `GET /api/v1/clients` and shown in the console under **xDS streams**; in development mode also at `:4444/debug/connected-clients`.
+With default production settings, the logger samples entries that share a level and message after the first 100 per second, even across instances. For the last ACK and current rejections, open **xDS streams** in the console or read `GET /api/v1/clients`. The log's `id` matches the API's `streamId` on the same controller pod and `protocol`. Behind a proxy, the API's `host` and `forwardedAddress` can help identify the instance. Development mode also exposes `:4444/debug/connected-clients`. [Checking that every instance accepted a change](troubleshooting.md#checking-that-every-instance-accepted-a-change)

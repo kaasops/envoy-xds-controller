@@ -141,11 +141,11 @@ webhook:
 
 ### Switching a node to another listener on the same address
 
-A node cannot have two listeners on one address. Moving a node from `https` to `https-next` on `0.0.0.0:443` is rejected object by object, because Argo CD and `kubectl apply` send objects one at a time and each intermediate state has both listeners. Pause updates to the node first. See [Switching a node to another listener](snapshots.md#switching-a-node-to-another-listener).
+If several VirtualServices share `https` on `0.0.0.0:443`, moving them one at a time to `https-next` on the same address temporarily gives the node two conflicting listeners. Pause updates before applying a change that creates this overlap. See [Switching a node to another listener](snapshots.md#switching-a-node-to-another-listener).
 
 ## Snapshot Control
 
-`snapshotControl.enabled: true` (default) lets operators pause updates, compare served and pending snapshots, resume with the reviewed ID and roll back to a snapshot from history. `false` makes it read-only; existing pauses stay in effect. See [Node Snapshots](snapshots.md).
+With the cache API enabled, `snapshotControl.enabled: true` (default) lets operators pause updates, resume with a reviewed snapshot ID and roll back to a snapshot from history. Setting it to `false` keeps the API read-only. Existing pauses and comparisons between Served and Pending remain available. See [Node Snapshots](snapshots.md).
 
 ## Node and Access Group Configuration
 
