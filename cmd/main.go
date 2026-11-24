@@ -74,6 +74,7 @@ import (
 
 	envoyv1alpha1 "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/controller"
+	"github.com/kaasops/envoy-xds-controller/internal/grpcapi/virtualservice"
 	webhookenvoyv1alpha1 "github.com/kaasops/envoy-xds-controller/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -265,6 +266,13 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
+	}
+
+	if enableAPI {
+		if err := virtualservice.IndexByUID(context.Background(), mgr.GetFieldIndexer()); err != nil {
+			setupLog.Error(err, "unable to index VirtualServices by UID")
+			os.Exit(1)
+		}
 	}
 
 	// Create store

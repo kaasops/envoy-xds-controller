@@ -395,7 +395,6 @@ func (b *Builder) hasAccessLogConfiguration(vs *v1alpha1.VirtualService) bool {
 }
 
 func (b *Builder) processDeprecatedAccessLog(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
-	vs.UpdateStatus(false, "accessLog is deprecated, use accessLogs instead")
 	var accessLog accesslogv3.AccessLog
 	if err := protoutil.Unmarshaler.Unmarshal(vs.Spec.AccessLog.Raw, &accessLog); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal accessLog: %w", err)
@@ -407,7 +406,6 @@ func (b *Builder) processDeprecatedAccessLog(vs *v1alpha1.VirtualService) ([]*ac
 }
 
 func (b *Builder) processDeprecatedAccessLogConfig(vs *v1alpha1.VirtualService) ([]*accesslogv3.AccessLog, error) {
-	vs.UpdateStatus(false, "accessLogConfig is deprecated, use accessLogConfigs instead")
 	accessLogNs := helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace)
 	nn := helpers.NamespacedName{Namespace: accessLogNs, Name: vs.Spec.AccessLogConfig.Name}
 	accessLogConfig := b.store.GetAccessLog(nn)

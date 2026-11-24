@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	api "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"connectrpc.com/connect"
 	routev3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/kaasops/envoy-xds-controller/internal/grpcapi"
@@ -15,13 +18,24 @@ import (
 	virtual_service_templatev1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service_template/v1"
 )
 
-func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.Request[v1.GetVirtualServiceRequest]) (*connect.Response[v1.GetVirtualServiceResponse], error) {
+func (s *VirtualServiceStore) GetVirtualService(ctx context.Context, req *connect.Request[v1.GetVirtualServiceRequest]) (*connect.Response[v1.GetVirtualServiceResponse], error) {
 	if req.Msg.Uid == "" {
 		return nil, fmt.Errorf("uid is required")
 	}
-	vs := s.store.GetVirtualServiceByUID(req.Msg.Uid)
-	if vs == nil {
+	var matches api.VirtualServiceList
+	if err := s.client.List(ctx, &matches, client.MatchingFields{uidIndex: req.Msg.Uid}); err != nil {
+		return nil, err
+	}
+	if len(matches.Items) != 1 {
 		return nil, fmt.Errorf("virtual service uid '%s' not found", req.Msg.Uid)
+	}
+	vs := &matches.Items[0]
+	allowed, err := grpcapi.GetAuthorizerFromContext(ctx).Authorize(vs.GetAccessGroup(), vs.Name)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("not authorized to get virtual service"))
 	}
 	resp := &v1.GetVirtualServiceResponse{
 		Uid:         string(vs.UID),
@@ -38,14 +52,7 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 		ExtraFields: vs.Spec.ExtraFields,
 	}
 	if vs.Spec.Template != nil {
-		template := s.store.GetVirtualServiceTemplate(helpers.NamespacedName{
-			Namespace: helpers.GetNamespace(vs.Spec.Template.Namespace, vs.Namespace),
-			Name:      vs.Spec.Template.Name,
-		})
-		resp.Template = &commonv1.ResourceRef{
-			Uid:  string(template.UID),
-			Name: template.Name,
-		}
+		resp.Template = resolveRef(vs.Spec.Template, vs.Namespace, s.store.GetVirtualServiceTemplate)
 		if len(vs.Spec.TemplateOptions) > 0 {
 			resp.TemplateOptions = make([]*virtual_service_templatev1.TemplateOption, 0, len(vs.Spec.TemplateOptions))
 			for _, opt := range vs.Spec.TemplateOptions {
@@ -57,14 +64,7 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 		}
 	}
 	if vs.Spec.Listener != nil {
-		listener := s.store.GetListener(helpers.NamespacedName{
-			Namespace: helpers.GetNamespace(vs.Spec.Listener.Namespace, vs.Namespace),
-			Name:      vs.Spec.Listener.Name,
-		})
-		resp.Listener = &commonv1.ResourceRef{
-			Uid:  string(listener.UID),
-			Name: listener.Name,
-		}
+		resp.Listener = resolveRef(vs.Spec.Listener, vs.Namespace, s.store.GetListener)
 	}
 	if vs.Spec.VirtualHost != nil {
 		virtualHost := &routev3.VirtualHost{}
@@ -75,28 +75,16 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 		resp.VirtualHost = &commonv1.VirtualHost{Domains: virtualHost.Domains}
 	}
 	if vs.Spec.AccessLogConfig != nil {
-		alc := s.store.GetAccessLog(helpers.NamespacedName{
-			Namespace: helpers.GetNamespace(vs.Spec.AccessLogConfig.Namespace, vs.Namespace),
-			Name:      vs.Spec.AccessLogConfig.Name,
-		})
-		resp.AccessLog = &v1.GetVirtualServiceResponse_AccessLogConfigs{AccessLogConfigs: &commonv1.ResourceRefs{
-			Refs: []*commonv1.ResourceRef{{
-				Uid:  string(alc.UID),
-				Name: alc.Name,
-			}},
-		}}
+		ref := resolveRef(vs.Spec.AccessLogConfig, vs.Namespace, s.store.GetAccessLog)
+		resp.AccessLog = &v1.GetVirtualServiceResponse_AccessLogConfigs{
+			AccessLogConfigs: &commonv1.ResourceRefs{Refs: []*commonv1.ResourceRef{ref}},
+		}
 	}
 	if len(vs.Spec.AccessLogConfigs) > 0 {
 		accessLogConfigs := make([]*commonv1.ResourceRef, 0, len(vs.Spec.AccessLogConfigs))
 		for _, aclRef := range vs.Spec.AccessLogConfigs {
-			acl := s.store.GetAccessLog(helpers.NamespacedName{
-				Namespace: helpers.GetNamespace(aclRef.Namespace, vs.Namespace),
-				Name:      aclRef.Name,
-			})
-			accessLogConfigs = append(accessLogConfigs, &commonv1.ResourceRef{
-				Uid:  string(acl.UID),
-				Name: acl.Name,
-			})
+			ref := resolveRef(aclRef, vs.Namespace, s.store.GetAccessLog)
+			accessLogConfigs = append(accessLogConfigs, ref)
 		}
 		resp.AccessLog = &v1.GetVirtualServiceResponse_AccessLogConfigs{
 			AccessLogConfigs: &commonv1.ResourceRefs{
@@ -117,27 +105,15 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 	if vs.Spec.AdditionalRoutes != nil {
 		resp.AdditionalRoutes = make([]*commonv1.ResourceRef, 0, len(vs.Spec.AdditionalRoutes))
 		for _, route := range vs.Spec.AdditionalRoutes {
-			r := s.store.GetRoute(helpers.NamespacedName{
-				Namespace: helpers.GetNamespace(route.Namespace, vs.Namespace),
-				Name:      route.Name,
-			})
-			resp.AdditionalRoutes = append(resp.AdditionalRoutes, &commonv1.ResourceRef{
-				Uid:  string(r.UID),
-				Name: r.Name,
-			})
+			ref := resolveRef(route, vs.Namespace, s.store.GetRoute)
+			resp.AdditionalRoutes = append(resp.AdditionalRoutes, ref)
 		}
 	}
 	if vs.Spec.AdditionalHttpFilters != nil {
 		resp.AdditionalHttpFilters = make([]*commonv1.ResourceRef, 0, len(vs.Spec.AdditionalHttpFilters))
 		for _, filter := range vs.Spec.AdditionalHttpFilters {
-			f := s.store.GetHTTPFilter(helpers.NamespacedName{
-				Namespace: helpers.GetNamespace(filter.Namespace, vs.Namespace),
-				Name:      filter.Name,
-			})
-			resp.AdditionalHttpFilters = append(resp.AdditionalHttpFilters, &commonv1.ResourceRef{
-				Uid:  string(f.UID),
-				Name: f.Name,
-			})
+			ref := resolveRef(filter, vs.Namespace, s.store.GetHTTPFilter)
+			resp.AdditionalHttpFilters = append(resp.AdditionalHttpFilters, ref)
 		}
 	}
 	if vs.Spec.UseRemoteAddress != nil {
@@ -154,6 +130,21 @@ func (s *VirtualServiceStore) GetVirtualService(_ context.Context, req *connect.
 		resp.TlsConfig = tlsConfig
 	}
 	return connect.NewResponse(resp), nil
+}
+
+// A missing dependency can be the reason publication failed. Keep its name
+// in the response even when there is no corresponding UID.
+func resolveRef[T interface {
+	client.Object
+	comparable
+}](ref *api.ResourceRef, namespace string, lookup func(helpers.NamespacedName) T) *commonv1.ResourceRef {
+	result := &commonv1.ResourceRef{Name: ref.Name}
+	obj := lookup(helpers.NamespacedName{Namespace: helpers.GetNamespace(ref.Namespace, namespace), Name: ref.Name})
+	var missing T
+	if obj != missing {
+		result.Uid = string(obj.GetUID())
+	}
+	return result
 }
 
 func rawJSONString(input any) string {

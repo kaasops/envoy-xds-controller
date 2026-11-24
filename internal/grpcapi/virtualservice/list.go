@@ -3,29 +3,35 @@ package virtualservice
 import (
 	"context"
 	"fmt"
+	"maps"
 	"sort"
 
 	"connectrpc.com/connect"
+	api "github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/grpcapi"
-	"github.com/kaasops/envoy-xds-controller/internal/helpers"
-	commonv1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/common/v1"
 	v1 "github.com/kaasops/envoy-xds-controller/pkg/api/grpc/virtual_service/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (s *VirtualServiceStore) ListVirtualServices(ctx context.Context, r *connect.Request[v1.ListVirtualServicesRequest]) (*connect.Response[v1.ListVirtualServicesResponse], error) {
-	m := s.store.MapVirtualServices()
-	list := make([]*v1.VirtualServiceListItem, 0, len(m))
-
 	if r.Msg.AccessGroup == "" {
 		return nil, fmt.Errorf("access group is required")
 	}
 
 	authorizer := grpcapi.GetAuthorizerFromContext(ctx)
 
-	for _, v := range m {
+	// The manager cache receives status-only changes from Kubernetes even when
+	// the controller skips rebuilding snapshots. Its list is read-only.
+	var services api.VirtualServiceList
+	if err := s.client.List(ctx, &services, client.UnsafeDisableDeepCopy); err != nil {
+		return nil, err
+	}
+	list := make([]*v1.VirtualServiceListItem, 0, len(services.Items))
+	for i := range services.Items {
+		v := &services.Items[i]
 		vsAccessGroup := v.GetAccessGroup()
-		if vsAccessGroup == "" {
-			vsAccessGroup = grpcapi.GeneralAccessGroup
+		if r.Msg.AccessGroup != vsAccessGroup {
+			continue
 		}
 
 		isAllowed, err := authorizer.Authorize(vsAccessGroup, v.Name)
@@ -36,9 +42,6 @@ func (s *VirtualServiceStore) ListVirtualServices(ctx context.Context, r *connec
 			continue
 		}
 
-		if r.Msg.AccessGroup != vsAccessGroup {
-			continue
-		}
 		vs := &v1.VirtualServiceListItem{
 			Uid:         string(v.UID),
 			Name:        v.GetLabelName(),
@@ -49,21 +52,10 @@ func (s *VirtualServiceStore) ListVirtualServices(ctx context.Context, r *connec
 				Invalid: v.Status.Invalid,
 				Message: v.Status.Message,
 			},
-			ExtraFields: v.Spec.ExtraFields,
+			ExtraFields: maps.Clone(v.Spec.ExtraFields),
 		}
 		if v.Spec.Template != nil {
-			template := s.store.GetVirtualServiceTemplate(helpers.NamespacedName{
-				Namespace: helpers.GetNamespace(v.Spec.Template.Namespace, v.Namespace),
-				Name:      v.Spec.Template.Name,
-			})
-			if template == nil {
-				// TODO: log
-				continue
-			}
-			vs.Template = &commonv1.ResourceRef{
-				Uid:  string(template.UID),
-				Name: template.Name,
-			}
+			vs.Template = resolveRef(v.Spec.Template, v.Namespace, s.store.GetVirtualServiceTemplate)
 		}
 		vs.IsEditable = v.IsEditable()
 		list = append(list, vs)
