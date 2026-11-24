@@ -192,11 +192,11 @@ export default function Nodes() {
 	const nodes = query.data?.nodes ?? []
 	const pausedCount = nodes.filter(node => node.pause).length
 	const pod = query.data?.clients.controllerPod
-	function filterPaused(showPaused: boolean) {
+	function togglePaused() {
 		setParams(current => {
 			const next = new URLSearchParams(current)
-			if (showPaused) next.set('paused', 'true')
-			else next.delete('paused')
+			if (next.get('paused') === 'true') next.delete('paused')
+			else next.set('paused', 'true')
 			next.delete('selected')
 			next.delete('page')
 			return next
@@ -220,14 +220,14 @@ export default function Nodes() {
 							{
 								label: 'Updates',
 								value: (
-									<Link
-										component='button'
-										type='button'
-										sx={{ font: 'inherit' }}
-										onClick={() => filterPaused(true)}
+									<Button
+										size='small'
+										variant={pausedOnly ? 'contained' : 'outlined'}
+										aria-pressed={pausedOnly}
+										onClick={togglePaused}
 									>
 										{pausedCount} paused
-									</Link>
+									</Button>
 								)
 							},
 							...(pod ? [{ label: 'xDS controller', value: <code>{pod}</code> }] : [])
@@ -242,7 +242,7 @@ export default function Nodes() {
 				<Button
 					variant={pausedOnly ? 'contained' : 'outlined'}
 					aria-pressed={pausedOnly}
-					onClick={() => filterPaused(!pausedOnly)}
+					onClick={togglePaused}
 				>
 					Paused ({pausedCount})
 				</Button>

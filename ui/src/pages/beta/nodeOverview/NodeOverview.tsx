@@ -85,29 +85,25 @@ function NodePage({ nodeId }: { nodeId: string }) {
 		{
 			label: 'Domains',
 			value: summary?.totalDomains,
-			note: 'In listener configuration',
-			tab: 'endpoints',
+			note: 'Unique domain names, excluding *',
 			Icon: PublicOutlined
 		},
 		{
 			label: 'Listener endpoints',
 			value: summary?.totalEndpoints,
 			note: 'Incoming domains and ports',
-			tab: 'endpoints',
 			Icon: HearingOutlined
 		},
 		{
 			label: 'Certificates',
 			value: summary?.totalCertificates,
 			note: expiring == null ? '' : expiring + ' expiring or expired',
-			tab: 'certificates',
 			Icon: KeyOutlined
 		},
 		{
 			label: 'xDS streams',
 			value: clients?.clients.filter(s => s.nodeId === nodeId).length,
 			note: clients?.controllerPod ? 'On ' + clients.controllerPod : 'On the responding controller',
-			tab: 'streams',
 			Icon: SyncAltOutlined
 		}
 	]
@@ -172,25 +168,8 @@ function NodePage({ nodeId }: { nodeId: string }) {
 							overflow: 'hidden'
 						}}
 					>
-						{metrics.map(({ label, value, note, tab: target, Icon }) => (
-							<Box
-								key={label}
-								component={RouterLink}
-								to={nodeOverviewPath(nodeId, target)}
-								sx={{
-									color: 'inherit',
-									textDecoration: 'none',
-									p: 2,
-									minWidth: 0,
-									bgcolor: 'background.paper',
-									'&:hover': { color: 'primary.main' },
-									'&:focus-visible': {
-										outline: '2px solid',
-										outlineColor: 'primary.main',
-										outlineOffset: -2
-									}
-								}}
-							>
+						{metrics.map(({ label, value, note, Icon }) => (
+							<Box key={label} sx={{ p: 2, minWidth: 0, bgcolor: 'background.paper' }}>
 								<Stack direction='row' gap={0.75} alignItems='center' color='text.secondary'>
 									<Icon fontSize='small' />
 									<Typography variant='body2'>{label}</Typography>
