@@ -35,7 +35,13 @@ const resourceTypes: Record<string, { short: string; section: string }> = {
 }
 const listenerType = 'type.googleapis.com/envoy.config.listener.v3.Listener'
 
-const statusColors = { NACK: 'error', 'Awaiting ACK': 'warning', ACK: 'success', Unknown: 'default' } as const
+const statusColors = {
+	NACK: 'error',
+	'Awaiting ACK': 'warning',
+	ACK: 'success',
+	Subscribed: 'default',
+	Unknown: 'default'
+} as const
 
 export function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
 	return (
@@ -253,6 +259,14 @@ export function StreamDetails({
 				<Typography component='h3' variant='subtitle1' fontWeight={600}>
 					Resource types
 				</Typography>
+				{stream.types.some(type => type.awaitingFirstResponse) && (
+					<Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+						For a type marked Subscribed, Envoy has requested resources and the controller has yet to send a
+						response on this stream. Envoy can ACK only after it receives a response.
+						{stream.protocol === 'delta' &&
+							' After a Delta reconnect, Envoy may already have the current versions.'}
+					</Typography>
+				)}
 				{stream.types.length ? (
 					<TableContainer>
 						<Table size='small' aria-label='Stream resource types'>

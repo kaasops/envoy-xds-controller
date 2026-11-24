@@ -392,7 +392,10 @@ func TestClearedRejectionIsLogged(t *testing.T) {
 
 func TestUnsubscribeClearsRejection(t *testing.T) {
 	cb, lines := loggingCallbacks()
-	openDeltaStream(t, cb)
+	require.NoError(t, cb.OnDeltaStreamOpen(peerContext(t), 1, ""))
+	require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		TypeUrl: routeType, Node: nodeWithVersion("one"),
+	}))
 	cb.OnStreamDeltaResponse(1, nil, deltaResponse(routeType, "1", "3", "r1"))
 	require.NoError(t, cb.OnStreamDeltaRequest(1, deltaNack(routeType, "1", "bad route")))
 
@@ -429,7 +432,9 @@ func TestNackOfUnknownResponseIsLoggedOncePerStream(t *testing.T) {
 	assert.Empty(t, lines.withMessage("Envoy NACKed xDS response"))
 	client := onlyClient(t, cb)
 	assert.Equal(t, 3, client.UnknownNacks)
-	assert.Empty(t, client.Types)
+	require.Len(t, client.Types, 1)
+	assert.Equal(t, listenerType, client.Types[0].TypeURL)
+	assert.True(t, client.Types[0].AwaitingFirstResponse)
 }
 
 // The Delta cache answers a wildcard request for any type URL, so a client
@@ -437,7 +442,7 @@ func TestNackOfUnknownResponseIsLoggedOncePerStream(t *testing.T) {
 func TestResponsesOfUnknownTypesAreNotTracked(t *testing.T) {
 	const madeUpType = "type.googleapis.com/made.up.Type"
 	cb, _ := loggingCallbacks()
-	openDeltaStream(t, cb)
+	require.NoError(t, cb.OnDeltaStreamOpen(peerContext(t), 1, ""))
 	require.NoError(t, cb.OnStreamOpen(peerContext(t), 1, ""))
 
 	cb.OnStreamDeltaResponse(1, nil, deltaResponse(madeUpType, "1", "7"))
@@ -748,4 +753,18 @@ func TestStreamOmitsUnusableForwardedAddress(t *testing.T) {
 			assert.Equal(t, "10.0.0.7:41000", client["address"])
 		})
 	}
+}
+
+func TestFirstDeltaRequestOnSingleTypeStreamCanOmitTypeURL(t *testing.T) {
+	cb := testCallbacks()
+	require.NoError(t, cb.OnDeltaStreamOpen(t.Context(), 1, resource.SecretType))
+	require.Empty(t, onlyClient(t, cb).Types)
+	require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{
+		Node: nodeWithVersion("one"), ResourceNamesSubscribe: []string{"cert"},
+	}))
+	status := onlyStatus(t, cb)
+	require.Equal(t, resource.SecretType, status.TypeURL)
+	data, err := json.Marshal(status)
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `"awaitingFirstResponse":true`)
 }

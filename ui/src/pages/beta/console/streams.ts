@@ -1,6 +1,6 @@
 import client from '../../../api/axiosApiClient'
 
-export type StreamStatus = 'ACK' | 'Awaiting ACK' | 'NACK' | 'Unknown'
+export type StreamStatus = 'ACK' | 'Awaiting ACK' | 'NACK' | 'Subscribed' | 'Unknown'
 
 export interface Rejection {
 	nonce: string
@@ -13,6 +13,7 @@ export interface Rejection {
 
 export interface StreamType {
 	typeUrl: string
+	awaitingFirstResponse?: boolean
 	ackedVersion?: string
 	lastAckAt?: string
 	awaitingAckSince?: string
@@ -96,13 +97,14 @@ export function streamStatuses(stream: Pick<ClientStream, 'types'>): StreamStatu
 	if (statuses.length) return statuses
 
 	// After the controller evicts a rejection it can no longer track whether that resource recovered.
-	const allAcknowledged =
-		types.length > 0 && types.every(type => !type.droppedRejections && (type.ackedVersion || type.lastAckAt))
+	const responses = types.filter(type => !type.awaitingFirstResponse)
+	if (!responses.length) return [types.length ? 'Subscribed' : 'Unknown']
+	const allAcknowledged = responses.every(type => !type.droppedRejections && (type.ackedVersion || type.lastAckAt))
 	return [allAcknowledged ? 'ACK' : 'Unknown']
 }
 
 export function streamCounts(streams: readonly ClientStream[]): Record<StreamStatus, number> {
-	const counts = { NACK: 0, 'Awaiting ACK': 0, ACK: 0, Unknown: 0 }
+	const counts = { NACK: 0, 'Awaiting ACK': 0, ACK: 0, Subscribed: 0, Unknown: 0 }
 	for (const stream of streams) {
 		for (const status of streamStatuses(stream)) counts[status]++
 	}

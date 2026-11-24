@@ -104,7 +104,7 @@ func registryWithNodes(nodeIDs ...string) *clients.Registry {
 	registry := clients.NewRegistry()
 	for i, nodeID := range nodeIDs {
 		key := clients.Key{Protocol: clients.Delta, ID: int64(i + 1)}
-		registry.Set(key, &clients.Info{Address: fmt.Sprintf("10.0.0.%d:41000", i+1)})
+		registry.Open(key, "", &clients.Info{Address: fmt.Sprintf("10.0.0.%d:41000", i+1)})
 		registry.Update(key, &clients.Info{NodeID: nodeID, Version: "v1.40.2"})
 	}
 	return registry

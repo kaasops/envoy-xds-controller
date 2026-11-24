@@ -7,7 +7,7 @@ import { getNodeInventory, nodeInventoryKey, nodeSection, useNodeInventory, type
 import SectionTable, { type Column } from '../SectionTable'
 import { streamClientLabel, streamClientSearchValues, streamId, streamRowId, type StreamStatus } from '../streams'
 
-const statuses: StreamStatus[] = ['NACK', 'Awaiting ACK', 'ACK', 'Unknown']
+const statuses: StreamStatus[] = ['NACK', 'Awaiting ACK', 'ACK', 'Subscribed', 'Unknown']
 
 const nodeHref = (row: NodeEntry) => nodeOverviewPath(row.nodeId)
 

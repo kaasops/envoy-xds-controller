@@ -46,6 +46,9 @@ type Locality struct {
 // TypeStatus is what the stream has told the server about one resource type.
 type TypeStatus struct {
 	TypeURL string `json:"typeUrl"`
+	// AwaitingFirstResponse means the client requested this type but the server
+	// has not sent it a response of this type on this stream.
+	AwaitingFirstResponse bool `json:"awaitingFirstResponse,omitempty"`
 	// AckedVersion is the type version carried by the last response the client
 	// ACKed. An ACK means the client found the resources valid, not that they
 	// already serve traffic.
@@ -100,6 +103,13 @@ type Request struct {
 	Error    string
 	// Unsubscribed is the Delta resource_names_unsubscribe list.
 	Unsubscribed []string
+	// Subscribes distinguishes a mixed Delta request from an unsubscribe-only request.
+	Subscribes bool
+}
+
+// A subscription can be wildcard, named, or resumed with existing versions.
+func (r Request) isSubscription() bool {
+	return r.Nonce == "" && !r.Rejected && (len(r.Unsubscribed) == 0 || r.Subscribes)
 }
 
 // Why a recorded rejection no longer stands.

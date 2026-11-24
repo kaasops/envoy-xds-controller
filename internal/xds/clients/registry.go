@@ -5,6 +5,9 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
+	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 )
 
 const (
@@ -32,7 +35,9 @@ type stream struct {
 	mu           sync.Mutex
 	info         Info
 	nodeReported bool
-	// types holds only types the server has sent a response for.
+	// Single-type RPCs can omit the type URL on the wire. ADS has no default.
+	defaultTypeURL string
+	// types holds known types observed through a subscription or a response.
 	types map[string]*typeState
 	// pending holds responses without a verdict, by nonce. Nonces are unique
 	// within a stream across types.
@@ -40,10 +45,11 @@ type stream struct {
 }
 
 type typeState struct {
-	ackedVersion string
-	lastAckAt    time.Time
-	rejections   []Rejection
-	dropped      int
+	awaitingFirstResponse bool
+	ackedVersion          string
+	lastAckAt             time.Time
+	rejections            []Rejection
+	dropped               int
 }
 
 type sentResponse struct {
@@ -73,10 +79,12 @@ func (r *Registry) newStream(key Key, ci *Info) *stream {
 	return s
 }
 
-func (r *Registry) Set(key Key, ci *Info) {
+func (r *Registry) Open(key Key, defaultTypeURL string, ci *Info) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.data[key] = r.newStream(key, ci)
+	s := r.newStream(key, ci)
+	s.defaultTypeURL = defaultTypeURL
+	r.data[key] = s
 }
 
 func (r *Registry) Update(key Key, ci *Info) {
@@ -149,7 +157,9 @@ func (r *Registry) ResponseSent(key Key, resp Response) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.types[resp.TypeURL]; !ok {
+	if t := s.types[resp.TypeURL]; t != nil {
+		t.awaitingFirstResponse = false
+	} else {
 		s.types[resp.TypeURL] = &typeState{}
 	}
 	if len(s.pending) >= maxPending {
@@ -185,6 +195,12 @@ func (r *Registry) RequestReceived(key Key, req Request) Outcome {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if req.TypeURL == "" {
+		req.TypeURL = s.defaultTypeURL
+	}
+	if s.types[req.TypeURL] == nil && req.isSubscription() && IsKnownType(req.TypeURL) {
+		s.types[req.TypeURL] = &typeState{awaitingFirstResponse: true}
+	}
 	var out Outcome
 	if len(unsubscribed) > 0 {
 		// The server sends nothing more about a resource the client unsubscribed
@@ -296,11 +312,12 @@ func (s *stream) snapshot() Info {
 	info.Types = make([]TypeStatus, 0, len(s.types))
 	for typeURL, t := range s.types {
 		status := TypeStatus{
-			TypeURL:           typeURL,
-			AckedVersion:      t.ackedVersion,
-			LastAckAt:         t.lastAckAt,
-			Rejections:        make([]Rejection, 0, len(t.rejections)),
-			DroppedRejections: t.dropped,
+			TypeURL:               typeURL,
+			AwaitingFirstResponse: t.awaitingFirstResponse,
+			AckedVersion:          t.ackedVersion,
+			LastAckAt:             t.lastAckAt,
+			Rejections:            make([]Rejection, 0, len(t.rejections)),
+			DroppedRejections:     t.dropped,
 		}
 		for _, rejection := range t.rejections {
 			status.Rejections = append(status.Rejections, rejection.clone())
@@ -405,4 +422,10 @@ func refSet(resources []ResourceRef) map[string]struct{} {
 		set[res.Name] = struct{}{}
 	}
 	return set
+}
+
+// IsKnownType reports whether the cache serves the type. Unrecognized client
+// type URLs must not grow the per-stream registry.
+func IsKnownType(typeURL string) bool {
+	return cache.GetResponseType(typeURL) != types.UnknownType
 }

@@ -13,8 +13,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
@@ -70,7 +68,7 @@ func (cb *Callbacks) Report() {
 
 func (cb *Callbacks) OnStreamOpen(ctx context.Context, id int64, typ string) error {
 	address := peerAddress(ctx)
-	cb.connectedClients.Set(clients.Key{Protocol: clients.SotW, ID: id}, &clients.Info{
+	cb.connectedClients.Open(clients.Key{Protocol: clients.SotW, ID: id}, typ, &clients.Info{
 		Address: address, ForwardedAddress: forwardedAddress(ctx),
 	})
 	cb.log.Info("stream open", "id", id, "typ", typ, "address", address)
@@ -83,7 +81,7 @@ func (cb *Callbacks) OnStreamClosed(id int64, node *core.Node) {
 
 func (cb *Callbacks) OnDeltaStreamOpen(ctx context.Context, id int64, typ string) error {
 	address := peerAddress(ctx)
-	cb.connectedClients.Set(clients.Key{Protocol: clients.Delta, ID: id}, &clients.Info{
+	cb.connectedClients.Open(clients.Key{Protocol: clients.Delta, ID: id}, typ, &clients.Info{
 		Address: address, ForwardedAddress: forwardedAddress(ctx),
 	})
 	cb.log.Info("delta stream open", "id", id, "typ", typ, "address", address)
@@ -132,7 +130,7 @@ func (cb *Callbacks) OnStreamResponse(
 	cb.Responses++
 	cb.mu.Unlock()
 	cb.log.Info("responding to stream request", "typeUrl", req.GetTypeUrl(), "id", id, "nodeId", req.GetNode().GetId())
-	if !isKnownType(resp.GetTypeUrl()) {
+	if !clients.IsKnownType(resp.GetTypeUrl()) {
 		return
 	}
 	cb.connectedClients.ResponseSent(clients.Key{Protocol: clients.SotW, ID: id}, clients.Response{
@@ -151,7 +149,7 @@ func (cb *Callbacks) OnStreamDeltaResponse(
 	cb.DeltaResponses++
 	cb.mu.Unlock()
 	cb.log.Info("responding to stream delta request", "typeUrl", req.GetTypeUrl(), "id", id)
-	if !isKnownType(resp.GetTypeUrl()) {
+	if !clients.IsKnownType(resp.GetTypeUrl()) {
 		return
 	}
 	// The response object is shared with the cache: copy what is kept.
@@ -189,6 +187,7 @@ func (cb *Callbacks) OnStreamDeltaRequest(id int64, req *discovery.DeltaDiscover
 		Rejected:     req.GetErrorDetail() != nil,
 		Error:        req.GetErrorDetail().GetMessage(),
 		Unsubscribed: req.GetResourceNamesUnsubscribe(),
+		Subscribes:   len(req.GetResourceNamesSubscribe()) > 0 || len(req.GetInitialResourceVersions()) > 0,
 	}))
 	return nil
 }
@@ -244,12 +243,6 @@ func (cb *Callbacks) report(typeURL, nonce string, out clients.Outcome) {
 			"resourceCount", len(rejection.Resources),
 		)
 	}
-}
-
-// isKnownType reports whether the cache serves the type. A client may ask for
-// any type URL, and the Delta cache answers a wildcard request for each.
-func isKnownType(typeURL string) bool {
-	return cache.GetResponseType(typeURL) != types.UnknownType
 }
 
 func truncate(s string, n int) string {

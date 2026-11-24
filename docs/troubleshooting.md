@@ -88,7 +88,7 @@ What the versions do not tell:
 
 - A version is a counter kept by one pod and starts over when the pod restarts. Never compare versions of different pods.
 - `ackedVersion` may be behind the snapshot on a stream that holds everything, even for the type you changed. The server sends a stream nothing while no resource it holds has changed, and the counter of a type may still move. For listeners the two stay level. For clusters, routes and secrets they may part as soon as any other resource changes, so a lagging version alone is not a refusal.
-- A type missing from a stream means that nothing of that type has been sent on this stream since `connectedAt`. After a reconnect Envoy keeps the routes and secrets it already has, and the server sends them again only when they change. A rejection or an unanswered response always shows up.
+- A type with `awaitingFirstResponse: true` was requested on this stream, and the server has yet to send a response of that type. An ACK can follow only after a response. A Delta client may reconnect with the current route or secret versions and receive no update until a subscribed resource changes. This field describes the exchange observed by the controller. A type missing from the list has no recorded subscription or response on this stream.
 
 An empty `clients` list means that no stream of that node is connected to the pod that answered, or that the node is outside the node IDs your groups may access.
 

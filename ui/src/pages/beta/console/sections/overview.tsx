@@ -50,9 +50,9 @@ export default function Overview() {
 				href: nodeSection('clients', node.nodeId)
 			})
 		}
-		for (const state of ['NACK', 'Awaiting ACK', 'Unknown'] as const) {
+		for (const state of ['NACK', 'Awaiting ACK', 'Subscribed', 'Unknown'] as const) {
 			const count = node.responses[state]
-			if (count && !(state === 'Unknown' && missing.has(node.nodeId)))
+			if (count && !((state === 'Unknown' || state === 'Subscribed') && missing.has(node.nodeId)))
 				observations.push({
 					node: node.nodeId,
 					state,
