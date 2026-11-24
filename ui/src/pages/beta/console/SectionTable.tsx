@@ -1,3 +1,4 @@
+import { ConsoleTime } from '../time/ConsoleTime'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import {
@@ -36,6 +37,7 @@ export interface Column<T> {
 	identifier?: boolean
 	label: string
 	value: (row: T) => string | number | readonly string[]
+	sortValue?: (row: T) => number
 	appliesToAllNodes?: (row: T) => boolean
 	render?: (row: T) => ReactNode
 	align?: 'left' | 'right'
@@ -133,8 +135,9 @@ export default function SectionTable<T>({
 			})
 	if (sortColumn) {
 		filtered.sort((a, b) => {
-			const first = sortColumn.value(a)
-			const second = sortColumn.value(b)
+			const sortValue = sortColumn.sortValue ?? sortColumn.value
+			const first = sortValue(a)
+			const second = sortValue(b)
 			const order =
 				typeof first === 'number' && typeof second === 'number'
 					? first - second
@@ -199,7 +202,7 @@ export default function SectionTable<T>({
 
 	const updated = updatedAt !== undefined && updatedAt > 0 && (
 		<Typography variant='caption' color='text.secondary'>
-			Updated <time dateTime={new Date(updatedAt).toISOString()}>{new Date(updatedAt).toLocaleString()}</time>
+			Updated <ConsoleTime value={updatedAt} />
 		</Typography>
 	)
 

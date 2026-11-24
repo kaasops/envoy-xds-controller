@@ -24,6 +24,8 @@ import ContrastOutlined from '@mui/icons-material/ContrastOutlined'
 import { ColorModeContext } from '../../theme'
 import { nodePath } from './api'
 import { createConsoleTheme } from './theme'
+import PreferencesButton from './time/PreferencesButton'
+import { ConsoleTimeProvider } from './time/ConsoleTime'
 
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined'
 import DnsOutlined from '@mui/icons-material/DnsOutlined'
@@ -62,6 +64,14 @@ const navigationIcons: Partial<Record<string, typeof DescriptionOutlined>> = {
 }
 
 export default function BetaLayout() {
+	return (
+		<ConsoleTimeProvider>
+			<ConsoleLayout />
+		</ConsoleTimeProvider>
+	)
+}
+
+function ConsoleLayout() {
 	const { toggleColorMode } = useContext(ColorModeContext)
 	const mode = useTheme().palette.mode
 	const dark = mode === 'dark'
@@ -177,8 +187,8 @@ export default function BetaLayout() {
 					component='header'
 					direction='row'
 					alignItems='center'
-					spacing={1.25}
-					sx={{ bgcolor: headerBackground, color: headerText, px: { xs: 2, md: 3 }, height: 56 }}
+					spacing={{ xs: 0.5, sm: 1.25 }}
+					sx={{ bgcolor: headerBackground, color: headerText, px: { xs: 1, sm: 2, md: 3 }, height: 56 }}
 				>
 					<IconButton
 						aria-label='Open navigation'
@@ -257,6 +267,7 @@ export default function BetaLayout() {
 					>
 						Classic UI
 					</Link>
+					<PreferencesButton />
 					<IconButton color='inherit' aria-label='Switch color theme' onClick={toggleColorMode}>
 						<ContrastOutlined fontSize='small' />
 					</IconButton>

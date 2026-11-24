@@ -1,16 +1,10 @@
+import { ConsoleTime } from '../time/ConsoleTime'
+import { useConsoleTime } from '../time/useConsoleTime'
 import { Box, Paper, Stack, Typography } from '@mui/material'
 import SectionTable, { type Column } from '../console/SectionTable'
 import ConfigurationTable from '../nodeOverview/ConfigurationTable'
-import { fileTime, type DumpReport, type DumpResource as Row } from '../console/configDump'
+import { type DumpReport, type DumpResource as Row } from '../console/configDump'
 import { ResourceState } from './Summary'
-
-const columns: Column<Row>[] = [
-	{ key: 'name', label: 'Resource', value: row => row.name || 'Name not reported' },
-	{ key: 'type', label: 'Type', value: row => row.type },
-	{ key: 'state', label: 'State', value: row => row.state, render: row => <ResourceState state={row.state} /> },
-	{ key: 'version', label: 'Version', value: row => row.version },
-	{ key: 'updated', label: 'Last updated', value: row => fileTime(row.updated) }
-]
 
 function Details({ row }: { row: Row }) {
 	return (
@@ -32,7 +26,7 @@ function Details({ row }: { row: Row }) {
 			>
 				{Object.entries({
 					Version: row.version,
-					'Last updated': row.updated,
+					'Last updated': row.updated ? <ConsoleTime value={row.updated} fallback='Not reported' /> : '',
 					Reason: row.reason || '',
 					...row.details
 				})
@@ -58,6 +52,20 @@ function Details({ row }: { row: Row }) {
 }
 
 export default function Resources({ report }: { report: DumpReport }) {
+	const { formatTime } = useConsoleTime()
+	const columns: Column<Row>[] = [
+		{ key: 'name', label: 'Resource', value: row => row.name || 'Name not reported' },
+		{ key: 'type', label: 'Type', value: row => row.type },
+		{ key: 'state', label: 'State', value: row => row.state, render: row => <ResourceState state={row.state} /> },
+		{ key: 'version', label: 'Version', value: row => row.version },
+		{
+			key: 'updated',
+			label: 'Last updated',
+			value: row => formatTime(row.updated) || 'Not reported',
+			sortValue: row => Date.parse(row.updated) || 0,
+			render: row => <ConsoleTime value={row.updated} fallback='Not reported' />
+		}
+	]
 	return (
 		<Stack spacing={2}>
 			<Paper variant='outlined' sx={{ overflow: 'hidden' }}>

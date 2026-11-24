@@ -1,3 +1,4 @@
+import { ConsoleTime } from '../../time/ConsoleTime'
 import StatusHelp from '../StatusHelp'
 import VersionValue from '../../VersionValue'
 import { Button, Link, Stack, Typography } from '@mui/material'
@@ -71,7 +72,7 @@ export default function Snapshots() {
 					{!row.versions && <Typography variant='body2'>No served snapshot in this controller.</Typography>}
 					{row.pause && (
 						<Typography variant='body2'>
-							Paused {new Date(row.pause.at).toLocaleString()} · {row.pause.reason}
+							Paused <ConsoleTime value={row.pause.at} /> · {row.pause.reason}
 						</Typography>
 					)}
 					<Button component={RouterLink} variant='outlined' to={nodePath(row.nodeId)}>

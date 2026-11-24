@@ -1,3 +1,4 @@
+import { ConsoleTime } from '../time/ConsoleTime'
 import { useEffect, useRef } from 'react'
 import { Link as RouterLink, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -122,10 +123,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 						{config && (
 							<>
 								{' '}
-								· Configuration fetched{' '}
-								<time dateTime={new Date(overview.dataUpdatedAt).toISOString()}>
-									{new Date(overview.dataUpdatedAt).toLocaleString()}
-								</time>
+								· Configuration fetched <ConsoleTime value={overview.dataUpdatedAt} />
 							</>
 						)}
 					</Typography>

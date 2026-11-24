@@ -1,7 +1,8 @@
+import { ConsoleTime } from '../time/ConsoleTime'
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material'
 import { apiError, getSnapshotDiff, httpStatus, type SnapshotDiff } from '../api'
-import { fileTime, dumpTypeUrl, type DumpReport, type ResourceType } from '../console/configDump'
+import { dumpTypeUrl, type DumpReport, type ResourceType } from '../console/configDump'
 import ConfigurationTable from '../nodeOverview/ConfigurationTable'
 
 type Compared = { id: string; name: string; type: string; states: string[]; served?: string; listed: boolean }
@@ -109,11 +110,15 @@ export default function CompareServed({ report, modified }: { report: DumpReport
 					<Stack direction='row' flexWrap='wrap' gap={3} mt={2}>
 						<Box>
 							<Typography variant='caption'>File modified</Typography>
-							<Typography variant='body2'>{fileTime(modified)}</Typography>
+							<Typography variant='body2'>
+								<ConsoleTime value={modified} fallback='Not reported' />
+							</Typography>
 						</Box>
 						<Box>
 							<Typography variant='caption'>Served snapshot published</Typography>
-							<Typography variant='body2'>{fileTime(published)}</Typography>
+							<Typography variant='body2'>
+								<ConsoleTime value={published} fallback='Not reported' />
+							</Typography>
 						</Box>
 						<Box sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>
 							<Typography variant='caption'>Served snapshot ID</Typography>

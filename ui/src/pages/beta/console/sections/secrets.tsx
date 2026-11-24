@@ -1,4 +1,5 @@
-import { formatUtcTimestamp } from '../../../../utils/helpers/dateService'
+import { ConsoleTime } from '../../time/ConsoleTime'
+import { useConsoleTime } from '../../time/useConsoleTime'
 import { Stack } from '@mui/material'
 import client from '../../../../api/axiosApiClient'
 import type { NodeOverviewResponse } from '../../../../common/types/overviewApiTypes'
@@ -25,26 +26,33 @@ async function loadSecrets(node: string, signal: AbortSignal) {
 }
 
 type SecretRow = Awaited<ReturnType<typeof loadSecrets>>[number]
-const columns: Column<SecretRow>[] = [
-	{ key: 'name', label: 'Secret', value: r => r.name },
-	{ key: 'type', label: 'Type', value: r => r.type },
-	{
-		key: 'domains',
-		label: 'DNS names',
-		value: r => r.certificate?.dnsNames ?? [],
-		render: r => {
-			const names = r.certificate?.dnsNames ?? []
-			return names.length > 2 ? (
-				<ResourceSelection name={r.name}>{names.length} names</ResourceSelection>
-			) : (
-				names.join(', ')
-			)
-		}
-	},
-	{ key: 'expiry', label: 'Not after', value: r => formatUtcTimestamp(r.certificate?.notAfter) || 'Unavailable' },
-	{ key: 'status', label: 'Status', value: r => r.certificate?.status || 'Unavailable' }
-]
 export default function Secrets() {
+	const { formatTime } = useConsoleTime()
+	const columns: Column<SecretRow>[] = [
+		{ key: 'name', label: 'Secret', value: r => r.name },
+		{ key: 'type', label: 'Type', value: r => r.type },
+		{
+			key: 'domains',
+			label: 'DNS names',
+			value: r => r.certificate?.dnsNames ?? [],
+			render: r => {
+				const names = r.certificate?.dnsNames ?? []
+				return names.length > 2 ? (
+					<ResourceSelection name={r.name}>{names.length} names</ResourceSelection>
+				) : (
+					names.join(', ')
+				)
+			}
+		},
+		{
+			key: 'expiry',
+			label: 'Not after',
+			value: r => formatTime(r.certificate?.notAfter) || 'Unavailable',
+			sortValue: r => Date.parse(r.certificate?.notAfter ?? '') || 0,
+			render: r => <ConsoleTime value={r.certificate?.notAfter} />
+		},
+		{ key: 'status', label: 'Status', value: r => r.certificate?.status || 'Unavailable' }
+	]
 	return (
 		<ConfigResourceTable
 			title='Secrets'
@@ -58,8 +66,8 @@ export default function Secrets() {
 								['Type', row.type],
 								['Subject', row.certificate.subject],
 								['Issuer', row.certificate.issuer],
-								['Not before', formatUtcTimestamp(row.certificate.notBefore) || 'Unavailable'],
-								['Not after', formatUtcTimestamp(row.certificate.notAfter) || 'Unavailable'],
+								['Not before', <ConsoleTime value={row.certificate.notBefore} />],
+								['Not after', <ConsoleTime value={row.certificate.notAfter} />],
 								['DNS names', (row.certificate.dnsNames ?? []).join(', ') || 'None'],
 								['Used by domains', (row.certificate.usedByDomains ?? []).join(', ') || 'None']
 							]}
