@@ -61,34 +61,33 @@ This document provides guidance for diagnosing and resolving common issues with 
    - Solution: Check TLS certificates and verify Envoy's TLS configuration
 
 4. **Envoy Rejected the Configuration (NACK)**
-   - Envoy is connected and the controller sent the update, but Envoy refused it: a file or directory is missing on the host, a module cannot be loaded, the Envoy version does not know an extension
-   - Several Envoy instances may share a node ID, and each one answers for itself
-   - Solution: look for `Envoy NACKed xDS response` in the controller logs, or list the streams of the node. The cache API must be enabled (`cacheAPI.enabled`)
+   - Envoy received an update and reported an error, such as a missing file, an unavailable module or an unsupported extension. Instances sharing a node ID respond independently.
+   - Open **xDS streams** in the console or query the cache API with its URL in `CACHE_API` and the Envoy node ID in `NODE_ID`. Both views require `cacheAPI.enabled`. With OIDC, set `TOKEN` to your access token and add `-H "Authorization: Bearer $TOKEN"`. The controller also logs `Envoy NACKed xDS response`.
    ```bash
-   curl -s "<cache-api-address>/api/v1/clients?node_id=<node-id>"
+   curl -fsS --get "$CACHE_API/api/v1/clients" --data-urlencode "node_id=$NODE_ID"
    ```
-   - A stream with a non-empty `rejections` list has refused the resources named there. After fixing the host, change the resource or restart that Envoy: over delta ADS a rejected resource is not sent again by itself. See [Rejected Configuration (NACK)](xds.md#rejected-configuration-nack)
+   - Read the error for the affected stream and resource type. A rejection can list several resources when the controller cannot identify which one failed. After fixing a host problem, change the resource or restart that Envoy to request it again over Delta ADS. See [Rejected Configuration (NACK)](xds.md#rejected-configuration-nack).
 
 #### Checking That Every Instance Accepted a Change
 
-Before relying on a change, for example before switching a node to a new listener. Each controller pod builds its own snapshot and keeps its own streams, so ask each pod itself, not the Service (for example with `kubectl port-forward pod/<pod>`):
+Query each controller pod directly, for example with a port-forward to that pod's cache API. Each builds its own snapshot and reports only its connected streams.
 
-1. Make sure the change is in the snapshot of the pod, for example that the new listener is listed by `GET /api/v1/listeners?node_id=<node-id>`.
-2. Read `GET /api/v1/clients?node_id=<node-id>`. The pod lists only the streams connected to it and names itself in `controllerPod`. The streams of all pods together must match the number of Envoy instances you expect.
-3. For every stream: `awaitingAckSince` is absent and `rejections` is empty for every type, and `ackedVersion` of the type you changed equals `snapshotVersions[<node-id>][<typeUrl>]` of the same response.
-4. Check the port on Envoy itself. An ACK means Envoy found the resources valid; a listener may still be warming up.
+1. Verify that each pod serves the change. For a new listener, check `GET /api/v1/listeners?node_id=<node-id>`.
+2. Use `GET /api/v1/clients?node_id=<node-id>` on each pod (`controllerPod`). Account for every expected Envoy instance across the responses. A stream count alone cannot identify which hosts are connected.
+3. Inspect each stream's `types[]`. A non-empty `rejections` lists outstanding NACKs. `awaitingAckSince` is the time of the oldest tracked response of that type still awaiting ACK or NACK. If `droppedRejections` or the stream's `unknownNacks` is positive, the rejection history is incomplete.
+4. For the changed type, compare `ackedVersion` with `snapshotVersions[<node-id>][<typeUrl>]` from that pod. If versions differ or there is no ACK on this stream, inspect the changed resource in that Envoy's config dump. Check the affected port and traffic path on each instance. An acknowledged listener may still be warming.
 
-To find an instance behind a gateway, read `clients[].host`. It comes from the first request identifying the node on that stream. The controller checks the top-level `node.metadata` keys `instance`, `hostname` and `HOSTNAME`, in that order. For example, when Envoy sets `node.metadata.instance` to `edge-01` in its bootstrap, the API returns `"host": "edge-01"`. Each instance can supply its own name while sharing a node ID.
+To identify an instance behind a gateway:
 
-The controller skips empty values, non-string values and labels longer than 255 bytes or containing non-printable characters. If none of the three keys supplies a usable value, `host` is omitted. Optional `locality.region`, `locality.zone` and `locality.subZone` describe where the client runs.
-
-The `address` field identifies the immediate gRPC peer, which can be the gateway. The optional `forwardedAddress` is the first IP reported in `X-Forwarded-For`. Later entries can identify intermediate proxies. A missing or invalid first IP leaves the field empty. Clients or proxies can supply this header. Use it for diagnostics only.
+- `host` comes from the first request identifying the node. The controller checks the top-level `node.metadata` keys `instance`, `hostname` and `HOSTNAME` in order. It accepts printable strings up to 255 bytes, trims whitespace and skips empty values. If none qualifies, the API omits `host`. The client can also report `locality.region`, `locality.zone` and `locality.subZone`.
+- `forwardedAddress` is the first entry in `X-Forwarded-For` if it is a valid IP address. Otherwise the API omits the field. Clients and proxies can set this header. Use it for diagnostics only.
+- `address` identifies the immediate gRPC peer, which can be the gateway.
 
 What the versions do not tell:
 
-- A version is a counter kept by one pod and starts over when the pod restarts. Never compare versions of different pods.
-- `ackedVersion` may be behind the snapshot on a stream that holds everything, even for the type you changed. The server sends a stream nothing while no resource it holds has changed, and the counter of a type may still move. For listeners the two stay level. For clusters, routes and secrets they may part as soon as any other resource changes, so a lagging version alone is not a refusal.
-- A type with `awaitingFirstResponse: true` was requested on this stream, and the server has yet to send a response of that type. An ACK can follow only after a response. A Delta client may reconnect with the current route or secret versions and receive no update until a subscribed resource changes. This field describes the exchange observed by the controller. A type missing from the list has no recorded subscription or response on this stream.
+- Compare versions only within the same controller process. Ordinary build counters can restart after a pod restart. Resume and Rollback can publish higher versions for all types, even if only one resource changed.
+- On a Delta stream, unchanged subscribed resources can keep their earlier ACK while the snapshot version advances. This also applies to listeners.
+- `awaitingFirstResponse: true` means the controller saw a request for this type and has yet to send its first response of that type on this stream. For example, a reconnecting Delta client can already have the current routes or secrets. An absent type has no recorded subscription or response on this stream.
 
 An empty `clients` list means that no stream of that node is connected to the pod that answered, or that the node is outside the node IDs your groups may access.
 

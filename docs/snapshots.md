@@ -12,15 +12,15 @@ The snapshot ID is the first 12 hexadecimal digits of a SHA-256 over the type, n
 
 ## Configuration and persistence
 
-Enable the cache API for read access. The chart enables writes by default with `snapshotControl.enabled: true` (`API_SNAPSHOT_CONTROL`). This default also applies when upgrading with values from a chart that predates this setting. Setting it to `false` disables control operations and history. Existing pauses remain effective.
+Enable the cache API to read snapshots. Writes default to `snapshotControl.enabled: true` (`API_SNAPSHOT_CONTROL`), including upgrades from charts without this setting. Setting it to `false` disables writes and history. Existing pauses stay in effect.
 
-The controller stores pause records and the version floor in a Kubernetes Secret in its namespace. `SNAPSHOT_PAUSE_SECRET` selects the Secret. The chart retains the physical name `<fullname>-frozen-nodes` and the existing storage format so pauses survive an upgrade from an earlier release candidate. It has no xDS secret-type label. On startup the controller loads this Secret even when writes are disabled. A missing Secret means there are no persisted pauses. Other read errors prevent startup.
+On startup the controller loads pause records and the version floor from a Secret in its namespace, even with writes disabled. `SNAPSHOT_PAUSE_SECRET` selects the Secret (the chart uses `<fullname>-frozen-nodes`). An unreadable or malformed Secret stops startup. Restore access or recover its data from a backup before restarting. Without the Secret, the controller starts with no pauses and a zero version floor.
 
-With OIDC, writes are allowed on nodes in the user's access groups and record the operator identity. Without OIDC, anyone with access to the writable cache API can control nodes. Use one controller replica for snapshot control. With multiple replicas a request changes the replica that receives it. The response identifies it in `controllerPod`.
+With writes enabled, OIDC identifies the operator. A configured `auth.acl.nodeIdsByGroup` limits access to the nodes assigned to the user's groups. If the mapping is empty, any authenticated user can control any node. Without OIDC, anyone who can reach the writable cache API can control nodes.
+
+Use one controller replica for snapshot control. A request changes the replica named in the response's `controllerPod` field. Other running replicas keep their own state.
 
 ## API
-
-Earlier v0.19.0 release candidates used Freeze/Unfreeze and Built. In rc.3 the corresponding API terms are Pause/Resume and Pending.
 
 All paths below are relative to `/api/v1`. Node responses include `served`, `pending`, `history`, `paused`, `pause` and `canControl`. The pause record contains `by`, `at` and `reason`.
 
@@ -28,7 +28,7 @@ All paths below are relative to `/api/v1`. Node responses include `served`, `pen
 | --- | --- |
 | `GET /pausedNodes` | Returns `pausedNodes`, keyed by node ID, including paused nodes with no served snapshot after a restart. |
 | `GET /nodes/{nodeId}/snapshots` | Returns the node state. While paused, the controller computes Pending on request. |
-| `GET /nodes/{nodeId}/snapshots/diff?from=served&to=pending` | Compares snapshots resource by resource. Each side accepts `served`, `pending` or a snapshot ID. Add `all=true` to include unchanged resources. |
+| `GET /nodes/{nodeId}/snapshots/diff?from=served&to=pending` | Compares snapshots resource by resource. Each side accepts `served`, `pending` or an ID from history. Add `all=true` to include unchanged resources. |
 | `GET /nodes/{nodeId}/snapshots/resource?snapshot=served&type=…&name=…` | Returns a decoded resource. For a Secret, only its type, name and SHA-256 are exposed. |
 | `POST /nodes/{nodeId}/pause` with `{"reason":"…"}` | Holds the node on its served snapshot. |
 | `POST /nodes/{nodeId}/resume` with `{"expectPending":"<id>"}` | Pushes the reviewed pending snapshot and resumes automatic updates. |
@@ -40,17 +40,19 @@ A successful write returns the current node state. Resume requires the ID from t
 
 ## Switching a node to another listener
 
-Start with one writable controller replica, a node with a served snapshot and access to all the VirtualServices and templates in the change. When moving a node between two listeners on the same address, keep the change in one Argo CD sync wave. A degraded VirtualService in an earlier wave can block subsequent waves.
+You need one writable controller replica, a node with a served snapshot and access to every VirtualService and template in the change. With the VirtualService health check installed, keep the changes in one Argo CD sync wave. A VirtualService marked `Degraded` can block later waves. [Argo CD health check](examples/argocd-health/README.md)
 
 1. Pause updates to the node with a reason. Node updates show **Paused** and the affected VirtualServices report the pause in `status.message`.
-2. Apply all affected objects. The controller continues building while serving the previous snapshot. The webhook allows the temporary listener address conflict on the paused node and returns a warning. Other errors can still block admission. With `webhook.lightDryRun: true`, a VirtualService that targets a paused node before or after the change also gets a full dry run within `webhook.dryRunTimeoutMS`. During a listener conflict the domain index and secret deletion checks account for served and pending resources.
-3. Compare Served with Pending. Resolve any error in `pending.error`. Check the intended additions, removals and changes and retain the pending ID from this comparison.
-4. Resume with that ID. Envoy's response appears separately under **Sync status**. Check the affected streams and the traffic path.
+2. Apply the affected objects. The node keeps its served snapshot. The webhook admits temporary listener address conflicts on paused nodes with a warning. Other validation errors still block admission. With `webhook.lightDryRun: true`, a VirtualService targeting a paused node before or after the change gets a full dry run within `webhook.dryRunTimeoutMS`.
+3. Compare Served with Pending. Resolve any `pending.error`, check the additions, removals and changes, and keep the pending ID from this comparison.
+4. Resume with that ID. Check **Sync status** of the node's streams and the traffic path.
 
-Rollback serves the selected historical snapshot immediately and pauses updates. Git still contains the desired objects. Before resuming, reconcile those objects with the configuration you want to serve, then review Pending again.
+While listener address conflicts are the only build errors, the Secret deletion check protects both previously used and newly referenced Secrets. With `webhook.validationIndices: true`, the domain index also keeps the previous and newly built domains for each node with a conflict.
+
+Rollback immediately serves the historical snapshot and pauses updates. Pending still follows the current Kubernetes objects. To keep the rolled-back configuration, revert or correct the change in Git, sync it and review Pending before Resume.
 
 ## Restart and cost
 
-Pause records survive a controller restart. Served snapshots and history contain sensitive resources and stay in memory. After a restart, a paused node can therefore have a Pending snapshot and no Served snapshot. Running Envoys retain their previous configuration. A cold Envoy receives no configuration from that replica until updates resume. The console compares the pending resources against an empty baseline so the operator can review and resume.
+Pause records survive a controller restart. Served snapshots and history stay in memory because they can contain secrets. A restarted replica has no Served snapshot for a paused node. Running Envoys keep their configuration. A newly started Envoy connecting to that replica waits for Resume. The console can review a successful Pending build against an empty baseline.
 
-Reading a paused node's state or comparing with Pending triggers a dry build of all nodes. Request these views when opening or explicitly refreshing a node. The node list uses `GET /pausedNodes` and `GET /clients`.
+Reading a paused node's state, comparing with Pending or opening a resource from Pending triggers a dry build of all nodes. Loading the node list skips this build.
