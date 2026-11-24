@@ -22,6 +22,7 @@ import (
 // 6. VirtualService with autoDiscovery fails validation
 func secretAutodiscoveryFallbackContext() {
 	var fixture *fixtures.EnvoyFixture
+	var createdNamespaces []string
 
 	// Test data paths
 	const (
@@ -35,28 +36,32 @@ func secretAutodiscoveryFallbackContext() {
 	)
 
 	BeforeEach(func() {
+		createdNamespaces = nil
 		By("setting up EnvoyFixture")
 		fixture = fixtures.NewEnvoyFixture()
 		fixture.Setup()
-		DeferCleanup(fixture.Teardown)
 
 		By("creating test namespaces")
-		// Ensure any pending deletions from previous tests are complete
-		time.Sleep(2 * time.Second)
-		err := utils.ApplyManifests(namespace1Path)
-		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace-1")
-		err = utils.ApplyManifests(namespace2Path)
-		Expect(err).NotTo(HaveOccurred(), "Failed to create namespace-2")
-		// Wait for namespaces to be fully ready
-		time.Sleep(1 * time.Second)
+		for _, manifest := range []string{namespace1Path, namespace2Path} {
+			_, err := utils.Run(exec.Command("kubectl", "create", "-f", manifest))
+			Expect(err).NotTo(HaveOccurred())
+			createdNamespaces = append(createdNamespaces, manifest)
+		}
+	})
 
-		DeferCleanup(func() {
-			By("cleaning up test namespaces")
-			// Use --timeout to prevent hanging on namespace deletion with finalizers
-			cmd := exec.Command("kubectl", "delete", "ns", "exc-secrets-ns1", "exc-secrets-ns2",
-				"--ignore-not-found=true", "--timeout=30s", "--wait=false")
-			_, _ = utils.Run(cmd)
-		})
+	AfterEach(func() {
+		// Release VirtualService references before namespace deletion removes their Secrets.
+		fixture.Teardown()
+		if len(createdNamespaces) == 0 {
+			return
+		}
+		By("waiting for the test namespaces to be deleted")
+		args := []string{"delete", "--ignore-not-found", "--wait=true", "--timeout=2m"}
+		for _, manifest := range createdNamespaces {
+			args = append(args, "-f", manifest)
+		}
+		_, err := utils.Run(exec.Command("kubectl", args...))
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should find fallback secret after primary secret is deleted", func() {
@@ -124,9 +129,6 @@ func secretAutodiscoveryFallbackContext() {
 		// Note: we don't call WaitEnvoyConfigChanged here because the config should remain the same
 		// (both explicit ns2 reference and autodiscovery now select the same ns2 secret)
 		fixture.VerifyEnvoyConfig(expectations)
-
-		By("cleaning up secrets")
-		_ = utils.DeleteManifests(secretNs2Path)
 	})
 
 	It("should validate VirtualService after secret migration between namespaces", func() {
@@ -181,8 +183,5 @@ func secretAutodiscoveryFallbackContext() {
 			listenerJsonPath + ".filter_chains.0.filter_chain_match.server_names.0": "autodiscovery-fallback.kaasops.io",
 		}
 		fixture.VerifyEnvoyConfig(expectations)
-
-		By("cleaning up")
-		_ = utils.DeleteManifests(secretNs1Path)
 	})
 }
