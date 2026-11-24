@@ -210,7 +210,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 							aria-describedby={data.pending?.error ? 'resume-build-error' : undefined}
 							disabled={blocked || !canCompare || Boolean(data.pending?.error)}
 						>
-							Resume…
+							Resume
 						</Button>
 					)}
 					{canShow && data.canControl && !data.paused && (
@@ -266,7 +266,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 							)}
 							<Typography variant='body2' sx={{ mt: 0.5 }}>
 								{data.canControl
-									? 'Choose Resume… to compare the served and pending snapshots before publishing.'
+									? 'Choose Resume to compare the served and pending snapshots before publishing.'
 									: 'An operator with write access can review and resume this node.'}
 							</Typography>
 							<Typography variant='body2' sx={{ mt: 0.5 }}>
