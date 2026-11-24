@@ -1,3 +1,4 @@
+import StatusHelp from '../StatusHelp'
 import VersionValue from '../../VersionValue'
 import { Button, Link, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
@@ -35,7 +36,19 @@ const columns: Column<SnapshotEntry>[] = [
 				)
 		})
 	),
-	{ key: 'freeze', label: 'Publication', value: row => (row.freeze ? 'Frozen' : 'Not frozen') }
+	{
+		key: 'pause',
+		label: 'Updates',
+		value: row => (row.pause ? 'Paused' : 'Active'),
+		render: row =>
+			row.pause ? (
+				<StatusHelp status='Paused' to={nodePath(row.nodeId)}>
+					Paused
+				</StatusHelp>
+			) : (
+				'Active'
+			)
+	}
 ]
 
 export default function Snapshots() {
@@ -52,21 +65,23 @@ export default function Snapshots() {
 			error={query.error}
 			updatedAt={query.dataUpdatedAt}
 			onRefresh={() => void query.refetch()}
-			emptyText='No cached snapshots or frozen nodes.'
+			emptyText='No cached snapshots or paused nodes.'
 			detail={row => (
 				<Stack spacing={1.5} alignItems='flex-start'>
 					{!row.versions && <Typography variant='body2'>No served snapshot in this controller.</Typography>}
-					{row.freeze && (
+					{row.pause && (
 						<Typography variant='body2'>
-							Frozen {new Date(row.freeze.at).toLocaleString()} · {row.freeze.reason}
+							Paused {new Date(row.pause.at).toLocaleString()} · {row.pause.reason}
 						</Typography>
 					)}
 					<Button component={RouterLink} variant='outlined' to={nodePath(row.nodeId)}>
 						Inspect snapshots
 					</Button>
-					<Link component={RouterLink} to={nodePath(row.nodeId) + '/compare?from=served&to=built'}>
-						Compare served and built
-					</Link>
+					{row.pause && (
+						<Link component={RouterLink} to={nodePath(row.nodeId) + '/compare?from=served&to=pending'}>
+							Compare served and pending
+						</Link>
+					)}
 				</Stack>
 			)}
 		/>

@@ -1,5 +1,5 @@
 // Package snapshots lets an operator see what a node is served and what the controller has built for it,
-// freeze the node on what it is served, and roll it back to a snapshot it was served before.
+// pause the node on what it is served, and roll it back to a snapshot it was served before.
 package snapshots
 
 import (
@@ -25,9 +25,10 @@ import (
 var (
 	ErrUnknownNode     = errors.New("unknown node")
 	ErrUnknownResource = errors.New("unknown resource")
-	ErrAlreadyFrozen   = errors.New("node is frozen already")
-	ErrNotFrozen       = errors.New("node is not frozen")
+	ErrAlreadyPaused   = errors.New("node is paused already")
+	ErrNotPaused       = errors.New("node is not paused")
 	ErrNoReason        = errors.New("a reason is required")
+	ErrNoPendingID     = errors.New("expectPending must contain the ID of the compared pending snapshot")
 	// ErrStateChanged means the node changed since the operator read it: read again and decide again.
 	ErrStateChanged = errors.New("the node changed since it was read")
 	// ErrBuildFails means what is built for the node now could not be published.
@@ -36,35 +37,35 @@ var (
 
 // Snapshot names accepted where a snapshot is chosen; anything else is the ID of a snapshot in the history.
 const (
-	Served = "served"
-	Built  = "built"
+	Served  = "served"
+	Pending = "pending"
 )
 
 // Builder is the part of the cache updater the control needs.
 type Builder interface {
 	// DryBuildNode builds what the node would be served now, without publishing anything.
 	DryBuildNode(ctx context.Context, nodeID string) (cache.ResourceSnapshot, error)
-	// RebuildSnapshots builds from the current objects and publishes to every node that is not frozen.
+	// RebuildSnapshots builds from the current objects and publishes to every node that is not paused.
 	RebuildSnapshots(ctx context.Context) error
 }
 
-// FreezeStore keeps the frozen nodes, and the highest version a freeze or rollback has served, across
+// PauseStore keeps the paused nodes, and the highest version a pause or rollback has served, across
 // controller restarts.
-type FreezeStore interface {
-	Save(ctx context.Context, frozen map[string]wrapped.Freeze, versionFloor int64) error
+type PauseStore interface {
+	Save(ctx context.Context, paused map[string]wrapped.Pause, versionFloor int64) error
 }
 
 // Control reads and changes what nodes are served.
 type Control struct {
 	Cache   *wrapped.SnapshotCache
 	Builder Builder
-	// Store keeps the frozen nodes; nil keeps them in memory only.
-	Store FreezeStore
+	// Store keeps the paused nodes; nil keeps them in memory only.
+	Store PauseStore
 	Now   func() time.Time
 
-	// writes runs freeze, unfreeze and rollback one at a time, each until the frozen nodes are kept or
+	// writes runs pause, resume and rollback one at a time, each until the paused nodes are kept or
 	// restored: an operation that fails restores the map it read, which must not undo another one.
-	writes sync.Mutex
+	writes sync.RWMutex
 }
 
 // SnapshotInfo describes one snapshot of a node.
@@ -79,39 +80,54 @@ type SnapshotInfo struct {
 
 // State is what a node is served, what was built for it and what it was served before.
 type State struct {
-	NodeID  string          `json:"nodeId"`
-	Frozen  bool            `json:"frozen"`
-	Freeze  *wrapped.Freeze `json:"freeze"`
-	Served  *SnapshotInfo   `json:"served"`
-	Built   *SnapshotInfo   `json:"built"`
-	History []SnapshotInfo  `json:"history"`
+	NodeID  string         `json:"nodeId"`
+	Paused  bool           `json:"paused"`
+	Pause   *wrapped.Pause `json:"pause"`
+	Served  *SnapshotInfo  `json:"served"`
+	Pending *SnapshotInfo  `json:"pending"`
+	History []SnapshotInfo `json:"history"`
 }
 
 // State returns the state of the node.
 func (c *Control) State(ctx context.Context, nodeID string) (State, error) {
+	c.writes.RLock()
+	defer c.writes.RUnlock()
+	return c.readState(ctx, nodeID)
+}
+
+// PausedNodes lists the pauses after any in-flight control operation has finished.
+func (c *Control) PausedNodes() map[string]wrapped.Pause {
+	c.writes.RLock()
+	defer c.writes.RUnlock()
+	return c.Cache.PausedNodes()
+}
+
+func (c *Control) readState(ctx context.Context, nodeID string) (State, error) {
 	if !c.known(nodeID) {
 		return State{}, fmt.Errorf("%w: %s", ErrUnknownNode, nodeID)
 	}
 	state := State{NodeID: nodeID, History: []SnapshotInfo{}}
-	if freeze, frozen := c.Cache.Frozen(nodeID); frozen {
-		state.Frozen, state.Freeze = true, &freeze
+	if pause, paused := c.Cache.Paused(nodeID); paused {
+		state.Paused, state.Pause = true, &pause
 	}
 	if served, ok := c.Cache.Served(nodeID); ok {
 		info := describe(served.Snapshot, true)
 		info.PublishedAt = &served.PublishedAt
 		state.Served = &info
 	}
-	built, err := c.Builder.DryBuildNode(ctx, nodeID)
-	if built != nil {
-		info := describe(built, false)
-		at := c.Now().UTC()
-		info.BuiltAt = &at
-		state.Built = &info
-	} else {
-		state.Built = &SnapshotInfo{Versions: map[string]string{}, Counts: map[string]int{}}
-	}
-	if err != nil {
-		state.Built.Error = err.Error()
+	if state.Paused {
+		built, err := c.Builder.DryBuildNode(ctx, nodeID)
+		if built != nil {
+			info := describe(built, false)
+			at := c.Now().UTC()
+			info.BuiltAt = &at
+			state.Pending = &info
+		} else {
+			state.Pending = &SnapshotInfo{Versions: map[string]string{}, Counts: map[string]int{}}
+		}
+		if err != nil {
+			state.Pending.Error = err.Error()
+		}
 	}
 	for _, published := range c.Cache.History(nodeID) {
 		info := describe(published.Snapshot, true)
@@ -121,9 +137,9 @@ func (c *Control) State(ctx context.Context, nodeID string) (State, error) {
 	return state, nil
 }
 
-// Freeze stops publishing to the node; the node keeps being served what it has. The freeze is kept in
-// the store first: a freeze lost on a restart would publish what it held back.
-func (c *Control) Freeze(ctx context.Context, nodeID, by, reason string) (State, error) {
+// Pause stops publishing to the node; the node keeps being served what it has. The pause is kept in
+// the store first: a pause lost on a restart would publish what it held back.
+func (c *Control) Pause(ctx context.Context, nodeID, by, reason string) (State, error) {
 	c.writes.Lock()
 	defer c.writes.Unlock()
 	if reason == "" {
@@ -132,59 +148,62 @@ func (c *Control) Freeze(ctx context.Context, nodeID, by, reason string) (State,
 	if !c.known(nodeID) {
 		return State{}, fmt.Errorf("%w: %s", ErrUnknownNode, nodeID)
 	}
-	if !c.Cache.Freeze(nodeID, wrapped.Freeze{By: by, At: c.Now().UTC(), Reason: reason}) {
-		return State{}, ErrAlreadyFrozen
+	if !c.Cache.Pause(nodeID, wrapped.Pause{By: by, At: c.Now().UTC(), Reason: reason}) {
+		return State{}, ErrAlreadyPaused
 	}
-	// kept with the freeze: the versions the node was served must not come back after a restart
+	// kept with the pause: the versions the node was served must not come back after a restart
 	c.Cache.RaiseVersionFloor(nodeID)
 	if err := c.save(ctx); err != nil {
-		c.Cache.Unfreeze(nodeID)
+		c.Cache.Resume(nodeID)
 		return State{}, err
 	}
-	// The services of the node get the note that it is frozen; nothing is published to it.
+	// The services of the node get the note that it is paused; nothing is published to it.
 	_ = c.Builder.RebuildSnapshots(ctx)
-	return c.State(ctx, nodeID)
+	return c.readState(ctx, nodeID)
 }
 
-// Unfreeze serves the node what is built from the current objects, then lets every build publish to it
-// again. It refuses while that build fails, and keeps the freeze: the node would only be held for
-// another reason. With expectBuilt, the ID of the built snapshot the operator compared, it refuses when
+// Resume serves the node what is built from the current objects, then lets every build publish to it
+// again. It refuses while that build fails, and keeps the pause: the node would only be held for
+// another reason. It checks expectPending against the pending snapshot the operator compared and refuses when
 // the build differs now; otherwise exactly that snapshot is served first, then whatever the objects
 // build at that moment.
-func (c *Control) Unfreeze(ctx context.Context, nodeID, _, expectBuilt string) (State, error) {
+func (c *Control) Resume(ctx context.Context, nodeID, _, expectPending string) (State, error) {
 	c.writes.Lock()
 	defer c.writes.Unlock()
-	freeze, frozen := c.Cache.Frozen(nodeID)
-	if !frozen {
-		return State{}, ErrNotFrozen
+	if expectPending == "" {
+		return State{}, ErrNoPendingID
+	}
+	pause, paused := c.Cache.Paused(nodeID)
+	if !paused {
+		return State{}, ErrNotPaused
 	}
 	built, err := c.Builder.DryBuildNode(ctx, nodeID)
 	if err != nil {
 		return State{}, fmt.Errorf("%w: %w", ErrBuildFails, err)
 	}
-	if expectBuilt != "" && (built == nil || wrapped.SnapshotID(built) != expectBuilt) {
+	if built == nil || wrapped.SnapshotID(built) != expectPending {
 		return State{}, ErrStateChanged
 	}
 	// The version is kept before it is served: after a restart the next one is higher.
 	version := c.Cache.NextVersion(nodeID)
 	if c.Store != nil {
-		if err := c.Store.Save(ctx, withoutNode(c.Cache.FrozenNodes(), nodeID), version); err != nil {
+		if err := c.Store.Save(ctx, withoutNode(c.Cache.PausedNodes(), nodeID), version); err != nil {
 			return State{}, err
 		}
 	}
-	if err := c.Cache.PublishFrozen(ctx, nodeID, built, version); err != nil {
+	if err := c.Cache.PublishPaused(ctx, nodeID, built, version); err != nil {
 		if c.Store != nil {
-			_ = c.Store.Save(ctx, withNode(c.Cache.FrozenNodes(), nodeID, freeze), version)
+			_ = c.Store.Save(ctx, withNode(c.Cache.PausedNodes(), nodeID, pause), version)
 		}
 		return State{}, err
 	}
 	// The objects may have changed since the compared build: publish what they build now. A failure
 	// shows in the state, the node is held by the builder then.
 	_ = c.Builder.RebuildSnapshots(ctx)
-	return c.State(ctx, nodeID)
+	return c.readState(ctx, nodeID)
 }
 
-// Rollback serves the node a snapshot from its history and freezes it there. With expectServed, the ID
+// Rollback serves the node a snapshot from its history and pauses it there. With expectServed, the ID
 // of the snapshot the operator saw served, it refuses when the node is served something else now.
 func (c *Control) Rollback(ctx context.Context, nodeID, by, id, expectServed string) (State, error) {
 	c.writes.Lock()
@@ -192,16 +211,16 @@ func (c *Control) Rollback(ctx context.Context, nodeID, by, id, expectServed str
 	if !c.inHistory(nodeID, id) {
 		return State{}, fmt.Errorf("%w: %s", wrapped.ErrUnknownSnapshot, id)
 	}
-	freeze := wrapped.Freeze{By: by, At: c.Now().UTC(), Reason: "rollback to " + id}
-	before := c.Cache.FrozenNodes()
+	pause := wrapped.Pause{By: by, At: c.Now().UTC(), Reason: "rollback to " + id}
+	before := c.Cache.PausedNodes()
 	// The version is kept before it is served: after a restart the next one is higher.
 	version := c.Cache.NextVersion(nodeID)
 	if c.Store != nil {
-		if err := c.Store.Save(ctx, withNode(before, nodeID, freeze), version); err != nil {
+		if err := c.Store.Save(ctx, withNode(before, nodeID, pause), version); err != nil {
 			return State{}, err
 		}
 	}
-	if err := c.Cache.Rollback(ctx, nodeID, id, expectServed, freeze, version); err != nil {
+	if err := c.Cache.Rollback(ctx, nodeID, id, expectServed, pause, version); err != nil {
 		if errors.Is(err, wrapped.ErrServedChanged) {
 			err = fmt.Errorf("%w: %w", ErrStateChanged, err)
 		}
@@ -210,9 +229,9 @@ func (c *Control) Rollback(ctx context.Context, nodeID, by, id, expectServed str
 		}
 		return State{}, err
 	}
-	// The services of the node get the note that it is frozen; nothing is published to it.
+	// The services of the node get the note that it is paused; nothing is published to it.
 	_ = c.Builder.RebuildSnapshots(ctx)
-	return c.State(ctx, nodeID)
+	return c.readState(ctx, nodeID)
 }
 
 // Summary counts the resources of one type by change.
@@ -241,11 +260,13 @@ type Diff struct {
 	Resources []Change           `json:"resources"`
 }
 
-// Diff compares two snapshots of the node: served, built or the ID of one from the history. Bytes are
+// Diff compares two snapshots of the node: served, pending or the ID of one from the history. Bytes are
 // compared first; resources with different bytes are decoded and compared again, so a different order
 // of fields inside packed Any values counts as sameDecoded. Secrets are compared by bytes only.
 // Without all, only resources that are not the same are listed.
 func (c *Control) Diff(ctx context.Context, nodeID, from, to string, all bool) (Diff, error) {
+	c.writes.RLock()
+	defer c.writes.RUnlock()
 	a, fromTime, err := c.snapshot(ctx, nodeID, from)
 	if err != nil {
 		return Diff{}, err
@@ -259,8 +280,8 @@ func (c *Control) Diff(ctx context.Context, nodeID, from, to string, all bool) (
 		}
 	}
 	diff := Diff{
-		From:      describe(a, from != Built),
-		To:        describe(b, to != Built),
+		From:      describe(a, from != Pending),
+		To:        describe(b, to != Pending),
 		Summary:   map[string]Summary{},
 		Resources: []Change{},
 	}
@@ -311,6 +332,8 @@ type Resource struct {
 // Resource returns one resource of a snapshot of the node, decoded. A secret is never decoded: it holds
 // private keys, so only its hash is returned.
 func (c *Control) Resource(ctx context.Context, nodeID, which, typeURL, name string) (Resource, error) {
+	c.writes.RLock()
+	defer c.writes.RUnlock()
 	s, _, err := c.snapshot(ctx, nodeID, which)
 	if err != nil {
 		return Resource{}, err
@@ -342,7 +365,10 @@ func (c *Control) snapshot(ctx context.Context, nodeID, which string) (cache.Res
 			return &cache.Snapshot{}, nil, nil
 		}
 		return served.Snapshot, &served.PublishedAt, nil
-	case Built:
+	case Pending:
+		if _, paused := c.Cache.Paused(nodeID); !paused {
+			return nil, nil, ErrNotPaused
+		}
 		built, err := c.Builder.DryBuildNode(ctx, nodeID)
 		if built == nil {
 			return nil, nil, err
@@ -361,8 +387,8 @@ func (c *Control) known(nodeID string) bool {
 	if _, ok := c.Cache.GetNodeIDsAsMap()[nodeID]; ok {
 		return true
 	}
-	_, frozen := c.Cache.Frozen(nodeID)
-	return frozen
+	_, paused := c.Cache.Paused(nodeID)
+	return paused
 }
 
 func (c *Control) inHistory(nodeID, id string) bool {
@@ -378,11 +404,11 @@ func (c *Control) save(ctx context.Context) error {
 	if c.Store == nil {
 		return nil
 	}
-	return c.Store.Save(ctx, c.Cache.FrozenNodes(), c.Cache.VersionFloor())
+	return c.Store.Save(ctx, c.Cache.PausedNodes(), c.Cache.VersionFloor())
 }
 
-func withoutNode(nodes map[string]wrapped.Freeze, nodeID string) map[string]wrapped.Freeze {
-	result := make(map[string]wrapped.Freeze, len(nodes))
+func withoutNode(nodes map[string]wrapped.Pause, nodeID string) map[string]wrapped.Pause {
+	result := make(map[string]wrapped.Pause, len(nodes))
 	for id, f := range nodes {
 		if id != nodeID {
 			result[id] = f
@@ -391,12 +417,12 @@ func withoutNode(nodes map[string]wrapped.Freeze, nodeID string) map[string]wrap
 	return result
 }
 
-func withNode(nodes map[string]wrapped.Freeze, nodeID string, freeze wrapped.Freeze) map[string]wrapped.Freeze {
-	result := make(map[string]wrapped.Freeze, len(nodes)+1)
+func withNode(nodes map[string]wrapped.Pause, nodeID string, pause wrapped.Pause) map[string]wrapped.Pause {
+	result := make(map[string]wrapped.Pause, len(nodes)+1)
 	for id, f := range nodes {
 		result[id] = f
 	}
-	result[nodeID] = freeze
+	result[nodeID] = pause
 	return result
 }
 

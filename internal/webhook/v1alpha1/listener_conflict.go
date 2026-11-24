@@ -26,7 +26,7 @@ func toleratedListenerConflict(err error, nodeIDs []string, namespace string) ad
 			listener, previous := conflict.Listeners()
 			detail = fmt.Sprintf("listeners %s and %s share %s", previous, listener, conflict.Address())
 		}
-		warning := fmt.Sprintf("node %q gets no new configuration while %s", conflict.NodeID(), detail)
+		warning := fmt.Sprintf("updates to node %q are paused: changes are not pushed while %s", conflict.NodeID(), detail)
 		if len(warning) > maxWarningLength {
 			warning = warning[:maxWarningLength-3] + "..."
 		}

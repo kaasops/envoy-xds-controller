@@ -13,7 +13,7 @@ import (
 )
 
 // DryBuildNode builds the snapshots of all nodes from the current objects without publishing any, and
-// returns the one of nodeID: what the node would be served now if it were not frozen. The error tells
+// returns the one of nodeID: what the node would be served now if it were not paused. The error tells
 // why it would not be served: a listener address conflict of this node, or a failure that stops every
 // node, in which case there is no snapshot. A node no object targets gets an empty snapshot.
 func (c *CacheUpdater) DryBuildNode(ctx context.Context, nodeID string) (cache.ResourceSnapshot, error) {
@@ -47,34 +47,34 @@ func conflictOf(err error, nodeID string) *wrapped.DuplicateListenerAddress {
 	return byNode[nodeID]
 }
 
-// FrozenNodeIDs returns the nodes frozen on the snapshot they are served, sorted. The webhooks accept
-// listener address conflicts on them: nothing reaches their Envoys until they are unfrozen, and unfreezing
+// PausedNodeIDs returns the nodes paused on the snapshot they are served, sorted. The webhooks accept
+// listener address conflicts on them: nothing reaches their Envoys until they are resumed, and resuming
 // is refused while their build fails.
-func (c *CacheUpdater) FrozenNodeIDs() []string {
-	frozen := c.snapshotCache.FrozenNodes()
-	nodeIDs := make([]string, 0, len(frozen))
-	for nodeID := range frozen {
+func (c *CacheUpdater) PausedNodeIDs() []string {
+	paused := c.snapshotCache.PausedNodes()
+	nodeIDs := make([]string, 0, len(paused))
+	for nodeID := range paused {
 		nodeIDs = append(nodeIDs, nodeID)
 	}
 	sort.Strings(nodeIDs)
 	return nodeIDs
 }
 
-// maxFreezeReason bounds the reason an operator gave, as it is copied into service statuses.
-const maxFreezeReason = 200
+// maxPauseReason bounds the reason an operator gave, as it is copied into service statuses.
+const maxPauseReason = 200
 
-// withFreezeNote adds to the status of a service a note per frozen node it goes to: the service may be
-// valid and still not served there. Who froze the node is left to the API.
-func withFreezeNote(status VSStatus, nodeIDs []string, frozen map[string]wrapped.Freeze) VSStatus {
+// withPauseNote adds to the status of a service a note per paused node it goes to: the service may be
+// valid and still not served there. Who paused the node is left to the API.
+func withPauseNote(status VSStatus, nodeIDs []string, paused map[string]wrapped.Pause) VSStatus {
 	notes := make([]string, 0, len(nodeIDs))
 	for _, nodeID := range nodeIDs {
-		freeze, ok := frozen[nodeID]
+		pause, ok := paused[nodeID]
 		if !ok {
 			continue
 		}
-		notes = append(notes, fmt.Sprintf("node %s is frozen since %s (%s): changes are not published to it",
-			boundedStatusText(nodeID, maxDisplayedNodeBytes), freeze.At.UTC().Format(time.RFC3339),
-			boundedStatusText(freeze.Reason, maxFreezeReason)))
+		notes = append(notes, fmt.Sprintf("updates to node %s are paused since %s (%s): changes are not pushed",
+			boundedStatusText(nodeID, maxDisplayedNodeBytes), pause.At.UTC().Format(time.RFC3339),
+			boundedStatusText(pause.Reason, maxPauseReason)))
 	}
 	if len(notes) == 0 {
 		return status

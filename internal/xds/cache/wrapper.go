@@ -25,14 +25,14 @@ type SnapshotCache struct {
 	cache.SnapshotCache
 	mu      sync.RWMutex
 	nodeIDs map[string]time.Time
-	// served, history and offered are kept per node for freezing and rollback, see freeze.go
+	// served, history and offered are kept per node for pausing and rollback, see pause.go
 	served  map[string]Published
 	history map[string][]Published
 	offered map[string]cache.ResourceSnapshot
-	frozen  map[string]Freeze
+	paused  map[string]Pause
 	// historyLimit is how many previously served snapshots each node keeps
 	historyLimit int
-	// versionFloor is the highest version a freeze or rollback has served, see NextVersion
+	// versionFloor is the highest version a pause or rollback has served, see NextVersion
 	versionFloor int64
 	// now is the clock of NextVersion
 	now func() time.Time
@@ -47,7 +47,7 @@ func NewSnapshotCache() *SnapshotCache {
 		served:        make(map[string]Published),
 		history:       make(map[string][]Published),
 		offered:       make(map[string]cache.ResourceSnapshot),
-		frozen:        make(map[string]Freeze),
+		paused:        make(map[string]Pause),
 		now:           time.Now,
 	}
 }
@@ -62,7 +62,7 @@ func (c *SnapshotCache) SetSnapshot(ctx context.Context, nodeID string, snapshot
 	if err := c.validateCache(nodeID, snapshot); err != nil {
 		return fmt.Errorf("snapshot is invalid: %w", err)
 	}
-	if _, frozen := c.frozen[nodeID]; frozen {
+	if _, paused := c.paused[nodeID]; paused {
 		return nil
 	}
 	if c.historyLimit > 0 && c.unchanged(nodeID, snapshot) {

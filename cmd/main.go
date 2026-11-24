@@ -91,15 +91,17 @@ func init() {
 }
 
 type Config struct {
-	// SnapshotControl lets the cache API freeze, unfreeze and roll back nodes. The frozen nodes are kept in
-	// the Secret SnapshotFreezeSecret of the installation namespace and come back at every start, whatever
+	// SnapshotControl lets the cache API pause, resume and roll back nodes. The paused nodes are kept in
+	// the Secret SnapshotPauseSecret of the installation namespace and come back at every start, whatever
 	// this setting.
-	SnapshotControl       bool     `default:"true"                             envconfig:"API_SNAPSHOT_CONTROL"`
-	SnapshotFreezeSecret  string   `default:"envoy-xds-controller-frozen-nodes" envconfig:"SNAPSHOT_FREEZE_SECRET"`
-	WatchNamespaces       []string `default:""                     envconfig:"WATCH_NAMESPACES"`
-	InstallationNamespace string   `default:"envoy-xds-controller" envconfig:"INSTALLATION_NAMESPACE"`
-	TargetNamespace       string   `default:"envoy-xds-controller" envconfig:"TARGET_NAMESPACE"` // ns for creating cr
-	XDS                   struct {
+	SnapshotControl     bool   `default:"true"                             envconfig:"API_SNAPSHOT_CONTROL"`
+	SnapshotPauseSecret string `envconfig:"SNAPSHOT_PAUSE_SECRET"`
+	// Earlier release candidates used this variable for the same Secret.
+	LegacySnapshotPauseSecret string   `default:"envoy-xds-controller-frozen-nodes" envconfig:"SNAPSHOT_FREEZE_SECRET"`
+	WatchNamespaces           []string `default:""                     envconfig:"WATCH_NAMESPACES"`
+	InstallationNamespace     string   `default:"envoy-xds-controller" envconfig:"INSTALLATION_NAMESPACE"`
+	TargetNamespace           string   `default:"envoy-xds-controller" envconfig:"TARGET_NAMESPACE"` // ns for creating cr
+	XDS                       struct {
 		Port int `default:"9000" envconfig:"XDS_PORT"`
 	}
 	Webhook struct {
@@ -125,6 +127,13 @@ func (c *Config) GetNamespaceForResourceCreation() string {
 		return c.InstallationNamespace
 	}
 	return "default"
+}
+
+func (cfg Config) pauseSecretName() string {
+	if cfg.SnapshotPauseSecret != "" {
+		return cfg.SnapshotPauseSecret
+	}
+	return cfg.LegacySnapshotPauseSecret
 }
 
 // nolint:gocyclo
@@ -491,25 +500,25 @@ func main() {
 			os.Exit(1)
 		}
 
-		// A restart must not unfreeze a node: the frozen nodes come back whatever the settings, and turning
+		// A restart must not resume a node: the paused nodes come back whatever the settings, and turning
 		// writes off only stops changes through the cache API.
-		freezeStore := &snapshots.SecretStore{
+		pauseStore := &snapshots.SecretStore{
 			Reader:    mgr.GetAPIReader(),
 			Writer:    mgr.GetClient(),
 			Namespace: cfg.InstallationNamespace,
-			Name:      cfg.SnapshotFreezeSecret,
+			Name:      cfg.pauseSecretName(),
 		}
-		frozen, versionFloor, err := freezeStore.Load(ctx)
+		paused, versionFloor, err := pauseStore.Load(ctx)
 		if err != nil {
-			// starting as if nothing were frozen would publish what the frozen nodes hold back
-			setupServers.Error(err, "unable to read the frozen nodes")
+			// starting as if nothing were paused would publish what the paused nodes hold back
+			setupServers.Error(err, "unable to read the paused nodes")
 			os.Exit(1)
 		}
-		snapshotCache.RestoreFrozen(frozen)
+		snapshotCache.RestorePaused(paused)
 		snapshotCache.SetVersionFloor(versionFloor)
-		for nodeID, freeze := range frozen {
-			setupServers.Info("node is frozen: nothing is published to it until it is unfrozen",
-				"nodeId", nodeID, "by", freeze.By, "reason", freeze.Reason)
+		for nodeID, pause := range paused {
+			setupServers.Info("node is paused: nothing is published to it until it is resumed",
+				"nodeId", nodeID, "by", pause.By, "reason", pause.Reason)
 		}
 
 		if err := cacheUpdater.RebuildSnapshots(ctx); err != nil {
@@ -563,11 +572,11 @@ func main() {
 					setupServers.Error(err, "failed to create api server")
 					os.Exit(1)
 				}
-				control := &snapshots.Control{Cache: snapshotCache, Builder: cacheUpdater, Store: freezeStore, Now: time.Now}
+				control := &snapshots.Control{Cache: snapshotCache, Builder: cacheUpdater, Store: pauseStore, Now: time.Now}
 				apiServer.EnableSnapshots(control, cfg.SnapshotControl)
 				if cfg.SnapshotControl && !apiServerCfg.Auth.Enabled {
 					setupServers.Info("snapshot control is on without authentication: " +
-						"anyone who reaches the cache API can freeze and roll back nodes")
+						"anyone who reaches the cache API can pause and roll back nodes")
 				}
 				if err := apiServer.RunGRPC(
 					grpcAPIPort,

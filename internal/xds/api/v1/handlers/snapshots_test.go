@@ -80,7 +80,8 @@ func call(t *testing.T, r *gin.Engine, method, path string, body any) (int, map[
 }
 
 func TestSnapshotStateAndDiff(t *testing.T) {
-	r, _ := snapshotServer(t, false, nil)
+	r, cache := snapshotServer(t, false, nil)
+	cache.Pause("node-a", xdscache.Pause{})
 
 	code, state := call(t, r, http.MethodGet, "/api/v1/nodes/node-a/snapshots", nil)
 	require.Equal(t, http.StatusOK, code)
@@ -88,7 +89,7 @@ func TestSnapshotStateAndDiff(t *testing.T) {
 	require.NotEmpty(t, state["controllerPod"])
 	require.Len(t, state["history"], 1)
 
-	code, diff := call(t, r, http.MethodGet, "/api/v1/nodes/node-a/snapshots/diff?from=served&to=built", nil)
+	code, diff := call(t, r, http.MethodGet, "/api/v1/nodes/node-a/snapshots/diff?from=served&to=pending", nil)
 	require.Equal(t, http.StatusOK, code)
 	require.Len(t, diff["resources"], 1)
 
@@ -104,7 +105,7 @@ func TestSnapshotStateAndDiff(t *testing.T) {
 func TestSnapshotWritesNeedTheSetting(t *testing.T) {
 	r, _ := snapshotServer(t, false, nil)
 
-	code, _ := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/freeze", map[string]string{"reason": "switch"})
+	code, _ := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/pause", map[string]string{"reason": "switch"})
 
 	require.Equal(t, http.StatusForbidden, code)
 }
@@ -112,22 +113,22 @@ func TestSnapshotWritesNeedTheSetting(t *testing.T) {
 func TestSnapshotWritesFollowTheNodeACL(t *testing.T) {
 	r, _ := snapshotServer(t, true, map[string]struct{}{"node-b": {}})
 
-	code, _ := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/freeze", map[string]string{"reason": "switch"})
+	code, _ := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/pause", map[string]string{"reason": "switch"})
 	require.Equal(t, http.StatusForbidden, code)
 	code, _ = call(t, r, http.MethodGet, "/api/v1/nodes/node-a/snapshots", nil)
 	require.Equal(t, http.StatusForbidden, code)
 }
 
-func TestFreezeRollbackUnfreeze(t *testing.T) {
+func TestPauseRollbackResume(t *testing.T) {
 	r, cache := snapshotServer(t, true, nil)
 
-	code, _ := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/freeze", map[string]string{})
+	code, _ := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/pause", map[string]string{})
 	require.Equal(t, http.StatusBadRequest, code, "a reason is required")
 
-	code, state := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/freeze", map[string]string{"reason": "switch"})
+	code, state := call(t, r, http.MethodPost, "/api/v1/nodes/node-a/pause", map[string]string{"reason": "switch"})
 	require.Equal(t, http.StatusOK, code)
-	require.Equal(t, true, state["frozen"])
-	require.Equal(t, "alice@example.com", state["freeze"].(map[string]any)["by"])
+	require.Equal(t, true, state["paused"])
+	require.Equal(t, "alice@example.com", state["pause"].(map[string]any)["by"])
 
 	target := cache.History("node-a")[0].ID()
 	code, _ = call(t, r, http.MethodPost, "/api/v1/nodes/node-a/rollback",
@@ -139,21 +140,65 @@ func TestFreezeRollbackUnfreeze(t *testing.T) {
 		map[string]string{"to": target, "expectServed": served.ID()})
 	require.Equal(t, http.StatusOK, code)
 	require.Equal(t, target, state["served"].(map[string]any)["id"])
+	require.Equal(t, true, state["paused"])
+	require.Equal(t, "rollback to "+target, state["pause"].(map[string]any)["reason"])
+	require.Equal(t, xdscache.SnapshotID(listenerSnapshot(t, "1", 9443)), state["pending"].(map[string]any)["id"])
 
-	code, _ = call(t, r, http.MethodPost, "/api/v1/nodes/node-a/unfreeze", map[string]string{"expectBuilt": "000000000000"})
+	code, _ = call(t, r, http.MethodPost, "/api/v1/nodes/node-a/resume", map[string]string{"expectPending": "000000000000"})
 	require.Equal(t, http.StatusConflict, code)
-	code, state = call(t, r, http.MethodPost, "/api/v1/nodes/node-a/unfreeze", map[string]string{})
+	code, state = call(t, r, http.MethodPost, "/api/v1/nodes/node-a/resume",
+		map[string]any{"expectPending": state["pending"].(map[string]any)["id"]})
 	require.Equal(t, http.StatusOK, code)
-	require.Equal(t, false, state["frozen"])
+	require.Equal(t, false, state["paused"])
 }
 
-func TestFrozenNodesFollowTheNodeACL(t *testing.T) {
+func TestPausedNodesFollowTheNodeACL(t *testing.T) {
 	r, cache := snapshotServer(t, true, map[string]struct{}{"node-a": {}})
-	cache.RestoreFrozen(map[string]xdscache.Freeze{"node-a": {By: "alice"}, "node-b": {By: "bob"}})
+	cache.RestorePaused(map[string]xdscache.Pause{"node-a": {By: "alice"}, "node-b": {By: "bob"}})
 
-	code, body := call(t, r, http.MethodGet, "/api/v1/frozenNodes", nil)
+	code, body := call(t, r, http.MethodGet, "/api/v1/pausedNodes", nil)
 
 	require.Equal(t, http.StatusOK, code)
 	require.Equal(t, map[string]any{"node-a": map[string]any{"by": "alice", "at": "0001-01-01T00:00:00Z", "reason": ""}},
-		body["frozenNodes"])
+		body["pausedNodes"])
+}
+
+func TestPauseResumeContract(t *testing.T) {
+	r, _ := snapshotServer(t, true, nil)
+	const node = "/api/v1/nodes/node-a"
+
+	code, state := call(t, r, http.MethodGet, node+"/snapshots", nil)
+	require.Equal(t, http.StatusOK, code)
+	require.Contains(t, state, "paused")
+	require.Contains(t, state, "pending")
+	require.Nil(t, state["pending"])
+	for _, path := range []string{"/snapshots/diff", "/snapshots/diff?from=pending&to=served", "/snapshots/resource?snapshot=pending"} {
+		code, _ = call(t, r, http.MethodGet, node+path, nil)
+		require.Equal(t, http.StatusConflict, code)
+	}
+	for _, field := range []string{"built", "frozen", "freeze"} {
+		require.NotContains(t, state, field)
+	}
+
+	code, state = call(t, r, http.MethodPost, node+"/pause", map[string]string{"reason": "switch"})
+	require.Equal(t, http.StatusOK, code)
+	require.Equal(t, true, state["paused"])
+	id := state["pending"].(map[string]any)["id"]
+	require.NotEmpty(t, id)
+	for _, body := range []any{nil, map[string]string{}, map[string]any{"expectBuilt": id}} {
+		code, _ = call(t, r, http.MethodPost, node+"/resume", body)
+		require.Equal(t, http.StatusBadRequest, code)
+	}
+	code, _ = call(t, r, http.MethodPost, node+"/resume", map[string]any{"expectPending": id})
+	require.Equal(t, http.StatusOK, code)
+
+	for _, old := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/frozenNodes"},
+		{http.MethodPost, node + "/freeze"},
+		{http.MethodPost, node + "/unfreeze"},
+	} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(old.method, old.path, nil))
+		require.Equal(t, http.StatusNotFound, w.Code)
+	}
 }

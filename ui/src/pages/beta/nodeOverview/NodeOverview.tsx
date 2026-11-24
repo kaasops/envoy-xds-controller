@@ -10,7 +10,7 @@ import RefreshOutlined from '@mui/icons-material/RefreshOutlined'
 import LayersOutlined from '@mui/icons-material/LayersOutlined'
 import GetOverviewService from '../../../api/services/getOverviewService'
 import { apiError, fleetQueryKey, httpStatus, manualQueryOptions, nodeOverviewPath, nodePath } from '../api'
-import { getFreezes } from '../console/nodeInventory'
+import { getPauses } from '../console/nodeInventory'
 import { clientsQueryKey, getClients } from '../console/streams'
 import ConfigurationTabs from './ConfigurationTabs'
 import { resourceHashesKey } from './configurationData'
@@ -42,10 +42,10 @@ function NodePage({ nodeId }: { nodeId: string }) {
 		queryKey: clientsQueryKey(nodeId),
 		queryFn: ({ signal }) => getClients(signal, nodeId)
 	})
-	const freezes = useQuery({
+	const pauses = useQuery({
 		...onOpen,
-		queryKey: [...fleetQueryKey, 'node-overview-freezes'],
-		queryFn: ({ signal }) => getFreezes(signal)
+		queryKey: [...fleetQueryKey, 'node-overview-pauses'],
+		queryFn: ({ signal }) => getPauses(signal)
 	})
 
 	const status = httpStatus(overview.error)
@@ -53,14 +53,14 @@ function NodePage({ nodeId }: { nodeId: string }) {
 	const noConfig = status === 400 || status === 404
 	const config = overview.isFetchedAfterMount && overview.isSuccess ? overview.data : undefined
 	const clients = !denied && streams.isFetchedAfterMount && streams.isSuccess ? streams.data : undefined
-	const freeze = !denied && freezes.isFetchedAfterMount && freezes.isSuccess ? freezes.data.get(nodeId) : undefined
+	const pause = !denied && pauses.isFetchedAfterMount && pauses.isSuccess ? pauses.data.get(nodeId) : undefined
 	const hashKey = resourceHashesKey(nodeId)
 	const fetchingHashes = useIsFetching({ queryKey: hashKey, exact: true }) > 0
-	const fetching = overview.isFetching || streams.isFetching || freezes.isFetching || fetchingHashes
+	const fetching = overview.isFetching || streams.isFetching || pauses.isFetching || fetchingHashes
 	function refresh() {
 		void overview.refetch()
 		void streams.refetch()
-		void freezes.refetch()
+		void pauses.refetch()
 		if (tab === 'hashes') void queryClient.refetchQueries({ queryKey: hashKey, type: 'active', exact: true })
 	}
 
@@ -159,10 +159,8 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					{streams.isError && (
 						<Alert severity='warning'>Could not load xDS streams. {apiError(streams.error)}</Alert>
 					)}
-					{freezes.isError && (
-						<Alert severity='warning'>
-							Could not load snapshot freeze information. {apiError(freezes.error)}
-						</Alert>
+					{pauses.isError && (
+						<Alert severity='warning'>Could not load update pause status. {apiError(pauses.error)}</Alert>
 					)}
 					<Paper
 						variant='outlined'
@@ -212,8 +210,8 @@ function NodePage({ nodeId }: { nodeId: string }) {
 							</Box>
 						))}
 					</Paper>
-					{(config || clients || freeze) && (
-						<NodeAlerts nodeId={nodeId} overview={config} clients={clients} freeze={freeze} />
+					{(config || clients || pause) && (
+						<NodeAlerts nodeId={nodeId} overview={config} clients={clients} pause={pause} />
 					)}
 					<Paper variant='outlined' ref={panel} sx={{ minWidth: 0, overflow: 'hidden' }}>
 						<Box

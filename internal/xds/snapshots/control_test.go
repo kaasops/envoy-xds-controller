@@ -70,22 +70,22 @@ func (b *fakeBuilder) DryBuildNode(context.Context, string) (gcp.ResourceSnapsho
 // memoryStore records what would be kept in Kubernetes.
 type memoryStore struct {
 	mu    sync.Mutex
-	saved map[string]wrapped.Freeze
+	saved map[string]wrapped.Pause
 	floor int64
 	err   error
 }
 
-func (s *memoryStore) Save(_ context.Context, frozen map[string]wrapped.Freeze, floor int64) error {
+func (s *memoryStore) Save(_ context.Context, paused map[string]wrapped.Pause, floor int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
 		return s.err
 	}
-	s.saved, s.floor = frozen, floor
+	s.saved, s.floor = paused, floor
 	return nil
 }
 
-func (s *memoryStore) kept() map[string]wrapped.Freeze {
+func (s *memoryStore) kept() map[string]wrapped.Pause {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.saved
@@ -107,7 +107,7 @@ func fixture(t *testing.T) (*Control, *wrapped.SnapshotCache, *fakeBuilder, *mem
 	return control, cache, builder, store
 }
 
-func TestStateShowsServedBuiltAndHistory(t *testing.T) {
+func TestStateShowsServedPendingAndHistory(t *testing.T) {
 	control, cache, _, _ := fixture(t)
 
 	state, err := control.State(t.Context(), "node-a")
@@ -117,58 +117,59 @@ func TestStateShowsServedBuiltAndHistory(t *testing.T) {
 	require.Equal(t, served.ID(), state.Served.ID)
 	require.Equal(t, "2", state.Served.Versions[resource.ListenerType])
 	require.Equal(t, 1, state.Served.Counts[resource.SecretType])
-	require.NotEqual(t, state.Served.ID, state.Built.ID)
-	require.Empty(t, state.Built.Error)
+	require.Nil(t, state.Pending)
 	require.Len(t, state.History, 1)
-	require.False(t, state.Frozen)
-	require.Nil(t, state.Freeze)
+	require.False(t, state.Paused)
+	require.Nil(t, state.Pause)
 
 	_, err = control.State(t.Context(), "node-x")
 	require.ErrorIs(t, err, ErrUnknownNode)
 }
 
-func TestFreezeIsKeptAndUnfreezePublishes(t *testing.T) {
+func TestPauseIsKeptAndResumePublishes(t *testing.T) {
 	control, _, builder, store := fixture(t)
 
-	state, err := control.Freeze(t.Context(), "node-a", "alice", "listener switch")
+	state, err := control.Pause(t.Context(), "node-a", "alice", "listener switch")
 	require.NoError(t, err)
-	require.True(t, state.Frozen)
-	require.Equal(t, wrapped.Freeze{By: "alice", At: now, Reason: "listener switch"}, *state.Freeze)
+	require.True(t, state.Paused)
+	require.Equal(t, wrapped.Pause{By: "alice", At: now, Reason: "listener switch"}, *state.Pause)
 	require.Contains(t, store.saved, "node-a")
+	require.NotEqual(t, state.Served.ID, state.Pending.ID)
+	require.Empty(t, state.Pending.Error)
 	require.Equal(t, "2", state.Served.Versions[resource.ListenerType])
-	require.Equal(t, int64(2), store.floor, "the freeze keeps the version the node was served")
-	require.Equal(t, 1, builder.rebuilds, "the statuses of the node's services tell it is frozen")
+	require.Equal(t, int64(2), store.floor, "the pause keeps the version the node was served")
+	require.Equal(t, 1, builder.rebuilds, "the statuses of the node's services tell it is paused")
 
-	_, err = control.Freeze(t.Context(), "node-a", "bob", "again")
-	require.ErrorIs(t, err, ErrAlreadyFrozen)
-	_, err = control.Freeze(t.Context(), "node-a", "bob", "")
+	_, err = control.Pause(t.Context(), "node-a", "bob", "again")
+	require.ErrorIs(t, err, ErrAlreadyPaused)
+	_, err = control.Pause(t.Context(), "node-a", "bob", "")
 	require.Error(t, err)
 
-	state, err = control.Unfreeze(t.Context(), "node-a", "alice", "")
+	state, err = control.Resume(t.Context(), "node-a", "alice", state.Pending.ID)
 	require.NoError(t, err)
-	require.False(t, state.Frozen)
+	require.False(t, state.Paused)
 	require.NotContains(t, store.saved, "node-a")
 	require.Equal(t, wrapped.SnapshotID(builder.built), state.Served.ID, "what was compared is served first")
 	require.Equal(t, state.Served.Versions[resource.ListenerType], strconv.FormatInt(store.floor, 10),
 		"the version is kept before it is served")
 	require.Equal(t, 2, builder.rebuilds, "then whatever the objects build now")
 
-	_, err = control.Unfreeze(t.Context(), "node-a", "alice", "")
-	require.ErrorIs(t, err, ErrNotFrozen)
+	_, err = control.Resume(t.Context(), "node-a", "alice", wrapped.SnapshotID(builder.built))
+	require.ErrorIs(t, err, ErrNotPaused)
 }
 
-func TestFreezeIsUndoneWhenItCannotBeKept(t *testing.T) {
+func TestPauseIsUndoneWhenItCannotBeKept(t *testing.T) {
 	control, cache, _, store := fixture(t)
 	store.err = errors.New("forbidden")
 
-	_, err := control.Freeze(t.Context(), "node-a", "alice", "listener switch")
+	_, err := control.Pause(t.Context(), "node-a", "alice", "listener switch")
 
 	require.ErrorContains(t, err, "forbidden")
-	_, frozen := cache.Frozen("node-a")
-	require.False(t, frozen, "a freeze lost on restart would publish what it held back")
+	_, paused := cache.Paused("node-a")
+	require.False(t, paused, "a pause lost on restart would publish what it held back")
 }
 
-func TestRollbackServesHistoryAndFreezes(t *testing.T) {
+func TestRollbackServesHistoryAndPauses(t *testing.T) {
 	control, cache, builder, store := fixture(t)
 	target := cache.History("node-a")[0].ID()
 
@@ -176,21 +177,23 @@ func TestRollbackServesHistoryAndFreezes(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, target, state.Served.ID)
-	require.True(t, state.Frozen)
-	require.Equal(t, "rollback to "+target, state.Freeze.Reason)
+	require.True(t, state.Paused)
+	require.Equal(t, "rollback to "+target, state.Pause.Reason)
 	require.Contains(t, store.saved, "node-a")
-	require.Equal(t, 1, builder.rebuilds, "the statuses of the node's services tell it is frozen at once")
+	require.Equal(t, 1, builder.rebuilds, "the statuses of the node's services tell it is paused at once")
 
 	_, err = control.Rollback(t.Context(), "node-a", "alice", "000000000000", "")
 	require.ErrorIs(t, err, wrapped.ErrUnknownSnapshot)
 }
 
-func TestDiffServedAgainstBuilt(t *testing.T) {
+func TestDiffServedAgainstPending(t *testing.T) {
 	control, cache, _, _ := fixture(t)
 	served, ok := cache.Served("node-a")
 	require.True(t, ok)
 
-	diff, err := control.Diff(t.Context(), "node-a", "served", "built", false)
+	_, err := control.Pause(t.Context(), "node-a", "alice", "compare")
+	require.NoError(t, err)
+	diff, err := control.Diff(t.Context(), "node-a", "served", "pending", false)
 
 	require.NoError(t, err)
 	changes := map[string]string{}
@@ -230,15 +233,15 @@ func TestResourceNeverShowsSecrets(t *testing.T) {
 
 func TestWritesCheckWhatTheOperatorSaw(t *testing.T) {
 	control, cache, builder, _ := fixture(t)
-	_, err := control.Freeze(t.Context(), "node-a", "alice", "listener switch")
+	_, err := control.Pause(t.Context(), "node-a", "alice", "listener switch")
 	require.NoError(t, err)
 	seen := wrapped.SnapshotID(builder.built)
 	builder.built = snapshot(t, "1", listener("ns/https-other"))
 
-	_, err = control.Unfreeze(t.Context(), "node-a", "alice", seen)
+	_, err = control.Resume(t.Context(), "node-a", "alice", seen)
 	require.ErrorIs(t, err, ErrStateChanged, "the build changed after the diff was read")
-	_, frozen := cache.Frozen("node-a")
-	require.True(t, frozen)
+	_, paused := cache.Paused("node-a")
+	require.True(t, paused)
 
 	target := cache.History("node-a")[0].ID()
 	_, err = control.Rollback(t.Context(), "node-a", "alice", target, "000000000000")
@@ -247,22 +250,22 @@ func TestWritesCheckWhatTheOperatorSaw(t *testing.T) {
 	served, _ := cache.Served("node-a")
 	_, err = control.Rollback(t.Context(), "node-a", "alice", target, served.ID())
 	require.NoError(t, err)
-	_, err = control.Unfreeze(t.Context(), "node-a", "alice", wrapped.SnapshotID(builder.built))
+	_, err = control.Resume(t.Context(), "node-a", "alice", wrapped.SnapshotID(builder.built))
 	require.NoError(t, err)
 }
 
-func TestUnfreezeKeepsTheFreezeWhileTheBuildFails(t *testing.T) {
+func TestResumeKeepsThePauseWhileTheBuildFails(t *testing.T) {
 	control, cache, builder, _ := fixture(t)
-	_, err := control.Freeze(t.Context(), "node-a", "alice", "listener switch")
+	_, err := control.Pause(t.Context(), "node-a", "alice", "listener switch")
 	require.NoError(t, err)
 	builder.err = errors.New("snapshot is invalid: duplicate address")
 
-	_, err = control.Unfreeze(t.Context(), "node-a", "alice", "")
+	_, err = control.Resume(t.Context(), "node-a", "alice", wrapped.SnapshotID(builder.built))
 
 	require.ErrorIs(t, err, ErrBuildFails)
 	require.ErrorContains(t, err, "duplicate address")
-	_, frozen := cache.Frozen("node-a")
-	require.True(t, frozen)
+	_, paused := cache.Paused("node-a")
+	require.True(t, paused)
 }
 
 // Two operators at once: whatever each gets back, what is kept in Kubernetes is what is in memory.
@@ -280,6 +283,6 @@ func TestConcurrentWritesKeepTheStoreInStep(t *testing.T) {
 			}()
 		}
 		wg.Wait()
-		require.Equal(t, cache.FrozenNodes(), store.kept())
+		require.Equal(t, cache.PausedNodes(), store.kept())
 	}
 }

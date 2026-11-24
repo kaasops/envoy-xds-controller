@@ -2,6 +2,7 @@ import { Button, Link, Stack, Typography } from '@mui/material'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { nodeOverviewPath, nodePath, fleetQueryKey, httpStatus, type SnapshotState } from '../../api'
+import StatusHelp from '../StatusHelp'
 import NodeListAction from '../../NodeListAction'
 import { getNodeInventory, nodeInventoryKey, nodeSection, useNodeInventory, type NodeEntry } from '../nodeInventory'
 import SectionTable, { type Column } from '../SectionTable'
@@ -33,28 +34,26 @@ const columns: Column<NodeEntry>[] = [
 	},
 	{
 		key: 'status',
-		label: 'Stream responses',
+		label: 'Sync status',
 		value: row => (row.streams.length ? statuses.filter(status => row.responses[status]) : ['No streams']),
 		render: row => {
 			if (!row.streams.length)
 				return (
-					<Link component={RouterLink} to={nodeSection('clients', row.nodeId)}>
+					<StatusHelp status='No streams' to={nodeSection('clients', row.nodeId)}>
 						No streams
-					</Link>
+					</StatusHelp>
 				)
 			return (
 				<Stack direction='row' flexWrap='wrap' gap={0.75}>
 					{statuses
 						.filter(status => row.responses[status])
 						.map(status => (
-							<Link
+							<StreamResponseChip
 								key={status}
-								component={RouterLink}
+								status={status}
+								count={row.responses[status]}
 								to={nodeSection('clients', row.nodeId, status)}
-								underline='none'
-							>
-								<StreamResponseChip status={status} count={row.responses[status]} />
-							</Link>
+							/>
 						))}
 				</Stack>
 			)
@@ -96,16 +95,20 @@ const columns: Column<NodeEntry>[] = [
 		})
 	),
 	{
-		key: 'freeze',
-		label: 'Publication',
-		value: row => (row.freeze ? 'Frozen' : row.cached ? 'Not frozen' : 'No snapshot'),
+		key: 'pause',
+		label: 'Updates',
+		value: row => (row.pause ? 'Paused' : 'Active'),
 		render: row =>
-			row.freeze || row.cached ? (
+			row.pause ? (
+				<StatusHelp status='Paused' to={nodePath(row.nodeId)}>
+					Paused
+				</StatusHelp>
+			) : row.cached ? (
 				<Link component={RouterLink} to={nodePath(row.nodeId)}>
-					{row.freeze ? 'Frozen' : 'Not frozen'}
+					Active
 				</Link>
 			) : (
-				'No snapshot'
+				'Active'
 			)
 	}
 ]
@@ -116,12 +119,12 @@ function NodeDetail({ row, controllerPod }: { row: NodeEntry; controllerPod: str
 			<Typography variant='body2'>
 				{row.cached ? 'Snapshot present in the controller cache.' : 'No snapshot in the controller cache.'}
 			</Typography>
-			{row.freeze && (
+			{row.pause && (
 				<Typography variant='body2'>
-					Frozen {new Date(row.freeze.at).toLocaleString()} · {row.freeze.reason}
+					Paused {new Date(row.pause.at).toLocaleString()} · {row.pause.reason}
 				</Typography>
 			)}
-			{(row.cached || row.freeze) && (
+			{(row.cached || row.pause) && (
 				<Link component={RouterLink} to={nodePath(row.nodeId)}>
 					Inspect snapshots
 				</Link>
@@ -156,7 +159,7 @@ export default function Nodes() {
 	const [params, setParams] = useSearchParams()
 	const query = useNodeInventory()
 	const cache = useQueryClient()
-	async function onFrozen(next: SnapshotState) {
+	async function onPaused(next: SnapshotState) {
 		await cache.cancelQueries({ queryKey: nodeInventoryKey, exact: true })
 		if ([401, 403].includes(httpStatus(cache.getQueryState(nodeInventoryKey)?.error) ?? 0)) return
 		cache.setQueryData<Awaited<ReturnType<typeof getNodeInventory>>>(
@@ -165,7 +168,7 @@ export default function Nodes() {
 				current && {
 					...current,
 					nodes: current.nodes.map(node =>
-						node.nodeId === next.nodeId ? { ...node, freeze: next.freeze ?? undefined } : node
+						node.nodeId === next.nodeId ? { ...node, pause: next.pause ?? undefined } : node
 					)
 				}
 		)
@@ -174,25 +177,25 @@ export default function Nodes() {
 	const actions: Column<NodeEntry> = {
 		key: 'actions',
 		label: 'Actions',
-		value: row => (row.freeze ? 'Unfreeze' : 'Freeze'),
+		value: row => (row.pause ? 'Resume' : 'Pause'),
 		render: row => (
 			<NodeListAction
 				nodeId={row.nodeId}
-				frozen={Boolean(row.freeze)}
+				paused={Boolean(row.pause)}
 				disabled={query.isFetching || query.isError}
-				onFrozen={onFrozen}
+				onPaused={onPaused}
 			/>
 		)
 	}
-	const frozenOnly = params.get('frozen') === 'true'
+	const pausedOnly = params.get('paused') === 'true'
 	const nodes = query.data?.nodes ?? []
-	const frozenCount = nodes.filter(node => node.freeze).length
+	const pausedCount = nodes.filter(node => node.pause).length
 	const pod = query.data?.clients.controllerPod
-	function filterFrozen(showFrozen: boolean) {
+	function filterPaused(showPaused: boolean) {
 		setParams(current => {
 			const next = new URLSearchParams(current)
-			if (showFrozen) next.set('frozen', 'true')
-			else next.delete('frozen')
+			if (showPaused) next.set('paused', 'true')
+			else next.delete('paused')
 			next.delete('selected')
 			next.delete('page')
 			return next
@@ -202,7 +205,7 @@ export default function Nodes() {
 		<SectionTable
 			title='Nodes'
 			tableHeading='Stream and snapshot state'
-			rows={frozenOnly ? nodes.filter(node => node.freeze) : nodes}
+			rows={pausedOnly ? nodes.filter(node => node.pause) : nodes}
 			columns={[...columns, actions]}
 			loading={query.isFetching}
 			error={query.error}
@@ -214,15 +217,15 @@ export default function Nodes() {
 						fields={[
 							{ label: 'Known nodes', value: nodes.length },
 							{
-								label: 'Publication',
+								label: 'Updates',
 								value: (
 									<Link
 										component='button'
 										type='button'
 										sx={{ font: 'inherit' }}
-										onClick={() => filterFrozen(true)}
+										onClick={() => filterPaused(true)}
 									>
-										{frozenCount} frozen
+										{pausedCount} paused
 									</Link>
 								)
 							},
@@ -236,14 +239,14 @@ export default function Nodes() {
 			detail={row => <NodeDetail row={row} controllerPod={pod ?? ''} />}
 			filters={
 				<Button
-					variant={frozenOnly ? 'contained' : 'outlined'}
-					aria-pressed={frozenOnly}
-					onClick={() => filterFrozen(!frozenOnly)}
+					variant={pausedOnly ? 'contained' : 'outlined'}
+					aria-pressed={pausedOnly}
+					onClick={() => filterPaused(!pausedOnly)}
 				>
-					Frozen ({frozenCount})
+					Paused ({pausedCount})
 				</Button>
 			}
-			emptyText={frozenOnly ? 'No frozen nodes.' : 'No nodes available.'}
+			emptyText={pausedOnly ? 'No paused nodes.' : 'No nodes available.'}
 		/>
 	)
 }

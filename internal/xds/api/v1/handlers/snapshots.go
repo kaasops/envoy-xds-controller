@@ -23,38 +23,38 @@ type snapshotHandler struct {
 type snapshotStateResponse struct {
 	snapshots.State
 	ControllerPod string `json:"controllerPod"`
-	// CanControl tells the caller whether it may freeze, unfreeze and roll back this node.
+	// CanControl tells the caller whether it may pause, resume and roll back this node.
 	CanControl bool `json:"canControl"`
 }
 
 // RegisterSnapshotRoutes adds the routes that show what nodes are served and what is built for them and,
-// when writes is true, freeze, unfreeze and roll back nodes.
+// when writes is true, pause, resume and roll back nodes.
 func RegisterSnapshotRoutes(r *gin.Engine, control *snapshots.Control, writes bool, logger *zap.Logger) {
 	// In Kubernetes the hostname is the pod name.
 	podName, _ := os.Hostname()
 	h := &snapshotHandler{control: control, writes: writes, podName: podName, logger: logger}
 	routes := r.Group(version)
-	routes.GET("/frozenNodes", h.getFrozenNodes)
+	routes.GET("/pausedNodes", h.getPausedNodes)
 	routes.GET("/nodes/:nodeId/snapshots", h.getState)
 	routes.GET("/nodes/:nodeId/snapshots/diff", h.getDiff)
 	routes.GET("/nodes/:nodeId/snapshots/resource", h.getResource)
-	routes.POST("/nodes/:nodeId/freeze", h.freeze)
-	routes.POST("/nodes/:nodeId/unfreeze", h.unfreeze)
+	routes.POST("/nodes/:nodeId/pause", h.pause)
+	routes.POST("/nodes/:nodeId/resume", h.resume)
 	routes.POST("/nodes/:nodeId/rollback", h.rollback)
 }
 
-// getFrozenNodes lists the frozen nodes the caller may see, also those served nothing after a restart.
-func (h *snapshotHandler) getFrozenNodes(ctx *gin.Context) {
-	frozen := h.control.Cache.FrozenNodes()
+// getPausedNodes lists the paused nodes the caller may see, also those served nothing after a restart.
+func (h *snapshotHandler) getPausedNodes(ctx *gin.Context) {
+	paused := h.control.PausedNodes()
 	if v, restricted := ctx.Get(middlewares.AvailableNodeIDs); restricted {
 		allowed, _ := v.(map[string]struct{})
-		for nodeID := range frozen {
+		for nodeID := range paused {
 			if _, ok := allowed[nodeID]; !ok {
-				delete(frozen, nodeID)
+				delete(paused, nodeID)
 			}
 		}
 	}
-	ctx.JSON(http.StatusOK, gin.H{"frozenNodes": frozen})
+	ctx.JSON(http.StatusOK, gin.H{"pausedNodes": paused})
 }
 
 // getState returns what the node is served, what is built for it and what it was served before.
@@ -67,13 +67,13 @@ func (h *snapshotHandler) getState(ctx *gin.Context) {
 	h.reply(ctx, state, err)
 }
 
-// getDiff compares two snapshots of the node: from and to are served, built or a snapshot ID.
+// getDiff compares two snapshots of the node: from and to are served, pending or a snapshot ID.
 func (h *snapshotHandler) getDiff(ctx *gin.Context) {
 	nodeID, ok := h.node(ctx)
 	if !ok {
 		return
 	}
-	from, to := ctx.DefaultQuery("from", snapshots.Served), ctx.DefaultQuery("to", snapshots.Built)
+	from, to := ctx.DefaultQuery("from", snapshots.Served), ctx.DefaultQuery("to", snapshots.Pending)
 	diff, err := h.control.Diff(ctx.Request.Context(), nodeID, from, to, ctx.Query("all") == "true")
 	if err != nil {
 		h.fail(ctx, err)
@@ -97,7 +97,7 @@ func (h *snapshotHandler) getResource(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res)
 }
 
-func (h *snapshotHandler) freeze(ctx *gin.Context) {
+func (h *snapshotHandler) pause(ctx *gin.Context) {
 	var body struct {
 		Reason string `json:"reason"`
 	}
@@ -105,21 +105,21 @@ func (h *snapshotHandler) freeze(ctx *gin.Context) {
 	if !ok {
 		return
 	}
-	state, err := h.control.Freeze(ctx.Request.Context(), nodeID, by, body.Reason)
-	h.audit("freeze", nodeID, by, body.Reason, state, err)
+	state, err := h.control.Pause(ctx.Request.Context(), nodeID, by, body.Reason)
+	h.audit("pause", nodeID, by, body.Reason, state, err)
 	h.reply(ctx, state, err)
 }
 
-func (h *snapshotHandler) unfreeze(ctx *gin.Context) {
+func (h *snapshotHandler) resume(ctx *gin.Context) {
 	var body struct {
-		ExpectBuilt string `json:"expectBuilt"`
+		ExpectPending string `json:"expectPending"`
 	}
 	nodeID, by, ok := h.write(ctx, &body)
 	if !ok {
 		return
 	}
-	state, err := h.control.Unfreeze(ctx.Request.Context(), nodeID, by, body.ExpectBuilt)
-	h.audit("unfreeze", nodeID, by, body.ExpectBuilt, state, err)
+	state, err := h.control.Resume(ctx.Request.Context(), nodeID, by, body.ExpectPending)
+	h.audit("resume", nodeID, by, body.ExpectPending, state, err)
 	h.reply(ctx, state, err)
 }
 
@@ -195,10 +195,10 @@ func (h *snapshotHandler) fail(ctx *gin.Context, err error) {
 	case errors.Is(err, snapshots.ErrUnknownNode), errors.Is(err, snapshots.ErrUnknownResource),
 		errors.Is(err, xdscache.ErrUnknownSnapshot):
 		status = http.StatusNotFound
-	case errors.Is(err, snapshots.ErrAlreadyFrozen), errors.Is(err, snapshots.ErrNotFrozen),
+	case errors.Is(err, snapshots.ErrAlreadyPaused), errors.Is(err, snapshots.ErrNotPaused),
 		errors.Is(err, snapshots.ErrStateChanged), errors.Is(err, snapshots.ErrBuildFails):
 		status = http.StatusConflict
-	case errors.Is(err, snapshots.ErrNoReason):
+	case errors.Is(err, snapshots.ErrNoReason), errors.Is(err, snapshots.ErrNoPendingID):
 		status = http.StatusBadRequest
 	}
 	ctx.JSON(status, gin.H{"error": err.Error()})

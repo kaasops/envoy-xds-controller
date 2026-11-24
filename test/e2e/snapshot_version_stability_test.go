@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/kaasops/envoy-xds-controller/test/e2e/fixtures"
 	"github.com/kaasops/envoy-xds-controller/test/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/tidwall/gjson"
 )
 
 // nodeIDWithVersions represents a single node's version info from /api/v1/nodeIDs/versions
@@ -19,6 +21,8 @@ type nodeIDWithVersions struct {
 }
 
 const (
+	cacheAPIServiceName = "exc-e2e-envoy-xds-controller-cache-api"
+
 	// Keys returned by the /api/v1/nodeIDs/versions endpoint
 	listenersKey = "listeners"
 	clustersKey  = "clusters"
@@ -34,6 +38,56 @@ func snapshotVersionStabilityContext() {
 		fixture = fixtures.NewEnvoyFixture()
 		fixture.Setup()
 		DeferCleanup(fixture.Teardown)
+	})
+
+	It("resumes updates only after comparing the pending snapshot", func() {
+		fixture.ApplyManifests(
+			"test/testdata/e2e/basic_https_service/listener.yaml",
+			"test/testdata/e2e/basic_https_service/tls-cert.yaml",
+			"test/testdata/e2e/basic_https_service/virtual-service.yaml",
+		)
+		const routeStatus = `configs.4.dynamic_route_configs.#(route_config.name=="default/virtual-service")` +
+			".route_config.virtual_hosts.0.routes.0.direct_response.status"
+		fixture.WaitEnvoyConfigMatches(map[string]string{routeStatus: "200"})
+
+		state, err := snapshotControlRequest("pause", `{"reason":"review route update"}`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(state.Get("paused").Bool()).To(BeTrue())
+		served := state.Get("served.id").String()
+		Expect(served).NotTo(BeEmpty())
+		resumed := false
+		defer func() {
+			if resumed {
+				return
+			}
+			state, err := snapshotControlRequest("snapshots", "")
+			Expect(err).NotTo(HaveOccurred())
+			if state.Get("paused").Bool() {
+				_, err = snapshotControlRequest("resume", fmt.Sprintf(`{"expectPending":%q}`, state.Get("pending.id").String()))
+				Expect(err).NotTo(HaveOccurred())
+			}
+		}()
+
+		_, err = utils.Run(exec.Command("kubectl", "patch", "virtualservice", "virtual-service", "--type=json",
+			"-p", `[{"op":"replace","path":"/spec/virtualHost/routes/0/direct_response/status","value":201}]`))
+		Expect(err).NotTo(HaveOccurred())
+		var pending string
+		Eventually(func(g Gomega) {
+			diff, err := snapshotControlRequest("snapshots/diff?from=served&to=pending", "")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(diff.Get("from.id").String()).To(Equal(served))
+			pending = diff.Get("to.id").String()
+			g.Expect(pending).NotTo(BeEmpty())
+			g.Expect(pending).NotTo(Equal(served))
+		}).Should(Succeed())
+		fixture.WaitEnvoyConfigMatches(map[string]string{routeStatus: "200"})
+
+		state, err = snapshotControlRequest("resume", fmt.Sprintf(`{"expectPending":%q}`, pending))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(state.Get("paused").Bool()).To(BeFalse())
+		resumed = true
+		Expect(state.Get("served.id").String()).To(Equal(pending))
+		fixture.WaitEnvoyConfigMatches(map[string]string{routeStatus: "201"})
 	})
 
 	It("should not increment versions when VirtualService is re-applied without changes", func() {
@@ -381,7 +435,7 @@ func getVersionsForNode(nodeID string) map[string]string {
 		_, _ = utils.Run(cmd)
 	}()
 
-	cacheAPIHost := "exc-e2e-envoy-xds-controller-cache-api.envoy-xds-controller:9999"
+	const cacheAPIHost = cacheAPIServiceName + "." + fixtures.Namespace + ":9999"
 	address := fmt.Sprintf("http://%s/api/v1/nodeIDs/versions", cacheAPIHost)
 	cmd := exec.Command("kubectl", "run", podName, "--restart=Never",
 		"--image=curlimages/curl:7.78.0",
@@ -440,4 +494,17 @@ func triggerReconciliation(kind, name string) {
 	// Wait a moment for the controller to receive and process the event
 	// The annotation change triggers reconciliation immediately
 	time.Sleep(500 * time.Millisecond)
+}
+
+// snapshotControlRequest accesses the cache API through the test cluster's service proxy.
+func snapshotControlRequest(path, body string) (gjson.Result, error) {
+	const nodePath = "/api/v1/namespaces/" + fixtures.Namespace + "/services/http:" +
+		cacheAPIServiceName + ":http/proxy/api/v1/nodes/test/"
+	cmd := exec.Command("kubectl", "get", "--raw", nodePath+path)
+	if body != "" {
+		cmd = exec.Command("kubectl", "create", "--raw", nodePath+path, "-f", "-")
+		cmd.Stdin = strings.NewReader(body)
+	}
+	data, err := utils.Run(cmd)
+	return gjson.Parse(data), err
 }

@@ -16,13 +16,14 @@ import (
 	wrapped "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 )
 
-// Secret keys: the frozen nodes as JSON, and the highest version a freeze or rollback has served.
+// Secret keys: the paused nodes as JSON, and the highest version a pause or rollback has served.
 const (
-	freezeKey  = "frozen.json"
+	// Keep the on-disk key so upgrades and rollbacks read the same pause records.
+	pauseKey   = "frozen.json"
 	versionKey = "version"
 )
 
-// SecretStore keeps the frozen nodes in a Secret of the controller namespace. A Secret, not a ConfigMap:
+// SecretStore keeps the paused nodes in a Secret of the controller namespace. A Secret, not a ConfigMap:
 // what it holds decides what a node is served after a restart and names the operators, and the
 // controller manages Secrets of its namespace already. It carries no envoy.kaasops.io/secret-type label,
 // so the builder never serves it.
@@ -34,20 +35,20 @@ type SecretStore struct {
 	Name      string
 }
 
-// Load returns the frozen nodes and the version floor; a missing Secret means none and zero.
-func (s *SecretStore) Load(ctx context.Context) (map[string]wrapped.Freeze, int64, error) {
+// Load returns the paused nodes and the version floor; a missing Secret means none and zero.
+func (s *SecretStore) Load(ctx context.Context) (map[string]wrapped.Pause, int64, error) {
 	var secret corev1.Secret
 	err := s.Reader.Get(ctx, s.key(), &secret)
 	if apierrors.IsNotFound(err) {
-		return map[string]wrapped.Freeze{}, 0, nil
+		return map[string]wrapped.Pause{}, 0, nil
 	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("read frozen nodes from Secret %s: %w", s.key(), err)
+		return nil, 0, fmt.Errorf("read paused nodes from Secret %s: %w", s.key(), err)
 	}
-	frozen := map[string]wrapped.Freeze{}
-	if data := secret.Data[freezeKey]; len(data) > 0 {
-		if err := json.Unmarshal(data, &frozen); err != nil {
-			return nil, 0, fmt.Errorf("parse frozen nodes in Secret %s: %w", s.key(), err)
+	paused := map[string]wrapped.Pause{}
+	if data := secret.Data[pauseKey]; len(data) > 0 {
+		if err := json.Unmarshal(data, &paused); err != nil {
+			return nil, 0, fmt.Errorf("parse paused nodes in Secret %s: %w", s.key(), err)
 		}
 	}
 	var floor int64
@@ -56,16 +57,16 @@ func (s *SecretStore) Load(ctx context.Context) (map[string]wrapped.Freeze, int6
 			return nil, 0, fmt.Errorf("parse version in Secret %s: %w", s.key(), err)
 		}
 	}
-	return frozen, floor, nil
+	return paused, floor, nil
 }
 
-// Save replaces the frozen nodes and the version floor.
-func (s *SecretStore) Save(ctx context.Context, frozen map[string]wrapped.Freeze, versionFloor int64) error {
-	data, err := json.Marshal(frozen)
+// Save replaces the paused nodes and the version floor.
+func (s *SecretStore) Save(ctx context.Context, paused map[string]wrapped.Pause, versionFloor int64) error {
+	data, err := json.Marshal(paused)
 	if err != nil {
 		return err
 	}
-	values := map[string][]byte{freezeKey: data, versionKey: []byte(strconv.FormatInt(versionFloor, 10))}
+	values := map[string][]byte{pauseKey: data, versionKey: []byte(strconv.FormatInt(versionFloor, 10))}
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var secret corev1.Secret
 		err := s.Reader.Get(ctx, s.key(), &secret)
@@ -89,7 +90,7 @@ func (s *SecretStore) Save(ctx context.Context, frozen map[string]wrapped.Freeze
 		return s.Writer.Update(ctx, &secret)
 	})
 	if err != nil {
-		return fmt.Errorf("save frozen nodes to Secret %s: %w", s.key(), err)
+		return fmt.Errorf("save paused nodes to Secret %s: %w", s.key(), err)
 	}
 	return nil
 }

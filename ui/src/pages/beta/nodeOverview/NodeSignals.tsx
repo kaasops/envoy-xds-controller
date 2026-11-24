@@ -39,10 +39,10 @@ interface AlertProps {
 	nodeId: string
 	overview?: NodeOverviewResponse
 	clients?: ClientsResponse
-	freeze?: SnapshotState['freeze']
+	pause?: SnapshotState['pause']
 }
 
-export function NodeAlerts({ nodeId, overview, clients, freeze }: AlertProps) {
+export function NodeAlerts({ nodeId, overview, clients, pause }: AlertProps) {
 	const [expanded, setExpanded] = useState(false)
 	const alerts: AlertEntry[] = []
 	const pod = clients?.controllerPod ?? ''
@@ -102,10 +102,10 @@ export function NodeAlerts({ nodeId, overview, clients, freeze }: AlertProps) {
 	const visible = expanded ? alerts : alerts.slice(0, 4)
 	return (
 		<Stack gap={2}>
-			{freeze && (
+			{pause && (
 				<Alert severity='info'>
-					<Typography variant='subtitle2'>Snapshot publication is frozen</Typography>
-					{[freeze.reason, freeze.by, formatUtcTimestamp(freeze.at)].filter(Boolean).join(' · ')}
+					<Typography variant='subtitle2'>Updates paused</Typography>
+					{[pause.reason, pause.by, formatUtcTimestamp(pause.at)].filter(Boolean).join(' · ')}
 					{' · '}
 					<Link component={RouterLink} to={nodePath(nodeId)}>
 						View snapshots

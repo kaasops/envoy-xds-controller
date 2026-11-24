@@ -83,7 +83,7 @@ type Client struct {
 }
 
 // EnableSnapshots serves the routes that show what nodes are served and what is built for them; with
-// writes, nodes can also be frozen, unfrozen and rolled back.
+// writes, nodes can also be paused, resumed and rolled back.
 func (c *Client) EnableSnapshots(control *snapshots.Control, writes bool) {
 	c.snapshots, c.snapshotWrites = control, writes
 }

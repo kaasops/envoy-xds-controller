@@ -14,12 +14,12 @@ import (
 	"github.com/kaasops/envoy-xds-controller/internal/xds/resbuilder"
 )
 
-func TestDryBuildNodeShowsWhatAFrozenNodeWaitsFor(t *testing.T) {
+func TestDryBuildNodeShowsWhatAPausedNodeWaitsFor(t *testing.T) {
 	updater, moved := moveFixture(t)
 	require.NoError(t, updater.RebuildSnapshots(t.Context()))
 	served, ok := updater.snapshotCache.Served("node-a")
 	require.True(t, ok)
-	require.True(t, updater.snapshotCache.Freeze("node-a", wrapped.Freeze{By: "alice", Reason: "check"}))
+	require.True(t, updater.snapshotCache.Pause("node-a", wrapped.Pause{By: "alice", Reason: "check"}))
 
 	updater.store.SetListener(makeListenerCR("http", "0.0.0.0", 80))
 	updater.store.SetVirtualService(makeVSWithListener("added", []string{"node-a"}, "http"))
@@ -29,7 +29,7 @@ func TestDryBuildNodeShowsWhatAFrozenNodeWaitsFor(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, served.ID(), wrapped.SnapshotID(built), "built has the added listener")
 	still, _ := updater.snapshotCache.Served("node-a")
-	require.Equal(t, served.ID(), still.ID(), "the frozen node is served what it had")
+	require.Equal(t, served.ID(), still.ID(), "the paused node is served what it had")
 
 	updater.store.SetVirtualService(moved)
 	built, err = updater.DryBuildNode(t.Context(), "node-a")
@@ -72,30 +72,30 @@ func TestDryBuildNodeReportsTheConflictOfEachHeldNode(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestFrozenNodesAreListedForAdmission(t *testing.T) {
+func TestPausedNodesAreListedForAdmission(t *testing.T) {
 	updater, _ := moveFixture(t)
-	require.Empty(t, updater.FrozenNodeIDs())
-	updater.snapshotCache.RestoreFrozen(map[string]wrapped.Freeze{"node-b": {}, "node-a": {}})
+	require.Empty(t, updater.PausedNodeIDs())
+	updater.snapshotCache.RestorePaused(map[string]wrapped.Pause{"node-b": {}, "node-a": {}})
 
-	require.Equal(t, []string{"node-a", "node-b"}, updater.FrozenNodeIDs())
+	require.Equal(t, []string{"node-a", "node-b"}, updater.PausedNodeIDs())
 }
 
-func TestStatusOfAFrozenNodeSaysSo(t *testing.T) {
+func TestStatusOfAPausedNodeSaysSo(t *testing.T) {
 	updater, _ := moveFixture(t)
 	require.NoError(t, updater.RebuildSnapshots(t.Context()))
 	at := time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC)
-	updater.snapshotCache.Freeze("node-a", wrapped.Freeze{By: "alice@example.com", At: at, Reason: "listener switch"})
+	updater.snapshotCache.Pause("node-a", wrapped.Pause{By: "alice@example.com", At: at, Reason: "listener switch"})
 
 	require.NoError(t, updater.RebuildSnapshots(t.Context()))
 
-	frozen, _ := updater.PublicationStatusFor(makeVSWithListener("first", []string{"node-a"}, "https"))
-	require.False(t, frozen.Invalid)
-	require.Contains(t, frozen.Message, "node node-a is frozen since 2026-11-23T09:00:00Z (listener switch)")
-	require.NotContains(t, frozen.Message, "alice", "who froze it is in the API, not in every status")
+	paused, _ := updater.PublicationStatusFor(makeVSWithListener("first", []string{"node-a"}, "https"))
+	require.False(t, paused.Invalid)
+	require.Contains(t, paused.Message, "updates to node node-a are paused since 2026-11-23T09:00:00Z (listener switch)")
+	require.NotContains(t, paused.Message, "alice", "who paused it is in the API, not in every status")
 	neighbour, _ := updater.PublicationStatusFor(makeVSWithListener("neighbour", []string{"node-b"}, "https"))
 	require.Empty(t, neighbour.Message)
 
-	updater.snapshotCache.Unfreeze("node-a")
+	updater.snapshotCache.Resume("node-a")
 	require.NoError(t, updater.RebuildSnapshots(t.Context()))
 	cleared, _ := updater.PublicationStatusFor(makeVSWithListener("first", []string{"node-a"}, "https"))
 	require.Empty(t, cleared.Message)

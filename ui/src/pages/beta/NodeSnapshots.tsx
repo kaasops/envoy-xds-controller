@@ -1,3 +1,4 @@
+import StatusHelp from './console/StatusHelp'
 import VersionValue from './VersionValue'
 import { consoleMonospace } from './theme'
 import { useState } from 'react'
@@ -38,9 +39,9 @@ import {
 	typeLabel
 } from './api'
 import type { SnapshotInfo, SnapshotState } from './api'
-import FreezeDialog from './FreezeDialog'
+import PauseDialog from './PauseDialog'
 
-type Action = { kind: 'freeze' } | { kind: 'rollback'; to: string; expectServed: string }
+type Action = { kind: 'pause' } | { kind: 'rollback'; to: string; expectServed: string }
 
 const timeFormat = new Intl.DateTimeFormat('en', {
 	year: 'numeric',
@@ -56,7 +57,7 @@ function timestamp(value?: string) {
 	return value ? <time dateTime={value}>{timeFormat.format(new Date(value))}</time> : 'Unavailable'
 }
 
-function SnapshotSummary({ title, snapshot }: { title: 'Served' | 'Built'; snapshot: SnapshotInfo | null }) {
+function SnapshotSummary({ title, snapshot }: { title: 'Served' | 'Pending'; snapshot: SnapshotInfo | null }) {
 	const time = title === 'Served' ? snapshot?.publishedAt : snapshot?.builtAt
 	return (
 		<Box sx={{ p: 2.5, minWidth: 0 }}>
@@ -82,13 +83,13 @@ function NodePage({ nodeId }: { nodeId: string }) {
 	const key = snapshotQueryKey(nodeId)
 	const mutationKey = [...key, 'write']
 	const writing = useIsMutating({ mutationKey }) > 0
-	const [justUnfrozen] = useState(() => {
+	const [justResumed] = useState(() => {
 		const last = client.getQueryData<SnapshotState>(key)
 		return (
 			navType === 'PUSH' &&
-			location.state?.unfrozenNode === nodeId &&
+			location.state?.resumedNode === nodeId &&
 			last?.nodeId === nodeId &&
-			!last.frozen &&
+			!last.paused &&
 			Boolean(last.served?.id) &&
 			location.state?.servedId === last.served?.id
 		)
@@ -99,10 +100,10 @@ function NodePage({ nodeId }: { nodeId: string }) {
 		retryOnMount: true,
 		networkMode: 'always',
 		queryFn: ({ signal }) => getSnapshotState(nodeId, signal),
-		refetchOnMount: justUnfrozen ? false : 'always'
+		refetchOnMount: justResumed ? false : 'always'
 	})
 	const [action, setAction] = useState<Action | null>(null)
-	const [notice, setNotice] = useState(justUnfrozen ? 'Node unfrozen.' : '')
+	const [notice, setNotice] = useState(justResumed ? 'Node resumed.' : '')
 	const [writeError, setWriteError] = useState('')
 	const mutation = useMutation({
 		mutationKey,
@@ -115,7 +116,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 			client.setQueryData(key, next)
 			void client.invalidateQueries({ queryKey: fleetQueryKey, refetchType: 'none' })
 			setAction(null)
-			setNotice('Snapshot restored. The node is frozen.')
+			setNotice('Snapshot restored. The node is paused.')
 		},
 		onError: error => {
 			setAction(null)
@@ -147,15 +148,15 @@ function NodePage({ nodeId }: { nodeId: string }) {
 		setAction(next)
 	}
 	const compare = nodePath(nodeId) + '/compare'
-	const compareBuilt = compare + '?from=served&to=built'
+	const comparePending = compare + '?from=served&to=pending'
 	const types = Array.from(
 		new Set([
 			...Object.keys(data?.served?.counts ?? {}),
-			...Object.keys(data?.built?.counts ?? {}),
+			...Object.keys((data?.paused && data.pending?.counts) || {}),
 			...Object.keys(data?.served?.versions ?? {})
 		])
 	).sort((a, b) => typeLabel(a).localeCompare(typeLabel(b)))
-	const canCompare = Boolean(data?.built?.id)
+	const canCompare = Boolean(data?.paused && data.pending?.id)
 	return (
 		<Stack spacing={2.25}>
 			<Stack direction='row' alignItems='flex-start' justifyContent='space-between' gap={2} flexWrap='wrap'>
@@ -165,13 +166,17 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					</Typography>
 					{canShow && (
 						<Stack direction='row' alignItems='center' gap={1.25} flexWrap='wrap' sx={{ mt: 1 }}>
-							<Chip
-								data-status
-								size='small'
-								color={data.frozen ? 'warning' : 'default'}
-								label={data.frozen ? 'Frozen' : 'Following builds'}
-								variant='outlined'
-							/>
+							<Typography variant='body2' color='text.secondary'>
+								Updates
+							</Typography>
+							{data.paused ? (
+								<StatusHelp status='Paused'>
+									<Chip data-status size='small' color='warning' label='Paused' variant='outlined' />
+								</StatusHelp>
+							) : (
+								<Chip data-status size='small' label='Active' variant='outlined' />
+							)}
+
 							{!data.canControl && (
 								<Typography variant='body2' color='text.secondary'>
 									Read only
@@ -197,31 +202,31 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					>
 						Refresh
 					</Button>
-					{canShow && data.canControl && data.frozen && (
+					{canShow && data.canControl && data.paused && (
 						<Button
 							component={RouterLink}
-							to={compareBuilt}
+							to={comparePending}
 							variant='contained'
-							aria-describedby={data.built?.error ? 'unfreeze-build-error' : undefined}
-							disabled={blocked || !canCompare || Boolean(data.built?.error)}
+							aria-describedby={data.pending?.error ? 'resume-build-error' : undefined}
+							disabled={blocked || !canCompare || Boolean(data.pending?.error)}
 						>
-							Unfreeze…
+							Resume…
 						</Button>
 					)}
-					{canShow && data.canControl && !data.frozen && (
-						<Button variant='outlined' disabled={blocked} onClick={() => open({ kind: 'freeze' })}>
-							Freeze node
+					{canShow && data.canControl && !data.paused && (
+						<Button variant='outlined' disabled={blocked} onClick={() => open({ kind: 'pause' })}>
+							Pause node
 						</Button>
 					)}
 				</Stack>
 			</Stack>
-			{canShow && data.built?.error && (
-				<Alert severity='error' id='unfreeze-build-error'>
+			{canShow && data.pending?.error && (
+				<Alert severity='error' id='resume-build-error'>
 					<Typography variant='subtitle2'>Build failed</Typography>
 					<Typography variant='body2' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-						{data.built.error}
+						{data.pending.error}
 					</Typography>
-					{data.frozen && <Typography variant='body2'>Fix the objects before unfreezing.</Typography>}
+					{data.paused && <Typography variant='body2'>Fix the objects before resuming.</Typography>}
 				</Alert>
 			)}
 			{query.isFetching && <LinearProgress aria-label='Loading node snapshots' />}
@@ -248,21 +253,21 @@ function NodePage({ nodeId }: { nodeId: string }) {
 			)}
 			{canShow && (
 				<>
-					{data.frozen && (
+					{data.paused && (
 						<Alert severity='warning'>
-							<Typography variant='subtitle2'>Publication is frozen</Typography>
-							{data.freeze && (
+							<Typography variant='subtitle2'>Updates paused</Typography>
+							{data.pause && (
 								<Typography variant='body2' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-									Frozen since {timestamp(data.freeze.at)}
-									{data.freeze.by && ' by ' + data.freeze.by}.
+									Paused since {timestamp(data.pause.at)}
+									{data.pause.by && ' by ' + data.pause.by}.
 									<br />
-									Reason: {data.freeze.reason}
+									Reason: {data.pause.reason}
 								</Typography>
 							)}
 							<Typography variant='body2' sx={{ mt: 0.5 }}>
 								{data.canControl
-									? 'Choose Unfreeze… to compare the served and built snapshots before publishing.'
-									: 'An operator with write access can review and unfreeze this node.'}
+									? 'Choose Resume… to compare the served and pending snapshots before publishing.'
+									: 'An operator with write access can review and resume this node.'}
 							</Typography>
 							<Typography variant='body2' sx={{ mt: 0.5 }}>
 								The webhook accepts listener address conflicts on this node with a warning.
@@ -270,7 +275,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 							{!data.served && (
 								<Typography variant='body2' sx={{ mt: 0.5 }}>
 									This controller has no served snapshot. Running Envoys keep their configuration. A
-									newly started Envoy waits for the node to be unfrozen.
+									newly started Envoy waits for the node to be resumed.
 								</Typography>
 							)}
 						</Alert>
@@ -279,27 +284,32 @@ function NodePage({ nodeId }: { nodeId: string }) {
 						<Box
 							sx={{
 								display: 'grid',
-								gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }
+								gridTemplateColumns: {
+									xs: '1fr',
+									sm: data.paused ? 'repeat(2, minmax(0, 1fr))' : '1fr'
+								}
 							}}
 						>
 							<SnapshotSummary title='Served' snapshot={data.served} />
-							<Box
-								sx={{
-									borderColor: 'divider',
-									borderLeft: { sm: 1 },
-									borderTop: { xs: 1, sm: 0 },
-									borderLeftColor: 'divider',
-									borderTopColor: 'divider'
-								}}
-							>
-								<SnapshotSummary title='Built' snapshot={data.built} />
-							</Box>
+							{data.paused && (
+								<Box
+									sx={{
+										borderColor: 'divider',
+										borderLeft: { sm: 1 },
+										borderTop: { xs: 1, sm: 0 },
+										borderLeftColor: 'divider',
+										borderTopColor: 'divider'
+									}}
+								>
+									<SnapshotSummary title='Pending' snapshot={data.pending} />
+								</Box>
+							)}
 						</Box>
 						{canCompare && (
 							<Box sx={{ borderTop: 1, borderColor: 'divider', px: 2.5, py: 1.25 }}>
 								<Button
 									component={RouterLink}
-									to={compareBuilt}
+									to={comparePending}
 									disabled={blocked}
 									variant='outlined'
 									size='small'
@@ -320,7 +330,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 										<TableRow>
 											<TableCell>Resource type</TableCell>
 											<TableCell align='right'>Served count</TableCell>
-											<TableCell align='right'>Built count</TableCell>
+											{data.paused && <TableCell align='right'>Pending count</TableCell>}
 											<TableCell>Served version</TableCell>
 										</TableRow>
 									</TableHead>
@@ -333,9 +343,13 @@ function NodePage({ nodeId }: { nodeId: string }) {
 												<TableCell align='right'>
 													{data.served ? data.served.counts[type] ?? 0 : 'Unavailable'}
 												</TableCell>
-												<TableCell align='right'>
-													{data.built?.id ? data.built.counts[type] ?? 0 : 'Unavailable'}
-												</TableCell>
+												{data.paused && (
+													<TableCell align='right'>
+														{data.pending?.id
+															? data.pending.counts[type] ?? 0
+															: 'Unavailable'}
+													</TableCell>
+												)}
 												<TableCell sx={{ fontFamily: consoleMonospace }}>
 													{data.served?.versions[type] ? (
 														<VersionValue value={data.served.versions[type]} />
@@ -430,19 +444,19 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					</Box>
 				</>
 			)}
-			{action?.kind === 'freeze' && (
-				<FreezeDialog
+			{action?.kind === 'pause' && (
+				<PauseDialog
 					nodeId={nodeId}
 					hasServed={Boolean(servedId)}
-					disabled={blocked || !data?.canControl || data.frozen}
+					disabled={blocked || !data?.canControl || data.paused}
 					onClose={() => setAction(null)}
 					onFailure={message => {
 						setAction(null)
 						setWriteError(message)
 					}}
-					onFrozen={() => {
+					onPaused={() => {
 						void client.invalidateQueries({ queryKey: fleetQueryKey, refetchType: 'none' })
-						setNotice('Node frozen.')
+						setNotice('Node paused.')
 					}}
 				/>
 			)}
@@ -466,9 +480,9 @@ function NodePage({ nodeId }: { nodeId: string }) {
 						<DialogTitle id='snapshot-action-title'>Roll back snapshot</DialogTitle>
 						<DialogContent>
 							<DialogContentText sx={{ overflowWrap: 'anywhere' }}>
-								Serve <code>{action.to}</code> on {nodeId} and freeze publication. The current served
-								snapshot is <code>{action.expectServed}</code>. Unfreezing will publish the
-								configuration built from the current objects.
+								Serve <code>{action.to}</code> on {nodeId} and pause updates. The current served
+								snapshot is <code>{action.expectServed}</code>. Resuming will publish the configuration
+								built from the current objects.
 							</DialogContentText>
 						</DialogContent>
 						<DialogActions>

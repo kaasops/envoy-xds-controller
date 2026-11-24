@@ -99,10 +99,10 @@ export async function loadResources(kind: SpecKind, signal: AbortSignal): Promis
 	return Array.from(unique.values()).sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function publication(vs: VirtualServiceListItem) {
+export function serviceStatus(vs: VirtualServiceListItem) {
 	if (!vs.status) return 'Unknown'
-	if (vs.status.invalid) return 'Degraded'
-	return vs.status.message ? 'Warning' : 'No failure reported'
+	if (vs.status.invalid) return 'Rejected'
+	return vs.status.message ? 'Accepted with warnings' : 'Accepted'
 }
 
 export function appliesToAllNodes(nodes: readonly string[]) {
