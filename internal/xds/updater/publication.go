@@ -25,7 +25,7 @@ func boundedStatusText(text string, limit int) string {
 		return text
 	}
 	end := limit - len("...")
-	for !utf8.RuneStart(text[end]) {
+	for end > 0 && !utf8.RuneStart(text[end]) {
 		end--
 	}
 	return text[:end] + "..."

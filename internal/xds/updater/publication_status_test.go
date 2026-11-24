@@ -21,6 +21,11 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+func TestBoundedStatusTextWithoutRuneStart(t *testing.T) {
+	text := strings.Repeat("\x80", 100)
+	require.Equal(t, "...", boundedStatusText(text, maxDisplayedNodeBytes))
+}
+
 func TestPublicationStatus(t *testing.T) {
 	tests := []struct {
 		name      string

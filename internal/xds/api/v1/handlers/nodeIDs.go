@@ -56,7 +56,7 @@ func (h *handler) getNodeIDs(ctx *gin.Context) {
 // @Success 200 {array} nodeIDWithVersions
 // @Router /api/v1/nodeIDs/versions [get]
 func (h *handler) getNodeIDsWithResourceVersions(ctx *gin.Context) {
-	nodeIDs := h.getAvailableNodeIDs(ctx)
+	nodeIDs := h.getAvailableServedNodeIDs(ctx)
 	sort.Strings(nodeIDs)
 
 	result := make([]nodeIDWithVersions, 0, len(nodeIDs))
