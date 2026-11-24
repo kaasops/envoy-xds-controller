@@ -246,13 +246,17 @@ type Diff struct {
 // of fields inside packed Any values counts as sameDecoded. Secrets are compared by bytes only.
 // Without all, only resources that are not the same are listed.
 func (c *Control) Diff(ctx context.Context, nodeID, from, to string, all bool) (Diff, error) {
-	a, err := c.snapshot(ctx, nodeID, from)
+	a, fromTime, err := c.snapshot(ctx, nodeID, from)
 	if err != nil {
 		return Diff{}, err
 	}
-	b, err := c.snapshot(ctx, nodeID, to)
-	if err != nil {
-		return Diff{}, err
+	b, toTime := a, fromTime
+	// A served inventory must describe one publication even if a rebuild publishes during this request.
+	if from != Served || to != Served {
+		b, toTime, err = c.snapshot(ctx, nodeID, to)
+		if err != nil {
+			return Diff{}, err
+		}
 	}
 	diff := Diff{
 		From:      describe(a, from != Built),
@@ -260,6 +264,7 @@ func (c *Control) Diff(ctx context.Context, nodeID, from, to string, all bool) (
 		Summary:   map[string]Summary{},
 		Resources: []Change{},
 	}
+	diff.From.PublishedAt, diff.To.PublishedAt = fromTime, toTime
 	for _, typeURL := range typeURLs() {
 		before, after := a.GetResources(typeURL), b.GetResources(typeURL)
 		if len(before) == 0 && len(after) == 0 {
@@ -306,7 +311,7 @@ type Resource struct {
 // Resource returns one resource of a snapshot of the node, decoded. A secret is never decoded: it holds
 // private keys, so only its hash is returned.
 func (c *Control) Resource(ctx context.Context, nodeID, which, typeURL, name string) (Resource, error) {
-	s, err := c.snapshot(ctx, nodeID, which)
+	s, _, err := c.snapshot(ctx, nodeID, which)
 	if err != nil {
 		return Resource{}, err
 	}
@@ -326,30 +331,30 @@ func (c *Control) Resource(ctx context.Context, nodeID, which, typeURL, name str
 	return result, nil
 }
 
-func (c *Control) snapshot(ctx context.Context, nodeID, which string) (cache.ResourceSnapshot, error) {
+func (c *Control) snapshot(ctx context.Context, nodeID, which string) (cache.ResourceSnapshot, *time.Time, error) {
 	if !c.known(nodeID) {
-		return nil, fmt.Errorf("%w: %s", ErrUnknownNode, nodeID)
+		return nil, nil, fmt.Errorf("%w: %s", ErrUnknownNode, nodeID)
 	}
 	switch which {
 	case Served:
 		served, ok := c.Cache.Served(nodeID)
 		if !ok {
-			return &cache.Snapshot{}, nil
+			return &cache.Snapshot{}, nil, nil
 		}
-		return served.Snapshot, nil
+		return served.Snapshot, &served.PublishedAt, nil
 	case Built:
 		built, err := c.Builder.DryBuildNode(ctx, nodeID)
 		if built == nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return built, nil
+		return built, nil, nil
 	}
 	for _, published := range c.Cache.History(nodeID) {
 		if published.ID() == which {
-			return published.Snapshot, nil
+			return published.Snapshot, &published.PublishedAt, nil
 		}
 	}
-	return nil, fmt.Errorf("%w: %s", wrapped.ErrUnknownSnapshot, which)
+	return nil, nil, fmt.Errorf("%w: %s", wrapped.ErrUnknownSnapshot, which)
 }
 
 func (c *Control) known(nodeID string) bool {
