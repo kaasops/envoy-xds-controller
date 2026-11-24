@@ -18,11 +18,11 @@ export default function NodeListAction({ nodeId, paused, disabled, onPaused }: P
 		<>
 			{paused ? (
 				<Button component={Link} to={nodePath(nodeId) + '/compare?from=served&to=pending'} size='small'>
-					Resume…
+					Resume
 				</Button>
 			) : (
 				<Button size='small' disabled={disabled} onClick={() => setOpen(true)}>
-					Pause…
+					Pause
 				</Button>
 			)}
 			{open && (
