@@ -1,3 +1,4 @@
+import { ConsoleTime } from './time/ConsoleTime'
 import StatusHelp from './console/StatusHelp'
 import VersionValue from './VersionValue'
 import { consoleMonospace } from './theme'
@@ -44,20 +45,6 @@ import { groupSnapshotHistory } from './snapshotHistory'
 
 type Action = { kind: 'pause' } | { kind: 'rollback'; to: string; expectServed: string }
 
-const timeFormat = new Intl.DateTimeFormat('en', {
-	year: 'numeric',
-	month: 'short',
-	day: 'numeric',
-	hour: '2-digit',
-	minute: '2-digit',
-	second: '2-digit',
-	timeZoneName: 'short'
-})
-
-function timestamp(value?: string) {
-	return value ? <time dateTime={value}>{timeFormat.format(new Date(value))}</time> : 'Unavailable'
-}
-
 function SnapshotSummary({ title, snapshot }: { title: 'Served' | 'Pending'; snapshot: SnapshotInfo | null }) {
 	const time = title === 'Served' ? snapshot?.publishedAt : snapshot?.builtAt
 	return (
@@ -70,7 +57,7 @@ function SnapshotSummary({ title, snapshot }: { title: 'Served' | 'Pending'; sna
 			</Typography>
 			{time && (
 				<Typography variant='body2' color='text.secondary' sx={{ mt: 0.5 }}>
-					{title === 'Served' ? 'Published' : 'Built'} {timestamp(time)}
+					{title === 'Served' ? 'Published' : 'Built'} <ConsoleTime value={time} />
 				</Typography>
 			)}
 		</Box>
@@ -259,7 +246,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 							<Typography variant='subtitle2'>Updates paused</Typography>
 							{data.pause && (
 								<Typography variant='body2' sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-									Paused since {timestamp(data.pause.at)}
+									Paused since <ConsoleTime value={data.pause.at} />
 									{data.pause.by && ' by ' + data.pause.by}.
 									<br />
 									Reason: {data.pause.reason}
@@ -394,7 +381,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 													{item.id}
 												</TableCell>
 												<TableCell>
-													{timestamp(item.publishedAt)}
+													<ConsoleTime value={item.publishedAt} />
 													<Typography
 														component='div'
 														variant='caption'

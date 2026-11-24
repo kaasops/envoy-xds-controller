@@ -1,3 +1,5 @@
+import { ConsoleTime } from '../../time/ConsoleTime'
+import { useConsoleTime } from '../../time/useConsoleTime'
 import { Alert, Box, Link, Stack, Typography } from '@mui/material'
 import { Code, ConnectError } from '@connectrpc/connect'
 import { useQuery } from '@tanstack/react-query'
@@ -38,42 +40,6 @@ interface Observation {
 	linkLabel: string
 }
 
-const columns: Column<Observation>[] = [
-	{
-		key: 'event',
-		label: 'Event',
-		value: row => row.title,
-		render: row =>
-			row.source === 'xDS stream' ? (
-				<StatusHelp status='NACK'>{row.title}</StatusHelp>
-			) : row.source === 'Snapshot' ? (
-				<StatusHelp status='Paused'>{row.title}</StatusHelp>
-			) : (
-				row.title
-			)
-	},
-	{
-		key: 'at',
-		label: 'Time (UTC)',
-		value: row => row.at || '',
-		render: row => (row.at ? new Date(row.at).toISOString().slice(0, 19).replace('T', ' ') : 'Not reported')
-	},
-	{
-		key: 'node',
-		identifier: true,
-		label: 'Node',
-		value: row => row.nodes,
-		appliesToAllNodes: row => row.source === 'Virtual service' && appliesToAllNodes(row.nodes)
-	},
-	{
-		key: 'source',
-		label: 'Source',
-		value: row => (row.client ? [row.source, ...streamClientSearchValues(row.client)] : row.source),
-		render: row => (row.client ? streamClientLabel(row.client) : row.source)
-	},
-	{ key: 'resource', label: 'Resource', value: row => row.subject }
-]
-
 function readable(error: unknown) {
 	const status = httpStatus(error)
 	return (
@@ -87,6 +53,43 @@ function readable(error: unknown) {
 }
 
 export default function Events() {
+	const { formatTime } = useConsoleTime()
+	const columns: Column<Observation>[] = [
+		{
+			key: 'event',
+			label: 'Event',
+			value: row => row.title,
+			render: row =>
+				row.source === 'xDS stream' ? (
+					<StatusHelp status='NACK'>{row.title}</StatusHelp>
+				) : row.source === 'Snapshot' ? (
+					<StatusHelp status='Paused'>{row.title}</StatusHelp>
+				) : (
+					row.title
+				)
+		},
+		{
+			key: 'at',
+			label: 'Time',
+			value: row => formatTime(row.at) || 'Not reported',
+			sortValue: row => Date.parse(row.at ?? '') || 0,
+			render: row => <ConsoleTime value={row.at} fallback='Not reported' />
+		},
+		{
+			key: 'node',
+			identifier: true,
+			label: 'Node',
+			value: row => row.nodes,
+			appliesToAllNodes: row => row.source === 'Virtual service' && appliesToAllNodes(row.nodes)
+		},
+		{
+			key: 'source',
+			label: 'Source',
+			value: row => (row.client ? [row.source, ...streamClientSearchValues(row.client)] : row.source),
+			render: row => (row.client ? streamClientLabel(row.client) : row.source)
+		},
+		{ key: 'resource', label: 'Resource', value: row => row.subject }
+	]
 	const [params] = useSearchParams()
 	const node = params.get('node') || undefined
 	const clients = useQuery({

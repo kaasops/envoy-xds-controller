@@ -1,6 +1,8 @@
+import { ConsoleTime } from '../time/ConsoleTime'
+import { useConsoleTime } from '../time/useConsoleTime'
 import { Alert, Box, Button, Chip, Link, Paper, Stack, Typography } from '@mui/material'
 import ConfigurationTable from '../nodeOverview/ConfigurationTable'
-import { displayName, fileTime, type DumpReport, type DumpResource } from '../console/configDump'
+import { displayName, type DumpReport, type DumpResource } from '../console/configDump'
 
 export function ResourceState({ state }: { state: string }) {
 	const color =
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export default function Summary({ report, openTrace }: Props) {
+	const { formatTime } = useConsoleTime()
 	const listeners = report.rows.filter(row => row.type === 'Listener')
 	const serving = listeners.filter(row => row.state === 'Active' || row.state === 'Static')
 	const rejected = listeners.filter(row => row.state === 'Rejected')
@@ -77,7 +80,8 @@ export default function Summary({ report, openTrace }: Props) {
 					{failed ? (
 						<>
 							<Typography variant='body2'>
-								{displayName(failed)} · Last failed update: {fileTime(failed.updated)}
+								{displayName(failed)} · Last failed update:{' '}
+								<ConsoleTime value={failed.updated} fallback='Not reported' />
 							</Typography>
 							<Alert severity='error' sx={{ my: 1, overflowWrap: 'anywhere' }}>
 								{failed.reason}
@@ -179,7 +183,11 @@ export default function Summary({ report, openTrace }: Props) {
 								row.reason ||
 								(row.state === 'Warming' ? 'Reason not reported' : row.state + ' listener state')
 						},
-						{ label: 'Last update', value: row => fileTime(row.updated) }
+						{
+							label: 'Last update',
+							value: row => formatTime(row.updated) || 'Not reported',
+							render: row => <ConsoleTime value={row.updated} fallback='Not reported' />
+						}
 					]}
 				/>
 			</Paper>
@@ -196,7 +204,9 @@ export default function Summary({ report, openTrace }: Props) {
 							<Box>
 								<Typography variant='subtitle2'>Rejected update · error_state</Typography>
 								<Typography variant='body2'>
-									Check the Envoy log at {fileTime(failed.updated)} for the original diagnostic.
+									Check the Envoy log at{' '}
+									<ConsoleTime value={failed.updated} fallback='Not reported' /> for the original
+									diagnostic.
 								</Typography>
 								{failed.listener?.modules.map(module => (
 									<Box key={module.index} sx={{ mt: 0.5 }}>

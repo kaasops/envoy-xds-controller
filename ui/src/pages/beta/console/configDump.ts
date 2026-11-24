@@ -270,8 +270,3 @@ export function readConfigDump(raw: unknown) {
 export type DumpReport = ReturnType<typeof readConfigDump>
 
 export const displayName = (row: DumpResource) => row.name || 'Name not reported'
-export function fileTime(value?: string | number) {
-	if (!value) return 'Not reported'
-	const date = new Date(value)
-	return Number.isNaN(date.getTime()) ? 'Not reported' : date.toISOString().slice(0, 19).replace('T', ' ') + ' UTC'
-}

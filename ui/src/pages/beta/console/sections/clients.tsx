@@ -1,3 +1,5 @@
+import { ConsoleTime } from '../../time/ConsoleTime'
+import { useConsoleTime } from '../../time/useConsoleTime'
 import VersionValue from '../../VersionValue'
 import {
 	Box,
@@ -67,12 +69,6 @@ export function StreamClientLink({ stream, to }: { stream: ClientStream; to: str
 	)
 }
 
-function timeUtc(timestamp?: string) {
-	if (!timestamp) return ''
-	const date = new Date(timestamp)
-	return Number.isNaN(date.getTime()) ? timestamp : date.toISOString().slice(0, 19).replace('T', ' ')
-}
-
 export function StreamDetails({
 	stream,
 	pod,
@@ -135,8 +131,10 @@ export function StreamDetails({
 				<dd>{pod || 'Unknown'}</dd>
 				<dt>Envoy version</dt>
 				<dd>{stream.envoyVersion || 'Unknown'}</dd>
-				<dt>Connected (UTC)</dt>
-				<dd>{timeUtc(stream.connectedAt) || 'Unknown'}</dd>
+				<dt>Connected</dt>
+				<dd>
+					<ConsoleTime value={stream.connectedAt} fallback='Unknown' />
+				</dd>
 				{versions?.[listenerType] && (
 					<>
 						<dt>LDS snapshot version</dt>
@@ -179,8 +177,9 @@ export function StreamDetails({
 										)}
 									</Typography>
 									<Typography variant='caption' color='text.secondary'>
-										{timeUtc(rejection.rejectedAt)} UTC · nonce {rejection.nonce} ·{' '}
-										{rejection.count} {rejection.count === 1 ? 'response' : 'responses'}
+										<ConsoleTime value={rejection.rejectedAt} fallback='Unknown' /> · nonce{' '}
+										{rejection.nonce} · {rejection.count}{' '}
+										{rejection.count === 1 ? 'response' : 'responses'}
 									</Typography>
 									<Typography
 										variant='body2'
@@ -309,12 +308,17 @@ export function StreamDetails({
 														) : (
 															'Last ACK'
 														)}
-														{type.lastAckAt && ' · ' + timeUtc(type.lastAckAt) + ' UTC'}
+														{type.lastAckAt && (
+															<>
+																{' '}
+																· <ConsoleTime value={type.lastAckAt} />
+															</>
+														)}
 													</Typography>
 												)}
 												{type.awaitingAckSince && (
 													<Typography component='div' variant='caption' sx={{ mt: 0.5 }}>
-														Awaiting since {timeUtc(type.awaitingAckSince)} UTC
+														Awaiting since <ConsoleTime value={type.awaitingAckSince} />
 													</Typography>
 												)}
 
@@ -341,6 +345,7 @@ export function StreamDetails({
 }
 
 export default function Clients() {
+	const { formatTime } = useConsoleTime()
 	const [params] = useSearchParams()
 	const nodeId = params.get('node') || undefined
 	const query = useQuery({
@@ -410,7 +415,13 @@ export default function Clients() {
 		},
 		{ key: 'address', label: 'Connection peer', value: stream => stream.address, filterOnly: true },
 		{ key: 'envoy', identifier: true, label: 'Envoy', value: stream => stream.envoyVersion },
-		{ key: 'connected', label: 'Connected (UTC)', value: stream => timeUtc(stream.connectedAt) }
+		{
+			key: 'connected',
+			label: 'Connected',
+			value: stream => formatTime(stream.connectedAt),
+			sortValue: stream => Date.parse(stream.connectedAt ?? '') || 0,
+			render: stream => <ConsoleTime value={stream.connectedAt} fallback='' />
+		}
 	]
 	return (
 		<SectionTable

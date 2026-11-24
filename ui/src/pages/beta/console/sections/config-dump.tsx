@@ -1,6 +1,7 @@
+import { ConsoleTime } from '../../time/ConsoleTime'
 import { useRef, useState } from 'react'
 import { Alert, Box, Button, LinearProgress, Paper, Stack, Tab, Tabs, Typography } from '@mui/material'
-import { readConfigDump, fileTime, type DumpReport } from '../configDump'
+import { readConfigDump, type DumpReport } from '../configDump'
 import CompareServed from '../../configDump/CompareServed'
 import DomainTrace from '../../configDump/DomainTrace'
 import Resources from '../../configDump/Resources'
@@ -22,7 +23,7 @@ function Report({ file }: { file: LoadedFile }) {
 		<Stack spacing={2}>
 			<Stack direction='row' justifyContent='space-between' alignItems='center' flexWrap='wrap' gap={1}>
 				<Typography variant='body2' color='text.secondary' sx={{ overflowWrap: 'anywhere' }}>
-					{file.name} · File modified {fileTime(file.modified)}
+					{file.name} · File modified <ConsoleTime value={file.modified} fallback='Not reported' />
 				</Typography>
 				<Button size='small' variant='outlined' aria-expanded={details} onClick={() => setDetails(!details)}>
 					File details

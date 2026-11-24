@@ -1,3 +1,5 @@
+import { ConsoleTime } from '../time/ConsoleTime'
+import { useConsoleTime } from '../time/useConsoleTime'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink } from 'react-router-dom'
@@ -158,6 +160,7 @@ function validity(cert: CertificateInfo): { label: string; color: 'default' | 'e
 }
 
 function CertificateTable({ nodeId, overview, selected }: Required<Pick<Props, 'nodeId' | 'overview' | 'selected'>>) {
+	const { formatTime } = useConsoleTime()
 	const certs = [...(overview.certificates ?? [])].sort(
 		(a, b) => (a.notAfter || '').localeCompare(b.notAfter || '') || certificateId(a).localeCompare(certificateId(b))
 	)
@@ -173,8 +176,8 @@ function CertificateTable({ nodeId, overview, selected }: Required<Pick<Props, '
 							['Used by domains', [...new Set(selectedCert.usedByDomains)].join(', ') || 'None'],
 							['Subject', selectedCert.subject],
 							['Issuer', selectedCert.issuer],
-							['Not before', selectedCert.notBefore || 'Unavailable'],
-							['Not after', selectedCert.notAfter || 'Unavailable'],
+							['Not before', <ConsoleTime value={selectedCert.notBefore} />],
+							['Not after', <ConsoleTime value={selectedCert.notAfter} />],
 							[
 								'SDS resource',
 								<FieldLink nodeId={nodeId} tab='hashes' id={'SDS/' + certificateId(selectedCert)}>
@@ -204,7 +207,11 @@ function CertificateTable({ nodeId, overview, selected }: Required<Pick<Props, '
 						)
 					},
 					{ label: 'Used by domains', value: c => [...new Set(c.usedByDomains)].join(', ') || 'None' },
-					{ label: 'Not after (UTC)', value: c => c.notAfter || 'Unavailable' },
+					{
+						label: 'Not after',
+						value: c => formatTime(c.notAfter) || 'Unavailable',
+						render: c => <ConsoleTime value={c.notAfter} />
+					},
 					{
 						label: 'Validity',
 						value: c => validity(c).label,

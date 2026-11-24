@@ -1,4 +1,4 @@
-import { formatUtcTimestamp } from '../../../utils/helpers/dateService'
+import { ConsoleTime } from '../time/ConsoleTime'
 import { useState } from 'react'
 import { Alert, Box, Button, ButtonBase, Link, Paper, Stack, Typography } from '@mui/material'
 import ErrorOutline from '@mui/icons-material/ErrorOutline'
@@ -31,6 +31,7 @@ interface AlertEntry {
 	id: string
 	title: string
 	description: string
+	timestamp?: string
 	category: 'stream' | 'certificate' | 'configuration'
 	href: string
 }
@@ -66,13 +67,10 @@ export function NodeAlerts({ nodeId, overview, clients, pause }: AlertProps) {
 				alerts.push({
 					id: JSON.stringify([key, type.typeUrl, rejection.nonce]),
 					title: streamClientLabel(stream) + ' · ' + typeLabel(type.typeUrl) + ' NACK on ' + streamId(stream),
-					description: [
-						resources,
-						stream.envoyVersion && 'Envoy ' + stream.envoyVersion,
-						formatUtcTimestamp(rejection.rejectedAt)
-					]
+					description: [resources, stream.envoyVersion && 'Envoy ' + stream.envoyVersion]
 						.filter(Boolean)
 						.join(' · '),
+					timestamp: rejection.rejectedAt,
 					category: 'stream',
 					href: nodeOverviewPath(nodeId, 'streams', key)
 				})
@@ -92,9 +90,8 @@ export function NodeAlerts({ nodeId, overview, clients, pause }: AlertProps) {
 		alerts.push({
 			id: 'certificate/' + id,
 			title: id + expiry,
-			description: [firstNames(cert.usedByDomains), formatUtcTimestamp(cert.notAfter)]
-				.filter(Boolean)
-				.join(' · '),
+			description: firstNames(cert.usedByDomains),
+			timestamp: cert.notAfter,
 			category: 'certificate',
 			href: nodeOverviewPath(nodeId, 'certificates', id)
 		})
@@ -105,7 +102,9 @@ export function NodeAlerts({ nodeId, overview, clients, pause }: AlertProps) {
 			{pause && (
 				<Alert severity='info'>
 					<Typography variant='subtitle2'>Updates paused</Typography>
-					{[pause.reason, pause.by, formatUtcTimestamp(pause.at)].filter(Boolean).join(' · ')}
+					{[pause.reason, pause.by].filter(Boolean).join(' · ')}
+					{(pause.reason || pause.by) && pause.at && ' · '}
+					{pause.at && <ConsoleTime value={pause.at} />}
 					{' · '}
 					<Link component={RouterLink} to={nodePath(nodeId)}>
 						View snapshots
@@ -160,6 +159,8 @@ export function NodeAlerts({ nodeId, overview, clients, pause }: AlertProps) {
 								</Typography>
 								<Typography component='span' variant='caption' color='text.secondary'>
 									{alert.description}
+									{alert.description && alert.timestamp && ' · '}
+									{alert.timestamp && <ConsoleTime value={alert.timestamp} />}
 								</Typography>
 							</Box>
 							<Typography component='span' variant='caption' color='primary'>
