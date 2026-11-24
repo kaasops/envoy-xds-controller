@@ -34,7 +34,7 @@ func (s *stubUpdater) DryValidateListenerAddresses(
 	return nil
 }
 
-func (s *stubUpdater) FrozenNodeIDs() []string { return nil }
+func (s *stubUpdater) PausedNodeIDs() []string { return nil }
 
 func (s *stubUpdater) DryBuildSnapshotsWithVirtualService(_ context.Context, _ *envoyv1alpha1.VirtualService) error {
 	return s.heavyErr

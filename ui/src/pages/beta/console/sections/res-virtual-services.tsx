@@ -9,7 +9,7 @@ import type { VirtualServiceListItem } from '../../../../gen/virtual_service/v1/
 import { apiError, manualQueryOptions, nodePath } from '../../api'
 import SectionTable, { type Column } from '../SectionTable'
 import InventorySummary from '../InventorySummary'
-import { appliesToAllNodes, loadVirtualServices, publication, virtualServicesKey } from '../resourceData'
+import { appliesToAllNodes, loadVirtualServices, serviceStatus, virtualServicesKey } from '../resourceData'
 import { ConfigView, ResourceLink } from '../grpcResources'
 
 function configurationWarnings(raw: string) {
@@ -55,7 +55,7 @@ function ServiceDetail({ row }: { row: VirtualServiceListItem }) {
 				UID <code>{row.uid}</code>
 			</Typography>
 			{row.description && <Typography variant='body2'>{row.description}</Typography>}
-			<Typography variant='subtitle2'>Publication: {publication(row)}</Typography>
+			<Typography variant='subtitle2'>Status: {serviceStatus(row)}</Typography>
 			{row.status?.message && (
 				<Alert severity={row.status.invalid ? 'error' : 'warning'}>{row.status.message}</Alert>
 			)}
@@ -132,8 +132,8 @@ const columns: Column<VirtualServiceListItem>[] = [
 	},
 	{
 		key: 'status',
-		label: 'Publication',
-		value: publication,
+		label: 'Status',
+		value: serviceStatus,
 		render: r => (
 			<Tooltip title={r.status?.message || ''} describeChild>
 				<Chip
@@ -141,8 +141,10 @@ const columns: Column<VirtualServiceListItem>[] = [
 					tabIndex={r.status?.message ? 0 : undefined}
 					size='small'
 					variant='outlined'
-					label={publication(r)}
-					color={r.status?.invalid ? 'error' : r.status?.message ? 'warning' : 'default'}
+					label={serviceStatus(r)}
+					color={
+						r.status?.invalid ? 'error' : r.status?.message ? 'warning' : r.status ? 'success' : 'default'
+					}
 				/>
 			</Tooltip>
 		)
@@ -159,19 +161,20 @@ export default function VirtualServices() {
 	return (
 		<SectionTable
 			title='Virtual services'
-			tableHeading='Publication status'
+			tableHeading='Virtual service status'
 			summary={
 				query.data && (
 					<InventorySummary
 						fields={[
 							{ label: 'Visible services', value: query.data.length },
 							{
-								label: 'Degraded',
-								value: query.data.filter(service => publication(service) === 'Degraded').length
+								label: 'Rejected',
+								value: query.data.filter(service => serviceStatus(service) === 'Rejected').length
 							},
 							{
-								label: 'Warnings',
-								value: query.data.filter(service => publication(service) === 'Warning').length
+								label: 'Accepted with warnings',
+								value: query.data.filter(service => serviceStatus(service) === 'Accepted with warnings')
+									.length
 							}
 						]}
 					/>

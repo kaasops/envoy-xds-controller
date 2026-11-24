@@ -3,34 +3,34 @@ import { Button } from '@mui/material'
 import { Link } from 'react-router-dom'
 import { nodePath } from './api'
 import type { SnapshotState } from './api'
-import FreezeDialog from './FreezeDialog'
+import PauseDialog from './PauseDialog'
 
 interface Props {
 	nodeId: string
-	frozen: boolean
+	paused: boolean
 	disabled?: boolean
-	onFrozen: (next: SnapshotState) => void | Promise<void>
+	onPaused: (next: SnapshotState) => void | Promise<void>
 }
 
-export default function NodeListAction({ nodeId, frozen, disabled, onFrozen }: Props) {
+export default function NodeListAction({ nodeId, paused, disabled, onPaused }: Props) {
 	const [open, setOpen] = useState(false)
 	return (
 		<>
-			{frozen ? (
-				<Button component={Link} to={nodePath(nodeId) + '/compare?from=served&to=built'} size='small'>
-					Unfreeze…
+			{paused ? (
+				<Button component={Link} to={nodePath(nodeId) + '/compare?from=served&to=pending'} size='small'>
+					Resume…
 				</Button>
 			) : (
 				<Button size='small' disabled={disabled} onClick={() => setOpen(true)}>
-					Freeze…
+					Pause…
 				</Button>
 			)}
 			{open && (
-				<FreezeDialog
+				<PauseDialog
 					nodeId={nodeId}
-					disabled={disabled || frozen}
+					disabled={disabled || paused}
 					onClose={() => setOpen(false)}
-					onFrozen={onFrozen}
+					onPaused={onPaused}
 				/>
 			)}
 		</>

@@ -10,7 +10,7 @@ import {
 	TextField
 } from '@mui/material'
 import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query'
-import { apiError, freezeNode, httpStatus, snapshotQueryKey } from './api'
+import { apiError, pauseNode, httpStatus, snapshotQueryKey } from './api'
 import type { SnapshotState } from './api'
 
 interface Props {
@@ -19,10 +19,10 @@ interface Props {
 	disabled?: boolean
 	onClose: () => void
 	onFailure?: (message: string) => void
-	onFrozen: (next: SnapshotState) => void | Promise<void>
+	onPaused: (next: SnapshotState) => void | Promise<void>
 }
 
-function freezeError(error: unknown) {
+function pauseError(error: unknown) {
 	const message = apiError(error)
 	if (httpStatus(error) === 403 && message === 'snapshot control is turned off on this controller') {
 		return 'Writes are disabled on this controller (snapshotControl.enabled=false).'
@@ -33,7 +33,7 @@ function freezeError(error: unknown) {
 	return message
 }
 
-export default function FreezeDialog({ nodeId, hasServed, disabled, onClose, onFailure, onFrozen }: Props) {
+export default function PauseDialog({ nodeId, hasServed, disabled, onClose, onFailure, onPaused }: Props) {
 	const titleId = useId()
 	const descriptionId = useId()
 	const client = useQueryClient()
@@ -45,12 +45,12 @@ export default function FreezeDialog({ nodeId, hasServed, disabled, onClose, onF
 		mutationKey,
 		retry: false,
 		networkMode: 'always',
-		mutationFn: (value: string) => freezeNode(nodeId, value),
-		onError: error => onFailure?.(freezeError(error)),
+		mutationFn: (value: string) => pauseNode(nodeId, value),
+		onError: error => onFailure?.(pauseError(error)),
 		onSuccess: async next => {
 			await client.cancelQueries({ queryKey: key, exact: true })
 			client.setQueryData(key, next)
-			await onFrozen(next)
+			await onPaused(next)
 			onClose()
 		}
 	})
@@ -72,15 +72,15 @@ export default function FreezeDialog({ nodeId, hasServed, disabled, onClose, onF
 					if (!blocked && !client.isMutating({ mutationKey })) mutation.mutate(reason.trim())
 				}}
 			>
-				<DialogTitle id={titleId}>Freeze node</DialogTitle>
+				<DialogTitle id={titleId}>Pause node</DialogTitle>
 				<DialogContent>
 					<DialogContentText id={descriptionId} sx={{ overflowWrap: 'anywhere' }}>
 						{hasServed === false
 							? nodeId +
-								' has no served snapshot. New Envoys will receive no configuration while it is frozen.'
+								' has no served snapshot. New Envoys will receive no configuration while it is paused.'
 							: hasServed
 								? nodeId + ' will stay on its served snapshot.'
-								: 'Freeze publication to ' +
+								: 'Pause updates to ' +
 									nodeId +
 									'. Without a served snapshot, new Envoys will wait for configuration.'}{' '}
 						The webhook will accept listener address conflicts on this node with a warning.
@@ -100,7 +100,7 @@ export default function FreezeDialog({ nodeId, hasServed, disabled, onClose, onF
 					/>
 					{mutation.isError && (
 						<Alert severity='error'>
-							{freezeError(mutation.error)}
+							{pauseError(mutation.error)}
 							{httpStatus(mutation.error) !== 403 &&
 								' Close this dialog and refresh before trying again.'}
 						</Alert>
@@ -111,7 +111,7 @@ export default function FreezeDialog({ nodeId, hasServed, disabled, onClose, onF
 						{mutation.isError ? 'Close' : 'Cancel'}
 					</Button>
 					<Button variant='contained' type='submit' disabled={blocked}>
-						Freeze node
+						Pause node
 					</Button>
 				</DialogActions>
 			</form>

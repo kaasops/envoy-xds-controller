@@ -15,8 +15,8 @@ func TestNodeInventoryCountsDescribeOnlyVisibleServedResources(t *testing.T) {
 	c := cacheWithSnapshots(t, "1", "edge", "hidden")
 	empty, err := cachev3.NewSnapshot("2", nil)
 	require.NoError(t, err)
-	c.Freeze("edge", xdscache.Freeze{})
-	c.Freeze("waiting", xdscache.Freeze{})
+	c.Pause("edge", xdscache.Pause{})
+	c.Pause("waiting", xdscache.Pause{})
 	for _, node := range []string{"edge", "empty", "waiting"} {
 		require.NoError(t, c.SetSnapshot(t.Context(), node, empty))
 	}

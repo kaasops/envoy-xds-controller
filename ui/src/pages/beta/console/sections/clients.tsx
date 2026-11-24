@@ -36,11 +36,16 @@ const resourceTypes: Record<string, { short: string; section: string }> = {
 }
 const listenerType = 'type.googleapis.com/envoy.config.listener.v3.Listener'
 
-export function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
+export function StatusBadges({ statuses, to, stream }: { statuses: StreamStatus[]; to?: string; stream?: string }) {
 	return (
 		<Stack component='span' direction='row' gap={0.5} flexWrap='wrap'>
 			{statuses.map(status => (
-				<StreamResponseChip key={status} status={status} />
+				<StreamResponseChip
+					key={status}
+					status={status}
+					to={to}
+					label={stream ? stream + ' responses: ' + status : undefined}
+				/>
 			))}
 		</Stack>
 	)
@@ -237,7 +242,7 @@ export function StreamDetails({
 									) : (
 										<Typography variant='body2' color='text.secondary'>
 											{stream.protocol === 'sotw'
-												? 'Whole response rejected.'
+												? 'No per-resource result recorded for this SotW NACK.'
 												: 'No resource names recorded.'}
 										</Typography>
 									)}
@@ -361,22 +366,11 @@ export default function Clients() {
 		{ key: 'stream', identifier: true, label: 'Stream', value: streamId },
 		{
 			key: 'status',
-			label: 'Status',
+			label: 'Sync status',
 			value: streamStatuses,
-			render: stream => {
-				const statuses = streamStatuses(stream)
-				return (
-					<Link
-						component={RouterLink}
-						to={streamHref(stream)}
-						underline='none'
-						onClick={event => event.stopPropagation()}
-						aria-label={streamId(stream) + ' responses: ' + statuses.join(', ')}
-					>
-						<StatusBadges statuses={statuses} />
-					</Link>
-				)
-			}
+			render: stream => (
+				<StatusBadges statuses={streamStatuses(stream)} to={streamHref(stream)} stream={streamId(stream)} />
+			)
 		},
 		{
 			key: 'node',

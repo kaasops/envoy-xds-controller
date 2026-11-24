@@ -1,59 +1,56 @@
-# Node Snapshots: Inspect, Freeze, Roll Back
+# Node snapshots
 
-The controller builds a snapshot per node from the cluster objects and serves it to the node's Envoys over xDS. The cache API shows, for each node, what is served and what the current objects would build, compares the two resource by resource, and can freeze a node or roll it back to a snapshot it was served before.
+Each Envoy node receives a snapshot over xDS. In the console, **Updates** is **Active** while the controller pushes changes and **Paused** while it holds them. The node page shows these snapshots.
 
-| Term | Meaning |
+| Snapshot | Contents |
 | --- | --- |
-| served | the snapshot the xDS server gives the node's Envoys |
-| built | what the current objects build for the node now, computed on request without publishing anything |
-| history | snapshots the node was served before, newest first, up to 10, kept in memory while the cache API can write |
-| frozen | builds go on, but the node is served what it has until it is unfrozen |
+| Served | What this controller replica currently offers the node over xDS. A stream's ACK or NACK is recorded separately. |
+| Pending | What the current Kubernetes objects build for a paused node. A failed build reports its cause in `pending.error`. An active node has `pending: null`. |
+| History | Up to ten previously served snapshots, newest first. History is held in memory when the cache API and writes are enabled. |
 
-A snapshot ID is the first 12 hex digits of a sha256 over the type, name and content hash of every resource. The builder gives the same bytes for the same objects, so the same content has the same ID in any build. Versions are not part of it: a rollback serves old content under new versions, so the ID stays and the versions grow.
+The snapshot ID is the first 12 hexadecimal digits of a SHA-256 over the type, name and content hash of each resource. An ID identifies content. Rollback can serve the same content with higher xDS versions.
 
-## Enabling
+## Configuration and persistence
 
-Reading is available whenever the cache API is enabled. Writing is on by default: `snapshotControl.enabled: true` in the chart, environment variable `API_SNAPSHOT_CONTROL`. An upgrade with `helm upgrade --reuse-values` from a chart without the setting gets it on as well. Set it to `false` to keep the API read only: nodes frozen before stay frozen and can no longer be unfrozen through the API, and no history is kept. Frozen nodes and the last version a freeze or rollback served are kept in the Secret `<fullname>-frozen-nodes` of the controller namespace (`SNAPSHOT_FREEZE_SECRET`), where `<fullname>` is the full name of the release as the chart builds it, `<release>-envoy-xds-controller` unless the release name contains the chart name. A Secret, because what it holds decides what a node is served after a restart and names the operators; the controller manages Secrets of its namespace already, so no new permissions are needed. The Secret has no `envoy.kaasops.io/secret-type` label and is never served to Envoy. The controller reads it at every start, whatever the settings, and does not start if it cannot read it: starting as if nothing were frozen would publish what a frozen node holds back. A missing Secret means nothing is frozen.
+Enable the cache API for read access. The chart enables writes by default with `snapshotControl.enabled: true` (`API_SNAPSHOT_CONTROL`). This default also applies when upgrading with values from a chart that predates this setting. Setting it to `false` disables control operations and history. Existing pauses remain effective.
 
-With OIDC enabled, a user reaches only the nodes of their access groups, and every write records the user (email, preferred user name or subject). There is no separate permission to write: whoever reaches a node can freeze and roll it back. Without OIDC, anyone who reaches the cache API can freeze and roll back nodes; the controller logs a warning at start.
+The controller stores pause records and the version floor in a Kubernetes Secret in its namespace. `SNAPSHOT_PAUSE_SECRET` selects the Secret. The chart retains the physical name `<fullname>-frozen-nodes` and the existing storage format so pauses survive an upgrade from an earlier release candidate. It has no xDS secret-type label. On startup the controller loads this Secret even when writes are disabled. A missing Secret means there are no persisted pauses. Other read errors prevent startup.
+
+With OIDC, writes are allowed on nodes in the user's access groups and record the operator identity. Without OIDC, anyone with access to the writable cache API can control nodes. Use one controller replica for snapshot control. With multiple replicas a request changes the replica that receives it. The response identifies it in `controllerPod`.
 
 ## API
 
+Earlier v0.19.0 release candidates used Freeze/Unfreeze and Built. In rc.3 the corresponding API terms are Pause/Resume and Pending.
+
+All paths below are relative to `/api/v1`. Node responses include `served`, `pending`, `history`, `paused`, `pause` and `canControl`. The pause record contains `by`, `at` and `reason`.
+
 | Request | Result |
 | --- | --- |
-| `GET /api/v1/frozenNodes` | frozen nodes with who froze them, when and why |
-| `GET /api/v1/nodes/{nodeId}/snapshots` | `served`, `built`, `history`, `frozen`, `freeze`, `canControl` |
-| `GET /api/v1/nodes/{nodeId}/snapshots/diff?from=served&to=built` | per resource: `same` (equal bytes), `sameDecoded` (different bytes, equal messages, e.g. field order inside `Any`), `changed`, `added`, `removed`, with sha256 of both sides. `from` and `to` take `served`, `built` or a snapshot ID from the history. Add `all=true` to list unchanged resources too |
-| `GET /api/v1/nodes/{nodeId}/snapshots/resource?snapshot=served&type=…&name=…` | the resource as JSON. A secret comes as its sha256 only |
-| `POST /api/v1/nodes/{nodeId}/freeze` `{"reason": "…"}` | stop publishing to the node |
-| `POST /api/v1/nodes/{nodeId}/unfreeze` `{"expectBuilt": "<id>"}` | serve the built snapshot of that ID, then follow the objects again |
-| `POST /api/v1/nodes/{nodeId}/rollback` `{"to": "<id>", "expectServed": "<id>"}` | serve a snapshot from the history and freeze the node there |
+| `GET /pausedNodes` | Returns `pausedNodes`, keyed by node ID, including paused nodes with no served snapshot after a restart. |
+| `GET /nodes/{nodeId}/snapshots` | Returns the node state. While paused, the controller computes Pending on request. |
+| `GET /nodes/{nodeId}/snapshots/diff?from=served&to=pending` | Compares snapshots resource by resource. Each side accepts `served`, `pending` or a snapshot ID. Add `all=true` to include unchanged resources. |
+| `GET /nodes/{nodeId}/snapshots/resource?snapshot=served&type=…&name=…` | Returns a decoded resource. For a Secret, only its type, name and SHA-256 are exposed. |
+| `POST /nodes/{nodeId}/pause` with `{"reason":"…"}` | Holds the node on its served snapshot. |
+| `POST /nodes/{nodeId}/resume` with `{"expectPending":"<id>"}` | Pushes the reviewed pending snapshot and resumes automatic updates. |
+| `POST /nodes/{nodeId}/rollback` with `{"to":"<id>","expectServed":"<id>"}` | Checks the served ID, serves the historical snapshot and pauses updates. The reason is `rollback to <id>`. Pending reflects the current objects. |
 
-Writes answer with the state of the node, like the `GET` of its snapshots. `409 Conflict` means: the node is frozen already or not frozen; the build for the node fails, so unfreezing would not publish it; or `expectBuilt` / `expectServed` no longer match, because the objects or the served snapshot changed since the caller read them. Read again and decide again.
+Diff groups resources as `same` (equal bytes), `sameDecoded` (different bytes that decode to equal messages), `changed`, `added` and `removed`. Secrets are compared by bytes only. The default comparison is Served to Pending and requires a paused node. On an active node specify the two references explicitly, for example a historical ID and `served`.
 
-## Behaviour
-
-- **Freeze** keeps the node on its served snapshot. Builds go on, other nodes are published as usual. An Envoy of the node that starts or reconnects while it is frozen gets the served snapshot. The services of the node say in `status.message` since when and why it is frozen; who froze it is in `GET /api/v1/frozenNodes`.
-- **Unfreeze** serves exactly the built snapshot the caller compared, named by `expectBuilt`, then lets every build publish to the node again. It is refused while the build fails or when the build differs from `expectBuilt`.
-- **Rollback** is instant and does not depend on Git, Argo CD or the webhook. With `expectServed`, the check and the rollback are one step. Git still holds the newer objects: unfreezing publishes them again, so revert them in Git before unfreezing.
-- **Restart.** The frozen nodes survive a controller restart, the served snapshots and the history do not: they hold TLS keys and stay in memory. After a restart a frozen node is served nothing: running Envoys keep the configuration they have, an Envoy of that node started later gets nothing until the node is unfrozen.
+A successful write returns the current node state. Resume requires the ID from the comparison. A missing ID returns HTTP 400. HTTP 409 means the operation conflicts with the current state, for example the node is already paused, Pending failed to build, or the reviewed ID changed. Refresh the state and compare again. A failed comparison or resume leaves the pause in effect.
 
 ## Switching a node to another listener
 
-A node cannot have two listeners on one address. Moving a node from one listener to another on the same address, for example `https` to `https-next` on `0.0.0.0:443`, changes every VirtualService and template of the node that refers to the listener, and every object in between would give the node both listeners. Freeze the node, apply the change, compare, unfreeze:
+Start with one writable controller replica, a node with a served snapshot and access to all the VirtualServices and templates in the change. When moving a node between two listeners on the same address, keep the change in one Argo CD sync wave. A degraded VirtualService in an earlier wave can block subsequent waves.
 
-1. `POST .../freeze` with a reason. The services of the node report the freeze in `status.message`.
-2. Apply the objects. While the node is frozen, the webhooks accept a listener address conflict on it and return a warning per node, for example `node "edge" gets no new configuration while listeners default/https and default/https-next share 0.0.0.0:443`; listener names from another namespace are not shown. Any other error is rejected as before. With `webhook.lightDryRun: true`, a VirtualService that targets a frozen node before or after the change, `nodeIDs: ["*"]` included, gets the listener checks of the light mode and then the full dry run within `webhook.dryRunTimeoutMS`: the light check does not see listeners that come from templates.
-3. Compare `served` with `built`: only the listeners should differ. While the conflict lasts, `built.error` names it; unfreezing is refused until the last reference is moved, so a forgotten one shows before anything is served.
-4. `POST .../unfreeze` with the `built` ID you compared. The node gets the new listener in one update.
+1. Pause updates to the node with a reason. Node updates show **Paused** and the affected VirtualServices report the pause in `status.message`.
+2. Apply all affected objects. The controller continues building while serving the previous snapshot. The webhook allows the temporary listener address conflict on the paused node and returns a warning. Other errors can still block admission. With `webhook.lightDryRun: true`, a VirtualService that targets a paused node before or after the change also gets a full dry run within `webhook.dryRunTimeoutMS`. During a listener conflict the domain index and secret deletion checks account for served and pending resources.
+3. Compare Served with Pending. Resolve any error in `pending.error`. Check the intended additions, removals and changes and retain the pending ID from this comparison.
+4. Resume with that ID. Envoy's response appears separately under **Sync status**. Check the affected streams and the traffic path.
 
-Keep all objects of the change in one Argo CD sync wave: with a health check for VirtualService installed, a `Degraded` VirtualService in an earlier wave stops the next one. While a node is held by a listener address conflict, the domain index of `webhook.validationIndices` and the secrets protected from deletion cover both the configuration the node serves and the one it waits for.
+Rollback serves the selected historical snapshot immediately and pauses updates. Git still contains the desired objects. Before resuming, reconcile those objects with the configuration you want to serve, then review Pending again.
 
-## Cost
+## Restart and cost
 
-`GET .../snapshots` and a diff against `built` build the snapshots of every node from the current objects, as a full dry run does: hundreds of milliseconds of controller CPU per request on a large fleet. Read them when a node is opened or refreshed, not on a timer and not for a list of nodes; `GET /api/v1/frozenNodes` and `GET /api/v1/clients` are cheap.
+Pause records survive a controller restart. Served snapshots and history contain sensitive resources and stay in memory. After a restart, a paused node can therefore have a Pending snapshot and no Served snapshot. Running Envoys retain their previous configuration. A cold Envoy receives no configuration from that replica until updates resume. The console compares the pending resources against an empty baseline so the operator can review and resume.
 
-## Limits
-
-- One controller replica. With more, a write applies to the replica that received it; `controllerPod` in the state tells which.
-- The status of a VirtualService on a frozen node shows the result of the build and the note that the node is frozen, not what the node is served.
+Reading a paused node's state or comparing with Pending triggers a dry build of all nodes. Request these views when opening or explicitly refreshing a node. The node list uses `GET /pausedNodes` and `GET /clients`.

@@ -117,7 +117,7 @@ func TestRunServesSnapshotRoutesWhenEnabled(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	req, _ := http.NewRequest(http.MethodOptions, base+"/freeze", nil)
+	req, _ := http.NewRequest(http.MethodOptions, base+"/pause", nil)
 	req.Header.Set("Origin", "https://ui.example.com")
 	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
 	resp, err := http.DefaultClient.Do(req)

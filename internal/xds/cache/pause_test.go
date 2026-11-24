@@ -30,14 +30,14 @@ func listenerPort(t *testing.T, c *SnapshotCache, nodeID string) uint32 {
 	return l.GetAddress().GetSocketAddress().GetPortValue()
 }
 
-var freeze = Freeze{By: "alice", Reason: "listener switch", At: time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC)}
+var pause = Pause{By: "alice", Reason: "listener switch", At: time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC)}
 
-func TestFrozenNodeKeepsServedSnapshot(t *testing.T) {
+func TestPausedNodeKeepsServedSnapshot(t *testing.T) {
 	c := NewSnapshotCache()
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "1", 443)))
 	published := c.LastPublication("node-a")
-	require.True(t, c.Freeze("node-a", freeze))
-	require.False(t, c.Freeze("node-a", freeze), "already frozen")
+	require.True(t, c.Pause("node-a", pause))
+	require.False(t, c.Pause("node-a", pause), "already paused")
 
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "2", 8443)))
 
@@ -47,12 +47,12 @@ func TestFrozenNodeKeepsServedSnapshot(t *testing.T) {
 	offered, ok := c.Offered("node-a")
 	require.True(t, ok)
 	require.Equal(t, "2", offered.GetVersion(resource.ListenerType))
-	got, frozen := c.Frozen("node-a")
-	require.True(t, frozen)
-	require.Equal(t, freeze, got)
+	got, paused := c.Paused("node-a")
+	require.True(t, paused)
+	require.Equal(t, pause, got)
 
-	require.True(t, c.Unfreeze("node-a"))
-	require.False(t, c.Unfreeze("node-a"), "not frozen")
+	require.True(t, c.Resume("node-a"))
+	require.False(t, c.Resume("node-a"), "not paused")
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "2", 8443)))
 	require.Equal(t, uint32(8443), listenerPort(t, c, "node-a"))
 }
@@ -88,29 +88,29 @@ func TestRollbackServesOldContentUnderNewVersions(t *testing.T) {
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "5", 8443)))
 	target := c.History("node-a")[0]
 
-	require.NoError(t, c.Rollback(t.Context(), "node-a", target.ID(), "", freeze, c.NextVersion("node-a")))
+	require.NoError(t, c.Rollback(t.Context(), "node-a", target.ID(), "", pause, c.NextVersion("node-a")))
 
 	served, ok := c.Served("node-a")
 	require.True(t, ok)
 	require.Equal(t, target.ID(), served.ID(), "content of the old snapshot")
 	require.Equal(t, uint32(443), listenerPort(t, c, "node-a"))
 	require.Greater(t, versionOf(t, served.Snapshot), int64(5), "a version Envoy has not seen")
-	_, frozen := c.Frozen("node-a")
-	require.True(t, frozen, "the next build must not overwrite the rollback")
+	_, paused := c.Paused("node-a")
+	require.True(t, paused, "the next build must not overwrite the rollback")
 	require.Equal(t, uint32(8443),
 		c.History("node-a")[0].Snapshot.GetResources(resource.ListenerType)["ns/https"].(*listenerv3.Listener).
 			GetAddress().GetSocketAddress().GetPortValue())
 
-	require.ErrorIs(t, c.Rollback(t.Context(), "node-a", "000000000000", "", freeze, c.NextVersion("node-a")),
+	require.ErrorIs(t, c.Rollback(t.Context(), "node-a", "000000000000", "", pause, c.NextVersion("node-a")),
 		ErrUnknownSnapshot)
-	require.ErrorIs(t, c.Rollback(t.Context(), "node-a", target.ID(), "000000000000", freeze, c.NextVersion("node-a")),
+	require.ErrorIs(t, c.Rollback(t.Context(), "node-a", target.ID(), "000000000000", pause, c.NextVersion("node-a")),
 		ErrServedChanged,
 		"the check and the change are one step")
 }
 
-func TestRestoredFreezeServesNothing(t *testing.T) {
+func TestRestoredPauseServesNothing(t *testing.T) {
 	c := NewSnapshotCache()
-	c.RestoreFrozen(map[string]Freeze{"node-a": freeze})
+	c.RestorePaused(map[string]Pause{"node-a": pause})
 
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "1", 443)))
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-b", snapshotWith(t, "1", 443)))
@@ -119,25 +119,25 @@ func TestRestoredFreezeServesNothing(t *testing.T) {
 	require.Error(t, err, "running Envoys keep what they have, new ones wait for a decision")
 	_, served := c.Served("node-a")
 	require.False(t, served)
-	require.Equal(t, map[string]Freeze{"node-a": freeze}, c.FrozenNodes())
+	require.Equal(t, map[string]Pause{"node-a": pause}, c.PausedNodes())
 	_, err = c.GetSnapshot("node-b")
 	require.NoError(t, err)
 }
 
-func TestPublishFrozenServesTheGivenSnapshotAndUnfreezes(t *testing.T) {
+func TestPublishPausedServesTheGivenSnapshotAndResumes(t *testing.T) {
 	c := NewSnapshotCache()
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "7", 443)))
-	require.True(t, c.Freeze("node-a", freeze))
+	require.True(t, c.Pause("node-a", pause))
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "8", 9443)))
 	reviewed := snapshotWith(t, "1", 8443)
 
-	require.NoError(t, c.PublishFrozen(t.Context(), "node-a", reviewed, c.NextVersion("node-a")))
+	require.NoError(t, c.PublishPaused(t.Context(), "node-a", reviewed, c.NextVersion("node-a")))
 
 	served, _ := c.Served("node-a")
 	require.Equal(t, SnapshotID(reviewed), served.ID())
 	require.Greater(t, versionOf(t, served.Snapshot), int64(8), "above what was served and offered")
-	_, frozen := c.Frozen("node-a")
-	require.False(t, frozen)
+	_, paused := c.Paused("node-a")
+	require.False(t, paused)
 }
 
 func versionOf(t *testing.T, s gcp.ResourceSnapshot) int64 {
@@ -147,26 +147,26 @@ func versionOf(t *testing.T, s gcp.ResourceSnapshot) int64 {
 	return v
 }
 
-// A freeze or rollback publication must never reuse a version an Envoy may hold, also right after a
-// restart: builds go on counting from what a freeze served, and only the freeze version is kept.
+// A pause or rollback publication must never reuse a version an Envoy may hold, also right after a
+// restart: builds go on counting from what a pause served, and only the pause version is kept.
 func TestControlVersionsStayAboveBuildsAcrossRestarts(t *testing.T) {
 	clock := time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC)
 	first := NewSnapshotCache()
 	first.now = func() time.Time { return clock }
-	first.RestoreFrozen(map[string]Freeze{"node-a": freeze})
+	first.RestorePaused(map[string]Pause{"node-a": pause})
 	require.NoError(t, first.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "1", 443)))
 	v1 := first.NextVersion("node-a")
-	require.NoError(t, first.PublishFrozen(t.Context(), "node-a", snapshotWith(t, "1", 8443), v1))
+	require.NoError(t, first.PublishPaused(t.Context(), "node-a", snapshotWith(t, "1", 8443), v1))
 	require.Equal(t, v1, first.VersionFloor(), "what the caller keeps")
 	for i := int64(1); i <= 1000; i++ {
 		require.NoError(t, first.SetSnapshot(t.Context(), "node-a",
-			snapshotWith(t, strconv.FormatInt(v1+i, 10), uint32(9000+i))), "builds count on from the freeze version")
+			snapshotWith(t, strconv.FormatInt(v1+i, 10), uint32(9000+i))), "builds count on from the pause version")
 	}
 
 	restarted := NewSnapshotCache()
 	restarted.now = func() time.Time { return clock.Add(time.Second) }
 	restarted.SetVersionFloor(first.VersionFloor())
-	restarted.RestoreFrozen(map[string]Freeze{"node-a": freeze})
+	restarted.RestorePaused(map[string]Pause{"node-a": pause})
 	require.NoError(t, restarted.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "1", 443)))
 	v2 := restarted.NextVersion("node-a")
 
@@ -190,12 +190,12 @@ func TestRepeatedSameContentKeepsTheHistory(t *testing.T) {
 	require.Equal(t, SnapshotID(snapshotWith(t, "2", 8443)), history[0].ID())
 }
 
-func TestUnfreezeOfAnEmptyNodeWritesOnce(t *testing.T) {
+func TestResumeOfAnEmptyNodeWritesOnce(t *testing.T) {
 	c := NewSnapshotCache()
 	c.SetHistoryLimit(3)
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", snapshotWith(t, "1", 443)))
-	require.True(t, c.Freeze("node-a", freeze))
-	require.NoError(t, c.PublishFrozen(t.Context(), "node-a", &gcp.Snapshot{}, c.NextVersion("node-a")))
+	require.True(t, c.Pause("node-a", pause))
+	require.NoError(t, c.PublishPaused(t.Context(), "node-a", &gcp.Snapshot{}, c.NextVersion("node-a")))
 	published := c.LastPublication("node-a")
 
 	require.NoError(t, c.SetSnapshot(t.Context(), "node-a", &gcp.Snapshot{}), "the next build of the node")
@@ -203,21 +203,21 @@ func TestUnfreezeOfAnEmptyNodeWritesOnce(t *testing.T) {
 	require.Equal(t, published, c.LastPublication("node-a"), "same content, only the versions differ")
 }
 
-// The guarantee does not lean on the clock for a frozen node: the freeze raises the floor to what builds
-// served it, and nothing is served to it until the next freeze or rollback publication.
-func TestFreezeRaisesTheFloorToWhatTheNodeWasServed(t *testing.T) {
+// The guarantee does not lean on the clock for a paused node: the pause raises the floor to what builds
+// served it, and nothing is served to it until the next pause or rollback publication.
+func TestPauseRaisesTheFloorToWhatTheNodeWasServed(t *testing.T) {
 	clock := time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC)
 	first := NewSnapshotCache()
 	first.now = func() time.Time { return clock }
 	served := clock.UnixNano() + 1000
 	require.NoError(t, first.SetSnapshot(t.Context(), "node-a", snapshotWith(t, strconv.FormatInt(served, 10), 443)))
-	require.True(t, first.Freeze("node-a", freeze))
+	require.True(t, first.Pause("node-a", pause))
 
 	require.Equal(t, served, first.RaiseVersionFloor("node-a"))
 
 	restarted := NewSnapshotCache()
 	restarted.now = func() time.Time { return clock }
 	restarted.SetVersionFloor(first.VersionFloor())
-	restarted.RestoreFrozen(map[string]Freeze{"node-a": freeze})
+	restarted.RestorePaused(map[string]Pause{"node-a": pause})
 	require.Greater(t, restarted.NextVersion("node-a"), served, "the clock stood still")
 }

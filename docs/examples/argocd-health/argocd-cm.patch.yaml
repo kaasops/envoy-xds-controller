@@ -8,9 +8,9 @@ data:
     if status == nil or status.observedGeneration == nil
         or status.observedGeneration ~= obj.metadata.generation
         or type(status.invalid) ~= "boolean" then
-      return {status = "Progressing", message = "Waiting for a publication result"}
+      return {status = "Progressing", message = "Waiting for the controller to report status"}
     end
     if status.invalid then
-      return {status = "Degraded", message = status.message or "Publication failed"}
+      return {status = "Degraded", message = status.message or "VirtualService rejected"}
     end
     return {status = "Healthy", message = status.message}

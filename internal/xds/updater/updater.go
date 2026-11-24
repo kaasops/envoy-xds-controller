@@ -305,11 +305,11 @@ func (c *CacheUpdater) rebuildSnapshots(ctx context.Context) error {
 	start := time.Now()
 	err, usedSecrets, vsStatuses, _ := buildSnapshots(ctx, c.snapshotCache, c.store, c.contributors)
 
-	frozen := c.snapshotCache.FrozenNodes()
+	paused := c.snapshotCache.PausedNodes()
 	for key, status := range vsStatuses {
-		if len(frozen) > 0 {
+		if len(paused) > 0 {
 			if vs := c.store.GetVirtualService(key); vs != nil {
-				status = withFreezeNote(status, resolveTargetNodeIDs(vs.GetNodeIDs(), c.snapshotCache), frozen)
+				status = withPauseNote(status, resolveTargetNodeIDs(vs.GetNodeIDs(), c.snapshotCache), paused)
 			}
 		}
 		c.recordPublication(key, status)
@@ -760,10 +760,10 @@ func publicationResults(
 			}
 			status.AffectedNodes = append(status.AffectedNodes, node)
 			if failure != nil {
-				reason := "snapshot publication failed; see controller log"
+				reason := "snapshot update rejected; see controller log"
 				var conflict *wrapped.DuplicateListenerAddress
 				if errors.As(failure, &conflict) {
-					reason = "snapshot publication failed: " + conflict.DetailForNamespace(nn.Namespace)
+					reason = "snapshot update rejected: " + conflict.DetailForNamespace(nn.Namespace)
 				}
 				reasons = append(reasons, fmt.Sprintf("node %s: %s", boundedStatusText(node, maxDisplayedNodeBytes), reason))
 			}

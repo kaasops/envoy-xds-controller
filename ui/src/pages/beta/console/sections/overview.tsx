@@ -3,12 +3,13 @@ import { Box, Chip, Link, Paper, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { httpStatus, nodeOverviewPath, nodePath } from '../../api'
 import { nodeSection, useNodeInventory } from '../nodeInventory'
+import StatusHelp, { type HelpStatus } from '../StatusHelp'
 import SectionTable, { type Column } from '../SectionTable'
 import { noConfiguration, nodesWithoutSnapshot, streamCounts } from '../streams'
 
 interface Observation {
 	node: string
-	state: string
+	state: HelpStatus
 	detail: string
 	href: string
 }
@@ -29,16 +30,28 @@ const columns: Column<Observation>[] = [
 		key: 'status',
 		label: 'Observation',
 		value: row => row.state,
-		render: row => (
-			<Chip
-				data-status
-				size='small'
-				variant='outlined'
-				color={row.state === 'NACK' ? 'error' : row.state === 'Awaiting ACK' ? 'warning' : 'default'}
-				label={row.state}
-				sx={{ maxWidth: '100%', height: 'auto', minHeight: 24, '& .MuiChip-label': { whiteSpace: 'normal' } }}
-			/>
-		)
+		render: row => {
+			const badge = (
+				<Chip
+					data-status
+					size='small'
+					variant='outlined'
+					color={row.state === 'NACK' ? 'error' : row.state === 'Awaiting ACK' ? 'warning' : 'default'}
+					label={row.state}
+					sx={{
+						maxWidth: '100%',
+						height: 'auto',
+						minHeight: 24,
+						'& .MuiChip-label': { whiteSpace: 'normal' }
+					}}
+				/>
+			)
+			return (
+				<StatusHelp status={row.state} to={row.state === 'Paused' ? row.href : undefined}>
+					{badge}
+				</StatusHelp>
+			)
+		}
 	},
 	{
 		key: 'details',
@@ -83,11 +96,11 @@ export default function Overview() {
 				detail: 'Snapshot information is unavailable',
 				href: nodeSection('clients', node.nodeId)
 			})
-		if (node.freeze)
+		if (node.pause)
 			observations.push({
 				node: node.nodeId,
-				state: 'Frozen',
-				detail: node.freeze.reason,
+				state: 'Paused',
+				detail: node.pause.reason,
 				href: nodePath(node.nodeId)
 			})
 		if (!node.streams.length)

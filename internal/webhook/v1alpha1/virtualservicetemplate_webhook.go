@@ -91,8 +91,8 @@ type VirtualServiceTemplateCustomValidator struct {
 // vstUpdater is the part of the cache updater the template validator uses.
 type vstUpdater interface {
 	DryBuildSnapshotsWithVirtualServiceTemplate(ctx context.Context, vst *envoyv1alpha1.VirtualServiceTemplate) error
-	// FrozenNodeIDs returns the nodes frozen on their served snapshot; their listener conflicts are tolerated.
-	FrozenNodeIDs() []string
+	// PausedNodeIDs returns the nodes paused on their served snapshot; their listener conflicts are tolerated.
+	PausedNodeIDs() []string
 }
 
 var _ webhook.CustomValidator = &VirtualServiceTemplateCustomValidator{}
@@ -259,7 +259,7 @@ func (v *VirtualServiceTemplateCustomValidator) ValidateUpdate(
 				"validation timed out after %s; please retry or increase WEBHOOK_DRYRUN_TIMEOUT_MS",
 				v.getDryRunTimeout())
 		}
-		tolerated := v.cacheUpdater.FrozenNodeIDs()
+		tolerated := v.cacheUpdater.PausedNodeIDs()
 		warnings := toleratedListenerConflict(err, tolerated, virtualservicetemplate.Namespace)
 		if warnings != nil {
 			virtualservicetemplatelog.Info("Listener address conflict tolerated",

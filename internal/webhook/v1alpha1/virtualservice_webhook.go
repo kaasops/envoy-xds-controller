@@ -95,8 +95,8 @@ type vsUpdater interface {
 		toleratedNodeIDs []string,
 	) error
 	DryBuildSnapshotsWithVirtualService(ctx context.Context, vs *envoyv1alpha1.VirtualService) error
-	// FrozenNodeIDs returns the nodes frozen on their served snapshot; their listener conflicts are tolerated.
-	FrozenNodeIDs() []string
+	// PausedNodeIDs returns the nodes paused on their served snapshot; their listener conflicts are tolerated.
+	PausedNodeIDs() []string
 }
 
 type VirtualServiceCustomValidator struct {
@@ -198,9 +198,9 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(
 		return nil, err
 	}
 
-	// Frozen nodes accept listener address conflicts: nothing reaches their Envoys until they are
-	// unfrozen, and unfreezing is refused while their build fails.
-	tolerated := v.updater.FrozenNodeIDs()
+	// Paused nodes accept listener address conflicts: nothing reaches their Envoys until they are
+	// resumed, and resuming is refused while their build fails.
+	tolerated := v.updater.PausedNodeIDs()
 
 	// Apply timeout for dry-run path (light or heavy)
 	ctxTO, cancel := context.WithTimeout(ctx, v.getDryRunTimeout())
@@ -263,7 +263,7 @@ func (v *VirtualServiceCustomValidator) validateVirtualService(
 		return nil, nil
 	}
 
-	// Prefer lightweight validation if enabled, otherwise heavy-only. A service that targets a frozen node
+	// Prefer lightweight validation if enabled, otherwise heavy-only. A service that targets a paused node
 	// before or after the change keeps the listener checks of the light mode and takes the heavy path for
 	// the rest: the light one sees no listener taken from a template and compares domains with the
 	// configuration the node keeps.

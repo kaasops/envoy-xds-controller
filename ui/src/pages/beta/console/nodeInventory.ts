@@ -3,19 +3,19 @@ import client from '../../../api/axiosApiClient'
 import { fleetQueryKey, manualQueryOptions, type SnapshotState } from '../api'
 import { getClients, streamCounts, type ClientStream } from './streams'
 
-type Freeze = NonNullable<SnapshotState['freeze']>
+type Pause = NonNullable<SnapshotState['pause']>
 type Counts = Record<'listeners' | 'routes' | 'clusters', number>
 type CachedNode = string | { node_id: string; counts?: Counts }
 
-export async function getFreezes(signal: AbortSignal) {
-	const { data } = await client.get<{ frozenNodes: Record<string, Freeze> | null }>('/frozenNodes', { signal })
-	return new Map(Object.entries(data.frozenNodes ?? {}))
+export async function getPauses(signal: AbortSignal) {
+	const { data } = await client.get<{ pausedNodes: Record<string, Pause> | null }>('/pausedNodes', { signal })
+	return new Map(Object.entries(data.pausedNodes ?? {}))
 }
 
 export async function getNodeInventory(signal: AbortSignal) {
-	const [cached, frozen, clients] = await Promise.all([
+	const [cached, paused, clients] = await Promise.all([
 		client.get<CachedNode[] | null>('/nodeIDs', { signal, params: { include: 'counts' } }),
-		getFreezes(signal),
+		getPauses(signal),
 		getClients(signal)
 	])
 	const byId = new Map((cached.data ?? []).map(entry => [typeof entry === 'string' ? entry : entry.node_id, entry]))
@@ -26,7 +26,7 @@ export async function getNodeInventory(signal: AbortSignal) {
 		if (group) group.push(stream)
 		else groups.set(stream.nodeId, [stream])
 	}
-	const ids = Array.from(new Set([...byId.keys(), ...frozen.keys(), ...groups.keys()])).sort()
+	const ids = Array.from(new Set([...byId.keys(), ...paused.keys(), ...groups.keys()])).sort()
 	const nodes = ids.map(nodeId => {
 		const streams = groups.get(nodeId) ?? []
 		const entry = byId.get(nodeId)
@@ -36,7 +36,7 @@ export async function getNodeInventory(signal: AbortSignal) {
 			streams,
 			counts,
 			responses: streamCounts(streams),
-			freeze: frozen.get(nodeId),
+			pause: paused.get(nodeId),
 			cached: typeof entry === 'string' || Boolean(counts)
 		}
 	})
@@ -62,13 +62,13 @@ interface SnapshotVersion {
 }
 
 async function getSnapshotInventory(signal: AbortSignal) {
-	const [snapshots, frozen] = await Promise.all([
+	const [snapshots, paused] = await Promise.all([
 		client.get<SnapshotVersion[] | null>('/nodeIDs/versions', { signal }),
-		getFreezes(signal)
+		getPauses(signal)
 	])
 	const byNode = new Map((snapshots.data ?? []).map(snapshot => [snapshot.node_id, snapshot.versions]))
-	const ids = Array.from(new Set([...byNode.keys(), ...frozen.keys()])).sort()
-	return ids.map(nodeId => ({ nodeId, versions: byNode.get(nodeId), freeze: frozen.get(nodeId) }))
+	const ids = Array.from(new Set([...byNode.keys(), ...paused.keys()])).sort()
+	return ids.map(nodeId => ({ nodeId, versions: byNode.get(nodeId), pause: paused.get(nodeId) }))
 }
 
 export type SnapshotEntry = Awaited<ReturnType<typeof getSnapshotInventory>>[number]

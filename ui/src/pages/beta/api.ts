@@ -10,7 +10,7 @@ export interface SnapshotInfo {
 	error?: string
 }
 
-interface Freeze {
+interface Pause {
 	by: string
 	at: string
 	reason: string
@@ -20,10 +20,10 @@ export interface SnapshotState {
 	nodeId: string
 	controllerPod: string
 	canControl: boolean
-	frozen: boolean
-	freeze: Freeze | null
+	paused: boolean
+	pause: Pause | null
 	served: SnapshotInfo | null
-	built: SnapshotInfo | null
+	pending: SnapshotInfo | null
 	history: SnapshotInfo[]
 }
 
@@ -109,12 +109,12 @@ export async function getSnapshotResource(
 	).data
 }
 
-export async function freezeNode(nodeId: string, reason: string) {
-	return (await client.post<SnapshotState>(nodeUrl(nodeId) + '/freeze', { reason })).data
+export async function pauseNode(nodeId: string, reason: string) {
+	return (await client.post<SnapshotState>(nodeUrl(nodeId) + '/pause', { reason })).data
 }
 
-export async function unfreezeNode(nodeId: string, expectBuilt: string) {
-	return (await client.post<SnapshotState>(nodeUrl(nodeId) + '/unfreeze', { expectBuilt })).data
+export async function resumeNode(nodeId: string, expectPending: string) {
+	return (await client.post<SnapshotState>(nodeUrl(nodeId) + '/resume', { expectPending })).data
 }
 
 export async function rollbackNode(nodeId: string, to: string, expectServed: string) {

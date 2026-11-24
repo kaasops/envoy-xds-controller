@@ -32,8 +32,8 @@ var (
 	ErrServedChanged = errors.New("the node is served another snapshot now")
 )
 
-// Freeze records who froze a node and why.
-type Freeze struct {
+// Pause records who paused a node and why.
+type Pause struct {
 	By     string    `json:"by"`
 	At     time.Time `json:"at"`
 	Reason string    `json:"reason"`
@@ -71,56 +71,56 @@ func SnapshotID(snapshot cache.ResourceSnapshot) string {
 	return hex.EncodeToString(h.Sum(nil))[:12]
 }
 
-// Freeze stops publishing new snapshots to the node: builds go on and the last one is kept as offered,
-// but the node is served what it has. It returns false when the node is frozen already.
-func (c *SnapshotCache) Freeze(nodeID string, freeze Freeze) bool {
+// Pause stops publishing new snapshots to the node: builds go on and the last one is kept as offered,
+// but the node is served what it has. It returns false when the node is paused already.
+func (c *SnapshotCache) Pause(nodeID string, pause Pause) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, frozen := c.frozen[nodeID]; frozen {
+	if _, paused := c.paused[nodeID]; paused {
 		return false
 	}
-	c.frozen[nodeID] = freeze
+	c.paused[nodeID] = pause
 	return true
 }
 
-// Unfreeze lets the next build publish to the node again. It returns false when the node is not frozen.
-func (c *SnapshotCache) Unfreeze(nodeID string) bool {
+// Resume lets the next build publish to the node again. It returns false when the node is not paused.
+func (c *SnapshotCache) Resume(nodeID string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, frozen := c.frozen[nodeID]; !frozen {
+	if _, paused := c.paused[nodeID]; !paused {
 		return false
 	}
-	delete(c.frozen, nodeID)
+	delete(c.paused, nodeID)
 	return true
 }
 
-// Frozen reports whether the node is frozen, and by whom.
-func (c *SnapshotCache) Frozen(nodeID string) (Freeze, bool) {
+// Paused reports whether the node is paused, and by whom.
+func (c *SnapshotCache) Paused(nodeID string) (Pause, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	freeze, frozen := c.frozen[nodeID]
-	return freeze, frozen
+	pause, paused := c.paused[nodeID]
+	return pause, paused
 }
 
-// FrozenNodes returns the frozen nodes.
-func (c *SnapshotCache) FrozenNodes() map[string]Freeze {
+// PausedNodes returns the paused nodes.
+func (c *SnapshotCache) PausedNodes() map[string]Pause {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	nodes := make(map[string]Freeze, len(c.frozen))
-	for nodeID, freeze := range c.frozen {
-		nodes[nodeID] = freeze
+	nodes := make(map[string]Pause, len(c.paused))
+	for nodeID, pause := range c.paused {
+		nodes[nodeID] = pause
 	}
 	return nodes
 }
 
-// RestoreFrozen replaces the frozen nodes, for a controller that starts with nothing served: a frozen
-// node gets no snapshot until it is unfrozen, its running Envoys keep the configuration they have.
-func (c *SnapshotCache) RestoreFrozen(nodes map[string]Freeze) {
+// RestorePaused replaces the paused nodes, for a controller that starts with nothing served: a paused
+// node gets no snapshot until it is resumed, its running Envoys keep the configuration they have.
+func (c *SnapshotCache) RestorePaused(nodes map[string]Pause) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.frozen = make(map[string]Freeze, len(nodes))
-	for nodeID, freeze := range nodes {
-		c.frozen[nodeID] = freeze
+	c.paused = make(map[string]Pause, len(nodes))
+	for nodeID, pause := range nodes {
+		c.paused[nodeID] = pause
 	}
 }
 
@@ -147,14 +147,14 @@ func (c *SnapshotCache) Offered(nodeID string) (cache.ResourceSnapshot, bool) {
 	return snapshot, ok
 }
 
-// Rollback serves the node a snapshot from its history and freezes the node, so the next build does
+// Rollback serves the node a snapshot from its history and pauses the node, so the next build does
 // not replace it. The content goes out under version, see NextVersion: an Envoy that reconnects with a
 // version it got before must not be taken as up to date. With expectServed, the rollback happens only
 // while the node is served the snapshot of that ID.
 func (c *SnapshotCache) Rollback(
 	ctx context.Context,
 	nodeID, id, expectServed string,
-	freeze Freeze,
+	pause Pause,
 	version int64,
 ) error {
 	c.mu.Lock()
@@ -182,14 +182,14 @@ func (c *SnapshotCache) Rollback(
 		return err
 	}
 	c.versionFloor = max(c.versionFloor, version)
-	c.frozen[nodeID] = freeze
+	c.paused[nodeID] = pause
 	return nil
 }
 
-// PublishFrozen serves a frozen node the given snapshot, the one an operator compared, and unfreezes it:
+// PublishPaused serves a paused node the given snapshot, the one an operator compared, and resumes it:
 // the next builds publish to it as usual. The snapshot goes out under version, see NextVersion; when its
 // content is what the node is served already, nothing is sent.
-func (c *SnapshotCache) PublishFrozen(
+func (c *SnapshotCache) PublishPaused(
 	ctx context.Context,
 	nodeID string,
 	snapshot cache.ResourceSnapshot,
@@ -197,8 +197,8 @@ func (c *SnapshotCache) PublishFrozen(
 ) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, frozen := c.frozen[nodeID]; !frozen {
-		return fmt.Errorf("node %s is not frozen", nodeID)
+	if _, paused := c.paused[nodeID]; !paused {
+		return fmt.Errorf("node %s is not paused", nodeID)
 	}
 	if served, ok := c.served[nodeID]; !ok || served.ID() != SnapshotID(snapshot) {
 		if err := c.validateCache(nodeID, snapshot); err != nil {
@@ -213,7 +213,7 @@ func (c *SnapshotCache) PublishFrozen(
 		}
 		c.versionFloor = max(c.versionFloor, version)
 	}
-	delete(c.frozen, nodeID)
+	delete(c.paused, nodeID)
 	return nil
 }
 
@@ -238,7 +238,7 @@ func (c *SnapshotCache) publish(ctx context.Context, nodeID string, snapshot cac
 	return nil
 }
 
-// SetVersionFloor sets the highest version a freeze or rollback has served, as kept across restarts.
+// SetVersionFloor sets the highest version a pause or rollback has served, as kept across restarts.
 func (c *SnapshotCache) SetVersionFloor(version int64) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -246,8 +246,8 @@ func (c *SnapshotCache) SetVersionFloor(version int64) {
 }
 
 // RaiseVersionFloor raises the floor to the highest version the node is served and returns the floor.
-// Called on a freeze: builds go on counting from what the node was served, and nothing is served to a
-// frozen node until a freeze or rollback publication, so the kept floor covers every version its Envoys
+// Called on a pause: builds go on counting from what the node was served, and nothing is served to a
+// paused node until a pause or rollback publication, so the kept floor covers every version its Envoys
 // may hold, whatever the clock does.
 func (c *SnapshotCache) RaiseVersionFloor(nodeID string) int64 {
 	c.mu.Lock()
@@ -266,17 +266,17 @@ func (c *SnapshotCache) RaiseVersionFloor(nodeID string) int64 {
 	return c.versionFloor
 }
 
-// VersionFloor returns the highest version a freeze or rollback has served.
+// VersionFloor returns the highest version a pause or rollback has served.
 func (c *SnapshotCache) VersionFloor() int64 {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.versionFloor
 }
 
-// NextVersion returns the version for the next freeze or rollback publication on the node: above every
+// NextVersion returns the version for the next pause or rollback publication on the node: above every
 // version the node was served or offered in this process, above the floor, and not below the clock in
 // nanoseconds. An SotW stream that holds an equal version string would not get the update. Build
-// counters start again after a controller restart; builds after a freeze count on from its version, one
+// counters start again after a controller restart; builds after a pause count on from its version, one
 // per build, while the clock gains a billion per second of the restart. The caller keeps the version
 // before serving it and gives it back with SetVersionFloor after a restart, so only a wall clock that
 // steps back further than the restart took could repeat a version.

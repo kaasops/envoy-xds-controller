@@ -11,13 +11,16 @@ func TestSnapshotControlIsOnByDefault(t *testing.T) {
 	var cfg Config
 	require.NoError(t, envconfig.Process("APP", &cfg))
 	require.True(t, cfg.SnapshotControl)
-	require.Equal(t, "envoy-xds-controller-frozen-nodes", cfg.SnapshotFreezeSecret)
+	require.Equal(t, "envoy-xds-controller-frozen-nodes", cfg.pauseSecretName())
 
 	t.Setenv("API_SNAPSHOT_CONTROL", "false")
-	t.Setenv("SNAPSHOT_FREEZE_SECRET", "release-frozen-nodes")
+	t.Setenv("SNAPSHOT_FREEZE_SECRET", "existing-release-secret")
+	require.NoError(t, envconfig.Process("APP", &cfg))
+	require.Equal(t, "existing-release-secret", cfg.pauseSecretName())
+	t.Setenv("SNAPSHOT_PAUSE_SECRET", "release-paused-nodes")
 	require.NoError(t, envconfig.Process("APP", &cfg))
 	require.False(t, cfg.SnapshotControl)
-	require.Equal(t, "release-frozen-nodes", cfg.SnapshotFreezeSecret)
+	require.Equal(t, "release-paused-nodes", cfg.pauseSecretName())
 }
 
 func TestSnapshotHistoryIsKeptOnlyForRollbacks(t *testing.T) {

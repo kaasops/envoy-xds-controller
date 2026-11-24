@@ -38,7 +38,7 @@ import {
 	nodePath,
 	snapshotQueryKey,
 	typeLabel,
-	unfreezeNode,
+	resumeNode,
 	type ResourceChange,
 	type SnapshotDiff
 } from './api'
@@ -215,6 +215,7 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 	const state = useQuery({
 		...manualQueryOptions,
 		queryKey: snapshotQueryKey(nodeId),
+		refetchOnMount: 'always',
 		queryFn: ({ signal }) => getSnapshotState(nodeId, signal)
 	})
 	const diff = useQuery({
@@ -224,9 +225,9 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 		refetchOnMount: 'always',
 		gcTime: 0
 	})
-	const unfreeze = useMutation({
+	const resume = useMutation({
 		mutationKey,
-		mutationFn: (expected: string) => unfreezeNode(nodeId, expected),
+		mutationFn: (expected: string) => resumeNode(nodeId, expected),
 		retry: false,
 		networkMode: 'always',
 		onSuccess: result => {
@@ -236,36 +237,46 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 	})
 	const compared = diff.data
 	const info = state.data
-	const publishing = from === 'served' && to === 'built' && info?.frozen && info.canControl
+	const publishing = from === 'served' && to === 'pending' && info?.paused && info.canControl
 	const candidateMatches = Boolean(
-		compared?.to.id && info?.built?.id === compared.to.id && (!info.served || info.served.id === compared.from.id)
+		compared?.to.id &&
+			info?.pending?.id === compared.to.id &&
+			(info.served ? info.served.id === compared.from.id : !compared.from.publishedAt)
 	)
 	const busy = state.isFetching || diff.isFetching || writing
-	const mayUnfreeze =
+	const mayResume =
 		publishing &&
 		candidateMatches &&
 		!resourceChanged &&
-		!info?.built?.error &&
+		!info?.pending?.error &&
 		state.isSuccess &&
 		diff.isSuccess &&
 		!busy &&
-		!unfreeze.isError
-	const snapshots = [...new Set(['served', 'built', ...(info?.history.map(item => item.id) ?? []), from, to])]
+		!resume.isError
+	const snapshots = [
+		...new Set([
+			'served',
+			...(info?.paused ? ['pending'] : []),
+			...(info?.history.map(item => item.id) ?? []),
+			from,
+			to
+		])
+	]
 	const label = (selector: string) => {
 		if (selector === 'served') return 'Served'
-		if (selector === 'built') return 'Built'
+		if (selector === 'pending') return 'Pending'
 		return `History · ${selector}`
 	}
 	function refresh() {
 		setReviewedId(null)
 		setSelected(null)
 		setResourceChanged(false)
-		unfreeze.reset()
+		resume.reset()
 		void Promise.all([state.refetch(), diff.refetch()])
 	}
 	function confirm() {
 		if (
-			!mayUnfreeze ||
+			!mayResume ||
 			!reviewedId ||
 			reviewedId !== compared?.to.id ||
 			submitting.current ||
@@ -273,10 +284,10 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 		)
 			return
 		submitting.current = true
-		unfreeze.mutate(reviewedId, {
+		resume.mutate(reviewedId, {
 			onSuccess: result =>
 				navigate(nodePath(nodeId), {
-					state: { unfrozenNode: nodeId, servedId: result.served?.id }
+					state: { resumedNode: nodeId, servedId: result.served?.id }
 				}),
 			onSettled: () => {
 				submitting.current = false
@@ -305,7 +316,7 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 								label={side}
 								value={value}
 								size='small'
-								disabled={unfreeze.isPending}
+								disabled={resume.isPending}
 								helperText={
 									compared && !diff.isError
 										? side === 'From'
@@ -333,10 +344,10 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 					{publishing && (
 						<Button
 							variant='contained'
-							disabled={!mayUnfreeze}
+							disabled={!mayResume}
 							onClick={() => setReviewedId(compared?.to.id ?? null)}
 						>
-							Unfreeze node
+							Resume node
 						</Button>
 					)}
 				</Stack>
@@ -344,23 +355,29 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 			{(state.isFetching || diff.isFetching) && <LinearProgress aria-label='Loading snapshot comparison' />}
 			{state.isError && <Alert severity='error'>Could not read node state. {apiError(state.error)}</Alert>}
 			{diff.isError && <Alert severity='error'>Could not compare snapshots. {apiError(diff.error)}</Alert>}
-			{info?.built?.error && (from === 'built' || to === 'built') && (
-				<Alert severity='error'>Build failed. {info.built.error}</Alert>
+			{publishing && !info.served && (
+				<Alert severity='info'>
+					This controller has no served snapshot. The comparison shows every resource in Pending as an
+					addition. Review them before resuming updates.
+				</Alert>
+			)}
+			{info?.pending?.error && (from === 'pending' || to === 'pending') && (
+				<Alert severity='error'>Build failed. {info.pending.error}</Alert>
 			)}
 			{(resourceChanged || (publishing && compared && !candidateMatches)) &&
 				!busy &&
-				!info?.built?.error &&
-				!unfreeze.isError && (
+				!info?.pending?.error &&
+				!resume.isError && (
 					<Alert severity='warning'>
 						The snapshots changed between reads. Refresh to review the current comparison.
 					</Alert>
 				)}
-			{unfreeze.isError && (
+			{resume.isError && (
 				<Alert severity='error'>
-					{httpStatus(unfreeze.error) === 409
+					{httpStatus(resume.error) === 409
 						? 'The controller declined this change.'
-						: 'Could not confirm that the node was unfrozen.'}{' '}
-					{apiError(unfreeze.error)} Refresh and review the current snapshots before trying again.
+						: 'Could not confirm that the node was resumed.'}{' '}
+					{apiError(resume.error)} Refresh and review the current snapshots before trying again.
 				</Alert>
 			)}
 			{compared && !diff.isFetching && !diff.isError && !state.isError && (
@@ -381,11 +398,11 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 			<Dialog
 				open={Boolean(reviewedId)}
 				onClose={() => {
-					if (!unfreeze.isPending) setReviewedId(null)
+					if (!resume.isPending) setReviewedId(null)
 				}}
-				aria-labelledby='confirm-unfreeze-title'
+				aria-labelledby='confirm-resume-title'
 			>
-				<DialogTitle id='confirm-unfreeze-title'>Unfreeze {nodeId}?</DialogTitle>
+				<DialogTitle id='confirm-resume-title'>Resume {nodeId}?</DialogTitle>
 				<DialogContent>
 					<DialogContentText>
 						The controller will serve snapshot <strong>{reviewedId}</strong> and resume publishing
@@ -393,15 +410,15 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 					</DialogContentText>
 				</DialogContent>
 				<DialogActions>
-					<Button onClick={() => setReviewedId(null)} disabled={unfreeze.isPending}>
+					<Button onClick={() => setReviewedId(null)} disabled={resume.isPending}>
 						Cancel
 					</Button>
 					<Button
 						variant='contained'
 						onClick={confirm}
-						disabled={!mayUnfreeze || reviewedId !== compared?.to.id}
+						disabled={!mayResume || reviewedId !== compared?.to.id}
 					>
-						{unfreeze.isPending ? 'Unfreezing…' : 'Unfreeze'}
+						{resume.isPending ? 'Resuming…' : 'Resume'}
 					</Button>
 				</DialogActions>
 			</Dialog>
@@ -414,7 +431,7 @@ export default function CompareSnapshots() {
 	const [params, setParams] = useSearchParams()
 	if (!nodeId) return <Alert severity='error'>A node ID is required.</Alert>
 	const from = params.get('from') || 'served'
-	const to = params.get('to') || 'built'
+	const to = params.get('to') || 'served'
 	return (
 		<Compare
 			key={JSON.stringify([nodeId, from, to])}

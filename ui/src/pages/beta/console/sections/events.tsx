@@ -12,6 +12,7 @@ import {
 	typeLabel,
 	type SnapshotState
 } from '../../api'
+import StatusHelp from '../StatusHelp'
 import SectionTable, { type Column } from '../SectionTable'
 import { appliesToAllNodes, loadVirtualServices, virtualServicesKey } from '../resourceData'
 import {
@@ -38,7 +39,19 @@ interface Observation {
 }
 
 const columns: Column<Observation>[] = [
-	{ key: 'event', label: 'Event', value: row => row.title },
+	{
+		key: 'event',
+		label: 'Event',
+		value: row => row.title,
+		render: row =>
+			row.source === 'xDS stream' ? (
+				<StatusHelp status='NACK'>{row.title}</StatusHelp>
+			) : row.source === 'Snapshot' ? (
+				<StatusHelp status='Paused'>{row.title}</StatusHelp>
+			) : (
+				row.title
+			)
+	},
 	{
 		key: 'at',
 		label: 'Time (UTC)',
@@ -82,15 +95,15 @@ export default function Events() {
 		queryKey: clientsQueryKey(node),
 		queryFn: ({ signal }) => getClients(signal, node)
 	})
-	const freezes = useQuery({
+	const pauses = useQuery({
 		...manualQueryOptions,
 		refetchOnMount: 'always',
-		queryKey: [...fleetQueryKey, 'freeze-records'],
+		queryKey: [...fleetQueryKey, 'pause-records'],
 		queryFn: async ({ signal }) => {
 			const { data } = await client.get<{
-				frozenNodes: Record<string, NonNullable<SnapshotState['freeze']>> | null
-			}>('/frozenNodes', { signal })
-			return data.frozenNodes || {}
+				pausedNodes: Record<string, NonNullable<SnapshotState['pause']>> | null
+			}>('/pausedNodes', { signal })
+			return data.pausedNodes || {}
 		}
 	})
 	const services = useQuery({
@@ -125,16 +138,16 @@ export default function Events() {
 			}
 		}
 	}
-	if (readable(freezes.error)) {
-		for (const [nodeId, freeze] of Object.entries(freezes.data || {})) {
+	if (readable(pauses.error)) {
+		for (const [nodeId, pause] of Object.entries(pauses.data || {})) {
 			observations.push({
-				id: JSON.stringify(['freeze', nodeId]),
-				title: 'Snapshot frozen',
+				id: JSON.stringify(['pause', nodeId]),
+				title: 'Updates paused',
 				source: 'Snapshot',
 				nodes: [nodeId],
 				subject: nodeId,
-				at: freeze.at,
-				message: freeze.reason,
+				at: pause.at,
+				message: pause.reason,
 				href: nodePath(nodeId),
 				linkLabel: 'Open node snapshots'
 			})
@@ -145,7 +158,7 @@ export default function Events() {
 			if (service.status?.invalid)
 				observations.push({
 					id: JSON.stringify(['service', service.uid]),
-					title: 'Publication failed',
+					title: 'Virtual service rejected',
 					source: 'Virtual service',
 					nodes: service.nodeIds,
 					subject: service.name,
@@ -158,7 +171,7 @@ export default function Events() {
 	observations.sort((a, b) => (b.at ? Date.parse(b.at) : 0) - (a.at ? Date.parse(a.at) : 0))
 	const sources = [
 		{ label: 'xDS streams', query: clients },
-		{ label: 'Snapshot freezes', query: freezes },
+		{ label: 'Node pauses', query: pauses },
 		{ label: 'Virtual services', query: services }
 	]
 	const failed = sources.filter(source => source.query.isError)
@@ -183,7 +196,7 @@ export default function Events() {
 				rowId={row => row.id}
 				columns={columns}
 				description={[
-					'Current rejections, frozen snapshots and publication failures.',
+					'Current rejections, paused updates and rejected virtual services.',
 					clients.data?.controllerPod && readable(clients.error)
 						? 'Streams on ' + clients.data.controllerPod
 						: ''

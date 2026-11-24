@@ -141,11 +141,11 @@ webhook:
 
 ### Switching a node to another listener on the same address
 
-A node cannot have two listeners on one address, so a change that moves a node from one listener to another on the same address, for example `https` to `https-next` on `0.0.0.0:443`, is rejected object by object: Argo CD and `kubectl apply` send the objects one by one, and each object in between would give the node both listeners. Freeze the node first; see [Switching a node to another listener](snapshots.md#switching-a-node-to-another-listener).
+A node cannot have two listeners on one address, so a change that moves a node from one listener to another on the same address, for example `https` to `https-next` on `0.0.0.0:443`, is rejected object by object: Argo CD and `kubectl apply` send the objects one by one, and each object in between would give the node both listeners. Pause updates to the node first. See [Switching a node to another listener](snapshots.md#switching-a-node-to-another-listener).
 
 ## Snapshot Control
 
-Snapshot control is on by default (`snapshotControl.enabled: true`): the cache API can freeze a node on the snapshot it is served, unfreeze it and roll it back to a snapshot it was served before. Set it to `false` to keep only reading what a node is served and what the current objects build for it. See [Node Snapshots](snapshots.md).
+Snapshot control defaults to `snapshotControl.enabled: true`. Operators can pause updates, compare the served and pending snapshots, resume with the reviewed snapshot ID, or roll back to a snapshot from the node’s history. Set it to `false` for read-only access. Existing pauses survive a settings change. See [Node Snapshots](snapshots.md).
 
 ## Node and Access Group Configuration
 
