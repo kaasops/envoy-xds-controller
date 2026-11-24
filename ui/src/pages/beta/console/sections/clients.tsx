@@ -120,7 +120,7 @@ export function StreamDetails({
 					{stream.forwardedAddress || 'Not reported'}
 					{stream.forwardedAddress && (
 						<Typography component='span' display='block' variant='caption' color='text.secondary'>
-							From X-Forwarded-For, normally set by a proxy.
+							First IP reported in X-Forwarded-For. Clients or proxies can supply it.
 						</Typography>
 					)}
 				</dd>

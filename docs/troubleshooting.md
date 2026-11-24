@@ -82,7 +82,7 @@ To find an instance behind a gateway, read `clients[].host`. It comes from the f
 
 The controller skips empty values, non-string values and labels longer than 255 bytes or containing non-printable characters. If none of the three keys supplies a usable value, `host` is omitted. Optional `locality.region`, `locality.zone` and `locality.subZone` describe where the client runs.
 
-The `address` field identifies the immediate gRPC peer, which can be the gateway. When a single trusted gateway appends its downstream peer's IP to `X-Forwarded-For`, `forwardedAddress` shows that IP. The controller reads only the rightmost entry of the last header value and omits the field if that entry is missing or invalid. With several proxies it can identify an intermediate hop. The controller does not authenticate the header or use it to grant access.
+The `address` field identifies the immediate gRPC peer, which can be the gateway. The optional `forwardedAddress` is the first IP reported in `X-Forwarded-For`. Later entries can identify intermediate proxies. A missing or invalid first IP leaves the field empty. Clients or proxies can supply this header. Use it for diagnostics only.
 
 What the versions do not tell:
 

@@ -282,14 +282,14 @@ func peerAddress(ctx context.Context) string {
 	return ""
 }
 
-// With one gateway appending to X-Forwarded-For, the last hop is its peer.
+// The first X-Forwarded-For entry is the reported originating address. It is a display hint.
 func forwardedAddress(ctx context.Context) string {
 	values := metadata.ValueFromIncomingContext(ctx, "x-forwarded-for")
 	if len(values) == 0 {
 		return ""
 	}
-	last := values[len(values)-1]
-	hop := strings.Trim(last[strings.LastIndexByte(last, ',')+1:], " \t")
+	first, _, _ := strings.Cut(values[0], ",")
+	hop := strings.Trim(first, " \t")
 	address, err := netip.ParseAddr(hop)
 	if err != nil || address.Zone() != "" {
 		return ""

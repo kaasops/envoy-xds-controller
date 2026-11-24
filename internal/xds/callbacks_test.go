@@ -634,7 +634,7 @@ func TestClientsReportHostsOverOneConnection(t *testing.T) {
 	defer cancel()
 
 	delta, err := ads.DeltaAggregatedResources(metadata.AppendToOutgoingContext(ctx,
-		"x-forwarded-for", "203.0.113.1", "x-forwarded-for", "203.0.113.2, 192.0.2.1"))
+		"x-forwarded-for", "203.0.113.1, 203.0.113.2", "x-forwarded-for", "192.0.2.1"))
 	require.NoError(t, err)
 	node := nodeWithVersion("one")
 	node.Metadata, err = structpb.NewStruct(map[string]any{
@@ -678,7 +678,7 @@ func TestClientsReportHostsOverOneConnection(t *testing.T) {
 	assert.Equal(t, "sotw", second["protocol"])
 	assert.NotEmpty(t, first["address"])
 	assert.Equal(t, first["address"], second["address"])
-	assert.Equal(t, "192.0.2.1", first["forwardedAddress"])
+	assert.Equal(t, "203.0.113.1", first["forwardedAddress"])
 	assert.Equal(t, "2001:db8::2", second["forwardedAddress"])
 	assert.Equal(t, "edge-01", first["host"])
 	assert.Equal(t, "edge-02", second["host"])
@@ -730,9 +730,9 @@ func TestStreamOmitsUnusableForwardedAddress(t *testing.T) {
 	}{
 		{"absent", nil},
 		{"other header", metadata.Pairs("x-envoy-external-address", "192.0.2.1")},
-		{"invalid last header", metadata.Pairs("x-forwarded-for", "192.0.2.1", "x-forwarded-for", "unknown")},
-		{"empty last hop", metadata.Pairs("x-forwarded-for", "192.0.2.1,")},
-		{"port", metadata.Pairs("x-forwarded-for", "192.0.2.1, 192.0.2.2:4510")},
+		{"invalid first header", metadata.Pairs("x-forwarded-for", "unknown", "x-forwarded-for", "192.0.2.1")},
+		{"empty first hop", metadata.Pairs("x-forwarded-for", ",192.0.2.1")},
+		{"port", metadata.Pairs("x-forwarded-for", "192.0.2.2:4510, 192.0.2.1")},
 		{"scoped IPv6", metadata.Pairs("x-forwarded-for", "fe80::1%eth0")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

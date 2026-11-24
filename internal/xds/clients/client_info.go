@@ -24,7 +24,7 @@ type Info struct {
 	Protocol Protocol `json:"protocol"`
 	NodeID   string   `json:"nodeId"`
 	Address  string   `json:"address"`
-	// ForwardedAddress is the last IP in the stream's X-Forwarded-For header.
+	// ForwardedAddress is the reported originating IP in the stream's X-Forwarded-For header.
 	ForwardedAddress string `json:"forwardedAddress,omitempty"`
 	// Host is the instance or hostname reported in node metadata.
 	Host        string    `json:"host,omitempty"`
