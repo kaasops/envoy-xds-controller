@@ -1,6 +1,7 @@
 import client from '../../../api/axiosApiClient'
 
-export type StreamStatus = 'ACK' | 'Awaiting ACK' | 'NACK' | 'Subscribed' | 'Unknown'
+export const streamStatusValues = ['NACK', 'Awaiting ACK', 'ACK', 'Subscribed', 'Unknown'] as const
+export type StreamStatus = (typeof streamStatusValues)[number]
 
 export interface Rejection {
 	nonce: string

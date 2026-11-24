@@ -52,7 +52,13 @@ const columns: Column<RouteRow>[] = [
 	{ key: 'name', label: 'Route configuration', value: r => r.name },
 	{ key: 'hosts', label: 'Virtual hosts', value: r => r.hosts.map(h => h.name) },
 	{ key: 'domains', label: 'Domains', value: r => [...new Set(r.hosts.flatMap(h => h.domains))] },
-	{ key: 'routes', label: 'Routes', value: r => r.hosts.reduce((n, h) => n + h.routes.length, 0), align: 'right' }
+	{
+		key: 'routes',
+		label: 'Routes',
+		filterType: 'number',
+		value: r => r.hosts.reduce((n, h) => n + h.routes.length, 0),
+		align: 'right'
+	}
 ]
 export default function Routes() {
 	return (

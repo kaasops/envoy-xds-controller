@@ -57,6 +57,8 @@ export default function Events() {
 	const columns: Column<Observation>[] = [
 		{
 			key: 'event',
+			filterType: 'enum',
+			filterValues: ['xDS NACK', 'Updates paused', 'Virtual service rejected'],
 			label: 'Event',
 			value: row => row.title,
 			render: row =>
@@ -70,6 +72,8 @@ export default function Events() {
 		},
 		{
 			key: 'at',
+			filterType: 'date',
+			filterValue: row => row.at,
 			label: 'Time',
 			value: row => formatTime(row.at) || 'Not reported',
 			sortValue: row => Date.parse(row.at ?? '') || 0,

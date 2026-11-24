@@ -9,9 +9,7 @@ import { getNodeInventory, nodeInventoryKey, nodeSection, useNodeInventory, type
 import SectionTable, { type Column } from '../SectionTable'
 import InventorySummary from '../InventorySummary'
 import StreamResponseChip from '../StreamResponseChip'
-import { streamClientLabel, streamClientSearchValues, streamId, streamRowId, type StreamStatus } from '../streams'
-
-const statuses: StreamStatus[] = ['NACK', 'Awaiting ACK', 'ACK', 'Subscribed', 'Unknown']
+import { streamClientLabel, streamClientSearchValues, streamId, streamRowId, streamStatusValues } from '../streams'
 
 const nodeHref = (row: NodeEntry) => nodeOverviewPath(row.nodeId)
 
@@ -36,7 +34,10 @@ const columns: Column<NodeEntry>[] = [
 	{
 		key: 'status',
 		label: 'Sync status',
-		value: row => (row.streams.length ? statuses.filter(status => row.responses[status]) : ['No streams']),
+		filterType: 'enum',
+		filterValues: [...streamStatusValues, 'No streams'],
+		value: row =>
+			row.streams.length ? streamStatusValues.filter(status => row.responses[status]) : ['No streams'],
 		render: row => {
 			if (!row.streams.length)
 				return (
@@ -46,7 +47,7 @@ const columns: Column<NodeEntry>[] = [
 				)
 			return (
 				<Stack direction='row' flexWrap='wrap' gap={0.75}>
-					{statuses
+					{streamStatusValues
 						.filter(status => row.responses[status])
 						.map(status => (
 							<StreamResponseChip
@@ -62,6 +63,7 @@ const columns: Column<NodeEntry>[] = [
 	},
 	{
 		key: 'streams',
+		filterType: 'number',
 		label: 'xDS streams',
 		value: row => row.streams.length,
 		align: 'right',
@@ -78,6 +80,8 @@ const columns: Column<NodeEntry>[] = [
 	...(['listeners', 'routes', 'clusters'] as const).map(
 		(section): Column<NodeEntry> => ({
 			key: section,
+			filterType: 'number',
+			filterValue: row => row.counts?.[section],
 			label: section[0].toUpperCase() + section.slice(1),
 			align: 'right',
 			value: row => row.counts?.[section] ?? (row.cached ? 'Browse' : 'No snapshot'),
@@ -97,6 +101,8 @@ const columns: Column<NodeEntry>[] = [
 	),
 	{
 		key: 'pause',
+		filterType: 'enum',
+		filterValues: ['Active', 'Paused'],
 		label: 'Updates',
 		value: row => (row.pause ? 'Paused' : 'Active'),
 		render: row =>
@@ -177,6 +183,7 @@ export default function Nodes() {
 	}
 	const actions: Column<NodeEntry> = {
 		key: 'actions',
+		filterable: false,
 		label: 'Actions',
 		value: row => (row.pause ? 'Resume' : 'Pause'),
 		render: row => (

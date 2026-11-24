@@ -132,6 +132,8 @@ const columns: Column<VirtualServiceListItem>[] = [
 	},
 	{
 		key: 'status',
+		filterType: 'enum',
+		filterValues: ['Accepted', 'Accepted with warnings', 'Rejected', 'Unknown'],
 		label: 'Status',
 		value: serviceStatus,
 		render: r => (

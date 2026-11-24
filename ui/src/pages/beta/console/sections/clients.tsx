@@ -20,12 +20,14 @@ import SectionTable, { type Column } from '../SectionTable'
 import StreamResponseChip from '../StreamResponseChip'
 import {
 	clientsQueryKey,
+	noConfiguration,
 	getClients,
 	streamConfiguration,
 	streamClient,
 	streamId,
 	streamRowId,
 	streamStatuses,
+	streamStatusValues,
 	type ClientStream,
 	type StreamStatus
 } from '../streams'
@@ -371,6 +373,8 @@ export default function Clients() {
 		{ key: 'stream', identifier: true, label: 'Stream', value: streamId },
 		{
 			key: 'status',
+			filterType: 'enum',
+			filterValues: streamStatusValues,
 			label: 'Sync status',
 			value: streamStatuses,
 			render: stream => (
@@ -397,11 +401,15 @@ export default function Clients() {
 		},
 		{
 			key: 'configuration',
+			filterType: 'enum',
+			filterValues: ['Snapshot available', noConfiguration, 'Unknown'],
 			label: 'Configuration',
 			value: stream => streamConfiguration(stream, query.data?.snapshotVersions)
 		},
 		{
 			key: 'source',
+			filterType: 'enum',
+			filterValues: ['Envoy host', 'Forwarded IP', 'Connection peer', 'Unavailable'],
 			label: 'Identity source',
 			value: stream => streamClient(stream).source || 'Unavailable',
 			filterOnly: true
@@ -417,6 +425,8 @@ export default function Clients() {
 		{ key: 'envoy', identifier: true, label: 'Envoy', value: stream => stream.envoyVersion },
 		{
 			key: 'connected',
+			filterType: 'date',
+			filterValue: stream => stream.connectedAt,
 			label: 'Connected',
 			value: stream => formatTime(stream.connectedAt),
 			sortValue: stream => Date.parse(stream.connectedAt ?? '') || 0,

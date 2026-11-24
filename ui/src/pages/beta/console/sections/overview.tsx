@@ -28,6 +28,8 @@ const columns: Column<Observation>[] = [
 	},
 	{
 		key: 'status',
+		filterType: 'enum',
+		filterValues: ['NACK', 'Awaiting ACK', 'Subscribed', 'Unknown', 'Paused', 'No streams', noConfiguration],
 		label: 'Observation',
 		value: row => row.state,
 		render: row => {
