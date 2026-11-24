@@ -4,17 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"slices"
+	"strings"
 	"sync"
+	"unicode"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 )
 
@@ -66,7 +68,9 @@ func (cb *Callbacks) Report() {
 
 func (cb *Callbacks) OnStreamOpen(ctx context.Context, id int64, typ string) error {
 	address := peerAddress(ctx)
-	cb.connectedClients.Set(clients.Key{Protocol: clients.SotW, ID: id}, &clients.Info{Address: address})
+	cb.connectedClients.Open(clients.Key{Protocol: clients.SotW, ID: id}, typ, &clients.Info{
+		Address: address, ForwardedAddress: forwardedAddress(ctx),
+	})
 	cb.log.Info("stream open", "id", id, "typ", typ, "address", address)
 	return nil
 }
@@ -77,7 +81,9 @@ func (cb *Callbacks) OnStreamClosed(id int64, node *core.Node) {
 
 func (cb *Callbacks) OnDeltaStreamOpen(ctx context.Context, id int64, typ string) error {
 	address := peerAddress(ctx)
-	cb.connectedClients.Set(clients.Key{Protocol: clients.Delta, ID: id}, &clients.Info{Address: address})
+	cb.connectedClients.Open(clients.Key{Protocol: clients.Delta, ID: id}, typ, &clients.Info{
+		Address: address, ForwardedAddress: forwardedAddress(ctx),
+	})
 	cb.log.Info("delta stream open", "id", id, "typ", typ, "address", address)
 	return nil
 }
@@ -100,10 +106,7 @@ func (cb *Callbacks) OnStreamRequest(id int64, req *discovery.DiscoveryRequest) 
 	// The node is only guaranteed on the first request of a stream, so keep the
 	// info stored back then instead of overwriting it with empty values.
 	if node != nil {
-		cb.connectedClients.Update(key, &clients.Info{
-			NodeID:  node.GetId(),
-			Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
-		})
+		cb.connectedClients.Update(key, clientInfo(node))
 	}
 	cb.report(req.GetTypeUrl(), req.GetResponseNonce(), cb.connectedClients.RequestReceived(key, clients.Request{
 		TypeURL:  req.GetTypeUrl(),
@@ -127,7 +130,7 @@ func (cb *Callbacks) OnStreamResponse(
 	cb.Responses++
 	cb.mu.Unlock()
 	cb.log.Info("responding to stream request", "typeUrl", req.GetTypeUrl(), "id", id, "nodeId", req.GetNode().GetId())
-	if !isKnownType(resp.GetTypeUrl()) {
+	if !clients.IsKnownType(resp.GetTypeUrl()) {
 		return
 	}
 	cb.connectedClients.ResponseSent(clients.Key{Protocol: clients.SotW, ID: id}, clients.Response{
@@ -146,7 +149,7 @@ func (cb *Callbacks) OnStreamDeltaResponse(
 	cb.DeltaResponses++
 	cb.mu.Unlock()
 	cb.log.Info("responding to stream delta request", "typeUrl", req.GetTypeUrl(), "id", id)
-	if !isKnownType(resp.GetTypeUrl()) {
+	if !clients.IsKnownType(resp.GetTypeUrl()) {
 		return
 	}
 	// The response object is shared with the cache: copy what is kept.
@@ -176,10 +179,7 @@ func (cb *Callbacks) OnStreamDeltaRequest(id int64, req *discovery.DeltaDiscover
 	// go-control-plane restores it only after this callback returns, so a nil
 	// node here is expected - keep the info stored on the first request.
 	if node != nil {
-		cb.connectedClients.Update(key, &clients.Info{
-			NodeID:  node.GetId(),
-			Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
-		})
+		cb.connectedClients.Update(key, clientInfo(node))
 	}
 	cb.report(req.GetTypeUrl(), req.GetResponseNonce(), cb.connectedClients.RequestReceived(key, clients.Request{
 		TypeURL:      req.GetTypeUrl(),
@@ -187,6 +187,7 @@ func (cb *Callbacks) OnStreamDeltaRequest(id int64, req *discovery.DeltaDiscover
 		Rejected:     req.GetErrorDetail() != nil,
 		Error:        req.GetErrorDetail().GetMessage(),
 		Unsubscribed: req.GetResourceNamesUnsubscribe(),
+		Subscribes:   len(req.GetResourceNamesSubscribe()) > 0 || len(req.GetInitialResourceVersions()) > 0,
 	}))
 	return nil
 }
@@ -244,12 +245,6 @@ func (cb *Callbacks) report(typeURL, nonce string, out clients.Outcome) {
 	}
 }
 
-// isKnownType reports whether the cache serves the type. A client may ask for
-// any type URL, and the Delta cache answers a wildcard request for each.
-func isKnownType(typeURL string) bool {
-	return cache.GetResponseType(typeURL) != types.UnknownType
-}
-
 func truncate(s string, n int) string {
 	return s[:min(len(s), n)]
 }
@@ -278,6 +273,58 @@ func peerAddress(ctx context.Context) string {
 		return p.Addr.String()
 	}
 	return ""
+}
+
+// The first X-Forwarded-For entry is the reported originating address. It is a display hint.
+func forwardedAddress(ctx context.Context) string {
+	values := metadata.ValueFromIncomingContext(ctx, "x-forwarded-for")
+	if len(values) == 0 {
+		return ""
+	}
+	first, _, _ := strings.Cut(values[0], ",")
+	hop := strings.Trim(first, " \t")
+	address, err := netip.ParseAddr(hop)
+	if err != nil || address.Zone() != "" {
+		return ""
+	}
+	return address.String()
+}
+
+func clientInfo(node *core.Node) *clients.Info {
+	var host string
+	fields := node.GetMetadata().GetFields()
+	for _, key := range []string{"instance", "hostname", "HOSTNAME"} {
+		host = nodeLabel(fields[key].GetStringValue())
+		if host != "" {
+			break
+		}
+	}
+	locality := node.GetLocality()
+	return &clients.Info{
+		NodeID: node.GetId(),
+		Host:   host,
+		Locality: clients.Locality{
+			Region:  nodeLabel(locality.GetRegion()),
+			Zone:    nodeLabel(locality.GetZone()),
+			SubZone: nodeLabel(locality.GetSubZone()),
+		},
+		Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
+	}
+}
+
+// Node metadata is supplied by the client. Skip unusable labels instead of
+// truncating two different instance names into the same one.
+func nodeLabel(value string) string {
+	const maxBytes = 255
+	if len(value) > maxBytes {
+		return ""
+	}
+	for _, r := range value {
+		if !unicode.IsPrint(r) {
+			return ""
+		}
+	}
+	return strings.TrimSpace(value)
 }
 
 func semver(ver *v3.SemanticVersion) string {

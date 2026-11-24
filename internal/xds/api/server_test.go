@@ -30,7 +30,7 @@ func TestRunServesTheRegistryGivenToNew(t *testing.T) {
 	t.Cleanup(watcher.Cancel)
 	registry := clients.NewRegistry()
 	key := clients.Key{Protocol: clients.Delta, ID: 1}
-	registry.Set(key, &clients.Info{Address: "10.0.0.1:41000"})
+	registry.Open(key, "", &clients.Info{Address: "10.0.0.1:41000"})
 	registry.Update(key, &clients.Info{NodeID: "core", Version: "v1.40.2"})
 
 	configPath := filepath.Join(t.TempDir(), "config.json")

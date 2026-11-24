@@ -5,9 +5,9 @@ import { nodeOverviewPath, nodePath, fleetQueryKey, httpStatus, type SnapshotSta
 import NodeListAction from '../../NodeListAction'
 import { getNodeInventory, nodeInventoryKey, nodeSection, useNodeInventory, type NodeEntry } from '../nodeInventory'
 import SectionTable, { type Column } from '../SectionTable'
-import { streamId, streamRowId, type StreamStatus } from '../streams'
+import { streamClientLabel, streamClientSearchValues, streamId, streamRowId, type StreamStatus } from '../streams'
 
-const statuses: StreamStatus[] = ['NACK', 'Awaiting ACK', 'ACK', 'Unknown']
+const statuses: StreamStatus[] = ['NACK', 'Awaiting ACK', 'ACK', 'Subscribed', 'Unknown']
 
 const nodeHref = (row: NodeEntry) => nodeOverviewPath(row.nodeId)
 
@@ -21,6 +21,12 @@ const columns: Column<NodeEntry>[] = [
 				{row.nodeId}
 			</Link>
 		)
+	},
+	{
+		key: 'client',
+		label: 'Envoy client',
+		value: row => row.streams.flatMap(streamClientSearchValues),
+		filterOnly: true
 	},
 	{
 		key: 'status',
@@ -130,7 +136,7 @@ function NodeDetail({ row, controllerPod }: { row: NodeEntry; controllerPod: str
 							encodeURIComponent(streamRowId(controllerPod, stream))
 						}
 					>
-						{stream.protocol}/{stream.streamId} · {stream.address}
+						{streamClientLabel(stream)} · {streamId(stream)}
 					</Link>
 				))
 			) : (

@@ -43,7 +43,7 @@ func newTestRegistry(t *testing.T) (*Registry, *testClock) {
 	r := NewRegistry()
 	r.now = func() time.Time { return clock.now }
 	for _, key := range []Key{deltaKey, sotwKey} {
-		r.Set(key, &Info{Address: "10.0.0.7:41000"})
+		r.Open(key, "", &Info{Address: "10.0.0.7:41000"})
 		r.Update(key, &Info{NodeID: "one", Version: "v1.40.2"})
 	}
 	return r, clock
@@ -457,8 +457,8 @@ func TestStreamsDoNotWaitForEachOther(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			r := NewRegistry()
-			r.Set(deltaKey, &Info{})
-			r.Set(sotwKey, &Info{})
+			r.Open(deltaKey, "", &Info{})
+			r.Open(sotwKey, "", &Info{})
 			r.ResponseSent(deltaKey, Response{TypeURL: listenerType, Nonce: "1", Version: "7"})
 			entered, release := make(chan struct{}), make(chan struct{})
 			var readings atomic.Int32
@@ -678,7 +678,7 @@ func TestRejectionsOfATypeAreBounded(t *testing.T) {
 func TestListIsOrderedByProtocolAndStream(t *testing.T) {
 	r := NewRegistry()
 	for _, key := range []Key{{Delta, 2}, {SotW, 1}, {Delta, 1}} {
-		r.Set(key, &Info{})
+		r.Open(key, "", &Info{})
 	}
 
 	keys := []Key{}
@@ -709,9 +709,9 @@ func TestListJSON(t *testing.T) {
 	clock := &testClock{now: t0}
 	r := NewRegistry()
 	r.now = func() time.Time { return clock.now }
-	r.Set(deltaKey, &Info{Address: "10.0.0.7:41000"})
+	r.Open(deltaKey, "", &Info{Address: "10.0.0.7:41000"})
 	r.Update(deltaKey, &Info{NodeID: "one", Version: "v1.40.2"})
-	r.Set(Key{Protocol: Delta, ID: 2}, &Info{})
+	r.Open(Key{Protocol: Delta, ID: 2}, "", &Info{})
 	r.ResponseSent(deltaKey, Response{TypeURL: listenerType, Nonce: "1", Version: "7", Resources: refs("default/bad@2")})
 	clock.advance(time.Second)
 	r.RequestReceived(deltaKey, nack(listenerType, "1", badListenerError))
@@ -800,7 +800,7 @@ func TestListIsSafeWhileStreamsChange(t *testing.T) {
 		defer wg.Done()
 		for id := int64(2); id <= 501; id++ {
 			key := Key{Protocol: Delta, ID: id}
-			r.Set(key, &Info{})
+			r.Open(key, "", &Info{})
 			r.Update(key, &Info{NodeID: "two"})
 			r.Delete(key)
 		}
@@ -813,4 +813,54 @@ func TestListIsSafeWhileStreamsChange(t *testing.T) {
 		}
 	}()
 	wg.Wait()
+}
+
+func TestSubscriptionIsVisibleBeforeFirstResponse(t *testing.T) {
+	for _, key := range []Key{deltaKey, sotwKey} {
+		t.Run(string(key.Protocol), func(t *testing.T) {
+			r, clock := newTestRegistry(t)
+			r.RequestReceived(key, Request{TypeURL: routeType})
+			first := statusJSON(t, statusOf(t, r, key, routeType))
+			assert.JSONEq(t, `{"typeUrl":"type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+				"awaitingFirstResponse":true,"rejections":[]}`, first)
+
+			r.ResponseSent(key, Response{TypeURL: routeType, Nonce: "route", Version: "7"})
+			status := statusOf(t, r, key, routeType)
+			assert.Equal(t, t0, status.AwaitingAckSince)
+			require.NotContains(t, statusJSON(t, status), "awaitingFirstResponse")
+
+			// Evict the route response without a verdict. A repeated request does not
+			// turn the missing history back into a type that never got a response.
+			for i := range 64 {
+				clock.advance(time.Second)
+				r.ResponseSent(key, Response{TypeURL: clusterType, Nonce: strconv.Itoa(i)})
+			}
+			r.RequestReceived(key, Request{TypeURL: routeType})
+			status = statusOf(t, r, key, routeType)
+			assert.True(t, status.AwaitingAckSince.IsZero())
+			assert.NotContains(t, statusJSON(t, status), "awaitingFirstResponse")
+		})
+	}
+}
+
+func statusJSON(t *testing.T, status TypeStatus) string {
+	t.Helper()
+	data, err := json.Marshal(status)
+	require.NoError(t, err)
+	return string(data)
+}
+
+func TestUnrecognizedRequestsDoNotCreateSubscriptions(t *testing.T) {
+	r, _ := newTestRegistry(t)
+	for i := range 128 {
+		r.RequestReceived(deltaKey, Request{TypeURL: "type.googleapis.com/unknown." + strconv.Itoa(i)})
+	}
+	r.RequestReceived(deltaKey, Request{TypeURL: listenerType, Nonce: "not-sent"})
+	r.RequestReceived(deltaKey, Request{TypeURL: routeType, Rejected: true})
+	r.RequestReceived(deltaKey, Request{})
+	r.RequestReceived(deltaKey, Request{TypeURL: routeType, Unsubscribed: []string{"old"}})
+	assert.Empty(t, clientOf(t, r, deltaKey).Types)
+
+	r.RequestReceived(deltaKey, Request{TypeURL: routeType, Unsubscribed: []string{"old"}, Subscribes: true})
+	assert.True(t, statusOf(t, r, deltaKey, routeType).AwaitingFirstResponse)
 }

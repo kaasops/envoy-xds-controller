@@ -26,8 +26,9 @@ type clientsResponse struct {
 
 // getClients lists the xDS streams connected to this controller pod.
 // @Summary List connected xDS clients
-// @Description One entry per xDS stream: the node, the peer address, the Envoy version and,
-// @Description per resource type, the version last acknowledged and the rejections still standing.
+// @Description One entry per xDS stream with the node, peer address, Envoy version, optional forwarded address,
+// @Description and optional client-reported host and locality. Each resource type lists the last acknowledged version
+// @Description and the rejections still standing.
 // @Description Several Envoy instances may share a node ID. An empty list means that no stream
 // @Description of that node is connected to the pod that answered, or that the node is outside
 // @Description the node IDs the caller may access.

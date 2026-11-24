@@ -19,6 +19,7 @@ import {
 	clientsQueryKey,
 	getClients,
 	streamConfiguration,
+	streamClient,
 	streamId,
 	streamRowId,
 	streamStatuses,
@@ -34,7 +35,13 @@ const resourceTypes: Record<string, { short: string; section: string }> = {
 }
 const listenerType = 'type.googleapis.com/envoy.config.listener.v3.Listener'
 
-const statusColors = { NACK: 'error', 'Awaiting ACK': 'warning', ACK: 'success', Unknown: 'default' } as const
+const statusColors = {
+	NACK: 'error',
+	'Awaiting ACK': 'warning',
+	ACK: 'success',
+	Subscribed: 'default',
+	Unknown: 'default'
+} as const
 
 export function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
 	return (
@@ -50,6 +57,22 @@ export function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
 				/>
 			))}
 		</Stack>
+	)
+}
+
+export function StreamClientLink({ stream, to }: { stream: ClientStream; to: string }) {
+	const { value, source } = streamClient(stream)
+	return (
+		<Box sx={{ minWidth: '20ch', overflowWrap: 'anywhere' }}>
+			<Link component={RouterLink} to={to}>
+				{value}
+			</Link>
+			{source && (
+				<Typography component='span' display='block' variant='caption' color='text.secondary'>
+					{source}
+				</Typography>
+			)}
+		</Box>
 	)
 }
 
@@ -72,6 +95,10 @@ export function StreamDetails({
 }) {
 	const listener = stream.types.find(type => type.typeUrl === listenerType)
 	const rejections = stream.types.flatMap(type => type.rejections.map(rejection => ({ type, rejection })))
+	const { region, zone, subZone } = stream.locality ?? {}
+	const locality = [region && 'Region ' + region, zone && 'Zone ' + zone, subZone && 'Sub-zone ' + subZone]
+		.filter(Boolean)
+		.join(' · ')
 	return (
 		<Stack gap={2} sx={{ minWidth: 0 }}>
 			<Box
@@ -80,17 +107,41 @@ export function StreamDetails({
 					m: 0,
 					display: 'grid',
 					gap: 0.65,
-					gridTemplateColumns: 'max-content minmax(0,1fr)',
+					gridTemplateColumns: {
+						xs: 'minmax(0, 0.85fr) minmax(0, 1.15fr)',
+						sm: 'max-content minmax(0, 1fr)'
+					},
 					'& dt': { color: 'text.secondary' },
 					'& dd': { m: 0, overflowWrap: 'anywhere' }
 				}}
 			>
+				<dt>Stream</dt>
+				<dd>{streamId(stream)}</dd>
+				<dt>Identity source</dt>
+				<dd>{streamClient(stream).source || 'Unavailable'}</dd>
+				<dt>Envoy host</dt>
+				<dd>{stream.host || 'Host not reported'}</dd>
+				<dt>Forwarded IP</dt>
+				<dd>
+					{stream.forwardedAddress || 'Not reported'}
+					{stream.forwardedAddress && (
+						<Typography component='span' display='block' variant='caption' color='text.secondary'>
+							First IP reported in X-Forwarded-For. Clients or proxies can supply it.
+						</Typography>
+					)}
+				</dd>
+				<dt>Connection peer</dt>
+				<dd>{stream.address || 'Unavailable'}</dd>
+				{locality && (
+					<>
+						<dt>Envoy locality</dt>
+						<dd>{locality}</dd>
+					</>
+				)}
+				<dt>Node ID</dt>
+				<dd>{stream.nodeId || 'Not identified'}</dd>
 				<dt>Controller pod</dt>
 				<dd>{pod || 'Unknown'}</dd>
-				<dt>Node</dt>
-				<dd>{stream.nodeId || 'Not identified'}</dd>
-				<dt>Address</dt>
-				<dd>{stream.address || 'Unknown'}</dd>
 				<dt>Envoy version</dt>
 				<dd>{stream.envoyVersion || 'Unknown'}</dd>
 				<dt>Connected (UTC)</dt>
@@ -208,6 +259,14 @@ export function StreamDetails({
 				<Typography component='h3' variant='subtitle1' fontWeight={600}>
 					Resource types
 				</Typography>
+				{stream.types.some(type => type.awaitingFirstResponse) && (
+					<Typography variant='body2' color='text.secondary' sx={{ mb: 1 }}>
+						For a type marked Subscribed, Envoy has requested resources and the controller has yet to send a
+						response on this stream. Envoy can ACK only after it receives a response.
+						{stream.protocol === 'delta' &&
+							' After a Delta reconnect, Envoy may already have the current versions.'}
+					</Typography>
+				)}
 				{stream.types.length ? (
 					<TableContainer>
 						<Table size='small' aria-label='Stream resource types'>
@@ -290,20 +349,29 @@ export default function Clients() {
 		refetchOnMount: 'always'
 	})
 	const pod = query.data?.controllerPod || ''
+	function streamHref(stream: ClientStream) {
+		const selection = new URLSearchParams(params)
+		selection.set('selected', streamRowId(pod, stream))
+		return '?' + selection
+	}
 	const columns: Column<ClientStream>[] = [
+		{
+			key: 'client',
+			label: 'Envoy client',
+			value: stream => streamClient(stream).value,
+			render: stream => <StreamClientLink stream={stream} to={streamHref(stream)} />
+		},
 		{ key: 'stream', label: 'Stream', value: streamId },
 		{
 			key: 'status',
 			label: 'Status',
 			value: streamStatuses,
 			render: stream => {
-				const selection = new URLSearchParams(params)
 				const statuses = streamStatuses(stream)
-				selection.set('selected', streamRowId(pod, stream))
 				return (
 					<Link
 						component={RouterLink}
-						to={'?' + selection}
+						to={streamHref(stream)}
 						underline='none'
 						onClick={event => event.stopPropagation()}
 						aria-label={streamId(stream) + ' responses: ' + statuses.join(', ')}
@@ -335,7 +403,20 @@ export default function Clients() {
 			label: 'Configuration',
 			value: stream => streamConfiguration(stream, query.data?.snapshotVersions)
 		},
-		{ key: 'address', label: 'Address', value: stream => stream.address },
+		{
+			key: 'source',
+			label: 'Identity source',
+			value: stream => streamClient(stream).source || 'Unavailable',
+			filterOnly: true
+		},
+		{ key: 'host', label: 'Envoy host', value: stream => stream.host || 'Host not reported', filterOnly: true },
+		{
+			key: 'forwardedAddress',
+			label: 'Forwarded IP',
+			value: stream => stream.forwardedAddress || '',
+			filterOnly: true
+		},
+		{ key: 'address', label: 'Connection peer', value: stream => stream.address, filterOnly: true },
 		{ key: 'envoy', label: 'Envoy', value: stream => stream.envoyVersion },
 		{ key: 'connected', label: 'Connected (UTC)', value: stream => timeUtc(stream.connectedAt) }
 	]

@@ -6,11 +6,13 @@ import ChevronRight from '@mui/icons-material/ChevronRight'
 import { Link as RouterLink } from 'react-router-dom'
 import type { NodeOverviewResponse } from '../../../common/types/overviewApiTypes'
 import { nodeOverviewPath, nodePath, typeLabel, type SnapshotState } from '../api'
-import { StatusBadges, StreamDetails } from '../console/sections/clients'
+import { StatusBadges, StreamClientLink, StreamDetails } from '../console/sections/clients'
 import {
 	noConfiguration,
 	nodesWithoutSnapshot,
 	streamConfiguration,
+	streamClientLabel,
+	streamClientSearchValues,
 	streamId,
 	streamRowId,
 	streamStatuses,
@@ -68,7 +70,7 @@ export function NodeAlerts({ nodeId, overview, clients, freeze }: AlertProps) {
 				const resources = firstNames(rejection.resources?.map(resource => resource.name))
 				alerts.push({
 					id: JSON.stringify([key, type.typeUrl, rejection.nonce]),
-					title: typeLabel(type.typeUrl) + ' NACK on ' + streamId(stream),
+					title: streamClientLabel(stream) + ' · ' + typeLabel(type.typeUrl) + ' NACK on ' + streamId(stream),
 					description: [
 						resources,
 						stream.envoyVersion && 'Envoy ' + stream.envoyVersion,
@@ -219,22 +221,20 @@ export function NodeStreams({ clients, nodeId, selected }: StreamProps) {
 					selected={selected}
 					columns={[
 						{
-							label: 'Stream',
-							value: streamId,
+							label: 'Envoy client',
+							value: stream => streamClientSearchValues(stream).join(' '),
 							render: stream => (
-								<Link
-									component={RouterLink}
+								<StreamClientLink
+									stream={stream}
 									to={nodeOverviewPath(nodeId, 'streams', streamRowId(pod, stream))}
-								>
-									{streamId(stream)}
-								</Link>
+								/>
 							)
 						},
+						{ label: 'Stream', value: streamId },
 						{
 							label: 'Configuration',
 							value: stream => streamConfiguration(stream, clients.snapshotVersions)
 						},
-						{ label: 'Peer address', value: stream => stream.address || 'Unknown' },
 						{ label: 'Envoy version', value: stream => stream.envoyVersion || 'Unknown' },
 						{
 							label: 'Response',
@@ -255,7 +255,7 @@ export function NodeStreams({ clients, nodeId, selected }: StreamProps) {
 					sx={{ p: 2, borderTop: 1, borderColor: 'divider', overflowWrap: 'anywhere' }}
 				>
 					<Typography component='h3' variant='subtitle1' fontWeight={600} mb={1}>
-						{streamId(selection)} · Responses by type
+						{streamClientLabel(selection)} · Responses by type
 					</Typography>
 					<StreamDetails
 						stream={selection}

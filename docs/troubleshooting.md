@@ -78,11 +78,17 @@ Before relying on a change, for example before switching a node to a new listene
 3. For every stream: `awaitingAckSince` is absent and `rejections` is empty for every type, and `ackedVersion` of the type you changed equals `snapshotVersions[<node-id>][<typeUrl>]` of the same response.
 4. Check the port on Envoy itself. An ACK means Envoy found the resources valid; a listener may still be warming up.
 
+To find an instance behind a gateway, read `clients[].host`. It comes from the first request identifying the node on that stream. The controller checks the top-level `node.metadata` keys `instance`, `hostname` and `HOSTNAME`, in that order. For example, when Envoy sets `node.metadata.instance` to `edge-01` in its bootstrap, the API returns `"host": "edge-01"`. Each instance can supply its own name while sharing a node ID.
+
+The controller skips empty values, non-string values and labels longer than 255 bytes or containing non-printable characters. If none of the three keys supplies a usable value, `host` is omitted. Optional `locality.region`, `locality.zone` and `locality.subZone` describe where the client runs.
+
+The `address` field identifies the immediate gRPC peer, which can be the gateway. The optional `forwardedAddress` is the first IP reported in `X-Forwarded-For`. Later entries can identify intermediate proxies. A missing or invalid first IP leaves the field empty. Clients or proxies can supply this header. Use it for diagnostics only.
+
 What the versions do not tell:
 
 - A version is a counter kept by one pod and starts over when the pod restarts. Never compare versions of different pods.
 - `ackedVersion` may be behind the snapshot on a stream that holds everything, even for the type you changed. The server sends a stream nothing while no resource it holds has changed, and the counter of a type may still move. For listeners the two stay level. For clusters, routes and secrets they may part as soon as any other resource changes, so a lagging version alone is not a refusal.
-- A type missing from a stream means that nothing of that type has been sent on this stream since `connectedAt`. After a reconnect Envoy keeps the routes and secrets it already has, and the server sends them again only when they change. A rejection or an unanswered response always shows up.
+- A type with `awaitingFirstResponse: true` was requested on this stream, and the server has yet to send a response of that type. An ACK can follow only after a response. A Delta client may reconnect with the current route or secret versions and receive no update until a subscribed resource changes. This field describes the exchange observed by the controller. A type missing from the list has no recorded subscription or response on this stream.
 
 An empty `clients` list means that no stream of that node is connected to the pod that answered, or that the node is outside the node IDs your groups may access.
 

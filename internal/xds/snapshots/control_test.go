@@ -186,7 +186,9 @@ func TestRollbackServesHistoryAndFreezes(t *testing.T) {
 }
 
 func TestDiffServedAgainstBuilt(t *testing.T) {
-	control, _, _, _ := fixture(t)
+	control, cache, _, _ := fixture(t)
+	served, ok := cache.Served("node-a")
+	require.True(t, ok)
 
 	diff, err := control.Diff(t.Context(), "node-a", "served", "built", false)
 
@@ -200,6 +202,10 @@ func TestDiffServedAgainstBuilt(t *testing.T) {
 
 	all, err := control.Diff(t.Context(), "node-a", "served", "served", true)
 	require.NoError(t, err)
+	require.Equal(t, &served.PublishedAt, all.From.PublishedAt)
+	require.Equal(t, all.From, all.To)
+	require.Equal(t, &served.PublishedAt, diff.From.PublishedAt)
+	require.Nil(t, diff.To.PublishedAt)
 	for _, r := range all.Resources {
 		require.Equal(t, "same", r.Change, r.Name)
 	}

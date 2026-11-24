@@ -14,12 +14,21 @@ import {
 } from '../../api'
 import SectionTable, { type Column } from '../SectionTable'
 import { appliesToAllNodes, loadVirtualServices, virtualServicesKey } from '../resourceData'
-import { clientsQueryKey, getClients, streamId, streamRowId } from '../streams'
+import {
+	clientsQueryKey,
+	getClients,
+	streamClientLabel,
+	streamClientSearchValues,
+	streamId,
+	streamRowId,
+	type ClientStream
+} from '../streams'
 
 interface Observation {
 	id: string
 	title: string
 	source: string
+	client?: ClientStream
 	nodes: string[]
 	subject: string
 	at?: string
@@ -42,7 +51,12 @@ const columns: Column<Observation>[] = [
 		value: row => row.nodes,
 		appliesToAllNodes: row => row.source === 'Virtual service' && appliesToAllNodes(row.nodes)
 	},
-	{ key: 'source', label: 'Source', value: row => row.source },
+	{
+		key: 'source',
+		label: 'Source',
+		value: row => (row.client ? [row.source, ...streamClientSearchValues(row.client)] : row.source),
+		render: row => (row.client ? streamClientLabel(row.client) : row.source)
+	},
 	{ key: 'resource', label: 'Resource', value: row => row.subject }
 ]
 
@@ -97,12 +111,13 @@ export default function Events() {
 						id: JSON.stringify(['rejection', selected, type.typeUrl, rejection.nonce]),
 						title: 'xDS NACK',
 						source: 'xDS stream',
+						client: stream,
 						nodes: stream.nodeId ? [stream.nodeId] : [],
 						subject:
 							rejection.resources?.map(resource => resource.name).join(', ') || typeLabel(type.typeUrl),
 						at: rejection.rejectedAt,
 						message: rejection.error,
-						linkLabel: 'Open ' + streamId(stream),
+						linkLabel: streamClientLabel(stream) + ' · Open ' + streamId(stream),
 						href: '/beta/clients?' + filter
 					})
 				}

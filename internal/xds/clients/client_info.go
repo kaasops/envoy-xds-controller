@@ -20,10 +20,15 @@ type Key struct {
 // Info describes one connected xDS stream. Several Envoy instances may share a
 // node id, so the stream is the only unit the server can tell apart.
 type Info struct {
-	ID          int64     `json:"streamId"`
-	Protocol    Protocol  `json:"protocol"`
-	NodeID      string    `json:"nodeId"`
-	Address     string    `json:"address"`
+	ID       int64    `json:"streamId"`
+	Protocol Protocol `json:"protocol"`
+	NodeID   string   `json:"nodeId"`
+	Address  string   `json:"address"`
+	// ForwardedAddress is the reported originating IP in the stream's X-Forwarded-For header.
+	ForwardedAddress string `json:"forwardedAddress,omitempty"`
+	// Host is the instance or hostname reported in node metadata.
+	Host        string    `json:"host,omitempty"`
+	Locality    Locality  `json:"locality,omitzero"`
 	Version     string    `json:"envoyVersion"`
 	ConnectedAt time.Time `json:"connectedAt,omitzero"`
 	// UnknownNacks counts NACKs that named no response of this stream.
@@ -31,9 +36,19 @@ type Info struct {
 	Types        []TypeStatus `json:"types"`
 }
 
+// Locality is the location reported by the xDS client.
+type Locality struct {
+	Region  string `json:"region,omitempty"`
+	Zone    string `json:"zone,omitempty"`
+	SubZone string `json:"subZone,omitempty"`
+}
+
 // TypeStatus is what the stream has told the server about one resource type.
 type TypeStatus struct {
 	TypeURL string `json:"typeUrl"`
+	// AwaitingFirstResponse means the client requested this type but the server
+	// has not sent it a response of this type on this stream.
+	AwaitingFirstResponse bool `json:"awaitingFirstResponse,omitempty"`
 	// AckedVersion is the type version carried by the last response the client
 	// ACKed. An ACK means the client found the resources valid, not that they
 	// already serve traffic.
@@ -88,6 +103,13 @@ type Request struct {
 	Error    string
 	// Unsubscribed is the Delta resource_names_unsubscribe list.
 	Unsubscribed []string
+	// Subscribes distinguishes a mixed Delta request from an unsubscribe-only request.
+	Subscribes bool
+}
+
+// A subscription can be wildcard, named, or resumed with existing versions.
+func (r Request) isSubscription() bool {
+	return r.Nonce == "" && !r.Rejected && (len(r.Unsubscribed) == 0 || r.Subscribes)
 }
 
 // Why a recorded rejection no longer stands.
