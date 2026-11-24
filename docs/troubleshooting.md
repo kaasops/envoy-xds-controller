@@ -78,6 +78,12 @@ Before relying on a change, for example before switching a node to a new listene
 3. For every stream: `awaitingAckSince` is absent and `rejections` is empty for every type, and `ackedVersion` of the type you changed equals `snapshotVersions[<node-id>][<typeUrl>]` of the same response.
 4. Check the port on Envoy itself. An ACK means Envoy found the resources valid; a listener may still be warming up.
 
+To find an instance behind a gateway, read `clients[].host`. It comes from the first request identifying the node on that stream. The controller checks the top-level `node.metadata` keys `instance`, `hostname` and `HOSTNAME`, in that order. For example, when Envoy sets `node.metadata.instance` to `edge-01` in its bootstrap, the API returns `"host": "edge-01"`. Each instance can supply its own name while sharing a node ID.
+
+The controller skips empty values, non-string values and labels longer than 255 bytes or containing non-printable characters. If none of the three keys supplies a usable value, `host` is omitted. Optional `locality.region`, `locality.zone` and `locality.subZone` describe where the client runs.
+
+The `address` field identifies the immediate gRPC peer, which can be the gateway. When a single trusted gateway appends its downstream peer's IP to `X-Forwarded-For`, `forwardedAddress` shows that IP. The controller reads only the rightmost entry of the last header value and omits the field if that entry is missing or invalid. With several proxies it can identify an intermediate hop. The controller does not authenticate the header or use it to grant access.
+
 What the versions do not tell:
 
 - A version is a counter kept by one pod and starts over when the pod restarts. Never compare versions of different pods.

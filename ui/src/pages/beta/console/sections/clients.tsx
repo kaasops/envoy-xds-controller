@@ -19,6 +19,7 @@ import {
 	clientsQueryKey,
 	getClients,
 	streamConfiguration,
+	streamClient,
 	streamId,
 	streamRowId,
 	streamStatuses,
@@ -53,6 +54,22 @@ export function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
 	)
 }
 
+export function StreamClientLink({ stream, to }: { stream: ClientStream; to: string }) {
+	const { value, source } = streamClient(stream)
+	return (
+		<Box sx={{ minWidth: '20ch', overflowWrap: 'anywhere' }}>
+			<Link component={RouterLink} to={to}>
+				{value}
+			</Link>
+			{source && (
+				<Typography component='span' display='block' variant='caption' color='text.secondary'>
+					{source}
+				</Typography>
+			)}
+		</Box>
+	)
+}
+
 function timeUtc(timestamp?: string) {
 	if (!timestamp) return ''
 	const date = new Date(timestamp)
@@ -72,6 +89,10 @@ export function StreamDetails({
 }) {
 	const listener = stream.types.find(type => type.typeUrl === listenerType)
 	const rejections = stream.types.flatMap(type => type.rejections.map(rejection => ({ type, rejection })))
+	const { region, zone, subZone } = stream.locality ?? {}
+	const locality = [region && 'Region ' + region, zone && 'Zone ' + zone, subZone && 'Sub-zone ' + subZone]
+		.filter(Boolean)
+		.join(' · ')
 	return (
 		<Stack gap={2} sx={{ minWidth: 0 }}>
 			<Box
@@ -80,17 +101,41 @@ export function StreamDetails({
 					m: 0,
 					display: 'grid',
 					gap: 0.65,
-					gridTemplateColumns: 'max-content minmax(0,1fr)',
+					gridTemplateColumns: {
+						xs: 'minmax(0, 0.85fr) minmax(0, 1.15fr)',
+						sm: 'max-content minmax(0, 1fr)'
+					},
 					'& dt': { color: 'text.secondary' },
 					'& dd': { m: 0, overflowWrap: 'anywhere' }
 				}}
 			>
+				<dt>Stream</dt>
+				<dd>{streamId(stream)}</dd>
+				<dt>Identity source</dt>
+				<dd>{streamClient(stream).source || 'Unavailable'}</dd>
+				<dt>Envoy host</dt>
+				<dd>{stream.host || 'Host not reported'}</dd>
+				<dt>Forwarded IP</dt>
+				<dd>
+					{stream.forwardedAddress || 'Not reported'}
+					{stream.forwardedAddress && (
+						<Typography component='span' display='block' variant='caption' color='text.secondary'>
+							From X-Forwarded-For, normally set by a proxy.
+						</Typography>
+					)}
+				</dd>
+				<dt>Connection peer</dt>
+				<dd>{stream.address || 'Unavailable'}</dd>
+				{locality && (
+					<>
+						<dt>Envoy locality</dt>
+						<dd>{locality}</dd>
+					</>
+				)}
+				<dt>Node ID</dt>
+				<dd>{stream.nodeId || 'Not identified'}</dd>
 				<dt>Controller pod</dt>
 				<dd>{pod || 'Unknown'}</dd>
-				<dt>Node</dt>
-				<dd>{stream.nodeId || 'Not identified'}</dd>
-				<dt>Address</dt>
-				<dd>{stream.address || 'Unknown'}</dd>
 				<dt>Envoy version</dt>
 				<dd>{stream.envoyVersion || 'Unknown'}</dd>
 				<dt>Connected (UTC)</dt>
@@ -290,20 +335,29 @@ export default function Clients() {
 		refetchOnMount: 'always'
 	})
 	const pod = query.data?.controllerPod || ''
+	function streamHref(stream: ClientStream) {
+		const selection = new URLSearchParams(params)
+		selection.set('selected', streamRowId(pod, stream))
+		return '?' + selection
+	}
 	const columns: Column<ClientStream>[] = [
+		{
+			key: 'client',
+			label: 'Envoy client',
+			value: stream => streamClient(stream).value,
+			render: stream => <StreamClientLink stream={stream} to={streamHref(stream)} />
+		},
 		{ key: 'stream', label: 'Stream', value: streamId },
 		{
 			key: 'status',
 			label: 'Status',
 			value: streamStatuses,
 			render: stream => {
-				const selection = new URLSearchParams(params)
 				const statuses = streamStatuses(stream)
-				selection.set('selected', streamRowId(pod, stream))
 				return (
 					<Link
 						component={RouterLink}
-						to={'?' + selection}
+						to={streamHref(stream)}
 						underline='none'
 						onClick={event => event.stopPropagation()}
 						aria-label={streamId(stream) + ' responses: ' + statuses.join(', ')}
@@ -335,7 +389,20 @@ export default function Clients() {
 			label: 'Configuration',
 			value: stream => streamConfiguration(stream, query.data?.snapshotVersions)
 		},
-		{ key: 'address', label: 'Address', value: stream => stream.address },
+		{
+			key: 'source',
+			label: 'Identity source',
+			value: stream => streamClient(stream).source || 'Unavailable',
+			filterOnly: true
+		},
+		{ key: 'host', label: 'Envoy host', value: stream => stream.host || 'Host not reported', filterOnly: true },
+		{
+			key: 'forwardedAddress',
+			label: 'Forwarded IP',
+			value: stream => stream.forwardedAddress || '',
+			filterOnly: true
+		},
+		{ key: 'address', label: 'Connection peer', value: stream => stream.address, filterOnly: true },
 		{ key: 'envoy', label: 'Envoy', value: stream => stream.envoyVersion },
 		{ key: 'connected', label: 'Connected (UTC)', value: stream => timeUtc(stream.connectedAt) }
 	]

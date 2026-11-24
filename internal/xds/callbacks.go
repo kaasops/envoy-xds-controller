@@ -4,8 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"slices"
+	"strings"
 	"sync"
+	"unicode"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -15,6 +18,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/go-logr/logr"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 )
 
@@ -66,7 +70,9 @@ func (cb *Callbacks) Report() {
 
 func (cb *Callbacks) OnStreamOpen(ctx context.Context, id int64, typ string) error {
 	address := peerAddress(ctx)
-	cb.connectedClients.Set(clients.Key{Protocol: clients.SotW, ID: id}, &clients.Info{Address: address})
+	cb.connectedClients.Set(clients.Key{Protocol: clients.SotW, ID: id}, &clients.Info{
+		Address: address, ForwardedAddress: forwardedAddress(ctx),
+	})
 	cb.log.Info("stream open", "id", id, "typ", typ, "address", address)
 	return nil
 }
@@ -77,7 +83,9 @@ func (cb *Callbacks) OnStreamClosed(id int64, node *core.Node) {
 
 func (cb *Callbacks) OnDeltaStreamOpen(ctx context.Context, id int64, typ string) error {
 	address := peerAddress(ctx)
-	cb.connectedClients.Set(clients.Key{Protocol: clients.Delta, ID: id}, &clients.Info{Address: address})
+	cb.connectedClients.Set(clients.Key{Protocol: clients.Delta, ID: id}, &clients.Info{
+		Address: address, ForwardedAddress: forwardedAddress(ctx),
+	})
 	cb.log.Info("delta stream open", "id", id, "typ", typ, "address", address)
 	return nil
 }
@@ -100,10 +108,7 @@ func (cb *Callbacks) OnStreamRequest(id int64, req *discovery.DiscoveryRequest) 
 	// The node is only guaranteed on the first request of a stream, so keep the
 	// info stored back then instead of overwriting it with empty values.
 	if node != nil {
-		cb.connectedClients.Update(key, &clients.Info{
-			NodeID:  node.GetId(),
-			Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
-		})
+		cb.connectedClients.Update(key, clientInfo(node))
 	}
 	cb.report(req.GetTypeUrl(), req.GetResponseNonce(), cb.connectedClients.RequestReceived(key, clients.Request{
 		TypeURL:  req.GetTypeUrl(),
@@ -176,10 +181,7 @@ func (cb *Callbacks) OnStreamDeltaRequest(id int64, req *discovery.DeltaDiscover
 	// go-control-plane restores it only after this callback returns, so a nil
 	// node here is expected - keep the info stored on the first request.
 	if node != nil {
-		cb.connectedClients.Update(key, &clients.Info{
-			NodeID:  node.GetId(),
-			Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
-		})
+		cb.connectedClients.Update(key, clientInfo(node))
 	}
 	cb.report(req.GetTypeUrl(), req.GetResponseNonce(), cb.connectedClients.RequestReceived(key, clients.Request{
 		TypeURL:      req.GetTypeUrl(),
@@ -278,6 +280,58 @@ func peerAddress(ctx context.Context) string {
 		return p.Addr.String()
 	}
 	return ""
+}
+
+// With one gateway appending to X-Forwarded-For, the last hop is its peer.
+func forwardedAddress(ctx context.Context) string {
+	values := metadata.ValueFromIncomingContext(ctx, "x-forwarded-for")
+	if len(values) == 0 {
+		return ""
+	}
+	last := values[len(values)-1]
+	hop := strings.Trim(last[strings.LastIndexByte(last, ',')+1:], " \t")
+	address, err := netip.ParseAddr(hop)
+	if err != nil || address.Zone() != "" {
+		return ""
+	}
+	return address.String()
+}
+
+func clientInfo(node *core.Node) *clients.Info {
+	var host string
+	fields := node.GetMetadata().GetFields()
+	for _, key := range []string{"instance", "hostname", "HOSTNAME"} {
+		host = nodeLabel(fields[key].GetStringValue())
+		if host != "" {
+			break
+		}
+	}
+	locality := node.GetLocality()
+	return &clients.Info{
+		NodeID: node.GetId(),
+		Host:   host,
+		Locality: clients.Locality{
+			Region:  nodeLabel(locality.GetRegion()),
+			Zone:    nodeLabel(locality.GetZone()),
+			SubZone: nodeLabel(locality.GetSubZone()),
+		},
+		Version: semver(node.GetUserAgentBuildVersion().GetVersion()),
+	}
+}
+
+// Node metadata is supplied by the client. Skip unusable labels instead of
+// truncating two different instance names into the same one.
+func nodeLabel(value string) string {
+	const maxBytes = 255
+	if len(value) > maxBytes {
+		return ""
+	}
+	for _, r := range value {
+		if !unicode.IsPrint(r) {
+			return ""
+		}
+	}
+	return strings.TrimSpace(value)
 }
 
 func semver(ver *v3.SemanticVersion) string {

@@ -37,6 +37,7 @@ export interface Column<T> {
 	appliesToAllNodes?: (row: T) => boolean
 	render?: (row: T) => ReactNode
 	align?: 'left' | 'right'
+	filterOnly?: boolean
 }
 
 export interface SectionTableProps<T> {
@@ -99,6 +100,7 @@ export default function SectionTable<T>({
 	const direction = params.get('direction') === 'desc' ? 'desc' : 'asc'
 	const propertyColumn = columns.find(c => c.key === property || c.label === property)
 	const sortColumn = columns.find(c => c.key === sortKey)
+	const tableColumns = columns.filter(column => !column.filterOnly)
 	const requestedSize = Number(params.get('size'))
 	const size = pageSizes.includes(requestedSize) ? requestedSize : 25
 	const requestedPage = Number(params.get('page') || 1)
@@ -179,7 +181,7 @@ export default function SectionTable<T>({
 				sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}
 			>
 				<Typography id={panelTitle} component='h2' variant='h6' sx={{ overflowWrap: 'anywhere' }}>
-					{columns.length ? values(columns[0].value(selected)).join(', ') : selectedId}
+					{tableColumns.length ? values(tableColumns[0].value(selected)).join(', ') : selectedId}
 				</Typography>
 				<IconButton ref={closeButton} aria-label='Close details' onClick={dismiss}>
 					<CloseOutlined />
@@ -288,7 +290,7 @@ export default function SectionTable<T>({
 								<Table size='small' aria-label={tableTitle ?? title}>
 									<TableHead sx={{ whiteSpace: 'nowrap', overflowWrap: 'normal' }}>
 										<TableRow sx={{ bgcolor: 'action.hover' }}>
-											{columns.map(c => (
+											{tableColumns.map(c => (
 												<TableCell
 													key={c.key}
 													align={c.align}
@@ -363,7 +365,7 @@ export default function SectionTable<T>({
 															: undefined
 													}
 												>
-													{columns.map(c => (
+													{tableColumns.map(c => (
 														<TableCell
 															key={c.key}
 															align={c.align}
@@ -395,7 +397,10 @@ export default function SectionTable<T>({
 										})}
 										{!filtered.length && !loading && (
 											<TableRow>
-												<TableCell colSpan={columns.length + (detail ? 1 : 0)} sx={{ py: 3 }}>
+												<TableCell
+													colSpan={tableColumns.length + (detail ? 1 : 0)}
+													sx={{ py: 3 }}
+												>
 													{rows.length
 														? 'No records match these filters.'
 														: emptyText || 'No records available.'}

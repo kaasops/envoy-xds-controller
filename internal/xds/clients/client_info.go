@@ -20,15 +20,27 @@ type Key struct {
 // Info describes one connected xDS stream. Several Envoy instances may share a
 // node id, so the stream is the only unit the server can tell apart.
 type Info struct {
-	ID          int64     `json:"streamId"`
-	Protocol    Protocol  `json:"protocol"`
-	NodeID      string    `json:"nodeId"`
-	Address     string    `json:"address"`
+	ID       int64    `json:"streamId"`
+	Protocol Protocol `json:"protocol"`
+	NodeID   string   `json:"nodeId"`
+	Address  string   `json:"address"`
+	// ForwardedAddress is the last IP in the stream's X-Forwarded-For header.
+	ForwardedAddress string `json:"forwardedAddress,omitempty"`
+	// Host is the instance or hostname reported in node metadata.
+	Host        string    `json:"host,omitempty"`
+	Locality    Locality  `json:"locality,omitzero"`
 	Version     string    `json:"envoyVersion"`
 	ConnectedAt time.Time `json:"connectedAt,omitzero"`
 	// UnknownNacks counts NACKs that named no response of this stream.
 	UnknownNacks int          `json:"unknownNacks,omitempty"`
 	Types        []TypeStatus `json:"types"`
+}
+
+// Locality is the location reported by the xDS client.
+type Locality struct {
+	Region  string `json:"region,omitempty"`
+	Zone    string `json:"zone,omitempty"`
+	SubZone string `json:"subZone,omitempty"`
 }
 
 // TypeStatus is what the stream has told the server about one resource type.

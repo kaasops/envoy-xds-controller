@@ -29,8 +29,9 @@ type Registry struct {
 }
 
 type stream struct {
-	mu   sync.Mutex
-	info Info
+	mu           sync.Mutex
+	info         Info
+	nodeReported bool
 	// types holds only types the server has sent a response for.
 	types map[string]*typeState
 	// pending holds responses without a verdict, by nonce. Nonces are unique
@@ -82,7 +83,9 @@ func (r *Registry) Update(key Key, ci *Info) {
 	r.mu.Lock()
 	prev, ok := r.data[key]
 	if !ok {
-		r.data[key] = r.newStream(key, ci)
+		prev = r.newStream(key, ci)
+		prev.nodeReported = true
+		r.data[key] = prev
 	}
 	r.mu.Unlock()
 	if !ok {
@@ -90,8 +93,15 @@ func (r *Registry) Update(key Key, ci *Info) {
 	}
 	prev.mu.Lock()
 	defer prev.mu.Unlock()
-	prev.info.Version = ci.Version
+	// Subsequent requests for the same node can omit its original metadata.
+	if prev.nodeReported && prev.info.NodeID == ci.NodeID {
+		return
+	}
+	prev.nodeReported = true
 	prev.info.NodeID = ci.NodeID
+	prev.info.Host = ci.Host
+	prev.info.Locality = ci.Locality
+	prev.info.Version = ci.Version
 }
 
 func (r *Registry) get(key Key) *stream {

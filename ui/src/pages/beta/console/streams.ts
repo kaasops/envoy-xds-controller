@@ -24,6 +24,9 @@ export interface ClientStream {
 	protocol: 'sotw' | 'delta'
 	streamId: number
 	nodeId: string
+	host?: string
+	forwardedAddress?: string
+	locality?: { region?: string; zone?: string; subZone?: string }
 	address: string
 	envoyVersion: string
 	connectedAt?: string
@@ -48,6 +51,21 @@ export async function getClients(signal?: AbortSignal, nodeId?: string) {
 }
 
 export const streamId = (stream: ClientStream) => stream.protocol + '/' + stream.streamId
+export function streamClient(stream: ClientStream) {
+	if (stream.host) return { value: stream.host, source: 'Envoy host' }
+	if (stream.forwardedAddress) return { value: stream.forwardedAddress, source: 'Forwarded IP' }
+	if (stream.address) return { value: stream.address, source: 'Connection peer' }
+	return { value: 'Identity unavailable', source: '' }
+}
+
+export function streamClientLabel(stream: ClientStream) {
+	const { value, source } = streamClient(stream)
+	return source && !stream.host ? source + ' · ' + value : value
+}
+
+export const streamClientSearchValues = (stream: ClientStream) =>
+	[streamClientLabel(stream), stream.host || '', stream.forwardedAddress || '', stream.address].filter(Boolean)
+
 // Stream counters restart with the process, including a container restart in the same pod.
 export const streamRowId = (controllerPod: string, stream: ClientStream) =>
 	controllerPod + '/' + streamId(stream) + (stream.connectedAt ? '/' + stream.connectedAt : '')

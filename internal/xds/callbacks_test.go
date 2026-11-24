@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -19,16 +21,21 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/v3"
+	"github.com/gin-gonic/gin"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
+	"github.com/kaasops/envoy-xds-controller/internal/xds/api/v1/handlers"
+	xdscache "github.com/kaasops/envoy-xds-controller/internal/xds/cache"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/clients"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -550,20 +557,16 @@ func TestStreamOpenLogsThePeerAddress(t *testing.T) {
 	}
 }
 
-// Everything above calls the callbacks by hand. This drives them through the
-// real server, which decides the order of the calls and what each one carries:
-// the response callback runs before the client can answer, and the NACK
-// reaches the request callback without the node.
-func TestNackOverARealDeltaStream(t *testing.T) {
+func startTestADS(t *testing.T, cb *Callbacks) (discovery.AggregatedDiscoveryServiceClient, *xdscache.SnapshotCache) {
+	t.Helper()
 	snapshot, err := cache.NewSnapshot("7", map[resource.Type][]types.Resource{
 		resource.ListenerType: {&listenerv3.Listener{Name: "default/https"}},
 		resource.ClusterType:  {&clusterv3.Cluster{Name: "backend"}},
 	})
 	require.NoError(t, err)
-	snapshots := cache.NewSnapshotCache(true, cache.IDHash{}, nil)
+	snapshots := xdscache.NewSnapshotCache()
 	require.NoError(t, snapshots.SetSnapshot(t.Context(), "one", snapshot))
 
-	cb, lines := loggingCallbacks()
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	grpcServer := newGRPCServer(server.NewServer(t.Context(), snapshots, cb), logr.Discard())
@@ -572,10 +575,20 @@ func TestNackOverARealDeltaStream(t *testing.T) {
 	conn, err := grpc.NewClient(lis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
+	return discovery.NewAggregatedDiscoveryServiceClient(conn), snapshots
+}
+
+// Everything above calls the callbacks by hand. This drives them through the
+// real server, which decides the order of the calls and what each one carries:
+// the response callback runs before the client can answer, and the NACK
+// reaches the request callback without the node.
+func TestNackOverARealDeltaStream(t *testing.T) {
+	cb, lines := loggingCallbacks()
+	ads, _ := startTestADS(t, cb)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
-	stream, err := discovery.NewAggregatedDiscoveryServiceClient(conn).DeltaAggregatedResources(ctx)
+	stream, err := ads.DeltaAggregatedResources(ctx)
 	require.NoError(t, err)
 
 	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
@@ -612,4 +625,127 @@ func TestNackOverARealDeltaStream(t *testing.T) {
 	require.Len(t, logged, 1)
 	assert.Equal(t, "one", logged[0]["nodeId"])
 	assert.Equal(t, client.Address, logged[0]["address"])
+}
+
+func TestClientsReportHostsOverOneConnection(t *testing.T) {
+	cb := testCallbacks()
+	ads, snapshots := startTestADS(t, cb)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	delta, err := ads.DeltaAggregatedResources(metadata.AppendToOutgoingContext(ctx,
+		"x-forwarded-for", "203.0.113.1", "x-forwarded-for", "203.0.113.2, 192.0.2.1"))
+	require.NoError(t, err)
+	node := nodeWithVersion("one")
+	node.Metadata, err = structpb.NewStruct(map[string]any{
+		"instance": "edge-01", "hostname": "rack-01", "HOSTNAME": "legacy-01", "token": "private-value",
+	})
+	require.NoError(t, err)
+	node.Locality = &core.Locality{Region: "east", Zone: "a", SubZone: "rack-3"}
+	node.GetUserAgentBuildVersion().Metadata, err = structpb.NewStruct(map[string]any{"revision": "private-build"})
+	require.NoError(t, err)
+	require.NoError(t, delta.Send(&discovery.DeltaDiscoveryRequest{TypeUrl: resource.ListenerType, Node: node}))
+	_, err = delta.Recv()
+	require.NoError(t, err)
+	require.NoError(t, delta.Send(&discovery.DeltaDiscoveryRequest{TypeUrl: resource.ClusterType}))
+	_, err = delta.Recv()
+	require.NoError(t, err)
+
+	sotw, err := ads.StreamAggregatedResources(metadata.AppendToOutgoingContext(ctx, "x-forwarded-for", "2001:db8::2"))
+	require.NoError(t, err)
+	node = nodeWithVersion("one")
+	node.Metadata, err = structpb.NewStruct(map[string]any{"hostname": "edge-02"})
+	require.NoError(t, err)
+	require.NoError(t, sotw.Send(&discovery.DiscoveryRequest{TypeUrl: resource.ListenerType, Node: node}))
+	_, err = sotw.Recv()
+	require.NoError(t, err)
+	require.NoError(t, sotw.Send(&discovery.DiscoveryRequest{TypeUrl: resource.ClusterType}))
+	_, err = sotw.Recv()
+	require.NoError(t, err)
+
+	router := gin.New()
+	handlers.RegisterRoutes(router, snapshots, cb.connectedClients)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/clients?node_id=one", nil))
+	require.Equal(t, http.StatusOK, response.Code)
+	var body struct {
+		Clients []map[string]any `json:"clients"`
+	}
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+	require.Len(t, body.Clients, 2)
+	first, second := body.Clients[0], body.Clients[1]
+	assert.Equal(t, "delta", first["protocol"])
+	assert.Equal(t, "sotw", second["protocol"])
+	assert.NotEmpty(t, first["address"])
+	assert.Equal(t, first["address"], second["address"])
+	assert.Equal(t, "192.0.2.1", first["forwardedAddress"])
+	assert.Equal(t, "2001:db8::2", second["forwardedAddress"])
+	assert.Equal(t, "edge-01", first["host"])
+	assert.Equal(t, "edge-02", second["host"])
+	assert.Equal(t, map[string]any{"region": "east", "zone": "a", "subZone": "rack-3"}, first["locality"])
+	assert.NotContains(t, second, "locality")
+	assert.NotContains(t, response.Body.String(), "private-")
+}
+
+func TestClientReportsOnlyUsableNodeLabels(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		metadata map[string]any
+		wantHost string
+	}{
+		{"uppercase hostname", map[string]any{"instance": 4, "hostname": " ", "HOSTNAME": "host-03"}, "host-03"},
+		{"unrelated keys", map[string]any{"cluster": "shared", "nested": map[string]any{"instance": "hidden"}}, ""},
+		{"oversized and multiline", map[string]any{"instance": strings.Repeat("a", 256), "hostname": "first\nsecond"}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := testCallbacks()
+			require.NoError(t, cb.OnDeltaStreamOpen(peerContext(t), 1, ""))
+			node := nodeWithVersion("one")
+			var err error
+			node.Metadata, err = structpb.NewStruct(tc.metadata)
+			require.NoError(t, err)
+			node.Locality = &core.Locality{Region: strings.Repeat("r", 256), Zone: "zone-1"}
+			require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{Node: node}))
+			// Some clients repeat the node ID on ACKs without the original metadata.
+			require.NoError(t, cb.OnStreamDeltaRequest(1, &discovery.DeltaDiscoveryRequest{Node: &core.Node{Id: "one"}}))
+			encoded, err := json.Marshal(onlyClient(t, cb))
+			require.NoError(t, err)
+			var client map[string]any
+			require.NoError(t, json.Unmarshal(encoded, &client))
+			assert.Equal(t, "v1.39.0", client["envoyVersion"])
+			if tc.wantHost == "" {
+				assert.NotContains(t, client, "host")
+			} else {
+				assert.Equal(t, tc.wantHost, client["host"])
+			}
+			assert.Equal(t, map[string]any{"zone": "zone-1"}, client["locality"])
+		})
+	}
+}
+
+func TestStreamOmitsUnusableForwardedAddress(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		headers metadata.MD
+	}{
+		{"absent", nil},
+		{"other header", metadata.Pairs("x-envoy-external-address", "192.0.2.1")},
+		{"invalid last header", metadata.Pairs("x-forwarded-for", "192.0.2.1", "x-forwarded-for", "unknown")},
+		{"empty last hop", metadata.Pairs("x-forwarded-for", "192.0.2.1,")},
+		{"port", metadata.Pairs("x-forwarded-for", "192.0.2.1, 192.0.2.2:4510")},
+		{"scoped IPv6", metadata.Pairs("x-forwarded-for", "fe80::1%eth0")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := testCallbacks()
+			ctx := metadata.NewIncomingContext(peerContext(t), tc.headers)
+			require.NoError(t, cb.OnStreamOpen(ctx, 1, ""))
+			encoded, err := json.Marshal(onlyClient(t, cb))
+			require.NoError(t, err)
+			var client map[string]any
+			require.NoError(t, json.Unmarshal(encoded, &client))
+			assert.NotContains(t, client, "forwardedAddress")
+			assert.NotContains(t, client, "host")
+			assert.Equal(t, "10.0.0.7:41000", client["address"])
+		})
+	}
 }
