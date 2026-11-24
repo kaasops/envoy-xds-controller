@@ -29,7 +29,8 @@ func newUpdateFixture(t *testing.T) *updateFixture {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	require.NoError(t, api.AddToScheme(scheme))
-	kube := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&api.VirtualService{}).Build()
+	kube := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&api.VirtualService{}).
+		WithIndex(&api.VirtualService{}, uidIndex, indexUID).Build()
 
 	vs := &api.VirtualService{ObjectMeta: metav1.ObjectMeta{Name: "shop", Namespace: "edge", UID: "vs-uid"}}
 	vs.SetEditable(true)
@@ -52,7 +53,7 @@ func newUpdateFixture(t *testing.T) *updateFixture {
 	return &updateFixture{t: t, kube: kube, vs: vs, s: s}
 }
 
-func (f *updateFixture) update(writer client.Writer) error {
+func (f *updateFixture) update(writer client.Client) error {
 	service := NewVirtualServiceStore(f.s, writer, f.kube, f.vs.Namespace, nil)
 	_, err := service.UpdateVirtualService(f.t.Context(), connect.NewRequest(&v1.UpdateVirtualServiceRequest{
 		Uid: string(f.vs.UID), TemplateUid: "template-uid", NodeIds: []string{"next-node"}, Description: "updated",

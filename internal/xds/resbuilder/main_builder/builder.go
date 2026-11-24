@@ -168,9 +168,6 @@ func (b *Builder) BuildResources(vs *v1alpha1.VirtualService) (interface{}, erro
 	var err error
 	nn := helpers.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
 
-	// Store original VS pointer to update status if needed
-	vsPtr := vs
-
 	// Apply template if specified
 	vs, err = b.applyVirtualServiceTemplate(vs)
 	if err != nil {
@@ -197,11 +194,6 @@ func (b *Builder) BuildResources(vs *v1alpha1.VirtualService) (interface{}, erro
 	resources, err := b.buildResourcesFromVirtualService(vs, xdsListener, listenerNN, nn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build resources from virtual service: %w", err)
-	}
-
-	// Update status if needed
-	if vs.Status.Message != "" {
-		vsPtr.UpdateStatus(vs.Status.Invalid, vs.Status.Message)
 	}
 
 	// Record resource creation

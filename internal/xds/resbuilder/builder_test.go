@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	hcmv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcpProxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"github.com/kaasops/envoy-xds-controller/api/v1alpha1"
 	"github.com/kaasops/envoy-xds-controller/internal/store"
@@ -17,6 +18,49 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+func TestBuildLegacyAccessLogPreservesPublicationStatus(t *testing.T) {
+	s := createBaseStore()
+	rawLog := &runtime.RawExtension{Raw: []byte(`{"name":"envoy.access_loggers.stdout"}`)}
+	s.SetAccessLog(&v1alpha1.AccessLogConfig{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "stdout"}, Spec: rawLog,
+	})
+	template := &v1alpha1.VirtualServiceTemplate{ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "logging"}}
+	template.Spec.AccessLogConfig = &v1alpha1.ResourceRef{Name: "stdout"}
+	s.SetVirtualServiceTemplate(template)
+
+	for _, tc := range []struct {
+		name string
+		spec v1alpha1.VirtualServiceSpec
+	}{
+		{"inline", v1alpha1.VirtualServiceSpec{
+			VirtualServiceCommonSpec: v1alpha1.VirtualServiceCommonSpec{AccessLog: rawLog},
+		}},
+		{"reference from template", v1alpha1.VirtualServiceSpec{Template: &v1alpha1.ResourceRef{Name: "logging"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			vs := &v1alpha1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "legacy"},
+				Spec:       tc.spec,
+				Status:     v1alpha1.VirtualServiceStatus{Invalid: true, Message: "previous publication failed"},
+			}
+			vs.Spec.Listener = &v1alpha1.ResourceRef{Name: "http-listener"}
+			vs.Spec.VirtualHost = &runtime.RawExtension{Raw: createVirtualHostRaw([]string{"example.com"})}
+			before := vs.Status
+
+			built, err := BuildResources(vs, s)
+			require.NoError(t, err)
+			require.Len(t, built.FilterChain, 1)
+			require.Len(t, built.FilterChain[0].Filters, 1)
+			var hcm hcmv3.HttpConnectionManager
+			require.NoError(t, built.FilterChain[0].Filters[0].GetTypedConfig().UnmarshalTo(&hcm))
+			require.Len(t, hcm.AccessLog, 1)
+			require.Equal(t, "envoy.access_loggers.stdout", hcm.AccessLog[0].Name)
+			require.Empty(t, built.Warnings)
+			require.Equal(t, before, vs.Status)
+		})
+	}
+}
 
 func TestBuildResourcesReportsSkippedHTTPFilterSecrets(t *testing.T) {
 	s := createBaseStore()
