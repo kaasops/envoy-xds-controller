@@ -84,7 +84,7 @@ This behavior is achieved through:
 
 ## Rejected Configuration (NACK)
 
-Envoy answers every xDS response: it acknowledges it (ACK) or rejects it (NACK) and says why. The controller keeps both per stream and logs a rejection once:
+Envoy answers every xDS response with an ACK or a NACK with a reason. The controller keeps the result per stream and logs each rejection once:
 
 ```json
 {"level":"error","logger":"xds.server.callbacks","msg":"Envoy NACKed xDS response","nodeId":"edge","id":5,"protocol":"delta","typeUrl":"type.googleapis.com/envoy.config.listener.v3.Listener","address":"10.0.0.7:45334","envoyVersion":"v1.40.2","nonce":"5","responseVersion":"3","resources":["default/https"],"resourceCount":1,"error":"Error adding/updating listener(s) default/https: unable to open file '/var/log/envoy/missing/access.log': Permission denied"}
@@ -98,12 +98,12 @@ Envoy answers every xDS response: it acknowledges it (ACK) or rejects it (NACK) 
 
 How to read a rejection:
 
-- **A NACK is about a response, not about everything in it.** Envoy applies the valid listeners and clusters of a response it rejects and names the ones it skipped, so `resources` lists those. For routes, secrets and endpoints Envoy stops at the first error and names nothing, so `resources` lists every resource of the response. The same holds for listeners and clusters when Envoy cut its text at 4096 characters or the text names none of them. The log line shows at most 20 names, `resourceCount` is the total. With state-of-the-world `resources` is empty: the whole version of the type is rejected.
+- **A NACK is about a response, not everything in it.** For listeners and clusters Envoy applies the valid ones and names those it skipped; `resources` lists them. For routes, secrets and endpoints Envoy names nothing, so `resources` lists the whole response — as it does for listeners and clusters when Envoy's text is cut at 4096 characters or names none. The log shows up to 20 names, `resourceCount` is the total. With state-of-the-world `resources` is empty: the whole version is rejected.
 - **An ACK means Envoy found the resources valid.** A listener may still be warming up.
-- **Envoy does not get a rejected resource again by itself.** Over delta ADS the server sends a resource once per version. After fixing the host, change the resource or restart that Envoy.
-- **Instances that share a node id are told apart by `address` and `id`.** `id` is the stream number within its `protocol`. Behind a proxy the address is the proxy's.
-- **`error` is Envoy's text with quoted data removed.** For a message that fails validation Envoy puts the whole message into the text, keys included, so everything from the first double quote on is dropped. What Envoy echoes outside double quotes stays. The full text is in Envoy's own log.
+- **A rejected resource is not resent by itself.** Delta ADS sends a resource once per version: after fixing the host, change the resource or restart that Envoy.
+- **Instances sharing a node ID are told apart by stream.** `id` is the stream number within its `protocol`. Behind a proxy `address` is the proxy's; use `host` or `forwardedAddress` (see [Checking That Every Instance Accepted a Change](troubleshooting.md#checking-that-every-instance-accepted-a-change)).
+- **`error` is Envoy's text with quoted data removed.** On a validation failure Envoy echoes the whole message, keys included, so everything from the first double quote is dropped. The full text is in Envoy's own log.
 
-With state-of-the-world the server answers every NACK with the same snapshot at once, about a thousand times a second, until the snapshot changes. Such a rejection is logged once per rejected version.
+With state-of-the-world the server answers each NACK with the same snapshot, about a thousand times a second, until the snapshot changes; the rejection is logged once per version.
 
-The logger thins identical lines above a hundred per second, so a rejection across a large fleet does not show every instance. The state of each stream, with the version it last acknowledged and what it still rejects, is kept in memory and served by the cache API at `GET /api/v1/clients`; see [Checking That Every Instance Accepted a Change](troubleshooting.md#checking-that-every-instance-accepted-a-change). In development mode it is also served at `:4444/debug/connected-clients`.
+The logger thins identical lines above a hundred per second, so across a large fleet not every instance is logged. The per-stream state — last acknowledged version and current rejections — is served by `GET /api/v1/clients` and shown in the console under **xDS streams**; in development mode also at `:4444/debug/connected-clients`.

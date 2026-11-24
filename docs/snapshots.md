@@ -12,15 +12,13 @@ The snapshot ID is the first 12 hexadecimal digits of a SHA-256 over the type, n
 
 ## Configuration and persistence
 
-Enable the cache API for read access. The chart enables writes by default with `snapshotControl.enabled: true` (`API_SNAPSHOT_CONTROL`). This default also applies when upgrading with values from a chart that predates this setting. Setting it to `false` disables control operations and history. Existing pauses remain effective.
+Reading requires the cache API. Writes are enabled by default with `snapshotControl.enabled: true` (`API_SNAPSHOT_CONTROL`), also on upgrades with older values. `false` disables control operations and history; existing pauses stay in effect.
 
-The controller stores pause records and the version floor in a Kubernetes Secret in its namespace. `SNAPSHOT_PAUSE_SECRET` selects the Secret. The chart retains the physical name `<fullname>-frozen-nodes` and the existing storage format so pauses survive an upgrade from an earlier release candidate. It has no xDS secret-type label. On startup the controller loads this Secret even when writes are disabled. A missing Secret means there are no persisted pauses. Other read errors prevent startup.
+Pause records and the version floor are kept in a Secret in the controller namespace, selected by `SNAPSHOT_PAUSE_SECRET` (the chart uses `<fullname>-frozen-nodes`). The controller loads it on startup, also with writes disabled. A missing Secret means no pauses. A Secret that cannot be read or parsed stops startup: fix or delete it, then restart the controller.
 
-With OIDC, writes are allowed on nodes in the user's access groups and record the operator identity. Without OIDC, anyone with access to the writable cache API can control nodes. Use one controller replica for snapshot control. With multiple replicas a request changes the replica that receives it. The response identifies it in `controllerPod`.
+With OIDC, writes are limited to nodes in the user's access groups and record the operator. Without OIDC, anyone who can reach the cache API can control nodes. Use one controller replica: with several, a request changes only the replica that receives it (`controllerPod` in the response).
 
 ## API
-
-Earlier v0.19.0 release candidates used Freeze/Unfreeze and Built. In rc.3 the corresponding API terms are Pause/Resume and Pending.
 
 All paths below are relative to `/api/v1`. Node responses include `served`, `pending`, `history`, `paused`, `pause` and `canControl`. The pause record contains `by`, `at` and `reason`.
 
@@ -40,17 +38,17 @@ A successful write returns the current node state. Resume requires the ID from t
 
 ## Switching a node to another listener
 
-Start with one writable controller replica, a node with a served snapshot and access to all the VirtualServices and templates in the change. When moving a node between two listeners on the same address, keep the change in one Argo CD sync wave. A degraded VirtualService in an earlier wave can block subsequent waves.
+You need one writable controller replica, a node with a served snapshot and access to every VirtualService and template in the change. Keep the change in one Argo CD sync wave: a degraded VirtualService in an earlier wave blocks later waves.
 
 1. Pause updates to the node with a reason. Node updates show **Paused** and the affected VirtualServices report the pause in `status.message`.
-2. Apply all affected objects. The controller continues building while serving the previous snapshot. The webhook allows the temporary listener address conflict on the paused node and returns a warning. Other errors can still block admission. With `webhook.lightDryRun: true`, a VirtualService that targets a paused node before or after the change also gets a full dry run within `webhook.dryRunTimeoutMS`. During a listener conflict the domain index and secret deletion checks account for served and pending resources.
-3. Compare Served with Pending. Resolve any error in `pending.error`. Check the intended additions, removals and changes and retain the pending ID from this comparison.
-4. Resume with that ID. Envoy's response appears separately under **Sync status**. Check the affected streams and the traffic path.
+2. Apply all affected objects. The node keeps the previous snapshot. The webhook allows the temporary listener address conflict on the paused node with a warning; other errors still block admission. With `webhook.lightDryRun: true`, a VirtualService targeting a paused node also gets a full dry run within `webhook.dryRunTimeoutMS`.
+3. Compare Served with Pending. Resolve any `pending.error`, check the additions, removals and changes, and keep the pending ID from this comparison.
+4. Resume with that ID. Check **Sync status** of the node's streams and the traffic path.
 
-Rollback serves the selected historical snapshot immediately and pauses updates. Git still contains the desired objects. Before resuming, reconcile those objects with the configuration you want to serve, then review Pending again.
+Rollback serves the selected historical snapshot at once and pauses updates. The objects in Git are unchanged: before resuming, bring them to the configuration you want and review Pending again.
 
 ## Restart and cost
 
-Pause records survive a controller restart. Served snapshots and history contain sensitive resources and stay in memory. After a restart, a paused node can therefore have a Pending snapshot and no Served snapshot. Running Envoys retain their previous configuration. A cold Envoy receives no configuration from that replica until updates resume. The console compares the pending resources against an empty baseline so the operator can review and resume.
+Pause records survive a controller restart; served snapshots and history stay in memory only, because they contain secrets. After a restart a paused node has Pending but no Served snapshot. Running Envoys keep their configuration, a newly started Envoy gets none from that replica until Resume. The console compares Pending against an empty baseline.
 
-Reading a paused node's state or comparing with Pending triggers a dry build of all nodes. Request these views when opening or explicitly refreshing a node. The node list uses `GET /pausedNodes` and `GET /clients`.
+Reading a paused node or comparing with Pending runs a dry build of all nodes, so the console does it only when a node page is opened or refreshed. The node list does not.
