@@ -1,3 +1,4 @@
+import { consoleMonospace } from './theme'
 import { useCallback, useRef, useState } from 'react'
 import {
 	Alert,
@@ -154,6 +155,7 @@ function ResourceTable({ diff, inspect }: { diff: SnapshotDiff; inspect: (row: R
 										<TableCell>{typeLabel(row.typeUrl)}</TableCell>
 										<TableCell>
 											<Chip
+												data-status
 												size='small'
 												variant='outlined'
 												label={changes[row.change].label}
@@ -317,7 +319,7 @@ function Compare({ nodeId, from, to, select }: CompareProps) {
 								sx={{
 									minWidth: 170,
 									flex: 1,
-									'& .MuiFormHelperText-root': { fontFamily: 'monospace' }
+									'& .MuiFormHelperText-root': { fontFamily: consoleMonospace }
 								}}
 							>
 								{snapshots.map(selector => (

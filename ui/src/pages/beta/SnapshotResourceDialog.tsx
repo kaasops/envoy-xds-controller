@@ -1,3 +1,4 @@
+import { consoleMonospace } from './theme'
 import { useEffect } from 'react'
 import {
 	Alert,
@@ -48,7 +49,7 @@ function ResourceSide({ nodeId, selector, snapshotId, row, expectedHash, side, o
 				<Typography variant='subtitle2'>
 					{side} · {selector}
 				</Typography>
-				<Typography component='code' variant='body2' sx={{ fontFamily: 'monospace' }}>
+				<Typography component='code' variant='body2' sx={{ fontFamily: consoleMonospace }}>
 					{snapshotId}
 				</Typography>
 				{!expectedHash ? (

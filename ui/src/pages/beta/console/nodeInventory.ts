@@ -4,6 +4,8 @@ import { fleetQueryKey, manualQueryOptions, type SnapshotState } from '../api'
 import { getClients, streamCounts, type ClientStream } from './streams'
 
 type Freeze = NonNullable<SnapshotState['freeze']>
+type Counts = Record<'listeners' | 'routes' | 'clusters', number>
+type CachedNode = string | { node_id: string; counts?: Counts }
 
 export async function getFreezes(signal: AbortSignal) {
 	const { data } = await client.get<{ frozenNodes: Record<string, Freeze> | null }>('/frozenNodes', { signal })
@@ -12,11 +14,11 @@ export async function getFreezes(signal: AbortSignal) {
 
 export async function getNodeInventory(signal: AbortSignal) {
 	const [cached, frozen, clients] = await Promise.all([
-		client.get<string[] | null>('/nodeIDs', { signal }),
+		client.get<CachedNode[] | null>('/nodeIDs', { signal, params: { include: 'counts' } }),
 		getFreezes(signal),
 		getClients(signal)
 	])
-	const cachedIDs = new Set(cached.data ?? [])
+	const byId = new Map((cached.data ?? []).map(entry => [typeof entry === 'string' ? entry : entry.node_id, entry]))
 	const groups = new Map<string, ClientStream[]>()
 	for (const stream of clients.clients) {
 		if (!stream.nodeId) continue
@@ -24,15 +26,18 @@ export async function getNodeInventory(signal: AbortSignal) {
 		if (group) group.push(stream)
 		else groups.set(stream.nodeId, [stream])
 	}
-	const ids = Array.from(new Set([...cachedIDs, ...frozen.keys(), ...groups.keys()])).sort()
+	const ids = Array.from(new Set([...byId.keys(), ...frozen.keys(), ...groups.keys()])).sort()
 	const nodes = ids.map(nodeId => {
 		const streams = groups.get(nodeId) ?? []
+		const entry = byId.get(nodeId)
+		const counts = typeof entry === 'object' ? entry.counts : undefined
 		return {
 			nodeId,
 			streams,
+			counts,
 			responses: streamCounts(streams),
 			freeze: frozen.get(nodeId),
-			cached: cachedIDs.has(nodeId)
+			cached: typeof entry === 'string' || Boolean(counts)
 		}
 	})
 	return { nodes, clients }

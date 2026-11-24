@@ -5,6 +5,8 @@ import { nodeOverviewPath, nodePath, fleetQueryKey, httpStatus, type SnapshotSta
 import NodeListAction from '../../NodeListAction'
 import { getNodeInventory, nodeInventoryKey, nodeSection, useNodeInventory, type NodeEntry } from '../nodeInventory'
 import SectionTable, { type Column } from '../SectionTable'
+import InventorySummary from '../InventorySummary'
+import StreamResponseChip from '../StreamResponseChip'
 import { streamClientLabel, streamClientSearchValues, streamId, streamRowId, type StreamStatus } from '../streams'
 
 const statuses: StreamStatus[] = ['NACK', 'Awaiting ACK', 'ACK', 'Subscribed', 'Unknown']
@@ -14,6 +16,7 @@ const nodeHref = (row: NodeEntry) => nodeOverviewPath(row.nodeId)
 const columns: Column<NodeEntry>[] = [
 	{
 		key: 'node',
+		identifier: true,
 		label: 'Node ID',
 		value: row => row.nodeId,
 		render: row => (
@@ -40,7 +43,7 @@ const columns: Column<NodeEntry>[] = [
 					</Link>
 				)
 			return (
-				<Stack direction='row' flexWrap='wrap' gap={1.5}>
+				<Stack direction='row' flexWrap='wrap' gap={0.75}>
 					{statuses
 						.filter(status => row.responses[status])
 						.map(status => (
@@ -48,9 +51,9 @@ const columns: Column<NodeEntry>[] = [
 								key={status}
 								component={RouterLink}
 								to={nodeSection('clients', row.nodeId, status)}
-								color={status === 'NACK' ? 'error.main' : 'primary.main'}
+								underline='none'
 							>
-								{row.responses[status]} {status}
+								<StreamResponseChip status={status} count={row.responses[status]} />
 							</Link>
 						))}
 				</Stack>
@@ -72,19 +75,20 @@ const columns: Column<NodeEntry>[] = [
 			</Link>
 		)
 	},
-	...['Listeners', 'Routes', 'Clusters'].map(
-		(label): Column<NodeEntry> => ({
-			key: label.toLowerCase(),
-			label,
-			value: row => (row.cached ? 'Browse' : 'No snapshot'),
+	...(['listeners', 'routes', 'clusters'] as const).map(
+		(section): Column<NodeEntry> => ({
+			key: section,
+			label: section[0].toUpperCase() + section.slice(1),
+			align: 'right',
+			value: row => row.counts?.[section] ?? (row.cached ? 'Browse' : 'No snapshot'),
 			render: row =>
 				row.cached ? (
 					<Link
 						component={RouterLink}
-						to={nodeSection(label.toLowerCase(), row.nodeId)}
-						aria-label={label + ' for ' + row.nodeId}
+						to={nodeSection(section, row.nodeId)}
+						aria-label={section + ' for ' + row.nodeId}
 					>
-						Browse
+						{row.counts?.[section] ?? 'Browse'}
 					</Link>
 				) : (
 					'No snapshot'
@@ -197,26 +201,34 @@ export default function Nodes() {
 	return (
 		<SectionTable
 			title='Nodes'
+			tableHeading='Stream and snapshot state'
 			rows={frozenOnly ? nodes.filter(node => node.freeze) : nodes}
 			columns={[...columns, actions]}
 			loading={query.isFetching}
 			error={query.error}
 			updatedAt={query.dataUpdatedAt}
 			onRefresh={() => void query.refetch()}
-			description={
+			summary={
 				query.data && (
-					<>
-						{nodes.length} nodes ·{' '}
-						<Link
-							component='button'
-							type='button'
-							sx={{ font: 'inherit', verticalAlign: 'baseline' }}
-							onClick={() => filterFrozen(true)}
-						>
-							{frozenCount} frozen
-						</Link>
-						{pod && ' · xDS streams on ' + pod}
-					</>
+					<InventorySummary
+						fields={[
+							{ label: 'Known nodes', value: nodes.length },
+							{
+								label: 'Publication',
+								value: (
+									<Link
+										component='button'
+										type='button'
+										sx={{ font: 'inherit' }}
+										onClick={() => filterFrozen(true)}
+									>
+										{frozenCount} frozen
+									</Link>
+								)
+							},
+							...(pod ? [{ label: 'xDS controller', value: <code>{pod}</code> }] : [])
+						]}
+					/>
 				)
 			}
 			rowId={node => node.nodeId}

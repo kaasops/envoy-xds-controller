@@ -1,3 +1,4 @@
+import { formatUtcTimestamp } from '../../../utils/helpers/dateService'
 import { useState } from 'react'
 import { Alert, Box, Button, ButtonBase, Link, Paper, Stack, Typography } from '@mui/material'
 import ErrorOutline from '@mui/icons-material/ErrorOutline'
@@ -20,12 +21,6 @@ import {
 } from '../console/streams'
 import ConfigurationTable from './ConfigurationTable'
 import { certificateId } from './configurationData'
-
-function utc(value?: string) {
-	if (!value) return ''
-	const date = new Date(value)
-	return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 19).replace('T', ' ') + ' UTC'
-}
 
 function firstNames(names?: string[] | null) {
 	if (!names?.length) return ''
@@ -74,7 +69,7 @@ export function NodeAlerts({ nodeId, overview, clients, freeze }: AlertProps) {
 					description: [
 						resources,
 						stream.envoyVersion && 'Envoy ' + stream.envoyVersion,
-						utc(rejection.rejectedAt)
+						formatUtcTimestamp(rejection.rejectedAt)
 					]
 						.filter(Boolean)
 						.join(' · '),
@@ -97,7 +92,9 @@ export function NodeAlerts({ nodeId, overview, clients, freeze }: AlertProps) {
 		alerts.push({
 			id: 'certificate/' + id,
 			title: id + expiry,
-			description: [firstNames(cert.usedByDomains), utc(cert.notAfter)].filter(Boolean).join(' · '),
+			description: [firstNames(cert.usedByDomains), formatUtcTimestamp(cert.notAfter)]
+				.filter(Boolean)
+				.join(' · '),
 			category: 'certificate',
 			href: nodeOverviewPath(nodeId, 'certificates', id)
 		})
@@ -108,7 +105,7 @@ export function NodeAlerts({ nodeId, overview, clients, freeze }: AlertProps) {
 			{freeze && (
 				<Alert severity='info'>
 					<Typography variant='subtitle2'>Snapshot publication is frozen</Typography>
-					{[freeze.reason, freeze.by, utc(freeze.at)].filter(Boolean).join(' · ')}
+					{[freeze.reason, freeze.by, formatUtcTimestamp(freeze.at)].filter(Boolean).join(' · ')}
 					{' · '}
 					<Link component={RouterLink} to={nodePath(nodeId)}>
 						View snapshots

@@ -1,6 +1,6 @@
+import VersionValue from '../../VersionValue'
 import {
 	Box,
-	Chip,
 	Link,
 	Stack,
 	Table,
@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link as RouterLink, useSearchParams } from 'react-router-dom'
 import { manualQueryOptions, nodeOverviewPath, typeLabel } from '../../api'
 import SectionTable, { type Column } from '../SectionTable'
+import StreamResponseChip from '../StreamResponseChip'
 import {
 	clientsQueryKey,
 	getClients,
@@ -35,26 +36,11 @@ const resourceTypes: Record<string, { short: string; section: string }> = {
 }
 const listenerType = 'type.googleapis.com/envoy.config.listener.v3.Listener'
 
-const statusColors = {
-	NACK: 'error',
-	'Awaiting ACK': 'warning',
-	ACK: 'success',
-	Subscribed: 'default',
-	Unknown: 'default'
-} as const
-
 export function StatusBadges({ statuses }: { statuses: StreamStatus[] }) {
 	return (
 		<Stack component='span' direction='row' gap={0.5} flexWrap='wrap'>
 			{statuses.map(status => (
-				<Chip
-					key={status}
-					component='span'
-					size='small'
-					variant='outlined'
-					color={statusColors[status]}
-					label={status}
-				/>
+				<StreamResponseChip key={status} status={status} />
 			))}
 		</Stack>
 	)
@@ -149,13 +135,15 @@ export function StreamDetails({
 				{versions?.[listenerType] && (
 					<>
 						<dt>LDS snapshot version</dt>
-						<dd>{versions[listenerType]}</dd>
+						<dd>
+							<VersionValue value={versions[listenerType]} />
+						</dd>
 					</>
 				)}
 				{listener && (
 					<>
 						<dt>Last ACKed LDS version</dt>
-						<dd>{listener.ackedVersion || 'None'}</dd>
+						<dd>{listener.ackedVersion ? <VersionValue value={listener.ackedVersion} /> : 'None'}</dd>
 					</>
 				)}
 			</Box>
@@ -179,7 +167,11 @@ export function StreamDetails({
 								>
 									<Typography variant='subtitle2'>
 										{kind?.short || typeLabel(type.typeUrl)} NACK · version{' '}
-										{rejection.responseVersion || 'unknown'}
+										{rejection.responseVersion ? (
+											<VersionValue value={rejection.responseVersion} />
+										) : (
+											'unknown'
+										)}
 									</Typography>
 									<Typography variant='caption' color='text.secondary'>
 										{timeUtc(rejection.rejectedAt)} UTC · nonce {rejection.nonce} ·{' '}
@@ -235,7 +227,7 @@ export function StreamDetails({
 																color='text.secondary'
 																sx={{ ml: 1, overflowWrap: 'anywhere' }}
 															>
-																{ref.version}
+																<VersionValue value={ref.version} />
 															</Typography>
 														)}
 													</li>
@@ -305,9 +297,13 @@ export function StreamDetails({
 												<StatusBadges statuses={streamStatuses({ types: [type] })} />
 												{(type.ackedVersion || type.lastAckAt) && (
 													<Typography component='div' variant='caption' sx={{ mt: 0.5 }}>
-														{type.ackedVersion
-															? 'ACKed version ' + type.ackedVersion
-															: 'Last ACK'}
+														{type.ackedVersion ? (
+															<>
+																ACKed version <VersionValue value={type.ackedVersion} />
+															</>
+														) : (
+															'Last ACK'
+														)}
 														{type.lastAckAt && ' · ' + timeUtc(type.lastAckAt) + ' UTC'}
 													</Typography>
 												)}
@@ -357,11 +353,12 @@ export default function Clients() {
 	const columns: Column<ClientStream>[] = [
 		{
 			key: 'client',
+			identifier: true,
 			label: 'Envoy client',
 			value: stream => streamClient(stream).value,
 			render: stream => <StreamClientLink stream={stream} to={streamHref(stream)} />
 		},
-		{ key: 'stream', label: 'Stream', value: streamId },
+		{ key: 'stream', identifier: true, label: 'Stream', value: streamId },
 		{
 			key: 'status',
 			label: 'Status',
@@ -383,6 +380,7 @@ export default function Clients() {
 		},
 		{
 			key: 'node',
+			identifier: true,
 			label: 'Node',
 			value: stream => stream.nodeId,
 			render: stream =>
@@ -417,12 +415,13 @@ export default function Clients() {
 			filterOnly: true
 		},
 		{ key: 'address', label: 'Connection peer', value: stream => stream.address, filterOnly: true },
-		{ key: 'envoy', label: 'Envoy', value: stream => stream.envoyVersion },
+		{ key: 'envoy', identifier: true, label: 'Envoy', value: stream => stream.envoyVersion },
 		{ key: 'connected', label: 'Connected (UTC)', value: stream => timeUtc(stream.connectedAt) }
 	]
 	return (
 		<SectionTable
 			title='xDS streams'
+			tableHeading='Client connections'
 			description={pod ? 'Connections to ' + pod : undefined}
 			rows={query.data?.clients ?? []}
 			rowId={stream => streamRowId(pod, stream)}

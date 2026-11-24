@@ -67,6 +67,7 @@ export default function AccessGroups() {
 	return (
 		<SectionTable
 			title='Access groups'
+			tableHeading='Visible services and nodes'
 			description='Virtual services and nodes visible to your account.'
 			rows={query.data || []}
 			columns={columns}

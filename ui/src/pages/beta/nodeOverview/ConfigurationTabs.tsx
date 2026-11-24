@@ -208,7 +208,7 @@ function CertificateTable({ nodeId, overview, selected }: Required<Pick<Props, '
 					{
 						label: 'Validity',
 						value: c => validity(c).label,
-						render: c => <Chip size='small' variant='outlined' {...validity(c)} />
+						render: c => <Chip data-status size='small' variant='outlined' {...validity(c)} />
 					}
 				]}
 			/>
@@ -255,7 +255,7 @@ function HashTable({ nodeId, selected }: Pick<Props, 'nodeId' | 'selected'>) {
 							{Object.entries(data.to.versions).map(([type, version]) => (
 								<Chip
 									key={type}
-									label={(typeCodes[type] || typeLabel(type)) + ' ' + version}
+									label={<code>{(typeCodes[type] || typeLabel(type)) + ' ' + version}</code>}
 									size='small'
 									variant='outlined'
 								/>

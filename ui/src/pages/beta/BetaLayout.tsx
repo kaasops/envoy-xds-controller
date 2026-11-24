@@ -14,7 +14,6 @@ import {
 	Stack,
 	Typography,
 	ThemeProvider,
-	createTheme,
 	useTheme
 } from '@mui/material'
 import AccountTreeOutlined from '@mui/icons-material/AccountTreeOutlined'
@@ -24,6 +23,7 @@ import { sections, groups } from './console/sections'
 import ContrastOutlined from '@mui/icons-material/ContrastOutlined'
 import { ColorModeContext } from '../../theme'
 import { nodePath } from './api'
+import { createConsoleTheme } from './theme'
 
 import DashboardOutlined from '@mui/icons-material/DashboardOutlined'
 import DnsOutlined from '@mui/icons-material/DnsOutlined'
@@ -65,25 +65,9 @@ export default function BetaLayout() {
 	const { toggleColorMode } = useContext(ColorModeContext)
 	const mode = useTheme().palette.mode
 	const dark = mode === 'dark'
-	const theme = useMemo(
-		() =>
-			createTheme({
-				palette: {
-					mode,
-					primary: { main: mode === 'dark' ? '#96c8ff' : '#1e5790' },
-					background:
-						mode === 'dark'
-							? { default: '#141e2a', paper: '#202d3d' }
-							: { default: '#f5f7fb', paper: '#ffffff' }
-				},
-				typography: {
-					fontFamily: 'Roboto, sans-serif',
-					h4: { fontSize: '1.75rem', fontWeight: 600 },
-					button: { textTransform: 'none' }
-				}
-			}),
-		[mode]
-	)
+	const theme = useMemo(() => createConsoleTheme(mode), [mode])
+	const headerBackground = dark ? '#101925' : '#142134'
+	const headerText = dark ? '#edf3fc' : '#f2f5fa'
 	const nodeId = useMatch('/beta/nodes/:nodeId/*')?.params.nodeId
 	const nodeOverview = useMatch('/beta/nodes/:nodeId/overview')
 	const comparing = useMatch('/beta/nodes/:nodeId/compare')
@@ -117,7 +101,13 @@ export default function BetaLayout() {
 				<Box key={group} sx={{ pt: 1 }}>
 					<Typography
 						variant='overline'
-						sx={{ px: 1.25, color: 'text.secondary', fontSize: 11, fontWeight: 600, letterSpacing: 1 }}
+						sx={{
+							px: 1.25,
+							color: 'text.secondary',
+							fontSize: 10,
+							fontWeight: 650,
+							letterSpacing: '.11em'
+						}}
 					>
 						{group}
 					</Typography>
@@ -138,14 +128,11 @@ export default function BetaLayout() {
 											py: 0.55,
 											px: 1.25,
 											borderRadius: 1,
-											fontSize: 14,
-											fontWeight: item.slug === active ? 600 : 400
+											fontSize: 13,
+											fontWeight: item.slug === active ? 700 : 400
 										}}
 									>
-										<Icon
-											fontSize='small'
-											sx={{ mr: 1.25, color: 'text.secondary', fontSize: 17 }}
-										/>
+										<Icon fontSize='small' sx={{ mr: 1.25, color: 'inherit', fontSize: 16 }} />
 										{item.title}
 										{item.slug === active &&
 											item.slug !== 'overview' &&
@@ -185,13 +172,13 @@ export default function BetaLayout() {
 	)
 	return (
 		<ThemeProvider theme={theme}>
-			<Box sx={{ minHeight: '100vh', color: 'text.primary', bgcolor: dark ? 'background.default' : '#f5f7fb' }}>
+			<Box sx={{ minHeight: '100vh', color: 'text.primary', bgcolor: 'background.default', typography: 'body1' }}>
 				<Stack
 					component='header'
 					direction='row'
 					alignItems='center'
 					spacing={1.25}
-					sx={{ bgcolor: '#17283c', color: '#fff', px: { xs: 2, md: 3 }, height: 56 }}
+					sx={{ bgcolor: headerBackground, color: headerText, px: { xs: 2, md: 3 }, height: 56 }}
 				>
 					<IconButton
 						aria-label='Open navigation'
@@ -201,13 +188,22 @@ export default function BetaLayout() {
 					>
 						<MenuOutlined />
 					</IconButton>
-					<AccountTreeOutlined fontSize='small' sx={{ display: { xs: 'none', sm: 'block' } }} />
+					<AccountTreeOutlined
+						sx={{
+							display: { xs: 'none', sm: 'block' },
+							bgcolor: '#9eb9ff',
+							color: '#142134',
+							borderRadius: '7px',
+							p: '4px',
+							fontSize: 27
+						}}
+					/>
 					<Link
 						component={RouterLink}
 						to='/beta/'
 						color='inherit'
 						underline='none'
-						sx={{ fontSize: 18, fontWeight: 600, whiteSpace: 'nowrap' }}
+						sx={{ fontSize: 17, fontWeight: 650, letterSpacing: '-.04em', whiteSpace: 'nowrap' }}
 					>
 						Envoy
 						<Box component='span' sx={{ display: { xs: 'none', sm: 'inline' } }}>
@@ -231,8 +227,9 @@ export default function BetaLayout() {
 						sx={{
 							width: { xs: 155, sm: 240 },
 							minWidth: 0,
-							'& .MuiOutlinedInput-root': { bgcolor: '#fff', color: '#17283c' },
-							'& .MuiSvgIcon-root': { color: '#566778' }
+							'& .MuiOutlinedInput-root': { bgcolor: 'background.paper', color: 'text.primary' },
+							'& input::placeholder': { color: 'text.secondary', opacity: 1 },
+							'& .MuiSvgIcon-root': { color: 'text.secondary' }
 						}}
 						renderInput={params => (
 							<TextField
@@ -289,9 +286,10 @@ export default function BetaLayout() {
 						sx={{
 							minWidth: 0,
 							width: '100%',
-							maxWidth: 1640,
+							maxWidth: 1540,
 							mx: 'auto',
-							p: { xs: 2, md: 3.5 },
+							px: { xs: 2, md: 'clamp(1.5rem, 3.1vw, 3.25rem)' },
+							py: { xs: 2, md: 3 },
 							overflowWrap: 'anywhere'
 						}}
 					>

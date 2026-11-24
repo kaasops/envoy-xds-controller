@@ -1,3 +1,5 @@
+import VersionValue from './VersionValue'
+import { consoleMonospace } from './theme'
 import { useState } from 'react'
 import { Link as RouterLink, useLocation, useNavigationType, useParams } from 'react-router-dom'
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -61,7 +63,7 @@ function SnapshotSummary({ title, snapshot }: { title: 'Served' | 'Built'; snaps
 			<Typography variant='subtitle2' component='h2'>
 				{title} snapshot
 			</Typography>
-			<Typography sx={{ mt: 0.75, fontFamily: 'monospace', fontSize: '1.2rem', overflowWrap: 'anywhere' }}>
+			<Typography sx={{ mt: 0.75, fontFamily: consoleMonospace, fontSize: '1.2rem', overflowWrap: 'anywhere' }}>
 				{snapshot?.id || 'Unavailable'}
 			</Typography>
 			{time && (
@@ -164,6 +166,7 @@ function NodePage({ nodeId }: { nodeId: string }) {
 					{canShow && (
 						<Stack direction='row' alignItems='center' gap={1.25} flexWrap='wrap' sx={{ mt: 1 }}>
 							<Chip
+								data-status
 								size='small'
 								color={data.frozen ? 'warning' : 'default'}
 								label={data.frozen ? 'Frozen' : 'Following builds'}
@@ -333,8 +336,12 @@ function NodePage({ nodeId }: { nodeId: string }) {
 												<TableCell align='right'>
 													{data.built?.id ? data.built.counts[type] ?? 0 : 'Unavailable'}
 												</TableCell>
-												<TableCell sx={{ fontFamily: 'monospace' }}>
-													{data.served?.versions[type] || 'Unavailable'}
+												<TableCell sx={{ fontFamily: consoleMonospace }}>
+													{data.served?.versions[type] ? (
+														<VersionValue value={data.served.versions[type]} />
+													) : (
+														'Unavailable'
+													)}
 												</TableCell>
 											</TableRow>
 										))}
@@ -364,7 +371,11 @@ function NodePage({ nodeId }: { nodeId: string }) {
 									<TableBody>
 										{data.history.map((item, index) => (
 											<TableRow key={item.id + ':' + index}>
-												<TableCell component='th' scope='row' sx={{ fontFamily: 'monospace' }}>
+												<TableCell
+													component='th'
+													scope='row'
+													sx={{ fontFamily: consoleMonospace }}
+												>
 													{item.id}
 												</TableCell>
 												<TableCell>{timestamp(item.publishedAt)}</TableCell>

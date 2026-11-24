@@ -1,3 +1,4 @@
+import VersionValue from '../../VersionValue'
 import { Button, Link, Stack, Typography } from '@mui/material'
 import { Link as RouterLink } from 'react-router-dom'
 import { nodePath } from '../../api'
@@ -7,6 +8,7 @@ import SectionTable, { type Column } from '../SectionTable'
 const columns: Column<SnapshotEntry>[] = [
 	{
 		key: 'node',
+		identifier: true,
 		label: 'Node ID',
 		value: row => row.nodeId,
 		render: row => (
@@ -18,17 +20,16 @@ const columns: Column<SnapshotEntry>[] = [
 	...Object.entries({ listeners: 'LDS', routes: 'RDS', clusters: 'CDS', secrets: 'SDS' }).map(
 		([section, label]): Column<SnapshotEntry> => ({
 			key: section,
+			identifier: true,
 			label: label + ' version',
 			value: row => row.versions?.[section] || 'Unavailable',
 			render: row =>
 				row.versions?.[section] ? (
-					<Link
-						component={RouterLink}
+					<VersionValue
+						value={row.versions[section]}
 						to={nodeSection(section, row.nodeId)}
-						aria-label={label + ' version ' + row.versions[section] + ' for ' + row.nodeId}
-					>
-						{row.versions[section]}
-					</Link>
+						label={label + ' version ' + row.versions[section] + ' for ' + row.nodeId}
+					/>
 				) : (
 					'Unavailable'
 				)
@@ -42,6 +43,7 @@ export default function Snapshots() {
 	return (
 		<SectionTable
 			title='Snapshots'
+			tableHeading='Served versions by node'
 			rows={query.data ?? []}
 			columns={columns}
 			rowId={row => row.nodeId}

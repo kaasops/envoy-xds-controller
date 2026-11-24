@@ -47,6 +47,7 @@ const columns: Column<Observation>[] = [
 	},
 	{
 		key: 'node',
+		identifier: true,
 		label: 'Node',
 		value: row => row.nodes,
 		appliesToAllNodes: row => row.source === 'Virtual service' && appliesToAllNodes(row.nodes)
@@ -177,6 +178,7 @@ export default function Events() {
 			))}
 			<SectionTable
 				title='Events'
+				tableHeading='Recent observations'
 				rows={observations}
 				rowId={row => row.id}
 				columns={columns}

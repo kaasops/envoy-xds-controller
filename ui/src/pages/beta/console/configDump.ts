@@ -1,24 +1,30 @@
-type JsonObject = Record<string, unknown>
-type ResourceType = 'Listener' | 'Route configuration' | 'Cluster' | 'Secret'
+import {
+	address,
+	field,
+	list,
+	listener,
+	nodeInfo,
+	object,
+	rejection,
+	routes,
+	text,
+	type DumpRoutes
+} from './dumpProjection'
 
-function object(value: unknown): JsonObject {
-	return value && typeof value === 'object' && !Array.isArray(value) ? (value as JsonObject) : {}
+const resourceTypes = {
+	Listener: 'envoy.config.listener.v3.Listener',
+	'Route configuration': 'envoy.config.route.v3.RouteConfiguration',
+	Cluster: 'envoy.config.cluster.v3.Cluster',
+	Secret: 'envoy.extensions.transport_sockets.tls.v3.Secret',
+	Endpoint: 'envoy.config.endpoint.v3.ClusterLoadAssignment',
+	'Scoped route': 'envoy.config.route.v3.ScopedRouteConfiguration',
+	Extension: 'envoy.config.core.v3.TypedExtensionConfig'
 }
-
-function field(obj: JsonObject, key: string): unknown {
-	return obj[key] ?? obj[key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())]
-}
-
-function items(obj: JsonObject, key: string): JsonObject[] {
-	const value = field(obj, key)
-	return Array.isArray(value) ? value.map(object) : []
-}
-
-function text(value: unknown): string {
-	return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
-}
+export type ResourceType = keyof typeof resourceTypes
+export const dumpTypeUrl = (type: ResourceType) => 'type.googleapis.com/' + resourceTypes[type]
 
 export interface DumpResource {
+	id: string
 	name: string
 	type: ResourceType
 	state: string
@@ -26,147 +32,246 @@ export interface DumpResource {
 	updated: string
 	details: Record<string, string | number>
 	components: { label: string; value: string }[]
+	listener?: ReturnType<typeof listener>
+	routes?: DumpRoutes
+	reason?: string
 }
 
-// Project only the fields displayed by the console. Keep credentials, arbitrary Any payloads and metadata out of state.
-function resource(
-	type: ResourceType,
-	state: string,
-	wrapper: JsonObject,
-	config: JsonObject,
-	fallbackName?: unknown
-): DumpResource {
-	const details: DumpResource['details'] = {}
-	const components: DumpResource['components'] = []
-	function add(label: string, names: string[]) {
-		for (const value of new Set(names.filter(Boolean))) components.push({ label, value })
-	}
-	if (type === 'Listener' && Object.keys(config).length > 0) {
-		const address = object(config.address)
-		const socket = object(field(address, 'socket_address'))
-		details.Address = text(socket.address) || text(object(address.pipe).path)
-		details.Port = text(field(socket, 'port_value'))
-		const chains = items(config, 'filter_chains')
-		details['Filter chains'] = chains.length
-		add(
-			'Listener filter',
-			items(config, 'listener_filters').map(filter => text(filter.name))
-		)
-		for (const chain of chains) {
-			add('Filter chain', [text(chain.name)])
-			add(
-				'Network filter',
-				items(chain, 'filters').map(filter => text(filter.name))
-			)
-			add('Transport socket', [text(object(field(chain, 'transport_socket')).name)])
-		}
-	} else if (type === 'Route configuration') {
-		const hosts = items(config, 'virtual_hosts')
-		details['Virtual hosts'] = hosts.length
-		for (const host of hosts) {
-			add('Virtual host', [text(host.name)])
-			if (Array.isArray(host.domains)) add('Domain', host.domains.map(text))
-			add(
-				'Upstream cluster',
-				items(host, 'routes').flatMap(route => {
-					const action = object(route.route)
-					return [
-						text(action.cluster),
-						...items(object(field(action, 'weighted_clusters')), 'clusters').map(cluster =>
-							text(cluster.name)
-						)
-					]
-				})
-			)
-		}
-		details.Routes = hosts.reduce((sum, host) => sum + items(host, 'routes').length, 0)
-	} else if (type === 'Cluster') {
-		details['Discovery type'] = text(config.type) || text(object(field(config, 'cluster_type')).name)
-		details['Load balancing'] = text(field(config, 'lb_policy'))
-		const endpoints = items(object(field(config, 'load_assignment')), 'endpoints').flatMap(locality =>
-			items(locality, 'lb_endpoints')
-		)
-		details['Configured endpoints'] = endpoints.length
-		add(
-			'Endpoint',
-			endpoints.map(item => {
-				const address = object(object(item.endpoint).address)
-				const socket = object(field(address, 'socket_address'))
-				const host = text(socket.address)
-				const port = text(field(socket, 'port_value'))
-				return host && port
-					? (host.includes(':') ? '[' + host + ']' : host) + ':' + port
-					: host || text(object(address.pipe).path)
-			})
-		)
-	}
-	return {
-		type,
-		state,
-		name: text(config.name) || text(fallbackName) || 'Unnamed',
-		version: text(field(wrapper, 'version_info')),
-		updated: text(field(wrapper, 'last_updated') ?? field(wrapper, 'last_update_attempt')),
-		details,
-		components
-	}
+interface Group {
+	key: string
+	wrapper: string
+	type: ResourceType
+	config: string
+	state: string
 }
-
-const groups: Record<string, { key: string; type: ResourceType; field: string; state: string }[]> = {
-	ListenersConfigDump: [{ key: 'static_listeners', type: 'Listener', field: 'listener', state: 'Static' }],
+const groups: Record<string, Group[]> = {
+	ListenersConfigDump: [
+		{ key: 'static_listeners', wrapper: 'StaticListener', type: 'Listener', config: 'listener', state: 'Static' }
+	],
 	RoutesConfigDump: [
-		{ key: 'static_route_configs', type: 'Route configuration', field: 'route_config', state: 'Static' },
-		{ key: 'dynamic_route_configs', type: 'Route configuration', field: 'route_config', state: 'Dynamic' }
+		{
+			key: 'static_route_configs',
+			wrapper: 'StaticRouteConfig',
+			type: 'Route configuration',
+			config: 'route_config',
+			state: 'Static'
+		},
+		{
+			key: 'dynamic_route_configs',
+			wrapper: 'DynamicRouteConfig',
+			type: 'Route configuration',
+			config: 'route_config',
+			state: 'Dynamic'
+		}
 	],
 	ClustersConfigDump: [
-		{ key: 'static_clusters', type: 'Cluster', field: 'cluster', state: 'Static' },
-		{ key: 'dynamic_active_clusters', type: 'Cluster', field: 'cluster', state: 'Active' },
-		{ key: 'dynamic_warming_clusters', type: 'Cluster', field: 'cluster', state: 'Warming' }
+		{ key: 'static_clusters', wrapper: 'StaticCluster', type: 'Cluster', config: 'cluster', state: 'Static' },
+		{
+			key: 'dynamic_active_clusters',
+			wrapper: 'DynamicCluster',
+			type: 'Cluster',
+			config: 'cluster',
+			state: 'Active'
+		},
+		{
+			key: 'dynamic_warming_clusters',
+			wrapper: 'DynamicCluster',
+			type: 'Cluster',
+			config: 'cluster',
+			state: 'Warming'
+		}
 	],
 	SecretsConfigDump: [
-		{ key: 'static_secrets', type: 'Secret', field: 'secret', state: 'Static' },
-		{ key: 'dynamic_active_secrets', type: 'Secret', field: 'secret', state: 'Active' },
-		{ key: 'dynamic_warming_secrets', type: 'Secret', field: 'secret', state: 'Warming' }
+		{ key: 'static_secrets', wrapper: 'StaticSecret', type: 'Secret', config: 'secret', state: 'Static' },
+		{ key: 'dynamic_active_secrets', wrapper: 'DynamicSecret', type: 'Secret', config: 'secret', state: 'Active' },
+		{ key: 'dynamic_warming_secrets', wrapper: 'DynamicSecret', type: 'Secret', config: 'secret', state: 'Warming' }
+	],
+	EndpointsConfigDump: [
+		{
+			key: 'static_endpoint_configs',
+			wrapper: 'StaticEndpointConfig',
+			type: 'Endpoint',
+			config: 'endpoint_config',
+			state: 'Static'
+		},
+		{
+			key: 'dynamic_endpoint_configs',
+			wrapper: 'DynamicEndpointConfig',
+			type: 'Endpoint',
+			config: 'endpoint_config',
+			state: 'Dynamic'
+		}
+	],
+	ScopedRoutesConfigDump: [
+		{
+			key: 'inline_scoped_route_configs',
+			wrapper: 'InlineScopedRouteConfigs',
+			type: 'Scoped route',
+			config: 'scoped_route_configs',
+			state: 'Inline'
+		},
+		{
+			key: 'dynamic_scoped_route_configs',
+			wrapper: 'DynamicScopedRouteConfigs',
+			type: 'Scoped route',
+			config: 'scoped_route_configs',
+			state: 'Dynamic'
+		}
+	],
+	EcdsConfigDump: [
+		{ key: 'ecds_filters', wrapper: 'EcdsFilterConfig', type: 'Extension', config: 'ecds_filter', state: 'Dynamic' }
 	]
 }
 
 export function readConfigDump(raw: unknown) {
-	const { configs } = object(raw)
-	if (!Array.isArray(configs)) throw new Error('Expected an Envoy config dump with a configs array.')
+	const configs = field(raw, 'configs')
+	if (!Array.isArray(configs)) throw new Error('Expected a configs array.')
 	const rows: DumpResource[] = []
-	let nodeId = ''
-	let skipped = 0
-	for (const item of configs) {
-		const section = object(item)
-		const kind = text(section['@type']).split('.').pop() || ''
-		if (kind === 'BootstrapConfigDump') {
-			nodeId = text(object(object(section.bootstrap).node).id)
-			continue
+	const sections = new Map<string, { name: string; count: number; projected: boolean; filtered: boolean }>()
+	const versions = new Map<ResourceType, string>()
+	const apis = new Set<string>()
+	let node = nodeInfo({})
+	let filtered = false
+
+	function add(type: ResourceType, state: string, wrapper: unknown, value: unknown, fallback?: unknown) {
+		const config = object(value)
+		const name = text(field(config, type === 'Endpoint' ? 'cluster_name' : 'name')) || text(fallback)
+		const row: DumpResource = {
+			id: String(rows.length),
+			type,
+			name,
+			state,
+			version: text(field(wrapper, 'version_info')),
+			updated: text(field(wrapper, 'last_updated') ?? field(wrapper, 'last_update_attempt')),
+			details: {},
+			components: []
 		}
-		if (!Object.prototype.hasOwnProperty.call(groups, kind)) {
-			skipped++
-			continue
-		}
-		for (const group of groups[kind]) {
-			for (const entry of items(section, group.key)) {
-				rows.push(resource(group.type, group.state, entry, object(field(entry, group.field)), entry.name))
+		if (type === 'Listener') {
+			row.listener = listener(config)
+			row.details.Address = row.listener.addresses.map(item => item.label).join(', ')
+			row.details['Filter chains'] = row.listener.chains.length
+			row.components.push(
+				...row.listener.filters.map((value, index) => ({ label: 'Listener filter ' + (index + 1), value }))
+			)
+			for (const chain of row.listener.chains) {
+				row.components.push({ label: 'Filter chain', value: chain.name })
+				if (chain.transportSocket)
+					row.components.push({ label: 'Transport socket', value: chain.transportSocket })
+				row.components.push(
+					...chain.networkFilters.map((value, index) => ({ label: 'Network filter ' + (index + 1), value }))
+				)
 			}
-		}
-		if (kind === 'ListenersConfigDump') {
-			for (const entry of items(section, 'dynamic_listeners')) {
-				for (const [state, key] of Object.entries({
-					Active: 'active_state',
-					Warming: 'warming_state',
-					Draining: 'draining_state',
-					Rejected: 'error_state'
-				})) {
-					const value = field(entry, key)
-					if (value) {
-						const wrapper = object(value)
-						rows.push(resource('Listener', state, wrapper, object(wrapper.listener), entry.name))
-					}
-				}
+		} else if (type === 'Route configuration') {
+			row.routes = routes(config)
+			row.details['Virtual hosts'] = row.routes.length
+			row.details.Routes = row.routes.reduce((count, host) => count + host.routes.length, 0)
+			for (const host of row.routes) {
+				row.components.push(
+					{ label: 'Virtual host', value: host.name },
+					...host.domains.map(value => ({ label: 'Domain', value }))
+				)
+				for (const route of host.routes)
+					row.components.push(...route.targets.map(value => ({ label: 'Upstream cluster', value })))
 			}
+		} else if (type === 'Cluster' || type === 'Endpoint') {
+			if (type === 'Cluster') {
+				row.details['Discovery type'] =
+					text(field(config, 'type')) || text(field(field(config, 'cluster_type'), 'name'))
+				row.details['Load balancing'] = text(field(config, 'lb_policy'))
+			}
+			const assignment = type === 'Cluster' ? field(config, 'load_assignment') : config
+			const endpoints = list(assignment, 'endpoints').flatMap(item => list(item, 'lb_endpoints'))
+			row.details['Configured endpoints'] = endpoints.length
+			row.components.push(
+				...endpoints
+					.map(entry => ({
+						label: 'Endpoint',
+						value: address(field(field(entry, 'endpoint'), 'address')).label
+					}))
+					.filter(item => item.value)
+			)
 		}
+		if (state === 'Rejected') row.reason = rejection(wrapper, row.listener?.modules)
+		rows.push(row)
 	}
-	return { nodeId, skipped, rows: rows.map((row, index) => ({ ...row, id: String(index) })) }
+
+	function groupEntry(group: Group, entry: unknown, state = group.state) {
+		const config = field(entry, group.config)
+		if (group.type === 'Scoped route' && Array.isArray(config)) {
+			for (const scope of config) add(group.type, state, entry, scope)
+		} else add(group.type, state, entry, config, field(entry, 'name'))
+		const error = field(entry, 'error_state')
+		if (error)
+			add(
+				group.type,
+				'Rejected',
+				error,
+				field(error, 'failed_configuration'),
+				field(entry, 'name') ?? field(config, 'name') ?? field(config, 'cluster_name')
+			)
+	}
+	function dynamicListener(entry: unknown) {
+		const before = rows.length
+		for (const [key, state] of [
+			['active_state', 'Active'],
+			['warming_state', 'Warming'],
+			['draining_state', 'Draining'],
+			['error_state', 'Rejected']
+		]) {
+			const wrapper = field(entry, key)
+			if (wrapper)
+				add(
+					'Listener',
+					state,
+					wrapper,
+					field(wrapper, state === 'Rejected' ? 'failed_configuration' : 'listener'),
+					field(entry, 'name')
+				)
+		}
+		if (rows.length === before) add('Listener', 'State not reported', entry, undefined, field(entry, 'name'))
+	}
+	for (const section of configs) {
+		const typeName = text(field(section, '@type')).split('/').pop() || ''
+		const match = /^envoy\.admin\.(v\d+(?:alpha\d*)?)\.(\w+)(?:\.(\w+))?$/.exec(typeName)
+		const kind = match?.[2] || typeName || 'Unknown section'
+		const member = match?.[3] || ''
+		const known =
+			match?.[1] === 'v3' &&
+			(kind === 'BootstrapConfigDump' || Object.prototype.hasOwnProperty.call(groups, kind))
+		const before = rows.length
+		if (match) apis.add('envoy.admin.' + match[1])
+		let projected = Boolean(known)
+		if (known && kind === 'BootstrapConfigDump' && !member) node = nodeInfo(field(section, 'bootstrap'))
+		else if (known && member) {
+			filtered = true
+			if (kind === 'ListenersConfigDump' && member === 'DynamicListener') dynamicListener(section)
+			else {
+				const variants = groups[kind]?.filter(group => group.wrapper === member) || []
+				if (!variants.length) projected = false
+				else groupEntry(variants[0], section, variants.length === 1 ? variants[0].state : 'State not reported')
+			}
+		} else if (known && groups[kind]) {
+			const version = text(field(section, 'version_info'))
+			if (version) versions.set(groups[kind][0].type, version)
+			for (const group of groups[kind]) for (const entry of list(section, group.key)) groupEntry(group, entry)
+			if (kind === 'ListenersConfigDump')
+				for (const entry of list(section, 'dynamic_listeners')) dynamicListener(entry)
+		}
+		const item = sections.get(kind)
+		sections.set(kind, {
+			name: kind,
+			count: (item?.count || 0) + rows.length - before,
+			projected: (item?.projected ?? true) && projected,
+			filtered: Boolean(member || item?.filtered)
+		})
+	}
+	return { node, rows, sections: [...sections.values()], versions, apis: [...apis], filtered }
+}
+export type DumpReport = ReturnType<typeof readConfigDump>
+
+export const displayName = (row: DumpResource) => row.name || 'Name not reported'
+export function fileTime(value?: string | number) {
+	if (!value) return 'Not reported'
+	const date = new Date(value)
+	return Number.isNaN(date.getTime()) ? 'Not reported' : date.toISOString().slice(0, 19).replace('T', ' ') + ' UTC'
 }
