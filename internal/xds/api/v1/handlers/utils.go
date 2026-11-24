@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"net/url"
+	"slices"
 
 	"github.com/gin-gonic/gin"
 	"github.com/kaasops/envoy-xds-controller/internal/xds/api/v1/middlewares"
@@ -74,6 +75,14 @@ func (h *handler) getAvailableNodeIDs(ctx *gin.Context) []string {
 		return nodeIDs
 	}
 	return allNodeIDs
+}
+
+// A registered node can have no served snapshot, for example after restoring a pause on restart.
+func (h *handler) getAvailableServedNodeIDs(ctx *gin.Context) []string {
+	return slices.DeleteFunc(h.getAvailableNodeIDs(ctx), func(nodeID string) bool {
+		_, served := h.cache.Served(nodeID)
+		return !served
+	})
 }
 
 func (h *handler) getNotRequiredOnlyOneParam(queryValues url.Values, param string) (string, error) {

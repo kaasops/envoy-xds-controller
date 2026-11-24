@@ -107,7 +107,7 @@ type secretResponse struct {
 }
 
 func (h *handler) getSecretByNamespacedName(ctx *gin.Context) {
-	nodeIDs := h.getAvailableNodeIDs(ctx)
+	nodeIDs := h.getAvailableServedNodeIDs(ctx)
 	namespace := ctx.Param("namespace")
 	name := ctx.Param("name")
 
