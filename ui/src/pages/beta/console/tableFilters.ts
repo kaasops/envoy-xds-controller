@@ -7,6 +7,14 @@ export interface FilterField {
 	filterValues?: readonly string[]
 }
 
+type CellValue = string | number | readonly string[]
+
+export interface FilterColumn<T> extends FilterField {
+	value: (row: T) => CellValue
+	filterValue?: (row: T) => CellValue | undefined
+	appliesToAllNodes?: (row: T) => boolean
+}
+
 export interface FilterToken {
 	field: string
 	operator: FilterOperator
@@ -150,4 +158,34 @@ export function matchesToken(
 
 	const found = typeof raw === 'string' || typeof raw === 'number' ? matches(raw) : raw?.some(matches) ?? false
 	return token.operator === '!=' ? !found : found
+}
+
+export function createRowFilter<T>(
+	tokens: readonly FilterToken[],
+	columns: readonly FilterColumn<T>[],
+	timeZone: string
+) {
+	const conditions = columns.flatMap(column => {
+		const fieldTokens = tokens.filter(token => token.field === column.key)
+		if (!fieldTokens.length) return []
+		return [
+			{
+				column,
+				alternatives: fieldTokens.filter(token => token.operator === ':'),
+				required: fieldTokens.filter(token => token.operator !== ':')
+			}
+		]
+	})
+
+	return (row: T) =>
+		conditions.every(({ column, alternatives, required }) => {
+			const raw = column.filterValue ? column.filterValue(row) : column.value(row)
+			const allNodes = column.appliesToAllNodes?.(row)
+			const matches = (token: FilterToken) => {
+				if (allNodes && token.operator === ':') return true
+				if (allNodes && token.operator === '!=') return false
+				return matchesToken(token, column, raw, timeZone)
+			}
+			return (!alternatives.length || alternatives.some(matches)) && required.every(matches)
+		})
 }

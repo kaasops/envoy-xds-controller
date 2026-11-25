@@ -1,12 +1,37 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatFilters, matchesToken, operatorsFor, parseFilters } from '../src/pages/beta/console/tableFilters.ts'
+import {
+	createRowFilter,
+	formatFilters,
+	matchesToken,
+	operatorsFor,
+	parseFilters
+} from '../src/pages/beta/console/tableFilters.ts'
 
 const node = { key: 'node', label: 'Node ID' }
 const status = { key: 'status', label: 'Sync status', filterType: 'enum', filterValues: ['ACK', 'Awaiting ACK'] }
 const streams = { key: 'streams', label: 'xDS streams', filterType: 'number' }
 const connected = { key: 'connected', label: 'Connected', filterType: 'date' }
 const fields = [node, status, streams, connected]
+
+test('accepts any exact value of a field while requiring other fields, exclusions and bounds', () => {
+	const columns = fields.map(field => ({ ...field, value: row => row[field.key] }))
+	const rows = [
+		{ node: 'a', streams: 3, status: ['ACK', 'Awaiting ACK'] },
+		{ node: 'b', streams: 2, status: ['ACK'] },
+		{ node: 'c', streams: 1, status: ['Awaiting ACK'] }
+	]
+	const matching = query => {
+		const parsed = parseFilters(query, columns)
+		assert.equal(parsed.error, undefined)
+		return rows.filter(createRowFilter(parsed.tokens, columns, 'UTC')).map(row => row.node)
+	}
+	assert.deepEqual(matching('node:a node:b'), ['a', 'b'])
+	assert.deepEqual(matching('node:a status:"Awaiting ACK" node:b'), ['a'])
+	assert.deepEqual(matching('node:a node:b -node:a -node:c'), ['b'])
+	assert.deepEqual(matching('node:a node:b streams>=2 streams<3'), ['b'])
+	assert.deepEqual(matching('status:ACK status:"Awaiting ACK"'), ['a', 'b', 'c'])
+})
 const token = (field, operator, value) => ({ field, operator, value })
 const match = (query, field, value, zone = 'UTC') => {
 	const parsed = parseFilters(query, fields)

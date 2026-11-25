@@ -1,7 +1,7 @@
 import { ConsoleTime } from '../time/ConsoleTime'
 import { useConsoleTime } from '../time/useConsoleTime'
 import TableFilterBar from './TableFilterBar'
-import { matchesToken, parseFilters, type FilterField } from './tableFilters'
+import { createRowFilter, parseFilters, type FilterColumn } from './tableFilters'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import {
@@ -32,13 +32,10 @@ import { Code, ConnectError } from '@connectrpc/connect'
 import { apiError, httpStatus } from '../api'
 import { consoleMonospace } from '../theme'
 
-export interface Column<T> extends FilterField {
+export interface Column<T> extends FilterColumn<T> {
 	identifier?: boolean
 	filterable?: boolean
-	filterValue?: (row: T) => string | number | readonly string[] | undefined
-	value: (row: T) => string | number | readonly string[]
 	sortValue?: (row: T) => number
-	appliesToAllNodes?: (row: T) => boolean
 	render?: (row: T) => ReactNode
 	align?: 'left' | 'right'
 	filterOnly?: boolean
@@ -104,7 +101,7 @@ export default function SectionTable<T>({
 	const fields = columns.filter(column => column.filterable !== false)
 	const parsed = parseFilters(query, fields)
 	const term = parsed.text.toLowerCase().trim()
-	const conditions = parsed.tokens.map(token => ({ token, column: fields.find(c => c.key === token.field)! }))
+	const matchesFilters = createRowFilter(parsed.tokens, fields, timeZone)
 	const property = params.get('by') || ''
 	const value = params.get('value') || ''
 	const selectedId = params.get('selected')
@@ -136,14 +133,7 @@ export default function SectionTable<T>({
 						})
 					)
 						return false
-					for (const { column, token } of conditions) {
-						if (column.appliesToAllNodes?.(row) && (token.operator === ':' || token.operator === '!=')) {
-							if (token.operator === '!=') return false
-							continue
-						}
-						const raw = column.filterValue ? column.filterValue(row) : column.value(row)
-						if (!matchesToken(token, column, raw, timeZone)) return false
-					}
+					if (!matchesFilters(row)) return false
 					return (
 						!term || columns.some(c => values(c.value(row)).some(item => item.toLowerCase().includes(term)))
 					)
