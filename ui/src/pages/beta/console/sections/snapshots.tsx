@@ -39,6 +39,8 @@ const columns: Column<SnapshotEntry>[] = [
 	),
 	{
 		key: 'pause',
+		filterType: 'enum',
+		filterValues: ['Active', 'Paused'],
 		label: 'Updates',
 		value: row => (row.pause ? 'Paused' : 'Active'),
 		render: row =>

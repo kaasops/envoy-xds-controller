@@ -30,7 +30,7 @@ export default function Secrets() {
 	const { formatTime } = useConsoleTime()
 	const columns: Column<SecretRow>[] = [
 		{ key: 'name', label: 'Secret', value: r => r.name },
-		{ key: 'type', label: 'Type', value: r => r.type },
+		{ key: 'type', label: 'Type', filterType: 'enum', value: r => r.type },
 		{
 			key: 'domains',
 			label: 'DNS names',
@@ -46,12 +46,20 @@ export default function Secrets() {
 		},
 		{
 			key: 'expiry',
+			filterType: 'date',
+			filterValue: r => r.certificate?.notAfter,
 			label: 'Not after',
 			value: r => formatTime(r.certificate?.notAfter) || 'Unavailable',
 			sortValue: r => Date.parse(r.certificate?.notAfter ?? '') || 0,
 			render: r => <ConsoleTime value={r.certificate?.notAfter} />
 		},
-		{ key: 'status', label: 'Status', value: r => r.certificate?.status || 'Unavailable' }
+		{
+			key: 'status',
+			label: 'Status',
+			filterType: 'enum',
+			filterValues: ['ok', 'warning', 'critical', 'expired', 'Unavailable'],
+			value: r => r.certificate?.status || 'Unavailable'
+		}
 	]
 	return (
 		<ConfigResourceTable

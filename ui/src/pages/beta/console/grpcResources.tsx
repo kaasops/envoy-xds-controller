@@ -131,7 +131,7 @@ export default function ResourceSection({ kind }: { kind: SpecKind }) {
 				</Stack>
 			)
 		})
-	if (kind === 'listeners') columns.push({ key: 'type', label: 'Type', value: r => r.type })
+	if (kind === 'listeners') columns.push({ key: 'type', label: 'Type', filterType: 'enum', value: r => r.type })
 	if (summaryLabel[kind]) columns.push({ key: 'summary', label: summaryLabel[kind]!, value: r => r.summary })
 	if (kind !== 'clusters') columns.push({ key: 'description', label: 'Description', value: r => r.description })
 	else columns.push({ key: 'uid', identifier: true, label: 'UID', value: r => r.uid })

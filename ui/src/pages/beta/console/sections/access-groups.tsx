@@ -28,6 +28,7 @@ const columns: Column<Group>[] = [
 	{ key: 'name', label: 'Access group', value: r => r.name },
 	{
 		key: 'services',
+		filterType: 'number',
 		label: 'Virtual services',
 		align: 'right',
 		value: r => r.services.length,

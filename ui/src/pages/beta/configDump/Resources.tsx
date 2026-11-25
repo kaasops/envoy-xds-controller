@@ -55,11 +55,19 @@ export default function Resources({ report }: { report: DumpReport }) {
 	const { formatTime } = useConsoleTime()
 	const columns: Column<Row>[] = [
 		{ key: 'name', label: 'Resource', value: row => row.name || 'Name not reported' },
-		{ key: 'type', label: 'Type', value: row => row.type },
-		{ key: 'state', label: 'State', value: row => row.state, render: row => <ResourceState state={row.state} /> },
+		{ key: 'type', label: 'Type', filterType: 'enum', value: row => row.type },
+		{
+			key: 'state',
+			label: 'State',
+			filterType: 'enum',
+			value: row => row.state,
+			render: row => <ResourceState state={row.state} />
+		},
 		{ key: 'version', label: 'Version', value: row => row.version },
 		{
 			key: 'updated',
+			filterType: 'date',
+			filterValue: row => row.updated || undefined,
 			label: 'Last updated',
 			value: row => formatTime(row.updated) || 'Not reported',
 			sortValue: row => Date.parse(row.updated) || 0,

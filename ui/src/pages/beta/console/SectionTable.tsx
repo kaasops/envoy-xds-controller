@@ -1,15 +1,16 @@
 import { ConsoleTime } from '../time/ConsoleTime'
+import { useConsoleTime } from '../time/useConsoleTime'
+import TableFilterBar from './TableFilterBar'
+import { createRowFilter, parseFilters, type FilterColumn } from './tableFilters'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import {
 	Alert,
 	Box,
 	Button,
-	Chip,
 	Dialog,
 	IconButton,
 	LinearProgress,
-	MenuItem,
 	Paper,
 	Stack,
 	Table,
@@ -20,7 +21,6 @@ import {
 	TablePagination,
 	TableRow,
 	TableSortLabel,
-	TextField,
 	Typography,
 	useMediaQuery,
 	useTheme
@@ -32,13 +32,10 @@ import { Code, ConnectError } from '@connectrpc/connect'
 import { apiError, httpStatus } from '../api'
 import { consoleMonospace } from '../theme'
 
-export interface Column<T> {
-	key: string
+export interface Column<T> extends FilterColumn<T> {
 	identifier?: boolean
-	label: string
-	value: (row: T) => string | number | readonly string[]
+	filterable?: boolean
 	sortValue?: (row: T) => number
-	appliesToAllNodes?: (row: T) => boolean
 	render?: (row: T) => ReactNode
 	align?: 'left' | 'right'
 	filterOnly?: boolean
@@ -100,7 +97,11 @@ export default function SectionTable<T>({
 	const closeButton = useRef<HTMLButtonElement>(null)
 	const opener = useRef<HTMLButtonElement | null>(null)
 	const query = params.get('q') || ''
-	const term = query.trim().toLowerCase()
+	const { timeZone } = useConsoleTime()
+	const fields = columns.filter(column => column.filterable !== false)
+	const parsed = parseFilters(query, fields)
+	const term = parsed.text.toLowerCase().trim()
+	const matchesFilters = createRowFilter(parsed.tokens, fields, timeZone)
 	const property = params.get('by') || ''
 	const value = params.get('value') || ''
 	const selectedId = params.get('selected')
@@ -120,19 +121,23 @@ export default function SectionTable<T>({
 	const forbidden =
 		[401, 403].includes(httpStatus(error) || 0) ||
 		(error instanceof ConnectError && (error.code === Code.PermissionDenied || error.code === Code.Unauthenticated))
-	const filtered = forbidden
-		? []
-		: rows.filter(row => {
-				if (value && (!propertyColumn || !values(propertyColumn.value(row)).includes(value))) return false
-				if (
-					namedFilters.some(({ key, column, filter }) => {
-						if (key === 'node' && column.appliesToAllNodes?.(row)) return false
-						return !values(column.value(row)).includes(filter)
-					})
-				)
-					return false
-				return !term || columns.some(c => values(c.value(row)).some(item => item.toLowerCase().includes(term)))
-			})
+	const filtered =
+		forbidden || parsed.error
+			? []
+			: rows.filter(row => {
+					if (value && (!propertyColumn || !values(propertyColumn.value(row)).includes(value))) return false
+					if (
+						namedFilters.some(({ key, column, filter }) => {
+							if (key === 'node' && column.appliesToAllNodes?.(row)) return false
+							return !values(column.value(row)).includes(filter)
+						})
+					)
+						return false
+					if (!matchesFilters(row)) return false
+					return (
+						!term || columns.some(c => values(c.value(row)).some(item => item.toLowerCase().includes(term)))
+					)
+				})
 	if (sortColumn) {
 		filtered.sort((a, b) => {
 			const sortValue = sortColumn.sortValue ?? sortColumn.value
@@ -170,6 +175,39 @@ export default function SectionTable<T>({
 
 	function filterBy(changes: Record<string, string | null>, replace = false) {
 		update({ ...changes, page: null, selected: null }, replace)
+	}
+
+	const legacyFilters = namedFilters.map(({ key, column, filter }) => ({
+		label: column.label + ': ' + filter,
+		onDelete: () => filterBy({ [key]: null })
+	}))
+	if (value) {
+		legacyFilters.unshift({
+			label: (propertyColumn?.label || property) + ': ' + value,
+			onDelete: () => filterBy({ by: null, value: null })
+		})
+	}
+	function clearSearch() {
+		const changes: Record<string, null> = { q: null, by: null, value: null }
+		for (const { key } of namedFilters) changes[key] = null
+		filterBy(changes)
+	}
+
+	function suggestValues(key: string, search: string): string[] {
+		const column = fields.find(field => field.key === key)
+		if (!column || column.filterType === 'date') return []
+		const needle = search.trim().toLowerCase()
+		const suggestions = new Set<string>()
+		for (const row of rows) {
+			const raw = column.filterValue ? column.filterValue(row) : column.value(row)
+			if (raw !== undefined) {
+				for (const value of values(raw)) {
+					if (value && value.toLowerCase().includes(needle)) suggestions.add(value)
+					if (suggestions.size === 100) return [...suggestions]
+				}
+			}
+		}
+		return [...suggestions]
 	}
 
 	function dismiss() {
@@ -265,6 +303,7 @@ export default function SectionTable<T>({
 									{count !== undefined && (
 										<Box
 											component='span'
+											aria-live='polite'
 											title={count + ' matching rows'}
 											sx={{
 												px: 0.75,
@@ -275,7 +314,9 @@ export default function SectionTable<T>({
 												fontVariantNumeric: 'tabular-nums'
 											}}
 										>
-											{count}
+											{query || value || namedFilters.length
+												? count + ' of ' + rows.length
+												: count}
 										</Box>
 									)}
 									{updated && (
@@ -293,49 +334,14 @@ export default function SectionTable<T>({
 								sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}
 							>
 								{filters}
-								<TextField
-									size='small'
-									label='Search'
-									type='search'
-									value={query}
-									onChange={e => filterBy({ q: e.target.value }, true)}
-									sx={{ flex: '1 1 12em' }}
+								<TableFilterBar
+									fields={fields}
+									query={query}
+									onChange={(next, replace) => filterBy({ q: next }, replace)}
+									suggestions={suggestValues}
+									activeFilters={legacyFilters}
+									onClear={clearSearch}
 								/>
-								<TextField
-									select
-									size='small'
-									label='Property'
-									value={propertyColumn?.key || property || '*'}
-									onChange={e =>
-										filterBy({ by: e.target.value === '*' ? null : e.target.value, value: null })
-									}
-									sx={{ minWidth: '10em' }}
-								>
-									<MenuItem value='*'>All properties</MenuItem>
-									{property && !propertyColumn && <MenuItem value={property}>{property}</MenuItem>}
-									{columns.map(c => (
-										<MenuItem key={c.key} value={c.key}>
-											{c.label}
-										</MenuItem>
-									))}
-								</TextField>
-								{property && (
-									<TextField
-										size='small'
-										label='Exact value'
-										value={value}
-										onChange={e => filterBy({ value: e.target.value }, true)}
-										sx={{ flex: '1 1 9em' }}
-									/>
-								)}
-								{namedFilters.map(({ key, column, filter }) => (
-									<Chip
-										key={key}
-										size='small'
-										label={column.label + ': ' + filter}
-										onDelete={() => filterBy({ [key]: null })}
-									/>
-								))}
 							</Stack>
 							<TableContainer>
 								<Table size='small' aria-label={tableTitle ?? title}>

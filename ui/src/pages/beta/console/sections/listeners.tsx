@@ -50,6 +50,7 @@ const columns: Column<ListenerRow>[] = [
 	{ key: 'address', label: 'Address', value: r => r.address },
 	{
 		key: 'chains',
+		filterType: 'number',
 		label: 'Filter chains',
 		align: 'right',
 		value: r => r.chains.length,

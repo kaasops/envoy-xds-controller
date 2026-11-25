@@ -42,10 +42,11 @@ async function loadClusters(node: string, signal: AbortSignal) {
 type ClusterRow = Awaited<ReturnType<typeof loadClusters>>[number]
 const columns: Column<ClusterRow>[] = [
 	{ key: 'name', label: 'Cluster', value: r => r.name },
-	{ key: 'discovery', label: 'Discovery type', value: r => r.discovery },
-	{ key: 'balancing', label: 'Load balancing', value: r => r.balancing },
+	{ key: 'discovery', label: 'Discovery type', filterType: 'enum', value: r => r.discovery },
+	{ key: 'balancing', label: 'Load balancing', filterType: 'enum', value: r => r.balancing },
 	{
 		key: 'endpoints',
+		filterType: 'number',
 		label: 'Configured endpoints',
 		value: r => r.endpoints.length,
 		align: 'right',
