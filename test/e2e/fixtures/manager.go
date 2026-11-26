@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/kaasops/envoy-xds-controller/test/utils"
 	. "github.com/onsi/ginkgo/v2"
@@ -166,36 +167,15 @@ func (f *ManagerFixture) VerifyMetricsServer() {
 	Eventually(verifyMetricsServerStarted, DefaultTimeout, DefaultPollingInterval).Should(Succeed())
 }
 
-// AccessMetricsEndpoint creates a pod to access the metrics endpoint and returns the output
-func (f *ManagerFixture) AccessMetricsEndpoint(token string) string {
-	By("creating the curl-metrics pod to access the metrics endpoint")
-	cmd := exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
-		"--namespace", Namespace,
-		"--image=curlimages/curl:7.78.0",
-		"--", "/bin/sh", "-c", fmt.Sprintf(
-			"curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics",
-			token, MetricsServiceName, Namespace))
-	_, err := utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to create curl-metrics pod")
-
-	By("waiting for the curl-metrics pod to complete")
-	verifyCurlUp := func(g Gomega) {
-		cmd := exec.Command("kubectl", "get", "pods", "curl-metrics",
-			"-o", "jsonpath={.status.phase}",
-			"-n", Namespace)
-		output, err := utils.Run(cmd)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(output).To(Equal("Succeeded"), "curl pod in wrong status")
-	}
-	Eventually(verifyCurlUp, LongTimeout, DefaultPollingInterval).Should(Succeed())
-
-	By("getting the metrics by checking curl-metrics logs")
-	cmd = exec.Command("kubectl", "logs", "curl-metrics", "-n", Namespace)
-	metricsOutput, err := utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to retrieve logs from curl pod")
-	Expect(metricsOutput).To(ContainSubstring("< HTTP/1.1 200 OK"))
-
-	return metricsOutput
+// AccessMetricsEndpoint fetches metrics as the service account bound to the metrics reader role.
+func (f *ManagerFixture) AccessMetricsEndpoint() string {
+	const authorize = `token=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token) || exit 1
+set -- -k -H "Authorization: Bearer $token" "$@"
+`
+	account := fmt.Sprintf(`{"apiVersion":"v1","spec":{"serviceAccountName":%q}}`, ServiceAccountName)
+	address := fmt.Sprintf("https://%s.%s.svc.cluster.local:8443/metrics", MetricsServiceName, Namespace)
+	return curlFromPod("curl-metrics", Namespace, 5*time.Minute, "--overrides", account,
+		"--command", "--", "/bin/sh", "-c", authorize+curlGet, "curl", address)
 }
 
 // VerifyCAInjection checks that CA injection for validating webhooks is working

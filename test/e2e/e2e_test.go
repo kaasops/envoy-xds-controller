@@ -31,6 +31,8 @@ import (
 // namespace where the project is deployed in
 const namespace = "envoy-xds-controller"
 
+const controllerPodSelector = "app.kubernetes.io/name=envoy-xds-controller"
+
 // serviceAccountName created for the project
 const serviceAccountName = "exc-e2e-envoy-xds-controller"
 
@@ -41,8 +43,6 @@ const metricsServiceName = "exc-e2e-envoy-xds-controller-metrics"
 const metricsRoleBindingName = "envoy-xds-controller-metrics-binding"
 
 var _ = Describe("Manager", Ordered, func() {
-	var controllerPodName *string
-
 	cmdOutFile, err := os.CreateTemp(os.TempDir(), "exc-e2e-*.txt")
 	Expect(err).NotTo(HaveOccurred(), "Failed to create temp file")
 	cmdWriter := utils.CmdWriter{File: cmdOutFile}
@@ -102,50 +102,29 @@ var _ = Describe("Manager", Ordered, func() {
 	// After each test, check for failures and collect logs, events,
 	// and pod descriptions for debugging.
 	AfterEach(func() {
-		specReport := CurrentSpecReport()
-		if specReport.Failed() {
-			By("Fetching controller manager pod logs")
-			cmd := exec.Command("kubectl", "logs", *controllerPodName, "-n", namespace)
-			controllerLogs, err := utils.Run(cmd)
-			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Controller logs:\n %s", controllerLogs)
-			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Controller logs: %s", err)
-			}
-
-			By("Fetching Kubernetes events")
-			cmd = exec.Command("kubectl", "get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
-			eventsOutput, err := utils.Run(cmd)
-			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Kubernetes events:\n%s", eventsOutput)
-			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get Kubernetes events: %s", err)
-			}
-
-			By("Fetching curl-metrics logs")
-			cmd = exec.Command("kubectl", "logs", "curl-metrics", "-n", namespace)
-			metricsOutput, err := utils.Run(cmd)
-			if err == nil {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Metrics logs:\n %s", metricsOutput)
-			} else {
-				_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get curl-metrics logs: %s", err)
-			}
-
-			By("Fetching controller manager pod description")
-			cmd = exec.Command("kubectl", "describe", "pod", *controllerPodName, "-n", namespace)
-			podDescription, err := utils.Run(cmd)
-			if err == nil {
-				fmt.Println("Pod description:\n", podDescription)
-			} else {
-				fmt.Println("Failed to describe controller pod")
-			}
+		if !CurrentSpecReport().Failed() {
+			return
 		}
+		diagnose := func(args ...string) {
+			out, err := utils.Run(exec.Command("kubectl", args...))
+			if err != nil {
+				_, _ = fmt.Fprintln(GinkgoWriter, err)
+				return
+			}
+			_, _ = fmt.Fprintln(GinkgoWriter, out)
+		}
+		diagnose("logs", "-n", namespace, "-l", controllerPodSelector, "--tail=-1")
+		diagnose("get", "events", "-n", namespace, "--sort-by=.lastTimestamp")
+		diagnose("logs", "-n", namespace, "curl-metrics")
+		diagnose("describe", "pods", "-n", namespace, "-l", controllerPodSelector)
+		diagnose("get", "pods", "-n", "default", "-o", "wide")
+		diagnose("describe", "pods", "-n", "default", "-l", "app.kubernetes.io/name=envoy")
 	})
 
 	SetDefaultEventuallyTimeout(1 * time.Minute)
 	SetDefaultEventuallyPollingInterval(500 * time.Millisecond)
 
-	Context("Manager", managerContext(controllerPodName))
+	Context("Manager", managerContext(controllerPodSelector))
 
 	// Envoy tests split into multiple contexts for better organization
 	Context("Envoy", func() {

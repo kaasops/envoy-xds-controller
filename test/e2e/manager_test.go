@@ -5,19 +5,20 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/kaasops/envoy-xds-controller/test/e2e/fixtures"
 	"github.com/kaasops/envoy-xds-controller/test/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-func managerContext(controllerPodName *string) func() {
+func managerContext(podSelector string) func() {
 	return func() {
 		It("should run successfully", func() {
 			By("validating that the controller-manager pod is running as expected")
 			verifyControllerUp := func(g Gomega) {
 				// Get the name of the controller-manager pod
 				cmd := exec.Command("kubectl", "get",
-					"pods", "-l", "app.kubernetes.io/name=envoy-xds-controller",
+					"pods", "-l", podSelector,
 					"-o", "go-template={{ range .items }}"+
 						"{{ if not .metadata.deletionTimestamp }}"+
 						"{{ .metadata.name }}"+
@@ -29,12 +30,12 @@ func managerContext(controllerPodName *string) func() {
 				g.Expect(err).NotTo(HaveOccurred(), "Failed to retrieve controller-manager pod information")
 				podNames := utils.GetNonEmptyLines(podOutput)
 				g.Expect(podNames).To(HaveLen(1), "expected 1 controller pod running")
-				controllerPodName = &podNames[0]
-				g.Expect(*controllerPodName).To(ContainSubstring("envoy-xds-controller"))
+				controllerPodName := podNames[0]
+				g.Expect(controllerPodName).To(ContainSubstring("envoy-xds-controller"))
 
 				// Validate the pod's status
 				cmd = exec.Command("kubectl", "get",
-					"pods", *controllerPodName, "-o", "jsonpath={.status.phase}",
+					"pods", controllerPodName, "-o", "jsonpath={.status.phase}",
 					"-n", namespace,
 				)
 				output, err := utils.Run(cmd)
@@ -63,11 +64,6 @@ func managerContext(controllerPodName *string) func() {
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "ServiceMonitor should exist")
 
-			By("getting the service account token")
-			token, err := serviceAccountToken()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(token).NotTo(BeEmpty())
-
 			By("waiting for the metrics endpoint to be ready")
 			verifyMetricsEndpointReady := func(g Gomega) {
 				cmd := exec.Command("kubectl", "get", "endpoints", metricsServiceName, "-n", namespace)
@@ -79,7 +75,7 @@ func managerContext(controllerPodName *string) func() {
 
 			By("verifying that the controller manager is serving the metrics server")
 			verifyMetricsServerStarted := func(g Gomega) {
-				cmd := exec.Command("kubectl", "logs", *controllerPodName, "-n", namespace)
+				cmd := exec.Command("kubectl", "logs", "-n", namespace, "-l", podSelector, "--tail=-1")
 				output, err := utils.Run(cmd)
 				g.Expect(err).NotTo(HaveOccurred())
 				g.Expect(output).To(ContainSubstring("Serving metrics server"),
@@ -87,29 +83,8 @@ func managerContext(controllerPodName *string) func() {
 			}
 			Eventually(verifyMetricsServerStarted).Should(Succeed())
 
-			By("creating the curl-metrics pod to access the metrics endpoint")
-			cmd = exec.Command("kubectl", "run", "curl-metrics", "--restart=Never",
-				"--namespace", namespace,
-				"--image=curlimages/curl:7.78.0",
-				"--", "/bin/sh", "-c", fmt.Sprintf(
-					"curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics",
-					token, metricsServiceName, namespace))
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to create curl-metrics pod")
-
-			By("waiting for the curl-metrics pod to complete.")
-			verifyCurlUp := func(g Gomega) {
-				cmd := exec.Command("kubectl", "get", "pods", "curl-metrics",
-					"-o", "jsonpath={.status.phase}",
-					"-n", namespace)
-				output, err := utils.Run(cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(output).To(Equal("Succeeded"), "curl pod in wrong status")
-			}
-			Eventually(verifyCurlUp, 5*time.Minute).Should(Succeed())
-
-			By("getting the metrics by checking curl-metrics logs")
-			metricsOutput := getMetricsOutput()
+			By("reading the metrics endpoint as the metrics reader")
+			metricsOutput := fixtures.NewManagerFixture().AccessMetricsEndpoint()
 			Expect(metricsOutput).To(ContainSubstring(
 				"controller_runtime_webhook_requests_total",
 			))
@@ -131,13 +106,5 @@ func managerContext(controllerPodName *string) func() {
 
 		// +kubebuilder:scaffold:e2e-webhooks-checks
 
-		// TODO: Customize the e2e test suite with scenarios specific to your project.
-		// Consider applying sample/CR(s) and check their status and/or verifying
-		// the reconciliation by using the metrics, i.e.:
-		// metricsOutput := getMetricsOutput()
-		// Expect(metricsOutput).To(ContainSubstring(
-		//    fmt.Sprintf(`controller_runtime_reconcile_total{controller="%s",result="success"} 1`,
-		//    strings.ToLower(<Kind>),
-		// ))
 	}
 }
