@@ -179,31 +179,13 @@ func (f *EnvoyFixture) GetEnvoyAdmin(path string) string {
 	// Ensure cleanup even on panic
 	defer func() {
 		By(fmt.Sprintf("cleaning up pod %s", podName))
-		cmd := exec.Command("kubectl", "delete", "pod", podName,
+		cmd := exec.Command("kubectl", "delete", "pod", podName, "-n", "default",
 			"--ignore-not-found=true", "--wait=false")
 		_, _ = utils.Run(cmd)
 	}()
 
 	address := "http://envoy.default.svc.cluster.local:19000/" + path
-	cmd := exec.Command("kubectl", "run", podName, "--restart=Never",
-		"--image=curlimages/curl:7.78.0",
-		"--", "/bin/sh", "-c", "curl -s '"+address+"'")
-	_, err := utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to create the Envoy admin curl pod")
-
-	// Wait for pod with timeout and better error message
-	Eventually(func(g Gomega) {
-		cmd := exec.Command("kubectl", "get", "pods", podName, "-o", "jsonpath={.status.phase}")
-		output, err := utils.Run(cmd)
-		g.Expect(err).NotTo(HaveOccurred(), "Failed to get pod status")
-		g.Expect(output).To(Equal("Succeeded"), "Pod should complete successfully")
-	}, 60*time.Second, 2*time.Second).Should(Succeed(),
-		"Timed out waiting for the Envoy admin curl pod to complete")
-
-	cmd = exec.Command("kubectl", "logs", podName)
-	data, err := utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to retrieve output from curl pod")
-	return data
+	return curlFromPod(podName, "default", time.Minute, "--command", "--", "/bin/sh", "-c", curlGet, "curl", address)
 }
 
 // WaitEnvoyConfigChanged waits for the Envoy config to change from the current state
